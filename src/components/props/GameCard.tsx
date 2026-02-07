@@ -1,3 +1,5 @@
+"use client";
+
 import type { Game, Prop } from "@/lib/supabase/types";
 import PropLine from "./PropLine";
 
@@ -49,6 +51,8 @@ export default function GameCard({ game }: GameCardProps) {
             {props.map((prop) => (
               <PropLine
                 key={prop.id}
+                propId={prop.id}
+                gameId={game.id}
                 playerName={prop.player_name}
                 statCategory={prop.stat_category}
                 line={prop.line}
