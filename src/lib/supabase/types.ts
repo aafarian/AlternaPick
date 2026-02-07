@@ -35,6 +35,14 @@ export type ChallengeStatus =
 
 export type FriendshipStatus = "pending" | "accepted" | "blocked";
 
+export type NotificationType =
+  | "friend_request"
+  | "friend_accepted"
+  | "challenge_received"
+  | "challenge_accepted"
+  | "challenge_resolved"
+  | "card_resolved";
+
 export interface Database {
   public: {
     Tables: {
@@ -152,6 +160,7 @@ export interface Database {
           total_picks: number;
           locked_at: string | null;
           resolved_at: string | null;
+          share_token: string | null;
           created_at: string;
         };
         Insert: {
@@ -163,6 +172,7 @@ export interface Database {
           score?: number;
           total_picks?: number;
           locked_at?: string | null;
+          share_token?: string | null;
           created_at?: string;
         };
         Update: {
@@ -174,6 +184,7 @@ export interface Database {
           total_picks?: number;
           locked_at?: string | null;
           resolved_at?: string | null;
+          share_token?: string | null;
         };
       };
       picks: {
@@ -254,6 +265,36 @@ export interface Database {
           updated_at?: string;
         };
       };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: NotificationType;
+          title: string;
+          body: string;
+          metadata: Record<string, unknown> | null;
+          read: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: NotificationType;
+          title: string;
+          body: string;
+          metadata?: Record<string, unknown> | null;
+          read?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          type?: NotificationType;
+          title?: string;
+          body?: string;
+          metadata?: Record<string, unknown> | null;
+          read?: boolean;
+        };
+      };
       leaderboard_entries: {
         Row: {
           id: string;
@@ -299,6 +340,7 @@ export interface Database {
       pick_result: PickResult;
       challenge_status: ChallengeStatus;
       friendship_status: FriendshipStatus;
+      notification_type: NotificationType;
     };
   };
 }
@@ -311,5 +353,6 @@ export type Card = Database["public"]["Tables"]["cards"]["Row"];
 export type Pick = Database["public"]["Tables"]["picks"]["Row"];
 export type Challenge = Database["public"]["Tables"]["challenges"]["Row"];
 export type Friendship = Database["public"]["Tables"]["friendships"]["Row"];
+export type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 export type LeaderboardEntry =
   Database["public"]["Tables"]["leaderboard_entries"]["Row"];
