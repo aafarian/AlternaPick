@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import type { Card, Pick, PickSelection } from "@/lib/supabase/types";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { Card, Challenge, Pick, PickSelection } from "@/lib/supabase/types";
 
 interface CreatePickInput {
   prop_id: string;
@@ -10,12 +11,13 @@ interface CreatePickInput {
 interface CreateCardBody {
   picks: CreatePickInput[];
   anon_id?: string;
+  challenge_id?: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as CreateCardBody;
-    const { picks, anon_id } = body;
+    const { picks, anon_id, challenge_id } = body;
 
     // Validate pick count
     if (!picks || picks.length !== 6) {
@@ -51,6 +53,78 @@ export async function POST(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
+    // Challenge-linked card validation
+    if (challenge_id) {
+      if (!user) {
+        return NextResponse.json(
+          { error: "Authentication required for challenge cards" },
+          { status: 401 }
+        );
+      }
+
+      // Fetch the challenge
+      const challengeResult = await (supabase.from("challenges") as any)
+        .select("*")
+        .eq("id", challenge_id)
+        .single();
+
+      if (challengeResult.error || !challengeResult.data) {
+        return NextResponse.json(
+          { error: "Challenge not found" },
+          { status: 404 }
+        );
+      }
+
+      const challenge = challengeResult.data as Challenge;
+
+      // Validate user is a participant
+      if (
+        challenge.challenger_id !== user.id &&
+        challenge.opponent_id !== user.id
+      ) {
+        return NextResponse.json(
+          { error: "You are not a participant in this challenge" },
+          { status: 403 }
+        );
+      }
+
+      // Validate challenge status
+      if (challenge.status !== "accepted" && challenge.status !== "active") {
+        return NextResponse.json(
+          {
+            error: "Challenge is not in a valid state for card creation",
+            status: challenge.status,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Check if user already has a card for this challenge
+      const existingCardResult = await (supabase.from("cards") as any)
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("challenge_id", challenge_id)
+        .limit(1);
+
+      if (existingCardResult.error) {
+        return NextResponse.json(
+          {
+            error: "Failed to check existing cards",
+            message: existingCardResult.error.message,
+          },
+          { status: 500 }
+        );
+      }
+
+      const existingCards = (existingCardResult.data ?? []) as { id: string }[];
+      if (existingCards.length > 0) {
+        return NextResponse.json(
+          { error: "You already have a card for this challenge" },
+          { status: 409 }
+        );
+      }
+    }
+
     // Verify all props exist
     const propsResult = await supabase
       .from("props")
@@ -80,6 +154,7 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: user?.id ?? null,
         anon_id: user ? null : (anon_id ?? null),
+        challenge_id: challenge_id ?? null,
         status: "locked",
         total_picks: 6,
         locked_at: new Date().toISOString(),
@@ -116,6 +191,31 @@ export async function POST(request: NextRequest) {
     }
 
     const createdPicks = (picksResult.data ?? []) as Pick[];
+
+    // If this is a challenge card, check if both participants now have locked cards
+    if (challenge_id && user) {
+      const allChallengeCardsResult = await (supabase.from("cards") as any)
+        .select("id, user_id, status")
+        .eq("challenge_id", challenge_id)
+        .eq("status", "locked");
+
+      if (!allChallengeCardsResult.error) {
+        const challengeCards = (allChallengeCardsResult.data ?? []) as {
+          id: string;
+          user_id: string;
+          status: string;
+        }[];
+
+        // Both participants have locked cards — transition challenge to active
+        if (challengeCards.length >= 2) {
+          const adminClient = createAdminClient();
+          await (adminClient.from("challenges") as any)
+            .update({ status: "active" })
+            .eq("id", challenge_id)
+            .eq("status", "accepted");
+        }
+      }
+    }
 
     return NextResponse.json({
       card: { ...card, picks: createdPicks },

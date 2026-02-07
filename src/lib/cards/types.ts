@@ -14,6 +14,7 @@ export interface CardBuilderState {
   maxPicks: number;
   isLocking: boolean;
   error: string | null;
+  challenge_id?: string;
 }
 
 export type CardBuilderAction =
