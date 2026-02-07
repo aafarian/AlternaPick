@@ -2,12 +2,51 @@
 
 import Link from "next/link";
 import Nav from "./Nav";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
+import { usePathname } from "next/navigation";
+import type { NotificationCounts } from "./Nav";
+
+const POLL_INTERVAL_MS = 30_000;
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { user } = useAuth();
+  const pathname = usePathname();
+  const [notificationCounts, setNotificationCounts] =
+    useState<NotificationCounts>({ friends: 0, challenges: 0 });
+
+  const fetchCounts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/notifications");
+      if (!res.ok) return;
+      const data = await res.json();
+      setNotificationCounts({
+        friends: data.pendingFriendRequests ?? 0,
+        challenges: data.pendingChallenges ?? 0,
+      });
+    } catch {
+      // Silently ignore fetch errors for notification counts
+    }
+  }, []);
+
+  // Fetch counts when user is authenticated, on mount and on navigation
+  useEffect(() => {
+    if (!user) {
+      setNotificationCounts({ friends: 0, challenges: 0 });
+      return;
+    }
+
+    fetchCounts();
+  }, [user, pathname, fetchCounts]);
+
+  // Poll every 30 seconds while user is authenticated
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(fetchCounts, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [user, fetchCounts]);
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
@@ -19,7 +58,7 @@ export default function Header() {
 
         {/* Desktop nav */}
         <div className="hidden md:block">
-          <Nav user={user} />
+          <Nav user={user} notificationCounts={notificationCounts} />
         </div>
 
         {/* Mobile hamburger */}
@@ -43,7 +82,11 @@ export default function Header() {
       {/* Mobile menu */}
       {menuOpen && (
         <div className="border-t border-border bg-background px-4 pb-4 md:hidden">
-          <Nav onNavigate={() => setMenuOpen(false)} user={user} />
+          <Nav
+            onNavigate={() => setMenuOpen(false)}
+            user={user}
+            notificationCounts={notificationCounts}
+          />
         </div>
       )}
     </header>
