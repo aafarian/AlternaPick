@@ -10,9 +10,12 @@ export default function CardBuilderPanel() {
   const router = useRouter();
   const { state, removePick, clearCard, setLocking, setError, isFull } =
     useCardBuilder();
-  const { picks, isLocking, error } = state;
+  const { picks, isLocking, error, challengeId, challengeOpponent } = state;
 
-  if (picks.length === 0) return null;
+  if (picks.length === 0 && !challengeId) return null;
+
+  const opponentLabel =
+    challengeOpponent?.display_name ?? challengeOpponent?.username ?? null;
 
   async function handleLockIn() {
     if (!isFull || isLocking) return;
@@ -24,10 +27,14 @@ export default function CardBuilderPanel() {
       const anonId = getAnonymousId();
       await createCard(
         picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
-        anonId
+        anonId,
+        challengeId
       );
+      const redirectTo = challengeId
+        ? `/challenges/${challengeId}`
+        : "/cards";
       clearCard();
-      router.push("/cards");
+      router.push(redirectTo);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to lock in card"
@@ -38,6 +45,15 @@ export default function CardBuilderPanel() {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-surface/95 backdrop-blur-sm">
       <div className="mx-auto max-w-6xl px-4 py-3">
+        {/* Challenge banner */}
+        {challengeId && opponentLabel && (
+          <div className="mb-2 flex items-center gap-2 rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-1.5">
+            <span className="text-sm font-semibold text-orange-400">
+              Challenge vs. {opponentLabel}
+            </span>
+          </div>
+        )}
+
         {error && (
           <div className="mb-2 rounded-md bg-red-500/10 px-3 py-1.5 text-sm text-red-400">
             {error}
@@ -99,11 +115,17 @@ export default function CardBuilderPanel() {
               disabled={!isFull || isLocking}
               className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition-colors ${
                 isFull && !isLocking
-                  ? "bg-indigo-500 text-white hover:bg-indigo-600"
+                  ? challengeId
+                    ? "bg-orange-500 text-white hover:bg-orange-600"
+                    : "bg-indigo-500 text-white hover:bg-indigo-600"
                   : "cursor-not-allowed bg-indigo-500/30 text-indigo-300/50"
               }`}
             >
-              {isLocking ? "Locking..." : "Lock In"}
+              {isLocking
+                ? "Locking..."
+                : challengeId
+                  ? "Lock In Challenge"
+                  : "Lock In"}
             </button>
           </div>
         </div>

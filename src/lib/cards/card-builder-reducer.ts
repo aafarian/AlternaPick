@@ -5,6 +5,8 @@ export const initialCardBuilderState: CardBuilderState = {
   maxPicks: 6,
   isLocking: false,
   error: null,
+  challengeId: null,
+  challengeOpponent: null,
 };
 
 export function cardBuilderReducer(
@@ -39,5 +41,11 @@ export function cardBuilderReducer(
       return { ...state, isLocking: action.isLocking };
     case "SET_ERROR":
       return { ...state, error: action.error, isLocking: false };
+    case "SET_CHALLENGE":
+      return {
+        ...state,
+        challengeId: action.challengeId,
+        challengeOpponent: action.opponent,
+      };
   }
 }

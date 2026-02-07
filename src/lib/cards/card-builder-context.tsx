@@ -7,7 +7,11 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import type { CardBuilderPick, CardBuilderState } from "./types";
+import type {
+  CardBuilderPick,
+  CardBuilderState,
+  ChallengeOpponent,
+} from "./types";
 import type { PickSelection } from "@/lib/supabase/types";
 import {
   cardBuilderReducer,
@@ -22,6 +26,7 @@ interface CardBuilderContextValue {
   clearCard: () => void;
   setLocking: (isLocking: boolean) => void;
   setError: (error: string | null) => void;
+  setChallenge: (challengeId: string, opponent: ChallengeOpponent) => void;
   isPickSelected: (propId: string) => boolean;
   getSelection: (propId: string) => PickSelection | null;
   isFull: boolean;
@@ -72,6 +77,12 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const setChallenge = useCallback(
+    (challengeId: string, opponent: ChallengeOpponent) =>
+      dispatch({ type: "SET_CHALLENGE", challengeId, opponent }),
+    []
+  );
+
   const isPickSelected = useCallback(
     (propId: string) => state.picks.some((p) => p.prop_id === propId),
     [state.picks]
@@ -97,6 +108,7 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
         clearCard,
         setLocking,
         setError,
+        setChallenge,
         isPickSelected,
         getSelection,
         isFull,

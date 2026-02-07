@@ -28,12 +28,16 @@ export interface CardWithPicks {
 
 export async function createCard(
   picks: { prop_id: string; selection: PickSelection }[],
-  anonId?: string
+  anonId?: string,
+  challengeId?: string | null
 ): Promise<CardWithPicks> {
+  const body: Record<string, unknown> = { picks, anon_id: anonId };
+  if (challengeId) body.challenge_id = challengeId;
+
   const response = await fetch("/api/cards", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ picks, anon_id: anonId }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {

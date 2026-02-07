@@ -9,12 +9,19 @@ export interface CardBuilderPick {
   game_id: string;
 }
 
+export interface ChallengeOpponent {
+  username: string;
+  display_name: string | null;
+}
+
 export interface CardBuilderState {
   picks: CardBuilderPick[];
   maxPicks: number;
   isLocking: boolean;
   error: string | null;
   challenge_id?: string;
+  challengeId: string | null;
+  challengeOpponent: ChallengeOpponent | null;
 }
 
 export type CardBuilderAction =
@@ -23,4 +30,9 @@ export type CardBuilderAction =
   | { type: "SET_SELECTION"; prop_id: string; selection: PickSelection }
   | { type: "CLEAR_CARD" }
   | { type: "SET_LOCKING"; isLocking: boolean }
-  | { type: "SET_ERROR"; error: string | null };
+  | { type: "SET_ERROR"; error: string | null }
+  | {
+      type: "SET_CHALLENGE";
+      challengeId: string;
+      opponent: ChallengeOpponent;
+    };
