@@ -1,12 +1,24 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getUnreadCounts } from "@/lib/notifications/queries";
+import {
+  getUnreadCounts,
+  getNotifications,
+  markAllRead,
+} from "@/lib/notifications/queries";
 
 /**
  * GET /api/notifications
- * Returns pending friend request and challenge counts for the authenticated user.
+ * Query params:
+ *   - type: "counts" | "list" | "both" (default: "counts")
+ *     - "counts": returns { pendingFriendRequests, pendingChallenges, unreadNotifications }
+ *     - "list": returns { notifications: Notification[], pagination: { limit, offset } }
+ *     - "both": returns counts + notifications
+ *   - limit: number (default 20, max 100) — used when type is "list" or "both"
+ *   - offset: number (default 0) — used when type is "list" or "both"
+ *
+ * Backward compatibility: calling with no params returns counts only (same as before).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const {
@@ -20,14 +32,98 @@ export async function GET() {
       );
     }
 
-    const counts = await getUnreadCounts(supabase, user.id);
+    const { searchParams } = request.nextUrl;
+    const type = searchParams.get("type") ?? "counts";
+    const limit = Math.min(
+      Math.max(parseInt(searchParams.get("limit") ?? "20", 10) || 20, 1),
+      100
+    );
+    const offset = Math.max(
+      parseInt(searchParams.get("offset") ?? "0", 10) || 0,
+      0
+    );
 
-    return NextResponse.json(counts);
+    if (type !== "counts" && type !== "list" && type !== "both") {
+      return NextResponse.json(
+        { error: 'type must be "counts", "list", or "both"' },
+        { status: 400 }
+      );
+    }
+
+    if (type === "counts") {
+      const counts = await getUnreadCounts(supabase, user.id);
+      return NextResponse.json(counts);
+    }
+
+    if (type === "list") {
+      const notifications = await getNotifications(
+        supabase,
+        user.id,
+        limit,
+        offset
+      );
+      return NextResponse.json({
+        notifications,
+        pagination: { limit, offset },
+      });
+    }
+
+    // type === "both"
+    const [counts, notifications] = await Promise.all([
+      getUnreadCounts(supabase, user.id),
+      getNotifications(supabase, user.id, limit, offset),
+    ]);
+
+    return NextResponse.json({
+      ...counts,
+      notifications,
+      pagination: { limit, offset },
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to fetch notification counts", message },
+      { error: "Failed to fetch notifications", message },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/notifications
+ * Body: { action: "mark_all_read" }
+ * Marks all unread notifications as read for the authenticated user.
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    const body = (await request.json()) as { action?: string };
+
+    if (body.action !== "mark_all_read") {
+      return NextResponse.json(
+        { error: 'action must be "mark_all_read"' },
+        { status: 400 }
+      );
+    }
+
+    await markAllRead(supabase, user.id);
+    return NextResponse.json({ message: "All notifications marked as read" });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json(
+      { error: "Failed to mark notifications as read", message },
       { status: 500 }
     );
   }
