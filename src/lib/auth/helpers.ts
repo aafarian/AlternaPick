@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Profile } from "@/lib/supabase/types";
 import type { AuthUser } from "./types";
 
-export const PROTECTED_ROUTES = ["/cards", "/history", "/profile"];
+export const PROTECTED_ROUTES = ["/cards", "/history", "/profile", "/friends", "/challenges", "/activity"];
 export const AUTH_ROUTES = ["/auth/login", "/auth/signup"];
 
 export async function getCurrentUser(

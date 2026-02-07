@@ -15,8 +15,9 @@ interface NavLink {
 const authenticatedLinks: NavLink[] = [
   { href: "/props", label: "Props" },
   { href: "/cards", label: "My Cards" },
-  { href: "/friends", label: "Friends", badgeKey: "friends" },
   { href: "/challenges", label: "Challenges", badgeKey: "challenges" },
+  { href: "/friends", label: "Friends", badgeKey: "friends" },
+  { href: "/activity", label: "Activity" },
   { href: "/history", label: "History" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/profile", label: "Profile" },
@@ -45,7 +46,7 @@ export default function Nav({
   const links = user ? authenticatedLinks : publicLinks;
 
   return (
-    <nav className="flex flex-col gap-1 md:flex-row md:items-center md:gap-1">
+    <nav className="flex flex-col gap-1 md:flex-row md:items-center md:gap-1 md:overflow-x-auto md:scrollbar-none">
       {links.map((link) => {
         const isActive = pathname === link.href;
         const badgeCount =

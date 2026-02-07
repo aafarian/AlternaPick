@@ -35,12 +35,18 @@ export default function Home() {
           head-to-head, and see who really knows the game. No money — just
           bragging rights.
         </p>
-        <div className="mt-4 flex gap-4">
+        <div className="mt-4 flex flex-wrap justify-center gap-4">
           <Link
             href="/props"
             className="rounded-xl bg-accent px-8 py-3 text-lg font-semibold text-white transition-colors hover:bg-accent-hover"
           >
             Make Your Picks
+          </Link>
+          <Link
+            href="/challenges"
+            className="rounded-xl border border-accent px-6 py-3 text-lg font-semibold text-accent transition-colors hover:bg-accent/10"
+          >
+            Challenge Friends
           </Link>
           <Link
             href="/cards"
