@@ -1,8 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { isCacheStale, cacheProps } from "@/lib/odds-api/cache";
 import { fetchAllProps } from "@/lib/odds-api/client";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const syncSecret = process.env.SYNC_SECRET;
+  if (syncSecret) {
+    const authHeader = request.headers.get("authorization");
+    if (authHeader !== `Bearer ${syncSecret}`) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
   if (!process.env.ODDS_API_KEY) {
     return NextResponse.json(
       { error: "ODDS_API_KEY is not configured" },
