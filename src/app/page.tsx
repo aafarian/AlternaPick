@@ -35,12 +35,20 @@ export default function Home() {
           head-to-head, and see who really knows the game. No money — just
           bragging rights.
         </p>
-        <Link
-          href="/props"
-          className="mt-4 rounded-xl bg-accent px-8 py-3 text-lg font-semibold text-white transition-colors hover:bg-accent-hover"
-        >
-          Browse Tonight&apos;s Props
-        </Link>
+        <div className="mt-4 flex gap-4">
+          <Link
+            href="/props"
+            className="rounded-xl bg-accent px-8 py-3 text-lg font-semibold text-white transition-colors hover:bg-accent-hover"
+          >
+            Make Your Picks
+          </Link>
+          <Link
+            href="/cards"
+            className="rounded-xl border border-border px-6 py-3 text-lg font-semibold text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
+          >
+            View My Cards
+          </Link>
+        </div>
       </section>
 
       {/* Features */}
