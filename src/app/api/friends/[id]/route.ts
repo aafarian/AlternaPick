@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createNotification } from "@/lib/notifications/queries";
 import type { Friendship } from "@/lib/supabase/types";
 import {
   acceptFriendRequest,
@@ -96,6 +98,29 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (body.action === "accept") {
       const updated = await acceptFriendRequest(supabase, id, user.id);
+
+      // Fire-and-forget: notify requester that their request was accepted
+      try {
+        const adminClient = createAdminClient();
+        const { data: accepterProfile } = await (
+          adminClient.from("profiles") as any
+        )
+          .select("username")
+          .eq("id", user.id)
+          .single();
+        const accepterName =
+          (accepterProfile as { username: string } | null)?.username ?? "Someone";
+        await createNotification(adminClient, {
+          user_id: updated.requester_id,
+          type: "friend_accepted",
+          title: "Friend Request Accepted",
+          body: `${accepterName} accepted your friend request`,
+          metadata: { friendship_id: updated.id },
+        });
+      } catch (notifError) {
+        console.error("Failed to create friend_accepted notification:", notifError);
+      }
+
       return NextResponse.json({ friendship: updated });
     }
 

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createNotification } from "@/lib/notifications/queries";
 import {
   getFriends,
   getPendingRequests,
@@ -81,6 +83,28 @@ export async function POST(request: NextRequest) {
       user.id,
       body.addressee_username.trim()
     );
+
+    // Fire-and-forget: notify addressee about the friend request
+    try {
+      const adminClient = createAdminClient();
+      const { data: requesterProfile } = await (
+        adminClient.from("profiles") as any
+      )
+        .select("username")
+        .eq("id", user.id)
+        .single();
+      const requesterName =
+        (requesterProfile as { username: string } | null)?.username ?? "Someone";
+      await createNotification(adminClient, {
+        user_id: friendship.addressee_id,
+        type: "friend_request",
+        title: "New Friend Request",
+        body: `${requesterName} sent you a friend request`,
+        metadata: { friendship_id: friendship.id },
+      });
+    } catch (notifError) {
+      console.error("Failed to create friend_request notification:", notifError);
+    }
 
     return NextResponse.json({ friendship }, { status: 201 });
   } catch (error) {

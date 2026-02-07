@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createNotification } from "@/lib/notifications/queries";
 import {
   fetchBoxscore,
   type PlayerBoxScore,
@@ -124,6 +125,25 @@ export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
     const result = await resolveCard(card, boxscoreCache);
     if (result) {
       await persistResolution(supabase, result);
+
+      // Fire-and-forget: notify card owner about resolution
+      if (result.user_id) {
+        try {
+          await createNotification(supabase, {
+            user_id: result.user_id,
+            type: "card_resolved",
+            title: "Card Resolved",
+            body: `Your card scored ${result.score}/${result.total}!`,
+            metadata: { card_id: result.card_id },
+          });
+        } catch (notifError) {
+          console.error(
+            "Failed to create card_resolved notification:",
+            notifError
+          );
+        }
+      }
+
       results.push(result);
     }
   }

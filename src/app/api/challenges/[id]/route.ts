@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createNotification } from "@/lib/notifications/queries";
+import type { Challenge } from "@/lib/supabase/types";
 import {
   getChallenge,
   respondToChallenge,
@@ -92,6 +95,31 @@ export async function PATCH(
       user.id,
       body.action as "accept" | "decline" | "cancel"
     );
+
+    // Fire-and-forget: notify challenger when opponent accepts
+    if (body.action === "accept") {
+      try {
+        const adminClient = createAdminClient();
+        const ch = challenge as Challenge;
+        const { data: opponentProfile } = await (
+          adminClient.from("profiles") as any
+        )
+          .select("username")
+          .eq("id", user.id)
+          .single();
+        const opponentName =
+          (opponentProfile as { username: string } | null)?.username ?? "Someone";
+        await createNotification(adminClient, {
+          user_id: ch.challenger_id,
+          type: "challenge_accepted",
+          title: "Challenge Accepted",
+          body: `${opponentName} accepted your challenge!`,
+          metadata: { challenge_id: ch.id },
+        });
+      } catch (notifError) {
+        console.error("Failed to create challenge_accepted notification:", notifError);
+      }
+    }
 
     return NextResponse.json({ challenge });
   } catch (error) {

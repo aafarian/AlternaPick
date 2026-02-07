@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createNotification } from "@/lib/notifications/queries";
 import type { Card, Challenge } from "@/lib/supabase/types";
 
 export interface ChallengeResolutionResult {
@@ -99,6 +100,60 @@ export async function resolveEligibleChallenges(): Promise<
     // Update leaderboard H2H stats (only when there is a winner)
     if (winnerId && loserId) {
       await updateH2HStats(supabase, winnerId, loserId);
+    }
+
+    // Fire-and-forget: notify both participants about challenge result
+    try {
+      const { data: challengerProfile } = await (
+        supabase.from("profiles") as any
+      )
+        .select("username")
+        .eq("id", challenge.challenger_id)
+        .single();
+      const { data: opponentProfile } = await (
+        supabase.from("profiles") as any
+      )
+        .select("username")
+        .eq("id", challenge.opponent_id)
+        .single();
+      const challengerName =
+        (challengerProfile as { username: string } | null)?.username ??
+        "Opponent";
+      const opponentName =
+        (opponentProfile as { username: string } | null)?.username ??
+        "Opponent";
+
+      const challengerBody = isTie
+        ? `Your challenge vs ${opponentName} ended in a tie (${challengerScore}-${opponentScore})!`
+        : winnerId === challenge.challenger_id
+          ? `You won your challenge vs ${opponentName} (${challengerScore}-${opponentScore})!`
+          : `You lost your challenge vs ${opponentName} (${challengerScore}-${opponentScore})!`;
+
+      const opponentBody = isTie
+        ? `Your challenge vs ${challengerName} ended in a tie (${opponentScore}-${challengerScore})!`
+        : winnerId === challenge.opponent_id
+          ? `You won your challenge vs ${challengerName} (${opponentScore}-${challengerScore})!`
+          : `You lost your challenge vs ${challengerName} (${opponentScore}-${challengerScore})!`;
+
+      await createNotification(supabase, {
+        user_id: challenge.challenger_id,
+        type: "challenge_resolved",
+        title: "Challenge Resolved",
+        body: challengerBody,
+        metadata: { challenge_id: challenge.id },
+      });
+      await createNotification(supabase, {
+        user_id: challenge.opponent_id,
+        type: "challenge_resolved",
+        title: "Challenge Resolved",
+        body: opponentBody,
+        metadata: { challenge_id: challenge.id },
+      });
+    } catch (notifError) {
+      console.error(
+        "Failed to create challenge_resolved notifications:",
+        notifError
+      );
     }
 
     results.push({

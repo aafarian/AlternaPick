@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createNotification } from "@/lib/notifications/queries";
 import type { ChallengeStatus } from "@/lib/supabase/types";
 import {
   getChallenges,
@@ -88,6 +90,28 @@ export async function POST(request: NextRequest) {
       user.id,
       body.opponent_id
     );
+
+    // Fire-and-forget: notify opponent about the challenge
+    try {
+      const adminClient = createAdminClient();
+      const { data: challengerProfile } = await (
+        adminClient.from("profiles") as any
+      )
+        .select("username")
+        .eq("id", user.id)
+        .single();
+      const challengerName =
+        (challengerProfile as { username: string } | null)?.username ?? "Someone";
+      await createNotification(adminClient, {
+        user_id: body.opponent_id,
+        type: "challenge_received",
+        title: "New Challenge",
+        body: `You received a challenge from ${challengerName}!`,
+        metadata: { challenge_id: challenge.id },
+      });
+    } catch (notifError) {
+      console.error("Failed to create challenge_received notification:", notifError);
+    }
 
     return NextResponse.json({ challenge }, { status: 201 });
   } catch (error) {
