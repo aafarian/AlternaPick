@@ -1,27 +1,39 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
-
-const STAT_LABELS: Record<string, string> = {
-  points: "PTS",
-  rebounds: "REB",
-  assists: "AST",
-  threes: "3PM",
-  blocks: "BLK",
-  steals: "STL",
-  turnovers: "TO",
-  pra: "PRA",
-  pts_reb: "P+R",
-  pts_ast: "P+A",
-  reb_ast: "R+A",
-  blk_stl: "B+S",
-};
+import { createCard } from "@/lib/cards/api";
+import { getAnonymousId } from "@/lib/session/anonymous";
+import { CATEGORY_LABELS } from "@/lib/constants";
 
 export default function CardBuilderPanel() {
-  const { state, removePick, clearCard, isFull } = useCardBuilder();
+  const router = useRouter();
+  const { state, removePick, clearCard, setLocking, setError, isFull } =
+    useCardBuilder();
   const { picks, isLocking, error } = state;
 
   if (picks.length === 0) return null;
+
+  async function handleLockIn() {
+    if (!isFull || isLocking) return;
+
+    setLocking(true);
+    setError(null);
+
+    try {
+      const anonId = getAnonymousId();
+      await createCard(
+        picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
+        anonId
+      );
+      clearCard();
+      router.push("/cards");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to lock in card"
+      );
+    }
+  }
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-surface/95 backdrop-blur-sm">
@@ -51,7 +63,7 @@ export default function CardBuilderPanel() {
                   {pick.player_name.split(" ").pop()}
                 </span>
                 <span className="text-xs text-muted">
-                  {STAT_LABELS[pick.stat_category] ?? pick.stat_category}
+                  {CATEGORY_LABELS[pick.stat_category] ?? pick.stat_category}
                 </span>
                 <span
                   className={`text-xs font-semibold ${
@@ -83,6 +95,7 @@ export default function CardBuilderPanel() {
               Clear
             </button>
             <button
+              onClick={handleLockIn}
               disabled={!isFull || isLocking}
               className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition-colors ${
                 isFull && !isLocking
