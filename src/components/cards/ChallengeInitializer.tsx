@@ -11,7 +11,7 @@ import { useCardBuilder } from "@/lib/cards/card-builder-context";
  */
 export default function ChallengeInitializer() {
   const searchParams = useSearchParams();
-  const challengeId = searchParams.get("challenge");
+  const challengeId = searchParams.get("challenge_id");
   const { setChallenge, state } = useCardBuilder();
   const fetchedRef = useRef<string | null>(null);
 
