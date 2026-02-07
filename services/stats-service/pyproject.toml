@@ -1,0 +1,21 @@
+[project]
+name = "sports-tower-stats-service"
+version = "0.1.0"
+description = "NBA player stats microservice for Sports Tower, powered by nba_api and FastAPI"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "nba_api>=1.4.1",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+start = "uvicorn main:app --reload --port 8000"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
