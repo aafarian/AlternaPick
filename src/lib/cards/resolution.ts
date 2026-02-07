@@ -25,6 +25,7 @@ export interface PickResolution {
 
 export interface ResolutionResult {
   card_id: string;
+  user_id: string | null;
   score: number;
   total: number;
   picks: PickResolution[];
@@ -211,6 +212,7 @@ async function resolveCard(
 
   return {
     card_id: card.id,
+    user_id: card.user_id,
     score,
     total: pickResolutions.length,
     picks: pickResolutions,
@@ -239,4 +241,77 @@ async function persistResolution(
       resolved_at: new Date().toISOString(),
     })
     .eq("id", result.card_id);
+
+  // Update leaderboard stats for authenticated users
+  if (result.user_id) {
+    await updateLeaderboardStats(supabase, result.user_id, result.score);
+  }
+}
+
+/**
+ * Updates leaderboard_entries for a user after card resolution.
+ * Increments total_cards, adds hits to total_correct_picks, recalculates win_rate,
+ * and updates current_streak / best_streak.
+ * A "winning" card (for streak) has score >= 4 out of 6.
+ */
+async function updateLeaderboardStats(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string,
+  score: number
+): Promise<void> {
+  const isWin = score >= 4;
+
+  // Fetch existing entry
+  const existingResult = await (supabase.from("leaderboard_entries") as any)
+    .select(
+      "total_cards, total_correct_picks, current_streak, best_streak, h2h_wins, h2h_losses"
+    )
+    .eq("user_id", userId)
+    .single();
+
+  const existing = existingResult.data as {
+    total_cards: number;
+    total_correct_picks: number;
+    current_streak: number;
+    best_streak: number;
+    h2h_wins: number;
+    h2h_losses: number;
+  } | null;
+
+  const totalCards = (existing?.total_cards ?? 0) + 1;
+  const totalCorrectPicks = (existing?.total_correct_picks ?? 0) + score;
+  const winRate =
+    totalCards > 0
+      ? Math.round((totalCorrectPicks / (totalCards * 6)) * 100 * 100) / 100
+      : 0;
+
+  const currentStreak = isWin ? (existing?.current_streak ?? 0) + 1 : 0;
+  const previousBest = existing?.best_streak ?? 0;
+  const bestStreak = Math.max(previousBest, currentStreak);
+
+  if (existing) {
+    // Update existing entry — preserve h2h stats
+    await (supabase.from("leaderboard_entries") as any)
+      .update({
+        total_cards: totalCards,
+        total_correct_picks: totalCorrectPicks,
+        win_rate: winRate,
+        current_streak: currentStreak,
+        best_streak: bestStreak,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId);
+  } else {
+    // Create new entry via insert (preserves default h2h values)
+    await (supabase.from("leaderboard_entries") as any).insert({
+      user_id: userId,
+      total_cards: totalCards,
+      total_correct_picks: totalCorrectPicks,
+      win_rate: winRate,
+      current_streak: currentStreak,
+      best_streak: bestStreak,
+      h2h_wins: 0,
+      h2h_losses: 0,
+    });
+  }
 }
