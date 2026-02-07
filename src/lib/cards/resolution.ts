@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   fetchBoxscore,
   type PlayerBoxScore,
@@ -96,7 +96,7 @@ function fuzzyMatchPlayer(
 }
 
 export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Get locked cards with their picks, props, and games
   const cardsResult = await (supabase.from("cards") as any)
@@ -218,7 +218,7 @@ async function resolveCard(
 }
 
 async function persistResolution(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   result: ResolutionResult
 ): Promise<void> {
   // Update each pick

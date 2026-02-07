@@ -46,6 +46,11 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
+    // Get current user (may be null for anonymous users)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     // Verify all props exist
     const propsResult = await supabase
       .from("props")
@@ -70,10 +75,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create card
+    // Create card with user_id if authenticated, anon_id if not
     const cardResult = await (supabase.from("cards") as any)
       .insert({
-        user_id: null,
+        user_id: user?.id ?? null,
+        anon_id: user ? null : (anon_id ?? null),
         status: "locked",
         total_picks: 6,
         locked_at: new Date().toISOString(),
@@ -111,23 +117,9 @@ export async function POST(request: NextRequest) {
 
     const createdPicks = (picksResult.data ?? []) as Pick[];
 
-    // Build response with anon_id association
-    const response = NextResponse.json({
+    return NextResponse.json({
       card: { ...card, picks: createdPicks },
     });
-
-    // Store anon_id as a cookie for client-side card association
-    if (anon_id) {
-      response.cookies.set("st_anon_id", anon_id, {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 365,
-        path: "/",
-      });
-    }
-
-    return response;
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown error";
@@ -143,12 +135,23 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
 
+    // Check authentication
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ cards: [] }, { status: 401 });
+    }
+
     const status = searchParams.get("status");
     const limit = parseInt(searchParams.get("limit") ?? "20", 10);
     const offset = parseInt(searchParams.get("offset") ?? "0", 10);
 
+    // Scope by authenticated user (defense-in-depth with RLS)
     let query = (supabase.from("cards") as any)
       .select("*, picks(*, props(player_name, stat_category, line, game_id))")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 

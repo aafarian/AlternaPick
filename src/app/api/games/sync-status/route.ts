@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchTodaysGames } from "@/lib/stats-service/client";
 import type { Game } from "@/lib/supabase/types";
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ updated: 0, games: [], message: "No NBA games today" });
     }
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     // Get today's games from Supabase
     const now = new Date();

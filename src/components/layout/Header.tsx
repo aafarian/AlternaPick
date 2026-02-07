@@ -3,9 +3,11 @@
 import Link from "next/link";
 import Nav from "./Nav";
 import { useState } from "react";
+import { useAuth } from "@/lib/auth/auth-context";
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { user } = useAuth();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
@@ -17,7 +19,7 @@ export default function Header() {
 
         {/* Desktop nav */}
         <div className="hidden md:block">
-          <Nav />
+          <Nav user={user} />
         </div>
 
         {/* Mobile hamburger */}
@@ -41,7 +43,7 @@ export default function Header() {
       {/* Mobile menu */}
       {menuOpen && (
         <div className="border-t border-border bg-background px-4 pb-4 md:hidden">
-          <Nav onNavigate={() => setMenuOpen(false)} />
+          <Nav onNavigate={() => setMenuOpen(false)} user={user} />
         </div>
       )}
     </header>
