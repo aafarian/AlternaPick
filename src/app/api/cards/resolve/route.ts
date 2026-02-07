@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveEligibleCards } from "@/lib/cards/resolution";
+import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 
 export async function POST(request: NextRequest) {
   // Auth check
@@ -12,7 +13,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Phase 1: Resolve eligible cards
     const results = await resolveEligibleCards();
+
+    // Phase 2: Resolve eligible challenges (post-processing)
+    const challengeResults = await resolveEligibleChallenges();
 
     return NextResponse.json({
       resolved: results.length,
@@ -28,6 +33,14 @@ export async function POST(request: NextRequest) {
           actual_value: p.actual_value,
           result: p.result,
         })),
+      })),
+      challenges_resolved: challengeResults.length,
+      challenge_results: challengeResults.map((cr) => ({
+        challenge_id: cr.challenge_id,
+        winner_id: cr.winner_id,
+        challenger_score: cr.challenger_score,
+        opponent_score: cr.opponent_score,
+        is_tie: cr.is_tie,
       })),
     });
   } catch (error) {
