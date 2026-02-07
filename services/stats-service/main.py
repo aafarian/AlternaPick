@@ -9,6 +9,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
+from .endpoints.games import router as games_router
+from .endpoints.boxscores import router as boxscores_router
+
 load_dotenv()
 
 app = FastAPI(
@@ -31,3 +34,7 @@ app.add_middleware(
 async def health_check():
     """Health check endpoint to verify the service is running."""
     return {"status": "ok"}
+
+
+app.include_router(games_router)
+app.include_router(boxscores_router)
