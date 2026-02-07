@@ -144,7 +144,7 @@ export interface Database {
       cards: {
         Row: {
           id: string;
-          user_id: string;
+          user_id: string | null;
           challenge_id: string | null;
           status: CardStatus;
           score: number;
@@ -155,7 +155,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          user_id: string;
+          user_id?: string | null;
           challenge_id?: string | null;
           status?: CardStatus;
           score?: number;
@@ -164,7 +164,7 @@ export interface Database {
           created_at?: string;
         };
         Update: {
-          user_id?: string;
+          user_id?: string | null;
           challenge_id?: string | null;
           status?: CardStatus;
           score?: number;
