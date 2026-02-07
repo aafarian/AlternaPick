@@ -1,7 +1,9 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { claimAnonymousCards } from "@/lib/auth/claim-cards";
 
 export async function signIn(formData: FormData) {
   const email = formData.get("email") as string;
@@ -13,10 +15,18 @@ export async function signIn(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error, data } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     return { error: error.message };
+  }
+
+  // Claim anonymous cards if the user had a local session
+  const cookieStore = await cookies();
+  const anonId = cookieStore.get("st_anon_id")?.value;
+  if (anonId && data.user) {
+    await claimAnonymousCards(data.user.id, anonId);
+    cookieStore.delete("st_anon_id");
   }
 
   redirect(redirectTo);

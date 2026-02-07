@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import CardDetail from "@/components/cards/CardDetail";
 import type { CardWithPicks } from "@/lib/cards/api";
@@ -15,6 +16,15 @@ async function getCards(): Promise<CardWithPicks[]> {
 }
 
 export default async function CardsPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login?redirectTo=/cards");
+  }
+
   const cards = await getCards();
 
   const activeCards = cards.filter((c) => c.status === "locked");

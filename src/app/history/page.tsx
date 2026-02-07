@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import CardDetail from "@/components/cards/CardDetail";
 import type { CardWithPicks } from "@/lib/cards/api";
@@ -16,6 +17,15 @@ async function getResolvedCards(limit: number = 10): Promise<CardWithPicks[]> {
 }
 
 export default async function HistoryPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login?redirectTo=/history");
+  }
+
   const cards = await getResolvedCards();
 
   const totalResolved = cards.length;
