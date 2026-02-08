@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
-const PROTECTED_ROUTES = ["/cards", "/history", "/profile", "/friends", "/challenges", "/activity"];
+const PROTECTED_ROUTES = ["/cards", "/history", "/profile", "/friends", "/challenges", "/activity", "/notifications"];
 const PUBLIC_EXCEPTIONS = ["/cards/share/"];
 const AUTH_ROUTES = ["/auth/login", "/auth/signup"];
 

@@ -14,7 +14,7 @@ export default function Header() {
   const { user } = useAuth();
   const pathname = usePathname();
   const [notificationCounts, setNotificationCounts] =
-    useState<NotificationCounts>({ friends: 0, challenges: 0 });
+    useState<NotificationCounts>({ friends: 0, challenges: 0, notifications: 0 });
 
   const fetchCounts = useCallback(async () => {
     try {
@@ -24,6 +24,7 @@ export default function Header() {
       setNotificationCounts({
         friends: data.pendingFriendRequests ?? 0,
         challenges: data.pendingChallenges ?? 0,
+        notifications: data.unreadNotifications ?? 0,
       });
     } catch {
       // Silently ignore fetch errors for notification counts
@@ -33,7 +34,7 @@ export default function Header() {
   // Fetch counts when user is authenticated, on mount and on navigation
   useEffect(() => {
     if (!user) {
-      setNotificationCounts({ friends: 0, challenges: 0 });
+      setNotificationCounts({ friends: 0, challenges: 0, notifications: 0 });
       return;
     }
 
@@ -61,10 +62,10 @@ export default function Header() {
           <Nav user={user} notificationCounts={notificationCounts} />
         </div>
 
-        {/* Mobile hamburger */}
+        {/* Mobile hamburger - min 44px touch target */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="flex flex-col gap-1.5 md:hidden"
+          className="flex h-11 w-11 flex-col items-center justify-center gap-1.5 md:hidden"
           aria-label="Toggle menu"
         >
           <span

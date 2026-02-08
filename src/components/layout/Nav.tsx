@@ -9,7 +9,7 @@ import NotificationBadge from "./NotificationBadge";
 interface NavLink {
   href: string;
   label: string;
-  badgeKey?: "friends" | "challenges";
+  badgeKey?: "friends" | "challenges" | "notifications";
 }
 
 const authenticatedLinks: NavLink[] = [
@@ -18,6 +18,7 @@ const authenticatedLinks: NavLink[] = [
   { href: "/challenges", label: "Challenges", badgeKey: "challenges" },
   { href: "/friends", label: "Friends", badgeKey: "friends" },
   { href: "/activity", label: "Activity" },
+  { href: "/notifications", label: "Notifications", badgeKey: "notifications" },
   { href: "/history", label: "History" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/profile", label: "Profile" },
@@ -31,6 +32,7 @@ const publicLinks: NavLink[] = [
 export interface NotificationCounts {
   friends: number;
   challenges: number;
+  notifications: number;
 }
 
 export default function Nav({
@@ -59,7 +61,7 @@ export default function Nav({
             key={link.href}
             href={link.href}
             onClick={onNavigate}
-            className={`relative rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            className={`relative flex min-h-[44px] items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
               isActive
                 ? "bg-accent/10 text-accent"
                 : "text-muted hover:bg-surface-hover hover:text-foreground"
@@ -76,7 +78,7 @@ export default function Nav({
           <button
             type="submit"
             onClick={onNavigate}
-            className="rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
+            className="flex min-h-[44px] items-center rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
           >
             Sign Out
           </button>
@@ -85,7 +87,7 @@ export default function Nav({
         <Link
           href="/auth/login"
           onClick={onNavigate}
-          className="rounded-lg bg-accent/10 px-3 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/20"
+          className="flex min-h-[44px] items-center rounded-lg bg-accent/10 px-3 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/20"
         >
           Sign In
         </Link>
