@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
+import { createClient } from "@/lib/supabase/client";
 import ChallengeCard from "@/components/challenges/ChallengeCard";
 import CreateChallengeModal from "@/components/challenges/CreateChallengeModal";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
@@ -26,6 +27,10 @@ export default function ChallengesPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Set of challenge IDs for which the current user already has a card */
+  const [userCardChallengeIds, setUserCardChallengeIds] = useState<Set<string>>(
+    new Set()
+  );
 
   const fetchChallenges = useCallback(async () => {
     setLoading(true);
@@ -34,7 +39,32 @@ export default function ChallengesPage() {
       const res = await fetch("/api/challenges");
       if (!res.ok) throw new Error("Failed to load challenges");
       const data = await res.json();
-      setChallenges(data.challenges ?? []);
+      const fetched: ChallengeWithProfiles[] = data.challenges ?? [];
+      setChallenges(fetched);
+
+      // Fetch the user's challenge-linked cards so we know which ones already have picks
+      if (user) {
+        const challengeIds = fetched
+          .filter((c) => c.status === "accepted" || c.status === "active")
+          .map((c) => c.id);
+
+        if (challengeIds.length > 0) {
+          const supabase = createClient();
+          const { data: userCards } = await (supabase.from("cards") as any)
+            .select("challenge_id")
+            .eq("user_id", user.id)
+            .in("challenge_id", challengeIds);
+
+          const ids = new Set<string>(
+            ((userCards ?? []) as Array<{ challenge_id: string }>).map(
+              (c) => c.challenge_id
+            )
+          );
+          setUserCardChallengeIds(ids);
+        } else {
+          setUserCardChallengeIds(new Set());
+        }
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to load challenges"
@@ -42,7 +72,7 @@ export default function ChallengesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -237,6 +267,7 @@ export default function ChallengesPage() {
               onDecline={(id) => handleAction(id, "decline")}
               onCancel={(id) => handleAction(id, "cancel")}
               actionLoading={actionLoading}
+              userHasCard={userCardChallengeIds.has(challenge.id)}
             />
           ))}
         </div>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import type { Profile, Card, Challenge, Friendship } from "@/lib/supabase/types";
+import type { Card, Friendship } from "@/lib/supabase/types";
 
 export interface ActivityUser {
   id: string;

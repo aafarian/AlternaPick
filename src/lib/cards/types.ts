@@ -19,7 +19,6 @@ export interface CardBuilderState {
   maxPicks: number;
   isLocking: boolean;
   error: string | null;
-  challenge_id?: string;
   challengeId: string | null;
   challengeOpponent: ChallengeOpponent | null;
 }

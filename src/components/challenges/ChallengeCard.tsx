@@ -10,6 +10,8 @@ interface ChallengeCardProps {
   onDecline?: (id: string) => void;
   onCancel?: (id: string) => void;
   actionLoading?: string | null;
+  /** When true, the user already has a card for this challenge. */
+  userHasCard?: boolean;
 }
 
 function getOpponentInfo(
@@ -86,6 +88,7 @@ export default function ChallengeCard({
   onDecline,
   onCancel,
   actionLoading,
+  userHasCard = false,
 }: ChallengeCardProps) {
   const { isChallenger, displayName, avatarInitial } = getOpponentInfo(
     challenge,
@@ -161,17 +164,22 @@ export default function ChallengeCard({
             </button>
           )}
 
-          {/* Active: Make Your Picks or Waiting */}
+          {/* Active: Make Your Picks or Picks Submitted */}
           {(challenge.status === "accepted" ||
-            challenge.status === "active") && (
-            <Link
-              href={`/props?challenge_id=${challenge.id}`}
-              className="rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-600"
-              onClick={(e) => e.stopPropagation()}
-            >
-              Make Your Picks
-            </Link>
-          )}
+            challenge.status === "active") &&
+            (userHasCard ? (
+              <span className="rounded-lg bg-green-500/20 px-3 py-1.5 text-xs font-semibold text-green-400">
+                Picks Submitted
+              </span>
+            ) : (
+              <Link
+                href={`/props?challenge_id=${challenge.id}`}
+                className="rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-600"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Make Your Picks
+              </Link>
+            ))}
 
           {/* Resolved: View link only (card click handles it) */}
           {challenge.status === "resolved" && (
