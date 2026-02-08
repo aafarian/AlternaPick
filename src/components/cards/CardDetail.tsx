@@ -3,6 +3,7 @@
 import type { CardWithPicks } from "@/lib/cards/api";
 import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
 import type { StatCategory } from "@/lib/supabase/types";
+import ShareButton from "@/components/cards/ShareButton";
 
 interface CardDetailProps {
   card: CardWithPicks;
@@ -75,7 +76,10 @@ export default function CardDetail({ card }: CardDetailProps) {
           <StatusBadge status={card.status} score={card.score} total={card.total_picks} />
           <span className="text-sm text-muted">{date}</span>
         </div>
-        <ScoreDisplay score={card.score} total={card.total_picks} status={card.status} />
+        <div className="flex items-center gap-3">
+          {card.status === "resolved" && <ShareButton cardId={card.id} />}
+          <ScoreDisplay score={card.score} total={card.total_picks} status={card.status} />
+        </div>
       </div>
 
       {/* Picks */}
