@@ -184,12 +184,12 @@ export default async function ShareCardPage({ params }: PageProps) {
             return (
               <div
                 key={pick.id}
-                className="flex items-center justify-between rounded-lg bg-background/50 px-3 py-2.5"
+                className="flex items-center justify-between gap-2 rounded-lg bg-background/50 px-3 py-2.5"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                   <ResultIcon result={pick.result} />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-white">
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm font-medium text-white">
                       {pick.props?.player_name ?? "Unknown"}
                     </span>
                     <span
@@ -201,10 +201,10 @@ export default async function ShareCardPage({ params }: PageProps) {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <span className="text-sm font-bold text-white">{pick.props?.line ?? "\u2014"}</span>
                   <span
-                    className={`rounded-md px-2 py-0.5 text-xs font-medium ${
+                    className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${
                       pick.selection === "over"
                         ? "bg-green-500/20 text-green-400"
                         : "bg-red-500/20 text-red-400"
@@ -228,7 +228,7 @@ export default async function ShareCardPage({ params }: PageProps) {
           <p className="mb-2 text-xs text-muted">Think you can do better?</p>
           <Link
             href="/props"
-            className="inline-block rounded-lg bg-indigo-500 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-600"
+            className="inline-flex min-h-[44px] items-center rounded-lg bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-600"
           >
             Make Your Picks
           </Link>

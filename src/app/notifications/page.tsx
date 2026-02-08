@@ -154,9 +154,9 @@ export default function NotificationsPage() {
             type="button"
             onClick={handleMarkAllRead}
             disabled={markingAll}
-            className="shrink-0 rounded-xl border border-border bg-surface px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-hover hover:text-foreground disabled:opacity-50"
+            className="shrink-0 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-muted transition-colors hover:bg-surface-hover hover:text-foreground disabled:opacity-50 min-h-[44px]"
           >
-            {markingAll ? "Marking..." : "Mark all as read"}
+            {markingAll ? "Marking..." : "Mark all read"}
           </button>
         )}
       </div>

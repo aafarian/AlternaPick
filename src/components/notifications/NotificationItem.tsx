@@ -81,7 +81,7 @@ export default function NotificationItem({
     <button
       type="button"
       onClick={handleClick}
-      className={`flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition-colors hover:bg-surface-hover ${
+      className={`flex min-h-[44px] w-full items-start gap-3 rounded-2xl border p-4 text-left transition-colors hover:bg-surface-hover ${
         notification.read
           ? "border-border bg-surface"
           : "border-accent/30 bg-surface"

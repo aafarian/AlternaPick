@@ -112,7 +112,7 @@ export default function LeaderboardPage() {
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}
               disabled={disabled}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              className={`min-h-[44px] rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === tab.key
                   ? "bg-indigo-500 text-white"
                   : disabled
@@ -129,7 +129,7 @@ export default function LeaderboardPage() {
       {/* Current User Rank Card */}
       {user && userRank && (
         <div className="rounded-2xl border border-indigo-500/30 bg-indigo-500/10 p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-muted">
                 Your Rank
@@ -138,7 +138,7 @@ export default function LeaderboardPage() {
                 #{userRank.rank}
               </p>
             </div>
-            <div className="flex gap-6 text-right">
+            <div className="flex flex-wrap gap-4 sm:gap-6 sm:text-right">
               <div>
                 <p className="text-xs text-muted">Win Rate</p>
                 <p className="text-sm font-semibold">
@@ -157,7 +157,7 @@ export default function LeaderboardPage() {
                   {userRank.stats.total_cards}
                 </p>
               </div>
-              <div className="hidden sm:block">
+              <div>
                 <p className="text-xs text-muted">H2H</p>
                 <p className="text-sm font-semibold">
                   {userRank.stats.h2h_wins}W-{userRank.stats.h2h_losses}L
@@ -174,7 +174,7 @@ export default function LeaderboardPage() {
           {error}
           <button
             onClick={() => fetchLeaderboard(activeTab)}
-            className="ml-2 underline hover:text-red-300"
+            className="ml-2 inline-flex min-h-[44px] items-center underline hover:text-red-300"
           >
             Retry
           </button>

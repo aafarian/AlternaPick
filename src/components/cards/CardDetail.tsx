@@ -71,12 +71,12 @@ export default function CardDetail({ card }: CardDetailProps) {
   return (
     <div className="rounded-2xl border border-border bg-surface">
       {/* Card header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <StatusBadge status={card.status} score={card.score} total={card.total_picks} />
-          <span className="text-sm text-muted">{date}</span>
+          <span className="text-xs text-muted sm:text-sm">{date}</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {card.status === "resolved" && <ShareButton cardId={card.id} />}
           <ScoreDisplay score={card.score} total={card.total_picks} status={card.status} />
         </div>
@@ -89,25 +89,25 @@ export default function CardDetail({ card }: CardDetailProps) {
           return (
             <div
               key={pick.id}
-              className="flex items-center justify-between rounded-lg bg-background/50 px-3 py-2.5"
+              className="flex flex-wrap items-center justify-between gap-1 rounded-lg bg-background/50 px-3 py-2.5"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                 <ResultIcon result={pick.result} />
-                <span className="text-sm font-medium">
+                <span className="truncate text-sm font-medium">
                   {pick.props?.player_name ?? "Unknown"}
                 </span>
                 <span
-                  className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
+                  className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-semibold sm:px-2 ${
                     CATEGORY_COLORS[statCat] ?? ""
                   }`}
                 >
                   {CATEGORY_LABELS[statCat] ?? statCat}
                 </span>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-bold">{pick.props?.line ?? "—"}</span>
+              <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                <span className="text-sm font-bold">{pick.props?.line ?? "\u2014"}</span>
                 <span
-                  className={`rounded-md px-2 py-0.5 text-xs font-medium ${
+                  className={`rounded-md px-1.5 py-0.5 text-xs font-medium sm:px-2 ${
                     pick.selection === "over"
                       ? "bg-green-500/20 text-green-400"
                       : "bg-red-500/20 text-red-400"
@@ -116,7 +116,7 @@ export default function CardDetail({ card }: CardDetailProps) {
                   {pick.selection === "over" ? "Over" : "Under"}
                 </span>
                 {pick.actual_value !== null && (
-                  <span className="text-sm text-muted">
+                  <span className="hidden text-sm text-muted sm:inline">
                     Actual: {pick.actual_value}
                   </span>
                 )}

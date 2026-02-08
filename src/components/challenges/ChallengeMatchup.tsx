@@ -104,21 +104,21 @@ interface PickRowProps {
 function PickRow({ pick }: PickRowProps) {
   const statCat = (pick.prop?.stat_category ?? "points") as StatCategory;
   return (
-    <div className="flex items-center justify-between rounded-lg bg-background/50 px-3 py-2">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-1 rounded-lg bg-background/50 px-3 py-2">
+      <div className="flex min-w-0 items-center gap-2">
         <ResultIcon result={pick.result} />
-        <span className="text-sm font-medium">
+        <span className="truncate text-sm font-medium">
           {pick.prop?.player_name ?? "Unknown"}
         </span>
         <span
-          className={`rounded-md px-1.5 py-0.5 text-xs font-semibold ${
+          className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-semibold ${
             CATEGORY_COLORS[statCat] ?? ""
           }`}
         >
           {CATEGORY_LABELS[statCat] ?? statCat}
         </span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <span className="text-sm font-bold">{pick.prop?.line ?? "\u2014"}</span>
         <span
           className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${
@@ -277,15 +277,15 @@ export default function ChallengeMatchup({
       {/* Back link */}
       <Link
         href="/challenges"
-        className="inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
+        className="inline-flex min-h-[44px] items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
       >
         &larr; Back to Challenges
       </Link>
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Challenge Matchup</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <h1 className="text-xl font-bold sm:text-2xl">Challenge Matchup</h1>
           <StatusBadge status={challenge.status} />
         </div>
         <span className="text-sm text-muted">{date}</span>
@@ -325,7 +325,7 @@ export default function ChallengeMatchup({
 
       {/* Matchup Layout */}
       <div className="rounded-2xl border border-border bg-surface p-4">
-        <div className="flex gap-4">
+        <div className="flex flex-col gap-4 md:flex-row">
           {/* Challenger Side */}
           <PlayerSide
             label="Challenger"
@@ -336,11 +336,13 @@ export default function ChallengeMatchup({
             showPicks={showPicks}
           />
 
-          {/* VS divider */}
-          <div className="flex flex-col items-center justify-start pt-8">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-400">
+          {/* VS divider - horizontal on mobile, vertical on desktop */}
+          <div className="flex items-center justify-center md:flex-col md:justify-start md:pt-8">
+            <div className="hidden h-px flex-1 bg-border md:block md:h-auto md:w-px" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-400">
               VS
             </div>
+            <div className="hidden h-px flex-1 bg-border md:block md:h-auto md:w-px" />
           </div>
 
           {/* Opponent Side */}
@@ -366,7 +368,7 @@ export default function ChallengeMatchup({
               <button
                 onClick={() => handleAction("cancel")}
                 disabled={actionLoading}
-                className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted transition-colors hover:bg-surface-hover disabled:opacity-50"
+                className="min-h-[44px] rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted transition-colors hover:bg-surface-hover disabled:opacity-50"
               >
                 {actionLoading ? "Cancelling..." : "Cancel Challenge"}
               </button>
@@ -380,14 +382,14 @@ export default function ChallengeMatchup({
                 <button
                   onClick={() => handleAction("accept")}
                   disabled={actionLoading}
-                  className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-600 disabled:opacity-50"
+                  className="min-h-[44px] rounded-lg bg-indigo-500 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-600 disabled:opacity-50"
                 >
                   {actionLoading ? "..." : "Accept"}
                 </button>
                 <button
                   onClick={() => handleAction("decline")}
                   disabled={actionLoading}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted transition-colors hover:bg-surface-hover disabled:opacity-50"
+                  className="min-h-[44px] rounded-lg border border-border px-5 py-2 text-sm font-semibold text-muted transition-colors hover:bg-surface-hover disabled:opacity-50"
                 >
                   {actionLoading ? "..." : "Decline"}
                 </button>
@@ -407,7 +409,7 @@ export default function ChallengeMatchup({
                 </p>
                 <Link
                   href={`/props?challenge_id=${challenge.id}`}
-                  className="rounded-lg bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-600"
+                  className="inline-flex min-h-[44px] items-center rounded-lg bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-600"
                 >
                   Make Your Picks
                 </Link>

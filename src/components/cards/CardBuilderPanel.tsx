@@ -60,12 +60,43 @@ export default function CardBuilderPanel() {
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-4">
-          {/* Pick count */}
-          <div className="shrink-0">
-            <span className="text-sm font-semibold">
-              {picks.length}/{state.maxPicks} Picks
-            </span>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          {/* Top row on mobile: pick count + actions */}
+          <div className="flex items-center justify-between gap-2 sm:order-none sm:contents">
+            {/* Pick count */}
+            <div className="shrink-0">
+              <span className="text-sm font-semibold">
+                {picks.length}/{state.maxPicks} Picks
+              </span>
+            </div>
+
+            {/* Actions */}
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={clearCard}
+                disabled={isLocking}
+                className="min-h-[44px] rounded-lg border border-border px-3 py-1.5 text-xs text-muted transition-colors hover:text-foreground disabled:opacity-50 sm:min-h-0"
+              >
+                Clear
+              </button>
+              <button
+                onClick={handleLockIn}
+                disabled={!isFull || isLocking}
+                className={`min-h-[44px] rounded-lg px-4 py-1.5 text-xs font-semibold transition-colors sm:min-h-0 ${
+                  isFull && !isLocking
+                    ? challengeId
+                      ? "bg-orange-500 text-white hover:bg-orange-600"
+                      : "bg-indigo-500 text-white hover:bg-indigo-600"
+                    : "cursor-not-allowed bg-indigo-500/30 text-indigo-300/50"
+                }`}
+              >
+                {isLocking
+                  ? "Locking..."
+                  : challengeId
+                    ? "Lock In Challenge"
+                    : "Lock In"}
+              </button>
+            </div>
           </div>
 
           {/* Scrollable picks list */}
@@ -92,41 +123,13 @@ export default function CardBuilderPanel() {
                 </span>
                 <button
                   onClick={() => removePick(pick.prop_id)}
-                  className="ml-1 text-muted hover:text-foreground"
+                  className="ml-1 flex h-6 w-6 items-center justify-center text-muted hover:text-foreground"
                   aria-label={`Remove ${pick.player_name}`}
                 >
                   &times;
                 </button>
               </div>
             ))}
-          </div>
-
-          {/* Actions */}
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              onClick={clearCard}
-              disabled={isLocking}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted transition-colors hover:text-foreground disabled:opacity-50"
-            >
-              Clear
-            </button>
-            <button
-              onClick={handleLockIn}
-              disabled={!isFull || isLocking}
-              className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition-colors ${
-                isFull && !isLocking
-                  ? challengeId
-                    ? "bg-orange-500 text-white hover:bg-orange-600"
-                    : "bg-indigo-500 text-white hover:bg-indigo-600"
-                  : "cursor-not-allowed bg-indigo-500/30 text-indigo-300/50"
-              }`}
-            >
-              {isLocking
-                ? "Locking..."
-                : challengeId
-                  ? "Lock In Challenge"
-                  : "Lock In"}
-            </button>
           </div>
         </div>
       </div>
