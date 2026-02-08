@@ -4,6 +4,7 @@ import type {
   Notification,
   NotificationType,
 } from "@/lib/supabase/types";
+import { typedFrom } from "@/lib/supabase/typed-queries";
 
 export interface UnreadCounts {
   pendingFriendRequests: number;
@@ -22,8 +23,9 @@ export async function getUnreadCounts(
   userId: string
 ): Promise<UnreadCounts> {
   // Count pending friend requests received by the user
-  const { count: friendCount, error: friendError } = await (
-    supabase.from("friendships") as any
+  const { count: friendCount, error: friendError } = await typedFrom(
+    supabase,
+    "friendships"
   )
     .select("id", { count: "exact", head: true })
     .eq("addressee_id", userId)
@@ -36,8 +38,9 @@ export async function getUnreadCounts(
   }
 
   // Count pending challenges received by the user
-  const { count: challengeCount, error: challengeError } = await (
-    supabase.from("challenges") as any
+  const { count: challengeCount, error: challengeError } = await typedFrom(
+    supabase,
+    "challenges"
   )
     .select("id", { count: "exact", head: true })
     .eq("opponent_id", userId)
@@ -50,8 +53,9 @@ export async function getUnreadCounts(
   }
 
   // Count unread notifications
-  const { count: notifCount, error: notifError } = await (
-    supabase.from("notifications") as any
+  const { count: notifCount, error: notifError } = await typedFrom(
+    supabase,
+    "notifications"
   )
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
@@ -79,7 +83,7 @@ export async function getNotifications(
   limit = 20,
   offset = 0
 ): Promise<Notification[]> {
-  const { data, error } = await (supabase.from("notifications") as any)
+  const { data, error } = await typedFrom(supabase, "notifications")
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
@@ -101,7 +105,7 @@ export async function markNotificationRead(
   userId: string,
   notificationId: string
 ): Promise<Notification | null> {
-  const { data, error } = await (supabase.from("notifications") as any)
+  const { data, error } = await typedFrom(supabase, "notifications")
     .update({ read: true })
     .eq("id", notificationId)
     .eq("user_id", userId)
@@ -122,7 +126,7 @@ export async function markAllRead(
   supabase: SupabaseClient<Database>,
   userId: string
 ): Promise<void> {
-  const { error } = await (supabase.from("notifications") as any)
+  const { error } = await typedFrom(supabase, "notifications")
     .update({ read: true })
     .eq("user_id", userId)
     .eq("read", false);
@@ -147,7 +151,7 @@ export async function createNotification(
     metadata?: Record<string, unknown> | null;
   }
 ): Promise<Notification> {
-  const { data, error } = await (supabase.from("notifications") as any)
+  const { data, error } = await typedFrom(supabase, "notifications")
     .insert({
       user_id: notification.user_id,
       type: notification.type,

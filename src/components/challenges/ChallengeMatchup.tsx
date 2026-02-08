@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ChallengeDetail } from "@/lib/challenges/queries";
@@ -55,9 +56,11 @@ function PlayerAvatar({
         }`}
       >
         {avatarUrl ? (
-          <img
+          <Image
             src={avatarUrl}
             alt={name}
+            width={56}
+            height={56}
             className="h-14 w-14 rounded-full object-cover"
           />
         ) : (

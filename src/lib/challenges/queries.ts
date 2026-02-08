@@ -4,6 +4,7 @@ import type {
   Challenge,
   ChallengeStatus,
 } from "@/lib/supabase/types";
+import { typedFrom } from "@/lib/supabase/typed-queries";
 
 export interface ChallengeWithProfiles extends Challenge {
   challenger: { id: string; username: string; display_name: string | null; avatar_url: string | null };
@@ -49,7 +50,7 @@ export async function getChallenges(
   userId: string,
   statusFilter?: ChallengeStatus[]
 ): Promise<ChallengeWithProfiles[]> {
-  let query = (supabase.from("challenges") as any)
+  let query = typedFrom(supabase, "challenges")
     .select(
       "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url)"
     )
@@ -78,8 +79,9 @@ export async function getChallenge(
   userId: string
 ): Promise<ChallengeDetail | null> {
   // Fetch the challenge with profiles
-  const { data: challenge, error: challengeError } = await (
-    supabase.from("challenges") as any
+  const { data: challenge, error: challengeError } = await typedFrom(
+    supabase,
+    "challenges"
   )
     .select(
       "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url)"
@@ -99,7 +101,7 @@ export async function getChallenge(
   }
 
   // Fetch cards linked to this challenge
-  const { data: cards } = await (supabase.from("cards") as any)
+  const { data: cards } = await typedFrom(supabase, "cards")
     .select(
       "id, user_id, status, score, total_picks, locked_at, resolved_at, picks(id, selection, result, actual_value, prop:props(id, player_name, stat_category, line, game_id))"
     )
@@ -156,8 +158,9 @@ export async function createChallenge(
   }
 
   // Check accepted friendship
-  const { data: friendship, error: friendError } = await (
-    supabase.from("friendships") as any
+  const { data: friendship, error: friendError } = await typedFrom(
+    supabase,
+    "friendships"
   )
     .select("id")
     .eq("status", "accepted")
@@ -178,8 +181,9 @@ export async function createChallenge(
   }
 
   // Check for existing pending/accepted/active challenge between the two
-  const { data: existing, error: existingError } = await (
-    supabase.from("challenges") as any
+  const { data: existing, error: existingError } = await typedFrom(
+    supabase,
+    "challenges"
   )
     .select("id")
     .in("status", ["pending", "accepted", "active"])
@@ -202,8 +206,9 @@ export async function createChallenge(
   }
 
   // Create the challenge
-  const { data: challenge, error: createError } = await (
-    supabase.from("challenges") as any
+  const { data: challenge, error: createError } = await typedFrom(
+    supabase,
+    "challenges"
   )
     .insert({
       challenger_id: challengerId,
@@ -234,8 +239,9 @@ export async function respondToChallenge(
   action: ValidAction
 ): Promise<Challenge> {
   // Fetch current challenge
-  const { data: challenge, error: fetchError } = await (
-    supabase.from("challenges") as any
+  const { data: challenge, error: fetchError } = await typedFrom(
+    supabase,
+    "challenges"
   )
     .select("*")
     .eq("id", challengeId)
@@ -286,8 +292,9 @@ export async function respondToChallenge(
 
   const newStatus = statusMap[action];
 
-  const { data: updated, error: updateError } = await (
-    supabase.from("challenges") as any
+  const { data: updated, error: updateError } = await typedFrom(
+    supabase,
+    "challenges"
   )
     .update({ status: newStatus })
     .eq("id", challengeId)

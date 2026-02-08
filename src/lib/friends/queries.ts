@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Friendship, Profile } from "@/lib/supabase/types";
+import { typedFrom } from "@/lib/supabase/typed-queries";
 
 export interface FriendWithProfile extends Friendship {
   friend_profile: Profile;
@@ -13,8 +14,9 @@ export async function getFriends(
   userId: string
 ): Promise<FriendWithProfile[]> {
   // Friendships where the user is the requester
-  const { data: asRequester, error: err1 } = await (
-    supabase.from("friendships") as any
+  const { data: asRequester, error: err1 } = await typedFrom(
+    supabase,
+    "friendships"
   )
     .select("*, profiles!friendships_addressee_id_fkey(*)")
     .eq("requester_id", userId)
@@ -23,8 +25,9 @@ export async function getFriends(
   if (err1) throw new Error(err1.message);
 
   // Friendships where the user is the addressee
-  const { data: asAddressee, error: err2 } = await (
-    supabase.from("friendships") as any
+  const { data: asAddressee, error: err2 } = await typedFrom(
+    supabase,
+    "friendships"
   )
     .select("*, profiles!friendships_requester_id_fkey(*)")
     .eq("addressee_id", userId)
@@ -58,17 +61,19 @@ export async function getPendingRequests(
   supabase: SupabaseClient<Database>,
   userId: string
 ): Promise<FriendWithProfile[]> {
-  const { data, error } = await (supabase.from("friendships") as any)
+  const { data, error } = await typedFrom(supabase, "friendships")
     .select("*, profiles!friendships_requester_id_fkey(*)")
     .eq("addressee_id", userId)
     .eq("status", "pending");
 
   if (error) throw new Error(error.message);
 
-  return (data ?? []).map((row: any) => ({
-    ...(row as Friendship),
-    friend_profile: row.profiles as Profile,
-  }));
+  return (data ?? []).map(
+    (row: Record<string, unknown> & { profiles: Profile }) => ({
+      ...(row as unknown as Friendship),
+      friend_profile: row.profiles as Profile,
+    })
+  );
 }
 
 /**
@@ -81,8 +86,9 @@ export async function sendFriendRequest(
   addresseeUsername: string
 ): Promise<Friendship> {
   // Look up addressee by username
-  const { data: addressee, error: lookupError } = await (
-    supabase.from("profiles") as any
+  const { data: addressee, error: lookupError } = await typedFrom(
+    supabase,
+    "profiles"
   )
     .select("id, username")
     .eq("username", addresseeUsername)
@@ -101,8 +107,9 @@ export async function sendFriendRequest(
   }
 
   // Check both directions for existing friendship
-  const { data: existingAB, error: checkErr1 } = await (
-    supabase.from("friendships") as any
+  const { data: existingAB, error: checkErr1 } = await typedFrom(
+    supabase,
+    "friendships"
   )
     .select("id, status")
     .eq("requester_id", requesterId)
@@ -115,8 +122,9 @@ export async function sendFriendRequest(
     throw new ConflictError("A friendship already exists with this user");
   }
 
-  const { data: existingBA, error: checkErr2 } = await (
-    supabase.from("friendships") as any
+  const { data: existingBA, error: checkErr2 } = await typedFrom(
+    supabase,
+    "friendships"
   )
     .select("id, status")
     .eq("requester_id", addresseeId)
@@ -130,8 +138,9 @@ export async function sendFriendRequest(
   }
 
   // Create the friendship
-  const { data: friendship, error: insertError } = await (
-    supabase.from("friendships") as any
+  const { data: friendship, error: insertError } = await typedFrom(
+    supabase,
+    "friendships"
   )
     .insert({
       requester_id: requesterId,
@@ -157,8 +166,9 @@ export async function acceptFriendRequest(
   userId: string
 ): Promise<Friendship> {
   // Fetch the friendship
-  const { data: friendship, error: fetchError } = await (
-    supabase.from("friendships") as any
+  const { data: friendship, error: fetchError } = await typedFrom(
+    supabase,
+    "friendships"
   )
     .select("*")
     .eq("id", friendshipId)
@@ -178,8 +188,9 @@ export async function acceptFriendRequest(
     throw new ValidationError("This request is not pending");
   }
 
-  const { data: updated, error: updateError } = await (
-    supabase.from("friendships") as any
+  const { data: updated, error: updateError } = await typedFrom(
+    supabase,
+    "friendships"
   )
     .update({ status: "accepted", updated_at: new Date().toISOString() })
     .eq("id", friendshipId)
@@ -202,8 +213,9 @@ export async function declineFriendRequest(
   userId: string
 ): Promise<void> {
   // Fetch the friendship
-  const { data: friendship, error: fetchError } = await (
-    supabase.from("friendships") as any
+  const { data: friendship, error: fetchError } = await typedFrom(
+    supabase,
+    "friendships"
   )
     .select("*")
     .eq("id", friendshipId)
@@ -225,7 +237,7 @@ export async function declineFriendRequest(
     throw new ValidationError("This request is not pending");
   }
 
-  const { error: deleteError } = await (supabase.from("friendships") as any)
+  const { error: deleteError } = await typedFrom(supabase, "friendships")
     .delete()
     .eq("id", friendshipId);
 
@@ -243,8 +255,9 @@ export async function removeFriend(
   userId: string
 ): Promise<void> {
   // Fetch the friendship to verify participation
-  const { data: friendship, error: fetchError } = await (
-    supabase.from("friendships") as any
+  const { data: friendship, error: fetchError } = await typedFrom(
+    supabase,
+    "friendships"
   )
     .select("*")
     .eq("id", friendshipId)
@@ -260,7 +273,7 @@ export async function removeFriend(
     throw new NotFoundError("Friendship not found");
   }
 
-  const { error: deleteError } = await (supabase.from("friendships") as any)
+  const { error: deleteError } = await typedFrom(supabase, "friendships")
     .delete()
     .eq("id", friendshipId);
 

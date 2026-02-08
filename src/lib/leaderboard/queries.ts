@@ -1,10 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type {
-  Database,
-  Profile,
-  LeaderboardEntry,
-  Friendship,
-} from "@/lib/supabase/types";
+import type { Database } from "@/lib/supabase/types";
+import { typedFrom } from "@/lib/supabase/typed-queries";
 
 export interface LeaderboardRow {
   id: string;
@@ -30,29 +26,9 @@ export interface UserRank {
   entry: LeaderboardRow;
 }
 
-/**
- * Get the global leaderboard, ordered by win_rate desc with tiebreakers
- * on total_correct_picks desc, then best_streak desc.
- */
-export async function getGlobalLeaderboard(
-  supabase: SupabaseClient<Database>,
-  limit: number = 25,
-  offset: number = 0
-): Promise<LeaderboardRow[]> {
-  const { data, error } = await (
-    supabase.from("leaderboard_entries") as any
-  )
-    .select(
-      "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url)"
-    )
-    .order("win_rate", { ascending: false })
-    .order("total_correct_picks", { ascending: false })
-    .order("best_streak", { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  if (error) throw new Error(error.message);
-
-  return ((data ?? []) as any[]).map((row: any) => ({
+/** Shape a raw Supabase row into a LeaderboardRow */
+function toLeaderboardRow(row: Record<string, unknown>): LeaderboardRow {
+  return {
     id: row.id as string,
     user_id: row.user_id as string,
     total_cards: row.total_cards as number,
@@ -64,7 +40,30 @@ export async function getGlobalLeaderboard(
     h2h_losses: row.h2h_losses as number,
     updated_at: row.updated_at as string,
     profile: row.profiles as LeaderboardRow["profile"],
-  }));
+  };
+}
+
+/**
+ * Get the global leaderboard, ordered by win_rate desc with tiebreakers
+ * on total_correct_picks desc, then best_streak desc.
+ */
+export async function getGlobalLeaderboard(
+  supabase: SupabaseClient<Database>,
+  limit: number = 25,
+  offset: number = 0
+): Promise<LeaderboardRow[]> {
+  const { data, error } = await typedFrom(supabase, "leaderboard_entries")
+    .select(
+      "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url)"
+    )
+    .order("win_rate", { ascending: false })
+    .order("total_correct_picks", { ascending: false })
+    .order("best_streak", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) throw new Error(error.message);
+
+  return ((data ?? []) as Record<string, unknown>[]).map(toLeaderboardRow);
 }
 
 /**
@@ -79,8 +78,9 @@ export async function getFriendsLeaderboard(
   offset: number = 0
 ): Promise<LeaderboardRow[]> {
   // Step 1: Get accepted friend IDs (same pattern as activity route)
-  const { data: asRequester, error: err1 } = await (
-    supabase.from("friendships") as any
+  const { data: asRequester, error: err1 } = await typedFrom(
+    supabase,
+    "friendships"
   )
     .select("addressee_id")
     .eq("requester_id", userId)
@@ -88,8 +88,9 @@ export async function getFriendsLeaderboard(
 
   if (err1) throw new Error(err1.message);
 
-  const { data: asAddressee, error: err2 } = await (
-    supabase.from("friendships") as any
+  const { data: asAddressee, error: err2 } = await typedFrom(
+    supabase,
+    "friendships"
   )
     .select("requester_id")
     .eq("addressee_id", userId)
@@ -98,11 +99,11 @@ export async function getFriendsLeaderboard(
   if (err2) throw new Error(err2.message);
 
   const friendIds = new Set<string>();
-  for (const row of (asRequester ?? []) as any[]) {
-    friendIds.add(row.addressee_id as string);
+  for (const row of (asRequester ?? []) as Array<{ addressee_id: string }>) {
+    friendIds.add(row.addressee_id);
   }
-  for (const row of (asAddressee ?? []) as any[]) {
-    friendIds.add(row.requester_id as string);
+  for (const row of (asAddressee ?? []) as Array<{ requester_id: string }>) {
+    friendIds.add(row.requester_id);
   }
 
   // Always include self
@@ -111,9 +112,7 @@ export async function getFriendsLeaderboard(
   const userIds = Array.from(friendIds);
 
   // Step 2: Fetch leaderboard entries for these users with profile join
-  const { data, error } = await (
-    supabase.from("leaderboard_entries") as any
-  )
+  const { data, error } = await typedFrom(supabase, "leaderboard_entries")
     .select(
       "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url)"
     )
@@ -125,19 +124,7 @@ export async function getFriendsLeaderboard(
 
   if (error) throw new Error(error.message);
 
-  return ((data ?? []) as any[]).map((row: any) => ({
-    id: row.id as string,
-    user_id: row.user_id as string,
-    total_cards: row.total_cards as number,
-    total_correct_picks: row.total_correct_picks as number,
-    win_rate: row.win_rate as number,
-    current_streak: row.current_streak as number,
-    best_streak: row.best_streak as number,
-    h2h_wins: row.h2h_wins as number,
-    h2h_losses: row.h2h_losses as number,
-    updated_at: row.updated_at as string,
-    profile: row.profiles as LeaderboardRow["profile"],
-  }));
+  return ((data ?? []) as Record<string, unknown>[]).map(toLeaderboardRow);
 }
 
 /**
@@ -151,8 +138,9 @@ export async function getUserRank(
   userId: string
 ): Promise<UserRank | null> {
   // Step 1: Get the user's leaderboard entry with profile
-  const { data: entryData, error: entryError } = await (
-    supabase.from("leaderboard_entries") as any
+  const { data: entryData, error: entryError } = await typedFrom(
+    supabase,
+    "leaderboard_entries"
   )
     .select(
       "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url)"
@@ -164,23 +152,12 @@ export async function getUserRank(
 
   if (!entryData) return null;
 
-  const entry: LeaderboardRow = {
-    id: entryData.id as string,
-    user_id: entryData.user_id as string,
-    total_cards: entryData.total_cards as number,
-    total_correct_picks: entryData.total_correct_picks as number,
-    win_rate: entryData.win_rate as number,
-    current_streak: entryData.current_streak as number,
-    best_streak: entryData.best_streak as number,
-    h2h_wins: entryData.h2h_wins as number,
-    h2h_losses: entryData.h2h_losses as number,
-    updated_at: entryData.updated_at as string,
-    profile: entryData.profiles as LeaderboardRow["profile"],
-  };
+  const entry = toLeaderboardRow(entryData as Record<string, unknown>);
 
   // Step 2: Count users with strictly higher win_rate
-  const { count: higherWinRate, error: countErr1 } = await (
-    supabase.from("leaderboard_entries") as any
+  const { count: higherWinRate, error: countErr1 } = await typedFrom(
+    supabase,
+    "leaderboard_entries"
   )
     .select("id", { count: "exact", head: true })
     .gt("win_rate", entry.win_rate);
@@ -188,8 +165,9 @@ export async function getUserRank(
   if (countErr1) throw new Error(countErr1.message);
 
   // Step 3: Count users with same win_rate but more total_correct_picks
-  const { count: samWrHigherPicks, error: countErr2 } = await (
-    supabase.from("leaderboard_entries") as any
+  const { count: samWrHigherPicks, error: countErr2 } = await typedFrom(
+    supabase,
+    "leaderboard_entries"
   )
     .select("id", { count: "exact", head: true })
     .eq("win_rate", entry.win_rate)
@@ -198,13 +176,12 @@ export async function getUserRank(
   if (countErr2) throw new Error(countErr2.message);
 
   // Step 4: Count users with same win_rate, same total_correct_picks, but higher best_streak
-  const { count: samWrSamePicksHigherStreak, error: countErr3 } = await (
-    supabase.from("leaderboard_entries") as any
-  )
-    .select("id", { count: "exact", head: true })
-    .eq("win_rate", entry.win_rate)
-    .eq("total_correct_picks", entry.total_correct_picks)
-    .gt("best_streak", entry.best_streak);
+  const { count: samWrSamePicksHigherStreak, error: countErr3 } =
+    await typedFrom(supabase, "leaderboard_entries")
+      .select("id", { count: "exact", head: true })
+      .eq("win_rate", entry.win_rate)
+      .eq("total_correct_picks", entry.total_correct_picks)
+      .gt("best_streak", entry.best_streak);
 
   if (countErr3) throw new Error(countErr3.message);
 

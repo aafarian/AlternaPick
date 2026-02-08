@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 export interface FriendRequest {
   id: string;
@@ -60,9 +61,11 @@ export default function FriendRequestCard({
       {/* Avatar */}
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-400">
         {profile.avatar_url ? (
-          <img
+          <Image
             src={profile.avatar_url}
             alt={profile.username}
+            width={48}
+            height={48}
             className="h-12 w-12 rounded-full object-cover"
           />
         ) : (
