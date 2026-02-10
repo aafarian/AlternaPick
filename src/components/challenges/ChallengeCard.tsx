@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
+import { CHALLENGE_STATUS_STYLES } from "@/lib/constants";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface ChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -10,7 +15,6 @@ interface ChallengeCardProps {
   onDecline?: (id: string) => void;
   onCancel?: (id: string) => void;
   actionLoading?: string | null;
-  /** When true, the user already has a card for this challenge. */
   userHasCard?: boolean;
 }
 
@@ -23,62 +27,11 @@ function getOpponentInfo(
   return {
     isChallenger,
     opponent,
-    displayName:
-      opponent.display_name || opponent.username,
+    displayName: opponent.display_name || opponent.username,
     avatarInitial: (opponent.display_name || opponent.username)
       .charAt(0)
       .toUpperCase(),
   };
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    pending: "bg-amber-500/20 text-amber-400",
-    accepted: "bg-blue-500/20 text-blue-400",
-    active: "bg-green-500/20 text-green-400",
-    resolved: "bg-purple-500/20 text-purple-400",
-    declined: "bg-red-500/20 text-red-400",
-    cancelled: "bg-muted/20 text-muted",
-  };
-
-  return (
-    <span
-      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-        styles[status] ?? "bg-muted/20 text-muted"
-      }`}
-    >
-      {status.charAt(0).toUpperCase() + status.slice(1)}
-    </span>
-  );
-}
-
-function WinnerBadge({
-  challenge,
-  currentUserId,
-}: {
-  challenge: ChallengeWithProfiles;
-  currentUserId: string;
-}) {
-  if (challenge.status !== "resolved") return null;
-
-  if (!challenge.winner_id) {
-    return (
-      <span className="rounded-full bg-muted/20 px-2.5 py-0.5 text-xs font-semibold text-muted">
-        Draw
-      </span>
-    );
-  }
-
-  const won = challenge.winner_id === currentUserId;
-  return (
-    <span
-      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-        won ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-      }`}
-    >
-      {won ? "You Won" : "You Lost"}
-    </span>
-  );
 }
 
 export default function ChallengeCard({
@@ -102,91 +55,106 @@ export default function ChallengeCard({
   });
 
   return (
-    <Link
-      href={`/challenges/${challenge.id}`}
-      className="block rounded-2xl border border-border bg-surface transition-colors hover:bg-surface-hover"
-    >
-      <div className="flex items-center justify-between p-4">
-        <div className="flex items-center gap-3">
-          {/* Avatar */}
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-400">
-            {avatarInitial}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold">{displayName}</span>
-              <StatusBadge status={challenge.status} />
-              <WinnerBadge
-                challenge={challenge}
-                currentUserId={currentUserId}
-              />
+    <Link href={`/challenges/${challenge.id}`}>
+      <Card className="border-border bg-card transition-all hover:border-border hover:bg-secondary/50">
+        <CardContent className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10">
+              <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
+                {avatarInitial}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold">{displayName}</span>
+                <Badge
+                  variant="secondary"
+                  className={CHALLENGE_STATUS_STYLES[challenge.status] ?? ""}
+                >
+                  {challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
+                </Badge>
+                {challenge.status === "resolved" && (
+                  <Badge
+                    variant="secondary"
+                    className={
+                      !challenge.winner_id
+                        ? "bg-muted/15 text-muted-foreground"
+                        : challenge.winner_id === currentUserId
+                          ? "bg-neon-green/15 text-neon-green border-neon-green/30"
+                          : "bg-bold-red/15 text-bold-red border-bold-red/30"
+                    }
+                  >
+                    {!challenge.winner_id
+                      ? "Draw"
+                      : challenge.winner_id === currentUserId
+                        ? "You Won"
+                        : "You Lost"}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {isChallenger ? "You challenged" : "Challenged you"} &middot;{" "}
+                {date}
+              </p>
             </div>
-            <p className="text-xs text-muted">
-              {isChallenger ? "You challenged" : "Challenged you"} &middot;{" "}
-              {date}
-            </p>
           </div>
-        </div>
 
-        {/* Actions */}
-        <div
-          className="flex items-center gap-2"
-          onClick={(e) => e.preventDefault()}
-        >
-          {/* Pending incoming: Accept / Decline */}
-          {challenge.status === "pending" && !isChallenger && (
-            <>
-              <button
-                onClick={() => onAccept?.(challenge.id)}
+          <div
+            className="flex items-center gap-2"
+            onClick={(e) => e.preventDefault()}
+          >
+            {challenge.status === "pending" && !isChallenger && (
+              <>
+                <Button
+                  onClick={() => onAccept?.(challenge.id)}
+                  disabled={isLoading}
+                  size="sm"
+                >
+                  {isLoading ? "..." : "Accept"}
+                </Button>
+                <Button
+                  onClick={() => onDecline?.(challenge.id)}
+                  disabled={isLoading}
+                  variant="outline"
+                  size="sm"
+                >
+                  Decline
+                </Button>
+              </>
+            )}
+
+            {challenge.status === "pending" && isChallenger && (
+              <Button
+                onClick={() => onCancel?.(challenge.id)}
                 disabled={isLoading}
-                className="rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-600 disabled:opacity-50"
+                variant="outline"
+                size="sm"
               >
-                {isLoading ? "..." : "Accept"}
-              </button>
-              <button
-                onClick={() => onDecline?.(challenge.id)}
-                disabled={isLoading}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:bg-surface-hover disabled:opacity-50"
-              >
-                Decline
-              </button>
-            </>
-          )}
+                {isLoading ? "..." : "Cancel"}
+              </Button>
+            )}
 
-          {/* Pending outgoing: Cancel */}
-          {challenge.status === "pending" && isChallenger && (
-            <button
-              onClick={() => onCancel?.(challenge.id)}
-              disabled={isLoading}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:bg-surface-hover disabled:opacity-50"
-            >
-              {isLoading ? "..." : "Cancel"}
-            </button>
-          )}
+            {(challenge.status === "accepted" ||
+              challenge.status === "active") &&
+              (userHasCard ? (
+                <Badge variant="secondary" className="bg-neon-green/15 text-neon-green border-neon-green/30">
+                  Picks Submitted
+                </Badge>
+              ) : (
+                <Link
+                  href={`/props?challenge_id=${challenge.id}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button size="sm">Make Your Picks</Button>
+                </Link>
+              ))}
 
-          {/* Active: Make Your Picks or Picks Submitted */}
-          {(challenge.status === "accepted" ||
-            challenge.status === "active") &&
-            (userHasCard ? (
-              <span className="rounded-lg bg-green-500/20 px-3 py-1.5 text-xs font-semibold text-green-400">
-                Picks Submitted
-              </span>
-            ) : (
-              <Link
-                href={`/props?challenge_id=${challenge.id}`}
-                className="rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-600"
-                onClick={(e) => e.stopPropagation()}
-              >
-                Make Your Picks
-              </Link>
-            ))}
-
-          {/* Resolved: View link only (card click handles it) */}
-          {challenge.status === "resolved" && (
-            <span className="text-xs text-muted">View Details</span>
-          )}
-        </div>
-      </div>
+            {challenge.status === "resolved" && (
+              <span className="text-xs text-muted-foreground">View Details</span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </Link>
   );
 }

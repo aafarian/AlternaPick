@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isCacheStale, cacheProps } from "@/lib/odds-api/cache";
 import { fetchAllProps } from "@/lib/odds-api/client";
+import { handleApiError } from "@/lib/api/errors";
 
 export async function POST(request: NextRequest) {
   const syncSecret = process.env.SYNC_SECRET;
@@ -54,9 +55,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      { error: "Failed to sync props", message },
-      { status: 502 }
-    );
+    return handleApiError(error, "Failed to sync props");
   }
 }

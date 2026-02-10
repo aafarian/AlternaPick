@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { unauthorized, handleApiError } from "@/lib/api/errors";
 import type { Card, Friendship } from "@/lib/supabase/types";
 
 export interface ActivityUser {
@@ -62,10 +63,7 @@ export async function GET() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     // Step 1: Get the user's accepted friends
@@ -260,11 +258,6 @@ export async function GET() {
 
     return NextResponse.json({ items: limited });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to fetch activity feed", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch activity feed");
   }
 }

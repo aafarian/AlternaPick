@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
 import {
   getUnreadCounts,
   getNotifications,
@@ -26,10 +27,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const { searchParams } = request.nextUrl;
@@ -44,10 +42,7 @@ export async function GET(request: NextRequest) {
     );
 
     if (type !== "counts" && type !== "list" && type !== "both") {
-      return NextResponse.json(
-        { error: 'type must be "counts", "list", or "both"' },
-        { status: 400 }
-      );
+      return badRequest('type must be "counts", "list", or "both"');
     }
 
     if (type === "counts") {
@@ -80,12 +75,7 @@ export async function GET(request: NextRequest) {
       pagination: { limit, offset },
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to fetch notifications", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch notifications");
   }
 }
 
@@ -102,29 +92,18 @@ export async function PATCH(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const body = (await request.json()) as { action?: string };
 
     if (body.action !== "mark_all_read") {
-      return NextResponse.json(
-        { error: 'action must be "mark_all_read"' },
-        { status: 400 }
-      );
+      return badRequest('action must be "mark_all_read"');
     }
 
     await markAllRead(supabase, user.id);
     return NextResponse.json({ message: "All notifications marked as read" });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to mark notifications as read", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to mark notifications as read");
   }
 }

@@ -19,6 +19,7 @@ export interface CardWithPicks {
     created_at: string;
     props?: {
       player_name: string;
+      player_id: string | null;
       stat_category: string;
       line: number;
       game_id: string;

@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import type { StatCategory } from "@/lib/supabase/types";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const CATEGORIES: { value: StatCategory | "all"; label: string }[] = [
   { value: "all", label: "All" },
@@ -24,7 +25,7 @@ export default function CategoryFilter() {
   const searchParams = useSearchParams();
   const active = searchParams.get("category") ?? "all";
 
-  function handleClick(value: string) {
+  function handleChange(value: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (value === "all") {
       params.delete("category");
@@ -35,20 +36,18 @@ export default function CategoryFilter() {
   }
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-      {CATEGORIES.map(({ value, label }) => (
-        <button
-          key={value}
-          onClick={() => handleClick(value)}
-          className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-            active === value
-              ? "bg-accent text-white"
-              : "bg-surface text-muted hover:bg-surface-hover hover:text-foreground"
-          }`}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
+    <Tabs value={active} onValueChange={handleChange}>
+      <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto bg-transparent p-0 scrollbar-none">
+        {CATEGORIES.map(({ value, label }) => (
+          <TabsTrigger
+            key={value}
+            value={value}
+            className="shrink-0 cursor-pointer rounded-full border border-border bg-secondary px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-all data-[state=active]:border-primary data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-[0_0_10px_rgba(0,210,106,0.15)]"
+          >
+            {label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   );
 }

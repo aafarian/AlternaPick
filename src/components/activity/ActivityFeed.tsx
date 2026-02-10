@@ -2,6 +2,7 @@
 
 import type { ActivityItem as ActivityItemType } from "@/app/api/activity/route";
 import ActivityItem from "./ActivityItem";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface ActivityFeedProps {
   items: ActivityItemType[];
@@ -10,13 +11,15 @@ interface ActivityFeedProps {
 export default function ActivityFeed({ items }: ActivityFeedProps) {
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-surface py-12 text-center">
-        <span className="text-3xl">{"\uD83D\uDCE1"}</span>
-        <p className="text-muted">No recent activity</p>
-        <p className="text-sm text-muted">
-          Activity from your friends will show up here.
-        </p>
-      </div>
+      <Card className="border-border bg-card">
+        <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+          <span className="text-3xl">{"\uD83D\uDCE1"}</span>
+          <p className="text-muted-foreground">No recent activity</p>
+          <p className="text-sm text-muted-foreground">
+            Activity from your friends will show up here.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 

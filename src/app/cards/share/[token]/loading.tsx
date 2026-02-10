@@ -2,10 +2,10 @@ export default function ShareCardLoading() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
       {/* Branding skeleton */}
-      <div className="mb-8 h-8 w-40 animate-pulse rounded-lg bg-surface" />
+      <div className="mb-8 h-8 w-40 animate-pulse rounded-lg bg-card" />
 
       {/* Card container skeleton */}
-      <div className="w-full max-w-md rounded-2xl border border-border bg-surface shadow-xl">
+      <div className="w-full max-w-md rounded-xl border border-border bg-card shadow-xl">
         {/* Card header */}
         <div className="flex flex-col gap-3 border-b border-border px-5 py-4">
           <div className="flex items-center justify-between">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { unauthorized, badRequest, notFound, conflict, handleApiError } from "@/lib/api/errors";
 import type { Card, Challenge, Pick, PickSelection } from "@/lib/supabase/types";
 
 interface CreatePickInput {
@@ -21,28 +22,19 @@ export async function POST(request: NextRequest) {
 
     // Validate pick count
     if (!picks || picks.length !== 6) {
-      return NextResponse.json(
-        { error: "Exactly 6 picks are required" },
-        { status: 400 }
-      );
+      return badRequest("Exactly 6 picks are required");
     }
 
     // Check for duplicate prop_ids
     const propIds = picks.map((p) => p.prop_id);
     if (new Set(propIds).size !== propIds.length) {
-      return NextResponse.json(
-        { error: "Duplicate prop selections are not allowed" },
-        { status: 400 }
-      );
+      return badRequest("Duplicate prop selections are not allowed");
     }
 
     // Validate selections
     for (const pick of picks) {
       if (pick.selection !== "over" && pick.selection !== "under") {
-        return NextResponse.json(
-          { error: `Invalid selection: ${pick.selection}` },
-          { status: 400 }
-        );
+        return badRequest(`Invalid selection: ${pick.selection}`);
       }
     }
 
@@ -56,10 +48,7 @@ export async function POST(request: NextRequest) {
     // Challenge-linked card validation
     if (challenge_id) {
       if (!user) {
-        return NextResponse.json(
-          { error: "Authentication required for challenge cards" },
-          { status: 401 }
-        );
+        return unauthorized();
       }
 
       // Fetch the challenge
@@ -69,10 +58,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (challengeResult.error || !challengeResult.data) {
-        return NextResponse.json(
-          { error: "Challenge not found" },
-          { status: 404 }
-        );
+        return notFound("Challenge");
       }
 
       const challenge = challengeResult.data as Challenge;
@@ -90,13 +76,7 @@ export async function POST(request: NextRequest) {
 
       // Validate challenge status
       if (challenge.status !== "accepted" && challenge.status !== "active") {
-        return NextResponse.json(
-          {
-            error: "Challenge is not in a valid state for card creation",
-            status: challenge.status,
-          },
-          { status: 400 }
-        );
+        return badRequest("Challenge is not in a valid state for card creation");
       }
 
       // Check if user already has a card for this challenge
@@ -118,10 +98,7 @@ export async function POST(request: NextRequest) {
 
       const existingCards = (existingCardResult.data ?? []) as { id: string }[];
       if (existingCards.length > 0) {
-        return NextResponse.json(
-          { error: "You already have a card for this challenge" },
-          { status: 409 }
-        );
+        return conflict("You already have a card for this challenge");
       }
     }
 
@@ -141,12 +118,7 @@ export async function POST(request: NextRequest) {
     const existingProps = (propsResult.data ?? []) as { id: string }[];
 
     if (existingProps.length !== propIds.length) {
-      const foundIds = new Set(existingProps.map((p) => p.id));
-      const missing = propIds.filter((id) => !foundIds.has(id));
-      return NextResponse.json(
-        { error: "Some props not found", missing },
-        { status: 400 }
-      );
+      return badRequest("Some props not found");
     }
 
     // Create card with user_id if authenticated, anon_id if not
@@ -193,8 +165,10 @@ export async function POST(request: NextRequest) {
     const createdPicks = (picksResult.data ?? []) as Pick[];
 
     // If this is a challenge card, check if both participants now have locked cards
+    // Must use admin client to bypass RLS (user can't see opponent's card)
     if (challenge_id && user) {
-      const allChallengeCardsResult = await (supabase.from("cards") as any)
+      const adminClient = createAdminClient();
+      const allChallengeCardsResult = await (adminClient.from("cards") as any)
         .select("id, user_id, status")
         .eq("challenge_id", challenge_id)
         .eq("status", "locked");
@@ -208,7 +182,6 @@ export async function POST(request: NextRequest) {
 
         // Both participants have locked cards — transition challenge to active
         if (challengeCards.length >= 2) {
-          const adminClient = createAdminClient();
           await (adminClient.from("challenges") as any)
             .update({ status: "active" })
             .eq("id", challenge_id)
@@ -221,12 +194,7 @@ export async function POST(request: NextRequest) {
       card: { ...card, picks: createdPicks },
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to create card", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to create card");
   }
 }
 
@@ -250,7 +218,7 @@ export async function GET(request: NextRequest) {
 
     // Scope by authenticated user (defense-in-depth with RLS)
     let query = (supabase.from("cards") as any)
-      .select("*, picks(*, props(player_name, stat_category, line, game_id))")
+      .select("*, picks(*, props(player_name, player_id, stat_category, line, game_id))")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
@@ -270,11 +238,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ cards: cards ?? [] });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to fetch cards", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch cards");
   }
 }

@@ -5,6 +5,7 @@ import type {
   ChallengeStatus,
 } from "@/lib/supabase/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface ChallengeWithProfiles extends Challenge {
   challenger: { id: string; username: string; display_name: string | null; avatar_url: string | null };
@@ -101,7 +102,9 @@ export async function getChallenge(
   }
 
   // Fetch cards linked to this challenge
-  const { data: cards } = await typedFrom(supabase, "cards")
+  // Must use admin client to bypass RLS — user can't see opponent's card
+  const admin = createAdminClient();
+  const { data: cards } = await (admin.from("cards") as any)
     .select(
       "id, user_id, status, score, total_picks, locked_at, resolved_at, picks(id, selection, result, actual_value, prop:props(id, player_name, stat_category, line, game_id))"
     )

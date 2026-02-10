@@ -1,10 +1,28 @@
 import asyncio
 import logging
+import time
 from difflib import SequenceMatcher
 
-from .rate_limiter import nba_rate_limiter
+from utils.rate_limiter import nba_rate_limiter
 
 logger = logging.getLogger(__name__)
+
+# In-memory cache with TTL for live endpoints
+_cache: dict[str, tuple[float, object]] = {}
+CACHE_TTL_SECONDS = 30
+
+
+def _get_cached(key: str):
+    """Return cached value if still valid, else None."""
+    entry = _cache.get(key)
+    if entry and (time.monotonic() - entry[0]) < CACHE_TTL_SECONDS:
+        return entry[1]
+    return None
+
+
+def _set_cached(key: str, value):
+    """Store value in cache with current timestamp."""
+    _cache[key] = (time.monotonic(), value)
 
 
 def _run_sync(func, *args):
@@ -97,6 +115,27 @@ async def get_boxscore(game_id: str) -> list[dict]:
     except Exception as e:
         logger.error(f"Failed to fetch boxscore for game {game_id}: {e}")
         raise
+
+
+async def get_todays_scoreboard_cached() -> list[dict]:
+    """Cached version of get_todays_scoreboard (30s TTL)."""
+    cached = _get_cached("scoreboard")
+    if cached is not None:
+        return cached
+    result = await get_todays_scoreboard()
+    _set_cached("scoreboard", result)
+    return result
+
+
+async def get_boxscore_cached(game_id: str) -> list[dict]:
+    """Cached version of get_boxscore (30s TTL)."""
+    key = f"boxscore:{game_id}"
+    cached = _get_cached(key)
+    if cached is not None:
+        return cached
+    result = await get_boxscore(game_id)
+    _set_cached(key, result)
+    return result
 
 
 def fuzzy_match_player(name: str, candidates: list[dict], threshold: float = 0.6) -> dict | None:

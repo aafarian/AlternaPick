@@ -7,13 +7,14 @@ import type {
   LeaderboardEntryWithProfile,
   LeaderboardResponse,
 } from "@/app/api/leaderboard/route";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 type TabKey = "global" | "friends";
-
-const TABS: { key: TabKey; label: string; requiresAuth: boolean }[] = [
-  { key: "global", label: "Global", requiresAuth: false },
-  { key: "friends", label: "Friends", requiresAuth: true },
-];
 
 export default function LeaderboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -64,30 +65,22 @@ export default function LeaderboardPage() {
     fetchLeaderboard(activeTab);
   }, [activeTab, authLoading, fetchLeaderboard]);
 
-  const handleTabChange = (tab: TabKey) => {
+  const handleTabChange = (value: string) => {
+    const tab = value as TabKey;
     if (tab === "friends" && !user) return;
     setActiveTab(tab);
   };
 
-  // Loading skeleton during auth check
   if (authLoading) {
     return (
-      <div className="flex flex-col gap-8 py-8">
-        <div className="h-8 w-44 animate-pulse rounded-lg bg-surface" />
+      <div className="flex flex-col gap-6 py-8">
+        <Skeleton className="h-8 w-44" />
         <div className="flex gap-2">
-          {[1, 2].map((i) => (
-            <div
-              key={i}
-              className="h-9 w-24 animate-pulse rounded-lg bg-surface"
-            />
-          ))}
+          <Skeleton className="h-9 w-24 rounded-lg" />
+          <Skeleton className="h-9 w-24 rounded-lg" />
         </div>
-        <div className="h-16 animate-pulse rounded-2xl border border-border bg-surface" />
         {[1, 2, 3, 4, 5].map((i) => (
-          <div
-            key={i}
-            className="h-14 animate-pulse rounded-2xl border border-border bg-surface"
-          />
+          <Skeleton key={i} className="h-14 rounded-xl" />
         ))}
       </div>
     );
@@ -97,98 +90,98 @@ export default function LeaderboardPage() {
     <div className="flex flex-col gap-6 py-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">Leaderboard</h1>
-        <p className="text-sm text-muted">
+        <h1 className="text-2xl font-bold tracking-tight">Leaderboard</h1>
+        <p className="text-sm text-muted-foreground">
           {total} player{total !== 1 ? "s" : ""} ranked
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2">
-        {TABS.map((tab) => {
-          const disabled = tab.requiresAuth && !user;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => handleTabChange(tab.key)}
-              disabled={disabled}
-              className={`min-h-[44px] rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === tab.key
-                  ? "bg-indigo-500 text-white"
-                  : disabled
-                    ? "cursor-not-allowed border border-border text-muted/50"
-                    : "border border-border text-muted hover:bg-surface-hover hover:text-foreground"
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList className="bg-secondary">
+          <TabsTrigger
+            value="global"
+            className="data-[state=active]:bg-primary/15 data-[state=active]:text-primary"
+          >
+            Global
+          </TabsTrigger>
+          <TabsTrigger
+            value="friends"
+            disabled={!user}
+            className="data-[state=active]:bg-primary/15 data-[state=active]:text-primary"
+          >
+            Friends
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* Current User Rank Card */}
       {user && userRank && (
-        <div className="rounded-2xl border border-indigo-500/30 bg-indigo-500/10 p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-muted">
-                Your Rank
-              </p>
-              <p className="mt-1 text-2xl font-bold text-indigo-400">
-                #{userRank.rank}
-              </p>
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Your Rank
+                </p>
+                <p className="mt-1 text-3xl font-black text-primary">
+                  #{userRank.rank}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-4 sm:gap-6 sm:text-right">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Win Rate</p>
+                  <p className="text-sm font-bold">
+                    {(userRank.stats.win_rate * 100).toFixed(1)}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Streak</p>
+                  <p className="text-sm font-bold">
+                    {userRank.stats.current_streak}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cards</p>
+                  <p className="text-sm font-bold">
+                    {userRank.stats.total_cards}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">H2H</p>
+                  <p className="text-sm font-bold">
+                    {userRank.stats.h2h_wins}W-{userRank.stats.h2h_losses}L
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-4 sm:gap-6 sm:text-right">
-              <div>
-                <p className="text-xs text-muted">Win Rate</p>
-                <p className="text-sm font-semibold">
-                  {(userRank.stats.win_rate * 100).toFixed(1)}%
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted">Streak</p>
-                <p className="text-sm font-semibold">
-                  {userRank.stats.current_streak}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted">Cards</p>
-                <p className="text-sm font-semibold">
-                  {userRank.stats.total_cards}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted">H2H</p>
-                <p className="text-sm font-semibold">
-                  {userRank.stats.h2h_wins}W-{userRank.stats.h2h_losses}L
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Error */}
       {error && (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-center text-sm text-red-400">
-          {error}
-          <button
-            onClick={() => fetchLeaderboard(activeTab)}
-            className="ml-2 inline-flex min-h-[44px] items-center underline hover:text-red-300"
-          >
-            Retry
-          </button>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="flex items-center gap-2">
+            {error}
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() => fetchLeaderboard(activeTab)}
+              className="text-destructive underline"
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Loading */}
       {loading && !error && (
         <div className="flex flex-col gap-3">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div
-              key={i}
-              className="h-14 animate-pulse rounded-2xl border border-border bg-surface"
-            />
+            <Skeleton key={i} className="h-14 rounded-xl" />
           ))}
         </div>
       )}
@@ -203,16 +196,18 @@ export default function LeaderboardPage() {
 
       {/* Empty state */}
       {!loading && !error && entries.length === 0 && (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-surface py-12 text-center">
-          <span className="text-3xl">
-            {activeTab === "global" ? "\uD83C\uDFC6" : "\uD83D\uDC65"}
-          </span>
-          <p className="text-muted">
-            {activeTab === "global"
-              ? "No leaderboard entries yet. Play some cards to get ranked!"
-              : "None of your friends have played yet. Challenge them to get started!"}
-          </p>
-        </div>
+        <Card className="border-border bg-card">
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <span className="text-3xl">
+              {activeTab === "global" ? "\uD83C\uDFC6" : "\uD83D\uDC65"}
+            </span>
+            <p className="text-muted-foreground">
+              {activeTab === "global"
+                ? "No leaderboard entries yet. Play some cards to get ranked!"
+                : "None of your friends have played yet. Challenge them to get started!"}
+            </p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

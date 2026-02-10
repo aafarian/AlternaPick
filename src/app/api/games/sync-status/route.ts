@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchTodaysGames } from "@/lib/stats-service/client";
+import { handleApiError } from "@/lib/api/errors";
 import type { Game } from "@/lib/supabase/types";
 
 // Map NBA.com tricodes to Odds API full team names
@@ -130,11 +131,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ updated: updated.length, games: updated });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to sync game statuses", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to sync game statuses");
   }
 }

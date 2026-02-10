@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export interface FriendRequest {
   id: string;
@@ -57,47 +60,42 @@ export default function FriendRequestCard({
     .toUpperCase();
 
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-4">
-      {/* Avatar */}
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-400">
-        {profile.avatar_url ? (
-          <Image
-            src={profile.avatar_url}
-            alt={profile.username}
-            width={48}
-            height={48}
-            className="h-12 w-12 rounded-full object-cover"
-          />
-        ) : (
-          initials
-        )}
-      </div>
+    <Card className="border-border bg-card">
+      <CardContent className="flex items-center gap-4 p-4">
+        <Avatar className="h-12 w-12">
+          {profile.avatar_url && (
+            <AvatarImage src={profile.avatar_url} alt={profile.username} />
+          )}
+          <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
 
-      {/* Info */}
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold">
-          {profile.display_name ?? profile.username}
-        </p>
-        <p className="truncate text-sm text-muted">@{profile.username}</p>
-      </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-bold">
+            {profile.display_name ?? profile.username}
+          </p>
+          <p className="truncate text-sm text-muted-foreground">@{profile.username}</p>
+        </div>
 
-      {/* Actions */}
-      <div className="flex shrink-0 gap-2">
-        <button
-          onClick={handleAccept}
-          disabled={loading !== null}
-          className="rounded-lg bg-indigo-500 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-600 disabled:opacity-50"
-        >
-          {loading === "accept" ? "..." : "Accept"}
-        </button>
-        <button
-          onClick={handleDecline}
-          disabled={loading !== null}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-muted transition-colors hover:bg-surface-hover disabled:opacity-50"
-        >
-          {loading === "decline" ? "..." : "Decline"}
-        </button>
-      </div>
-    </div>
+        <div className="flex shrink-0 gap-2">
+          <Button
+            onClick={handleAccept}
+            disabled={loading !== null}
+            size="sm"
+          >
+            {loading === "accept" ? "..." : "Accept"}
+          </Button>
+          <Button
+            onClick={handleDecline}
+            disabled={loading !== null}
+            variant="outline"
+            size="sm"
+          >
+            {loading === "decline" ? "..." : "Decline"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import Image from "next/image";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Loader2, Search } from "lucide-react";
 
 interface SearchResult {
   id: string;
@@ -58,7 +62,6 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
     setSendingTo(username);
     try {
       await onSendRequest(username);
-      // Update the local result to show pending
       setResults((prev) =>
         prev.map((r) =>
           r.username === username
@@ -71,7 +74,6 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
     }
   };
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -85,7 +87,6 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Cleanup debounce on unmount
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -95,33 +96,21 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
   const getStatusButton = (user: SearchResult) => {
     switch (user.friendship_status) {
       case "friends":
-        return (
-          <span className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted">
-            Friends
-          </span>
-        );
+        return <Badge variant="secondary">Friends</Badge>;
       case "pending_sent":
-        return (
-          <span className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted">
-            Pending
-          </span>
-        );
+        return <Badge variant="secondary">Pending</Badge>;
       case "pending_received":
-        return (
-          <span className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted">
-            Respond
-          </span>
-        );
+        return <Badge variant="secondary">Respond</Badge>;
       case "none":
       default:
         return (
-          <button
+          <Button
             onClick={() => handleSendRequest(user.username)}
             disabled={sendingTo === user.username}
-            className="rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-600 disabled:opacity-50"
+            size="sm"
           >
             {sendingTo === user.username ? "..." : "Add Friend"}
-          </button>
+          </Button>
         );
     }
   };
@@ -129,24 +118,22 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
   return (
     <div ref={containerRef} className="relative">
       <div className="relative">
-        <input
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
           type="text"
           placeholder="Search users by username..."
           value={query}
           onChange={(e) => handleInputChange(e.target.value)}
           onFocus={() => results.length > 0 && setIsOpen(true)}
-          className="w-full rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-foreground placeholder:text-muted focus:border-indigo-500 focus:outline-none"
+          className="pl-9"
         />
         {searching && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-          </div>
+          <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary" />
         )}
       </div>
 
-      {/* Dropdown results */}
       {isOpen && results.length > 0 && (
-        <div className="absolute z-10 mt-2 w-full rounded-2xl border border-border bg-surface shadow-lg">
+        <div className="absolute z-10 mt-2 w-full rounded-xl border border-border bg-card shadow-lg">
           {results.map((user) => {
             const initials = (user.display_name ?? user.username)
               .slice(0, 2)
@@ -157,32 +144,24 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
                 key={user.id}
                 className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
               >
-                {/* Avatar */}
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-xs font-bold text-indigo-400">
-                  {user.avatar_url ? (
-                    <Image
-                      src={user.avatar_url}
-                      alt={user.username}
-                      width={32}
-                      height={32}
-                      className="h-8 w-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    initials
+                <Avatar className="h-8 w-8">
+                  {user.avatar_url && (
+                    <AvatarImage src={user.avatar_url} alt={user.username} />
                   )}
-                </div>
+                  <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
 
-                {/* Info */}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">
+                  <p className="truncate text-sm font-bold">
                     {user.display_name ?? user.username}
                   </p>
-                  <p className="truncate text-xs text-muted">
+                  <p className="truncate text-xs text-muted-foreground">
                     @{user.username}
                   </p>
                 </div>
 
-                {/* Status button */}
                 {getStatusButton(user)}
               </div>
             );
@@ -190,9 +169,8 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
         </div>
       )}
 
-      {/* No results message */}
       {isOpen && results.length === 0 && query.length >= 2 && !searching && (
-        <div className="absolute z-10 mt-2 w-full rounded-2xl border border-border bg-surface p-4 text-center text-sm text-muted shadow-lg">
+        <div className="absolute z-10 mt-2 w-full rounded-xl border border-border bg-card p-4 text-center text-sm text-muted-foreground shadow-lg">
           No users found matching &quot;{query}&quot;
         </div>
       )}

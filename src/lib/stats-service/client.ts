@@ -16,6 +16,14 @@ export interface StatsGame {
   start_time: string;
 }
 
+export interface NbaPlayer {
+  id: string;
+  full_name: string;
+  first_name: string;
+  last_name: string;
+  team_abbreviation?: string;
+}
+
 export interface PlayerBoxScore {
   player_name: string;
   player_id: string;
@@ -117,4 +125,30 @@ export async function fetchPlayerStats(
   );
   const data = await response.json();
   return data.data ?? null;
+}
+
+export async function fetchAllPlayers(): Promise<NbaPlayer[]> {
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/players/all`
+  );
+  const data = await response.json();
+  return data.data ?? [];
+}
+
+export async function fetchBoxscoreLive(
+  gameId: string
+): Promise<PlayerBoxScore[]> {
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/games/${gameId}/boxscore/live`
+  );
+  const data = await response.json();
+  return data.data ?? [];
+}
+
+export async function fetchTodaysGamesLive(): Promise<StatsGame[]> {
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/games/today/live`
+  );
+  const data = await response.json();
+  return data.data ?? [];
 }

@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import type { FriendRequest } from "./FriendRequestCard";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface FriendsListProps {
   friends: FriendRequest[];
@@ -25,13 +27,15 @@ export default function FriendsList({ friends, onUnfriend }: FriendsListProps) {
 
   if (friends.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-surface py-12 text-center">
-        <span className="text-3xl">👋</span>
-        <p className="text-muted">No friends yet</p>
-        <p className="text-sm text-muted">
-          Search for users above to send friend requests.
-        </p>
-      </div>
+      <Card className="border-border bg-card">
+        <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+          <span className="text-3xl">👋</span>
+          <p className="text-muted-foreground">No friends yet</p>
+          <p className="text-sm text-muted-foreground">
+            Search for users above to send friend requests.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -46,62 +50,56 @@ export default function FriendsList({ friends, onUnfriend }: FriendsListProps) {
         const isLoading = loading === friend.id;
 
         return (
-          <div
-            key={friend.id}
-            className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-4"
-          >
-            {/* Avatar */}
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-400">
-              {profile.avatar_url ? (
-                <Image
-                  src={profile.avatar_url}
-                  alt={profile.username}
-                  width={48}
-                  height={48}
-                  className="h-12 w-12 rounded-full object-cover"
-                />
-              ) : (
-                initials
-              )}
-            </div>
+          <Card key={friend.id} className="border-border bg-card">
+            <CardContent className="flex items-center gap-4 p-4">
+              <Avatar className="h-12 w-12">
+                {profile.avatar_url && (
+                  <AvatarImage src={profile.avatar_url} alt={profile.username} />
+                )}
+                <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
 
-            {/* Info */}
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold">
-                {profile.display_name ?? profile.username}
-              </p>
-              <p className="truncate text-sm text-muted">@{profile.username}</p>
-            </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-bold">
+                  {profile.display_name ?? profile.username}
+                </p>
+                <p className="truncate text-sm text-muted-foreground">@{profile.username}</p>
+              </div>
 
-            {/* Actions */}
-            <div className="flex shrink-0 gap-2">
-              {isConfirming ? (
-                <>
-                  <button
-                    onClick={() => handleUnfriend(friend.id)}
-                    disabled={isLoading}
-                    className="rounded-lg bg-red-500 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50"
+              <div className="flex shrink-0 gap-2">
+                {isConfirming ? (
+                  <>
+                    <Button
+                      onClick={() => handleUnfriend(friend.id)}
+                      disabled={isLoading}
+                      variant="destructive"
+                      size="sm"
+                    >
+                      {isLoading ? "..." : "Confirm"}
+                    </Button>
+                    <Button
+                      onClick={() => setConfirmId(null)}
+                      disabled={isLoading}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    onClick={() => setConfirmId(friend.id)}
+                    variant="outline"
+                    size="sm"
                   >
-                    {isLoading ? "..." : "Confirm"}
-                  </button>
-                  <button
-                    onClick={() => setConfirmId(null)}
-                    disabled={isLoading}
-                    className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-muted transition-colors hover:bg-surface-hover disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => setConfirmId(friend.id)}
-                  className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-muted transition-colors hover:bg-surface-hover"
-                >
-                  Unfriend
-                </button>
-              )}
-            </div>
-          </div>
+                    Unfriend
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         );
       })}
     </div>

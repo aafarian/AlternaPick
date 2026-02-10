@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
 import {
   getFriends,
   getPendingRequests,
   sendFriendRequest,
-  ValidationError,
-  NotFoundError,
-  ConflictError,
 } from "@/lib/friends/queries";
 
 /**
@@ -24,10 +22,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const { searchParams } = new URL(request.url);
@@ -41,12 +36,7 @@ export async function GET(request: NextRequest) {
     const friends = await getFriends(supabase, user.id);
     return NextResponse.json({ friends });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to fetch friends", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch friends");
   }
 }
 
@@ -63,19 +53,13 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const body = (await request.json()) as { addressee_username?: string };
 
     if (!body.addressee_username || typeof body.addressee_username !== "string") {
-      return NextResponse.json(
-        { error: "addressee_username is required" },
-        { status: 400 }
-      );
+      return badRequest("addressee_username is required");
     }
 
     const friendship = await sendFriendRequest(
@@ -108,21 +92,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ friendship }, { status: 201 });
   } catch (error) {
-    if (
-      error instanceof ValidationError ||
-      error instanceof NotFoundError ||
-      error instanceof ConflictError
-    ) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status }
-      );
-    }
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to send friend request", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to send friend request");
   }
 }

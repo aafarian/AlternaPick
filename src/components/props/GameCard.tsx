@@ -1,7 +1,25 @@
 "use client";
 
-import type { Game, Prop } from "@/lib/supabase/types";
+import type { Game, Prop, StatCategory } from "@/lib/supabase/types";
 import PropLine from "./PropLine";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { teamTricode } from "@/lib/constants";
+
+const STAT_SORT_ORDER: Record<StatCategory, number> = {
+  points: 0,
+  rebounds: 1,
+  assists: 2,
+  threes: 3,
+  pra: 4,
+  pts_reb: 5,
+  pts_ast: 6,
+  reb_ast: 7,
+  blocks: 8,
+  steals: 9,
+  blk_stl: 10,
+  turnovers: 11,
+};
 
 interface GameCardProps {
   game: Game & { props: Prop[] };
@@ -16,51 +34,53 @@ function formatGameTime(commenceTime: string): string {
   });
 }
 
-// Group props by player name
-function groupByPlayer(props: Prop[]): Map<string, Prop[]> {
-  const grouped = new Map<string, Prop[]>();
-  for (const prop of props) {
-    const existing = grouped.get(prop.player_name) ?? [];
-    existing.push(prop);
-    grouped.set(prop.player_name, existing);
-  }
-  return grouped;
-}
-
 export default function GameCard({ game }: GameCardProps) {
-  const playerGroups = groupByPlayer(game.props);
+  // Sort props: group by team (away first, then home), then by stat category within each team
+  const awayCode = teamTricode(game.away_team);
+  const homeCode = teamTricode(game.home_team);
+  const sortedProps = [...game.props].sort((a, b) => {
+    const teamOrder = (p: Prop) =>
+      p.player_team === awayCode ? 0
+        : p.player_team === homeCode ? 1
+        : 2;
+    const teamDiff = teamOrder(a) - teamOrder(b);
+    if (teamDiff !== 0) return teamDiff;
+
+    // Within same team, sort by stat category
+    return (STAT_SORT_ORDER[a.stat_category] ?? 99) - (STAT_SORT_ORDER[b.stat_category] ?? 99);
+  });
 
   return (
-    <div className="rounded-2xl border border-border bg-surface">
-      {/* Game header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+    <Card id={`game-${game.id}`} className="scroll-mt-32 border-border bg-card">
+      <CardHeader className="flex-row items-center justify-between space-y-0 border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="font-semibold">{game.away_team}</span>
-          <span className="text-muted">@</span>
-          <span className="font-semibold">{game.home_team}</span>
+          <span className="font-bold">{game.away_team}</span>
+          <span className="text-muted-foreground">@</span>
+          <span className="font-bold">{game.home_team}</span>
         </div>
-        <span className="text-sm text-muted">
+        <Badge variant="secondary" className="text-xs font-medium">
           {formatGameTime(game.commence_time)}
-        </span>
-      </div>
+        </Badge>
+      </CardHeader>
 
-      {/* Props */}
-      <div className="flex flex-col gap-1 p-2">
-        {Array.from(playerGroups.entries()).map(([playerName, props]) => (
-          <div key={playerName} className="flex flex-col gap-1">
-            {props.map((prop) => (
-              <PropLine
-                key={prop.id}
-                propId={prop.id}
-                gameId={game.id}
-                playerName={prop.player_name}
-                statCategory={prop.stat_category}
-                line={prop.line}
-              />
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
+      <CardContent className="p-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {sortedProps.map((prop) => (
+            <PropLine
+              key={prop.id}
+              propId={prop.id}
+              gameId={game.id}
+              playerName={prop.player_name}
+              playerId={prop.player_id}
+              playerTeam={prop.player_team}
+              statCategory={prop.stat_category}
+              line={prop.line}
+              awayTeam={game.away_team}
+              homeTeam={game.home_team}
+            />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

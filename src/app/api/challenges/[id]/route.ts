@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
+import { unauthorized, badRequest, notFound, handleApiError } from "@/lib/api/errors";
 import type { Challenge } from "@/lib/supabase/types";
 import {
   getChallenge,
   respondToChallenge,
-  ChallengeValidationError,
-  ChallengeNotFoundError,
 } from "@/lib/challenges/queries";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -24,10 +23,7 @@ export async function GET(
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const { id } = await context.params;
@@ -35,20 +31,12 @@ export async function GET(
     const challenge = await getChallenge(supabase, id, user.id);
 
     if (!challenge) {
-      return NextResponse.json(
-        { error: "Challenge not found" },
-        { status: 404 }
-      );
+      return notFound("Challenge");
     }
 
     return NextResponse.json({ challenge });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to fetch challenge", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch challenge");
   }
 }
 
@@ -64,10 +52,7 @@ export async function PATCH(
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const { id } = await context.params;
@@ -75,18 +60,12 @@ export async function PATCH(
     const body = (await request.json()) as { action?: string };
 
     if (!body.action) {
-      return NextResponse.json(
-        { error: "action is required (accept, decline, or cancel)" },
-        { status: 400 }
-      );
+      return badRequest("action is required (accept, decline, or cancel)");
     }
 
     const validActions = ["accept", "decline", "cancel"];
     if (!validActions.includes(body.action)) {
-      return NextResponse.json(
-        { error: `Invalid action: ${body.action}. Must be accept, decline, or cancel` },
-        { status: 400 }
-      );
+      return badRequest(`Invalid action: ${body.action}. Must be accept, decline, or cancel`);
     }
 
     const challenge = await respondToChallenge(
@@ -123,25 +102,6 @@ export async function PATCH(
 
     return NextResponse.json({ challenge });
   } catch (error) {
-    if (error instanceof ChallengeNotFoundError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status }
-      );
-    }
-
-    if (error instanceof ChallengeValidationError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status }
-      );
-    }
-
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to update challenge", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to update challenge");
   }
 }

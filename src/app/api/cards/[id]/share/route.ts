@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { unauthorized, badRequest, notFound, handleApiError } from "@/lib/api/errors";
 import type { Card, Pick as PickRow } from "@/lib/supabase/types";
 import {
   generateShareToken,
@@ -19,10 +20,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const { id } = await context.params;
@@ -34,10 +32,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .single();
 
     if (cardResult.error || !cardResult.data) {
-      return NextResponse.json(
-        { error: "Card not found" },
-        { status: 404 }
-      );
+      return notFound("Card");
     }
 
     const card = cardResult.data as Card;
@@ -52,10 +47,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Only resolved cards can be shared
     if (card.status !== "resolved") {
-      return NextResponse.json(
-        { error: "Only resolved cards can be shared" },
-        { status: 400 }
-      );
+      return badRequest("Only resolved cards can be shared");
     }
 
     // Generate token if one doesn't already exist (idempotent)
@@ -80,7 +72,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Fetch picks with prop details for the summary
     const picksResult = await (supabase.from("picks") as any)
-      .select("*, props(player_name, stat_category, line)")
+      .select("*, props(player_name, player_id, stat_category, line)")
       .eq("card_id", id);
 
     if (picksResult.error) {
@@ -103,11 +95,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       summary,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to generate share link", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to generate share link");
   }
 }

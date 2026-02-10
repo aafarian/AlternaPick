@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveEligibleCards } from "@/lib/cards/resolution";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
+import { handleApiError } from "@/lib/api/errors";
 
 export async function POST(request: NextRequest) {
   // Auth check
@@ -44,11 +45,6 @@ export async function POST(request: NextRequest) {
       })),
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Resolution failed", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Resolution failed");
   }
 }

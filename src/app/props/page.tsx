@@ -4,6 +4,8 @@ import type { StatCategory } from "@/lib/supabase/types";
 import GameCard from "@/components/props/GameCard";
 import PropsHeader from "@/components/props/PropsHeader";
 import CategoryFilter from "@/components/props/CategoryFilter";
+import GameSelector from "@/components/props/GameSelector";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface PropsPageProps {
   searchParams: Promise<{ category?: string }>;
@@ -13,7 +15,6 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
   const { category } = await searchParams;
   const games = await getCachedProps();
 
-  // Filter by category if specified
   const filtered =
     games?.map((game) => ({
       ...game,
@@ -31,18 +32,31 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
     <div className="flex flex-col gap-6 py-8">
       <PropsHeader gameCount={withProps.length} />
 
-      <Suspense fallback={null}>
-        <CategoryFilter />
-      </Suspense>
+      <div className="flex flex-col gap-3">
+        <Suspense fallback={null}>
+          <CategoryFilter />
+        </Suspense>
+
+        <GameSelector
+          games={withProps.map((g) => ({
+            id: g.id,
+            away_team: g.away_team,
+            home_team: g.home_team,
+            commence_time: g.commence_time,
+          }))}
+        />
+      </div>
 
       {withProps.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-surface py-20 text-center">
-          <span className="text-4xl">🏀</span>
-          <h2 className="text-xl font-semibold">No games tonight</h2>
-          <p className="text-muted">
-            Check back on game day for player props!
-          </p>
-        </div>
+        <Card className="border-border bg-card">
+          <CardContent className="flex flex-col items-center gap-4 py-20 text-center">
+            <span className="text-5xl">🏀</span>
+            <h2 className="text-xl font-bold">No games tonight</h2>
+            <p className="text-muted-foreground">
+              Check back on game day for player props!
+            </p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="flex flex-col gap-4">
           {withProps.map((game) => (

@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
+import { unauthorized, badRequest, notFound, handleApiError } from "@/lib/api/errors";
 import type { Friendship } from "@/lib/supabase/types";
 import {
   acceptFriendRequest,
   declineFriendRequest,
   removeFriend,
-  ValidationError,
-  NotFoundError,
 } from "@/lib/friends/queries";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -26,10 +25,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const { data: friendship, error } = await (
@@ -40,30 +36,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .single();
 
     if (error || !friendship) {
-      return NextResponse.json(
-        { error: "Friendship not found" },
-        { status: 404 }
-      );
+      return notFound("Friendship");
     }
 
     const row = friendship as Friendship;
 
     // Only participants can view
     if (row.requester_id !== user.id && row.addressee_id !== user.id) {
-      return NextResponse.json(
-        { error: "Friendship not found" },
-        { status: 404 }
-      );
+      return notFound("Friendship");
     }
 
     return NextResponse.json({ friendship: row });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to fetch friendship", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch friendship");
   }
 }
 
@@ -81,19 +66,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const body = (await request.json()) as { action?: string };
 
     if (body.action !== "accept" && body.action !== "decline") {
-      return NextResponse.json(
-        { error: 'action must be "accept" or "decline"' },
-        { status: 400 }
-      );
+      return badRequest('action must be "accept" or "decline"');
     }
 
     if (body.action === "accept") {
@@ -128,18 +107,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     await declineFriendRequest(supabase, id, user.id);
     return NextResponse.json({ message: "Friend request declined" });
   } catch (error) {
-    if (error instanceof ValidationError || error instanceof NotFoundError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status }
-      );
-    }
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to update friendship", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to update friendship");
   }
 }
 
@@ -156,26 +124,12 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     await removeFriend(supabase, id, user.id);
     return NextResponse.json({ message: "Friend removed" });
   } catch (error) {
-    if (error instanceof NotFoundError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status }
-      );
-    }
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to remove friend", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to remove friend");
   }
 }

@@ -67,7 +67,8 @@ export async function fetchEventOdds(
 }
 
 function parseOddsResponse(data: OddsApiOddsResponse): ParsedPlayerProp[] {
-  const props: ParsedPlayerProp[] = [];
+  // Use a map to deduplicate: keep first bookmaker's line per player+stat combo
+  const dedupMap = new Map<string, ParsedPlayerProp>();
 
   for (const bookmaker of data.bookmakers) {
     for (const market of bookmaker.markets) {
@@ -82,16 +83,19 @@ function parseOddsResponse(data: OddsApiOddsResponse): ParsedPlayerProp[] {
       >();
 
       for (const outcome of market.outcomes) {
-        const key = `${outcome.name}_${outcome.point}`;
+        // Odds API: name = "Over"/"Under", description = player name
+        const playerName = outcome.description;
+        const side = outcome.name;
+        const key = `${playerName}_${outcome.point}`;
         const existing = playerOutcomes.get(key) || {
           over_odds: null,
           under_odds: null,
           line: outcome.point,
         };
 
-        if (outcome.description === "Over") {
+        if (side === "Over") {
           existing.over_odds = outcome.price;
-        } else if (outcome.description === "Under") {
+        } else if (side === "Under") {
           existing.under_odds = outcome.price;
         }
 
@@ -100,19 +104,49 @@ function parseOddsResponse(data: OddsApiOddsResponse): ParsedPlayerProp[] {
 
       for (const [key, data] of playerOutcomes) {
         const playerName = key.substring(0, key.lastIndexOf("_"));
-        props.push({
-          player_name: playerName,
-          stat_category: statCategory,
-          line: data.line,
-          over_odds: data.over_odds,
-          under_odds: data.under_odds,
-          bookmaker: bookmaker.key,
-        });
+        const dedupKey = `${playerName}_${statCategory}_${data.line}`;
+        if (!dedupMap.has(dedupKey)) {
+          dedupMap.set(dedupKey, {
+            player_name: playerName,
+            stat_category: statCategory,
+            line: data.line,
+            over_odds: data.over_odds,
+            under_odds: data.under_odds,
+            bookmaker: bookmaker.key,
+          });
+        }
       }
     }
   }
 
-  return props;
+  // Second pass: collapse multiple bookmaker lines into one consensus (median) per player+stat
+  const consensusMap = new Map<
+    string,
+    { lines: number[]; base: ParsedPlayerProp }
+  >();
+  for (const prop of dedupMap.values()) {
+    const key = `${prop.player_name}_${prop.stat_category}`;
+    const existing = consensusMap.get(key);
+    if (existing) {
+      existing.lines.push(prop.line);
+    } else {
+      consensusMap.set(key, { lines: [prop.line], base: prop });
+    }
+  }
+
+  return Array.from(consensusMap.values()).map(({ lines, base }) => {
+    lines.sort((a, b) => a - b);
+    const mid = Math.floor(lines.length / 2);
+    let median =
+      lines.length % 2 === 0
+        ? (lines[mid - 1] + lines[mid]) / 2
+        : lines[mid];
+    // Ensure half-point line to avoid pushes (e.g. 18.0 → 18.5)
+    if (median % 1 === 0) {
+      median += 0.5;
+    }
+    return { ...base, line: median, bookmaker: "consensus" };
+  });
 }
 
 export async function fetchAllProps(): Promise<FetchPropsResult> {

@@ -2,8 +2,8 @@ export default function ChallengesLoading() {
   return (
     <div className="flex flex-col gap-8 py-8">
       <div className="flex items-center justify-between">
-        <div className="h-8 w-44 animate-pulse rounded-lg bg-surface" />
-        <div className="h-10 w-36 animate-pulse rounded-lg bg-surface" />
+        <div className="h-8 w-44 animate-pulse rounded-lg bg-card" />
+        <div className="h-10 w-36 animate-pulse rounded-lg bg-card" />
       </div>
 
       {/* Tab skeleton */}
@@ -11,7 +11,7 @@ export default function ChallengesLoading() {
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className="h-9 w-24 animate-pulse rounded-lg bg-surface"
+            className="h-9 w-24 animate-pulse rounded-lg bg-card"
           />
         ))}
       </div>
@@ -20,7 +20,7 @@ export default function ChallengesLoading() {
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className="h-20 animate-pulse rounded-2xl border border-border bg-surface"
+          className="h-20 animate-pulse rounded-xl border border-border bg-card"
         />
       ))}
     </div>

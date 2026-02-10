@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import NotificationList from "@/components/notifications/NotificationList";
 import type { Notification } from "@/lib/supabase/types";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { AlertCircle } from "lucide-react";
 
 export default function NotificationsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -126,13 +130,10 @@ export default function NotificationsPage() {
   if (authLoading || (!user && !authLoading)) {
     return (
       <div className="flex flex-col gap-8 py-8">
-        <div className="h-8 w-52 animate-pulse rounded-lg bg-surface" />
-        <div className="h-4 w-64 animate-pulse rounded-lg bg-surface" />
+        <Skeleton className="h-8 w-52" />
+        <Skeleton className="h-4 w-64" />
         {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className="h-20 animate-pulse rounded-2xl border border-border bg-surface"
-          />
+          <Skeleton key={i} className="h-20 rounded-xl" />
         ))}
       </div>
     );
@@ -143,45 +144,47 @@ export default function NotificationsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Notifications</h1>
-          <p className="text-sm text-muted">
+          <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
+          <p className="text-sm text-muted-foreground">
             Stay up to date with your picks and challenges
           </p>
         </div>
 
         {hasUnread && !loading && (
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleMarkAllRead}
             disabled={markingAll}
-            className="shrink-0 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-muted transition-colors hover:bg-surface-hover hover:text-foreground disabled:opacity-50 min-h-[44px]"
           >
             {markingAll ? "Marking..." : "Mark all read"}
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Error state */}
       {error && (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-center text-sm text-red-400">
-          {error}
-          <button
-            onClick={fetchNotifications}
-            className="ml-2 underline hover:text-red-300"
-          >
-            Retry
-          </button>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {error}
+            <Button
+              variant="link"
+              size="sm"
+              onClick={fetchNotifications}
+              className="ml-2 text-destructive underline"
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Loading state */}
       {loading && !error && (
         <div className="flex flex-col gap-3">
           {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="h-20 animate-pulse rounded-2xl border border-border bg-surface"
-            />
+            <Skeleton key={i} className="h-20 rounded-xl" />
           ))}
         </div>
       )}

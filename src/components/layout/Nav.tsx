@@ -4,29 +4,43 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/lib/auth/actions";
 import type { AuthUser } from "@/lib/auth/types";
-import NotificationBadge from "./NotificationBadge";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Trophy,
+  LayoutGrid,
+  Swords,
+  Users,
+  Activity,
+  Clock,
+  User,
+  LogOut,
+  LogIn,
+  Radio,
+} from "lucide-react";
 
 interface NavLink {
   href: string;
   label: string;
-  badgeKey?: "friends" | "challenges" | "notifications";
+  icon: React.ElementType;
+  badgeKey?: "friends" | "challenges";
 }
 
 const authenticatedLinks: NavLink[] = [
-  { href: "/props", label: "Props" },
-  { href: "/cards", label: "My Cards" },
-  { href: "/challenges", label: "Challenges", badgeKey: "challenges" },
-  { href: "/friends", label: "Friends", badgeKey: "friends" },
-  { href: "/activity", label: "Activity" },
-  { href: "/notifications", label: "Notifications", badgeKey: "notifications" },
-  { href: "/history", label: "History" },
-  { href: "/leaderboard", label: "Leaderboard" },
-  { href: "/profile", label: "Profile" },
+  { href: "/props", label: "Props", icon: LayoutGrid },
+  { href: "/cards", label: "My Cards", icon: LayoutGrid },
+  { href: "/live", label: "Live", icon: Radio },
+  { href: "/challenges", label: "Challenges", icon: Swords, badgeKey: "challenges" },
+  { href: "/friends", label: "Friends", icon: Users, badgeKey: "friends" },
+  { href: "/activity", label: "Activity", icon: Activity },
+  { href: "/history", label: "History", icon: Clock },
+  { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  { href: "/profile", label: "Profile", icon: User },
 ];
 
 const publicLinks: NavLink[] = [
-  { href: "/props", label: "Props" },
-  { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/props", label: "Props", icon: LayoutGrid },
+  { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
 ];
 
 export interface NotificationCounts {
@@ -48,48 +62,61 @@ export default function Nav({
   const links = user ? authenticatedLinks : publicLinks;
 
   return (
-    <nav className="flex flex-col gap-1 md:flex-row md:items-center md:gap-1 md:overflow-x-auto md:scrollbar-none">
+    <nav className="flex flex-col gap-1 md:flex-row md:items-center md:gap-0.5 md:overflow-x-auto md:scrollbar-none">
       {links.map((link) => {
         const isActive = pathname === link.href;
         const badgeCount =
           link.badgeKey && notificationCounts
             ? notificationCounts[link.badgeKey]
             : 0;
+        const Icon = link.icon;
 
         return (
-          <Link
-            key={link.href}
-            href={link.href}
-            onClick={onNavigate}
-            className={`relative flex min-h-[44px] items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-              isActive
-                ? "bg-accent/10 text-accent"
-                : "text-muted hover:bg-surface-hover hover:text-foreground"
-            }`}
-          >
-            {link.label}
-            {badgeCount > 0 && <NotificationBadge count={badgeCount} />}
+          <Link key={link.href} href={link.href} onClick={onNavigate}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`relative w-full justify-start gap-2 md:w-auto ${
+                isActive
+                  ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+            >
+              <Icon className="h-4 w-4 md:hidden" />
+              {link.label}
+              {badgeCount > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 min-w-5 px-1.5 text-[10px] font-bold">
+                  {badgeCount > 9 ? "9+" : badgeCount}
+                </Badge>
+              )}
+            </Button>
           </Link>
         );
       })}
 
       {user ? (
         <form action={signOut}>
-          <button
+          <Button
             type="submit"
+            variant="ghost"
+            size="sm"
             onClick={onNavigate}
-            className="flex min-h-[44px] items-center rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
+            className="w-full justify-start gap-2 text-muted-foreground hover:bg-secondary hover:text-foreground md:w-auto"
           >
+            <LogOut className="h-4 w-4 md:hidden" />
             Sign Out
-          </button>
+          </Button>
         </form>
       ) : (
-        <Link
-          href="/auth/login"
-          onClick={onNavigate}
-          className="flex min-h-[44px] items-center rounded-lg bg-accent/10 px-3 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/20"
-        >
-          Sign In
+        <Link href="/auth/login" onClick={onNavigate}>
+          <Button
+            variant="default"
+            size="sm"
+            className="w-full justify-start gap-2 md:w-auto"
+          >
+            <LogIn className="h-4 w-4 md:hidden" />
+            Sign In
+          </Button>
         </Link>
       )}
     </nav>

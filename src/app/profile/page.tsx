@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Profile, LeaderboardEntry } from "@/lib/supabase/types";
 import ProfileCard from "@/components/profile/ProfileCard";
 import ProfileEditForm from "@/components/profile/ProfileEditForm";
+import { Separator } from "@/components/ui/separator";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -29,9 +30,9 @@ export default async function ProfilePage() {
   if (!profile) {
     return (
       <div className="flex flex-col items-center gap-4 py-20 text-center">
-        <span className="text-4xl">⏳</span>
+        <span className="text-4xl">&#9203;</span>
         <h1 className="text-xl font-semibold">Setting up your profile...</h1>
-        <p className="text-muted">
+        <p className="text-muted-foreground">
           Please refresh the page in a moment.
         </p>
       </div>
@@ -40,12 +41,13 @@ export default async function ProfilePage() {
 
   return (
     <div className="flex flex-col gap-6 py-8">
-      <h1 className="text-2xl font-bold">Profile</h1>
+      <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
       <ProfileCard
         profile={profile as Profile}
         email={user.email ?? ""}
         stats={(stats as LeaderboardEntry | null) ?? null}
       />
+      <Separator />
       <ProfileEditForm
         displayName={(profile as Profile).display_name}
         avatarUrl={(profile as Profile).avatar_url}

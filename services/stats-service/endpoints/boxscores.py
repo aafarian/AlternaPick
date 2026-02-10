@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from ..utils.nba_client import get_boxscore, get_todays_scoreboard, fuzzy_match_player
+from utils.nba_client import get_boxscore, get_boxscore_cached, get_todays_scoreboard, fuzzy_match_player
 
 router = APIRouter(tags=["boxscores"])
 
@@ -16,6 +16,23 @@ async def game_boxscore(game_id: str):
             status_code=503,
             detail={
                 "error": f"Failed to fetch boxscore for game {game_id}",
+                "message": str(e),
+                "retry": "Try again in a few seconds",
+            },
+        )
+
+
+@router.get("/games/{game_id}/boxscore/live")
+async def game_boxscore_live(game_id: str):
+    """Get cached player box score for a specific game (30s TTL)."""
+    try:
+        players = await get_boxscore_cached(game_id)
+        return {"data": players, "count": len(players)}
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": f"Failed to fetch live boxscore for game {game_id}",
                 "message": str(e),
                 "retry": "Try again in a few seconds",
             },

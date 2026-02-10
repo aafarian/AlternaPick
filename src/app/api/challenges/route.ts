@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
 import type { ChallengeStatus } from "@/lib/supabase/types";
 import {
   getChallenges,
   createChallenge,
-  ChallengeValidationError,
 } from "@/lib/challenges/queries";
 
 export async function GET(request: NextRequest) {
@@ -18,10 +18,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const { searchParams } = new URL(request.url);
@@ -40,10 +37,7 @@ export async function GET(request: NextRequest) {
       ];
       for (const s of statusFilter) {
         if (!validStatuses.includes(s)) {
-          return NextResponse.json(
-            { error: `Invalid status filter: ${s}` },
-            { status: 400 }
-          );
+          return badRequest(`Invalid status filter: ${s}`);
         }
       }
     }
@@ -52,12 +46,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ challenges });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to fetch challenges", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch challenges");
   }
 }
 
@@ -70,19 +59,13 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const body = (await request.json()) as { opponent_id?: string };
 
     if (!body.opponent_id) {
-      return NextResponse.json(
-        { error: "opponent_id is required" },
-        { status: 400 }
-      );
+      return badRequest("opponent_id is required");
     }
 
     const challenge = await createChallenge(
@@ -115,18 +98,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ challenge }, { status: 201 });
   } catch (error) {
-    if (error instanceof ChallengeValidationError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status }
-      );
-    }
-
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to create challenge", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to create challenge");
   }
 }

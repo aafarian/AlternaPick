@@ -1,5 +1,9 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+
 export default function PropsError({
   error,
   reset,
@@ -8,18 +12,16 @@ export default function PropsError({
   reset: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-surface py-20 text-center">
-      <span className="text-4xl">⚠️</span>
-      <h2 className="text-xl font-semibold">Something went wrong</h2>
-      <p className="max-w-md text-sm text-muted">
-        {error.message || "Failed to load props. Please try again."}
-      </p>
-      <button
-        onClick={reset}
-        className="rounded-lg bg-accent px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
-      >
+    <div className="flex flex-col items-center gap-4 py-16 text-center">
+      <Alert variant="destructive" className="max-w-md">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          {error.message || "Something went wrong"}
+        </AlertDescription>
+      </Alert>
+      <Button onClick={reset} variant="outline" size="sm">
         Try Again
-      </button>
+      </Button>
     </div>
   );
 }

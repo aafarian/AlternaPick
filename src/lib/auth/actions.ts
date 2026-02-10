@@ -3,35 +3,54 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { claimAnonymousCards } from "@/lib/auth/claim-cards";
 
-export async function signIn(formData: FormData) {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  const redirectTo = (formData.get("redirectTo") as string) || "/cards";
+/**
+ * Resolves a login identifier (email or username) to an email address.
+ * The actual signInWithPassword happens client-side so onAuthStateChange fires.
+ */
+export async function resolveLoginEmail(login: string) {
+  if (!login) return { error: "Email or username is required" };
 
-  if (!email || !password) {
-    return { error: "Email and password are required" };
-  }
+  // Already an email — return as-is
+  if (login.includes("@")) return { email: login };
 
-  const supabase = await createClient();
-  const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+  // Username → look up the associated email
+  const admin = createAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = await (admin.from("profiles") as any)
+    .select("id")
+    .eq("username", login)
+    .maybeSingle() as { data: { id: string } | null };
 
-  if (error) {
-    return { error: error.message };
-  }
+  if (!profile) return { error: "Invalid username or password" };
 
-  // Claim anonymous cards if the user had a local session
-  const cookieStore = await cookies();
-  const anonId = cookieStore.get("st_anon_id")?.value;
-  if (anonId && data.user) {
-    await claimAnonymousCards(data.user.id, anonId);
-    cookieStore.delete("st_anon_id");
-  }
+  const { data: userData } = await admin.auth.admin.getUserById(profile.id);
+  if (!userData?.user?.email) return { error: "Invalid username or password" };
 
-  redirect(redirectTo);
+  return { email: userData.user.email };
 }
 
+/**
+ * Claims anonymous cards after sign-in (called client-side after successful auth).
+ */
+export async function claimCardsAfterLogin() {
+  const cookieStore = await cookies();
+  const anonId = cookieStore.get("st_anon_id")?.value;
+  if (!anonId) return;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    await claimAnonymousCards(user.id, anonId);
+    cookieStore.delete("st_anon_id");
+  }
+}
+
+/**
+ * Creates a new account. The actual sign-in happens client-side after this returns.
+ */
 export async function signUp(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
@@ -49,23 +68,58 @@ export async function signUp(formData: FormData) {
     return { error: "Username must be 3-20 characters, alphanumeric and underscores only" };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const admin = createAdminClient();
+
+  // Check username availability
+  const { data: existing } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("username", username)
+    .maybeSingle();
+
+  if (existing) {
+    return { error: "Username already taken" };
+  }
+
+  // Use admin API — gives actual error details instead of GoTrue's generic message
+  const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
-    options: {
-      data: {
-        username,
-        display_name: username,
-      },
-    },
+    user_metadata: { username, display_name: username },
+    email_confirm: true,
   });
 
   if (error) {
+    console.error("[signUp] Error:", error.message);
     return { error: error.message };
   }
 
-  return { success: "Check your email to confirm your account!" };
+  // Ensure profile exists (trigger should handle this, but belt-and-suspenders)
+  if (data.user) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: profileError } = await (admin.from("profiles") as any).upsert(
+      {
+        id: data.user.id,
+        username,
+        display_name: username,
+      },
+      { onConflict: "id" }
+    );
+
+    if (profileError) {
+      console.error("[signUp] Profile upsert error:", profileError);
+    }
+
+    // Ensure leaderboard entry exists
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (admin.from("leaderboard_entries") as any).upsert(
+      { user_id: data.user.id },
+      { onConflict: "user_id" }
+    );
+  }
+
+  // Return success — client will handle sign-in so onAuthStateChange fires
+  return { success: true };
 }
 
 export async function signOut() {

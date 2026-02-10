@@ -1,22 +1,27 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+
 export default function ShareCardError({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center gap-4 py-20 text-center">
-      <span className="text-4xl">&#x26A0;&#xFE0F;</span>
-      <h2 className="text-xl font-semibold">Something went wrong</h2>
-      <p className="text-muted">Failed to load the shared card.</p>
-      <button
-        onClick={reset}
-        className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-600"
-      >
+    <div className="flex flex-col items-center gap-4 py-16 text-center">
+      <Alert variant="destructive" className="max-w-md">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          {error.message || "Something went wrong"}
+        </AlertDescription>
+      </Alert>
+      <Button onClick={reset} variant="outline" size="sm">
         Try Again
-      </button>
+      </Button>
     </div>
   );
 }

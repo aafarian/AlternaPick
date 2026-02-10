@@ -10,8 +10,8 @@ export interface OddsApiEvent {
 }
 
 export interface OddsApiOutcome {
-  name: string; // player name
-  description: string; // "Over" or "Under"
+  name: string; // "Over" or "Under"
+  description: string; // player name
   price: number; // American odds
   point: number; // the line
 }

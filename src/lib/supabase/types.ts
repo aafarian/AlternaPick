@@ -116,6 +116,7 @@ export interface Database {
           game_id: string;
           player_name: string;
           player_id: string | null;
+          player_team: string | null;
           stat_category: StatCategory;
           line: number;
           over_odds: number | null;
@@ -129,6 +130,7 @@ export interface Database {
           game_id: string;
           player_name: string;
           player_id?: string | null;
+          player_team?: string | null;
           stat_category: StatCategory;
           line: number;
           over_odds?: number | null;
@@ -141,6 +143,7 @@ export interface Database {
           game_id?: string;
           player_name?: string;
           player_id?: string | null;
+          player_team?: string | null;
           stat_category?: StatCategory;
           line?: number;
           over_odds?: number | null;

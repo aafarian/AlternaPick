@@ -1,18 +1,127 @@
 import type { StatCategory } from "@/lib/supabase/types";
 
+/* ---------- Notification icons & accent classes ---------- */
+
+const NOTIFICATION_ICONS: Record<string, string> = {
+  card_resolved: "\uD83C\uDFAF",
+  challenge_resolved: "\u2694\uFE0F",
+  challenge_received: "\uD83D\uDCE9",
+  challenge_accepted: "\u2705",
+  friend_request: "\uD83D\uDC64",
+  friend_accepted: "\uD83E\uDD1D",
+  new_friend: "\uD83E\uDD1D",
+};
+
+export function getNotificationIcon(type: string): string {
+  return NOTIFICATION_ICONS[type] ?? "\uD83D\uDD14";
+}
+
+const NOTIFICATION_ACCENTS: Record<string, string> = {
+  card_resolved: "bg-neon-green/15 text-neon-green",
+  challenge_resolved: "bg-electric-blue/15 text-electric-blue",
+  challenge_received: "bg-amber-500/15 text-amber-400",
+  challenge_accepted: "bg-neon-green/15 text-neon-green",
+  friend_request: "bg-electric-blue/15 text-electric-blue",
+  friend_accepted: "bg-amber-500/15 text-amber-400",
+  new_friend: "bg-amber-500/15 text-amber-400",
+};
+
+export function getNotificationAccent(type: string): string {
+  return NOTIFICATION_ACCENTS[type] ?? "bg-muted/15 text-muted-foreground";
+}
+
+/* ---------- Challenge status styles ---------- */
+
+export const CHALLENGE_STATUS_STYLES: Record<string, string> = {
+  pending: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  accepted: "bg-electric-blue/15 text-electric-blue border-electric-blue/30",
+  active: "bg-neon-green/15 text-neon-green border-neon-green/30",
+  resolved: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+  declined: "bg-bold-red/15 text-bold-red border-bold-red/30",
+  cancelled: "bg-muted/15 text-muted-foreground border-border",
+};
+
+/* ---------- Polling ---------- */
+
+export const POLL_INTERVAL_MS = 30_000;
+
+/* ---------- Player headshots ---------- */
+
+export function getPlayerHeadshotUrl(playerId: string): string {
+  return `https://cdn.nba.com/headshots/nba/latest/260x190/${playerId}.png`;
+}
+
+/* ---------- Team data ---------- */
+
+const TEAM_TRICODES: Record<string, string> = {
+  "Atlanta Hawks": "ATL",
+  "Boston Celtics": "BOS",
+  "Brooklyn Nets": "BKN",
+  "Charlotte Hornets": "CHA",
+  "Chicago Bulls": "CHI",
+  "Cleveland Cavaliers": "CLE",
+  "Dallas Mavericks": "DAL",
+  "Denver Nuggets": "DEN",
+  "Detroit Pistons": "DET",
+  "Golden State Warriors": "GSW",
+  "Houston Rockets": "HOU",
+  "Indiana Pacers": "IND",
+  "Los Angeles Clippers": "LAC",
+  "LA Clippers": "LAC",
+  "Los Angeles Lakers": "LAL",
+  "Memphis Grizzlies": "MEM",
+  "Miami Heat": "MIA",
+  "Milwaukee Bucks": "MIL",
+  "Minnesota Timberwolves": "MIN",
+  "New Orleans Pelicans": "NOP",
+  "New York Knicks": "NYK",
+  "Oklahoma City Thunder": "OKC",
+  "Orlando Magic": "ORL",
+  "Philadelphia 76ers": "PHI",
+  "Phoenix Suns": "PHX",
+  "Portland Trail Blazers": "POR",
+  "Sacramento Kings": "SAC",
+  "San Antonio Spurs": "SAS",
+  "Toronto Raptors": "TOR",
+  "Utah Jazz": "UTA",
+  "Washington Wizards": "WAS",
+};
+
+export function teamTricode(teamName: string): string {
+  return TEAM_TRICODES[teamName] ?? teamName.slice(0, 3).toUpperCase();
+}
+
+const TEAM_NBA_IDS: Record<string, number> = {
+  ATL: 1610612737, BOS: 1610612738, BKN: 1610612751, CHA: 1610612766,
+  CHI: 1610612741, CLE: 1610612739, DAL: 1610612742, DEN: 1610612743,
+  DET: 1610612765, GSW: 1610612744, HOU: 1610612745, IND: 1610612754,
+  LAC: 1610612746, LAL: 1610612747, MEM: 1610612763, MIA: 1610612748,
+  MIL: 1610612749, MIN: 1610612750, NOP: 1610612740, NYK: 1610612752,
+  OKC: 1610612760, ORL: 1610612753, PHI: 1610612755, PHX: 1610612756,
+  POR: 1610612757, SAC: 1610612758, SAS: 1610612759, TOR: 1610612761,
+  UTA: 1610612762, WAS: 1610612764,
+};
+
+export function teamLogoUrl(teamName: string): string {
+  const code = teamTricode(teamName);
+  const id = TEAM_NBA_IDS[code];
+  if (!id) return "";
+  return `https://cdn.nba.com/logos/nba/${id}/global/L/logo.svg`;
+}
+
 export const CATEGORY_LABELS: Record<StatCategory, string> = {
-  points: "PTS",
-  rebounds: "REB",
-  assists: "AST",
+  points: "Points",
+  rebounds: "Rebounds",
+  assists: "Assists",
   threes: "3PM",
-  blocks: "BLK",
-  steals: "STL",
-  turnovers: "TO",
-  pra: "PRA",
-  pts_reb: "P+R",
-  pts_ast: "P+A",
-  reb_ast: "R+A",
-  blk_stl: "B+S",
+  blocks: "Blocks",
+  steals: "Steals",
+  turnovers: "Turnovers",
+  pra: "Pts+Reb+Ast",
+  pts_reb: "Pts+Reb",
+  pts_ast: "Pts+Ast",
+  reb_ast: "Reb+Ast",
+  blk_stl: "Blk+Stl",
 };
 
 export const CATEGORY_COLORS: Record<StatCategory, string> = {

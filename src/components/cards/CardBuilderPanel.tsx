@@ -5,6 +5,10 @@ import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { createCard } from "@/lib/cards/api";
 import { getAnonymousId } from "@/lib/session/anonymous";
 import { CATEGORY_LABELS } from "@/lib/constants";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { X, Lock, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function CardBuilderPanel() {
   const router = useRouter();
@@ -43,11 +47,11 @@ export default function CardBuilderPanel() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-surface/95 backdrop-blur-sm">
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-surface/80 backdrop-blur-xl">
       <div className="mx-auto max-w-6xl px-4 py-3">
         {/* Challenge banner */}
         {challengeId && opponentLabel && (
-          <div className="mb-2 flex items-center gap-2 rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-1.5">
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-1.5">
             <span className="text-sm font-semibold text-orange-400">
               Challenge vs. {opponentLabel}
             </span>
@@ -55,80 +59,85 @@ export default function CardBuilderPanel() {
         )}
 
         {error && (
-          <div className="mb-2 rounded-md bg-red-500/10 px-3 py-1.5 text-sm text-red-400">
+          <div className="mb-2 rounded-lg bg-destructive/10 px-3 py-1.5 text-sm text-destructive">
             {error}
           </div>
         )}
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          {/* Top row on mobile: pick count + actions */}
           <div className="flex items-center justify-between gap-2 sm:order-none sm:contents">
-            {/* Pick count */}
             <div className="shrink-0">
-              <span className="text-sm font-semibold">
+              <span className="text-sm font-bold">
                 {picks.length}/{state.maxPicks} Picks
               </span>
             </div>
 
-            {/* Actions */}
             <div className="flex shrink-0 items-center gap-2">
-              <button
+              <Button
                 onClick={clearCard}
                 disabled={isLocking}
-                className="min-h-[44px] rounded-lg border border-border px-3 py-1.5 text-xs text-muted transition-colors hover:text-foreground disabled:opacity-50 sm:min-h-0"
+                variant="outline"
+                size="sm"
               >
                 Clear
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleLockIn}
                 disabled={!isFull || isLocking}
-                className={`min-h-[44px] rounded-lg px-4 py-1.5 text-xs font-semibold transition-colors sm:min-h-0 ${
-                  isFull && !isLocking
-                    ? challengeId
-                      ? "bg-orange-500 text-white hover:bg-orange-600"
-                      : "bg-indigo-500 text-white hover:bg-indigo-600"
-                    : "cursor-not-allowed bg-indigo-500/30 text-indigo-300/50"
-                }`}
+                size="sm"
+                className={cn(
+                  "font-bold",
+                  isFull && !isLocking && "animate-pulse shadow-[0_0_20px_rgba(0,210,106,0.4)]",
+                  challengeId
+                    ? "bg-orange-500 text-white hover:bg-orange-600"
+                    : ""
+                )}
               >
-                {isLocking
-                  ? "Locking..."
-                  : challengeId
-                    ? "Lock In Challenge"
-                    : "Lock In"}
-              </button>
+                {isLocking ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    Locking...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="mr-1.5 h-3.5 w-3.5" />
+                    {challengeId ? "Lock In Challenge" : "Lock In"}
+                  </>
+                )}
+              </Button>
             </div>
           </div>
 
           {/* Scrollable picks list */}
           <div className="flex flex-1 gap-2 overflow-x-auto scrollbar-hide">
             {picks.map((pick) => (
-              <div
+              <Badge
                 key={pick.prop_id}
-                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background/50 px-2.5 py-1.5"
+                variant="secondary"
+                className="shrink-0 gap-1.5 rounded-lg border border-border px-2.5 py-1.5"
               >
                 <span className="text-xs font-medium">
                   {pick.player_name.split(" ").pop()}
                 </span>
-                <span className="text-xs text-muted">
+                <span className="text-xs text-muted-foreground">
                   {CATEGORY_LABELS[pick.stat_category] ?? pick.stat_category}
                 </span>
                 <span
-                  className={`text-xs font-semibold ${
-                    pick.selection === "over"
-                      ? "text-green-400"
-                      : "text-red-400"
-                  }`}
+                  className={cn(
+                    "text-xs font-bold",
+                    pick.selection === "over" ? "text-neon-green" : "text-bold-red"
+                  )}
                 >
                   {pick.selection === "over" ? "O" : "U"} {pick.line}
                 </span>
                 <button
                   onClick={() => removePick(pick.prop_id)}
-                  className="ml-1 flex h-6 w-6 items-center justify-center text-muted hover:text-foreground"
+                  className="ml-0.5 text-muted-foreground hover:text-foreground"
                   aria-label={`Remove ${pick.player_name}`}
                 >
-                  &times;
+                  <X className="h-3 w-3" />
                 </button>
-              </div>
+              </Badge>
             ))}
           </div>
         </div>

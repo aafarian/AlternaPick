@@ -5,8 +5,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ChallengeDetail } from "@/lib/challenges/queries";
-import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
+import { CATEGORY_LABELS, CATEGORY_COLORS, CHALLENGE_STATUS_STYLES } from "@/lib/constants";
 import type { StatCategory } from "@/lib/supabase/types";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
+import { ArrowLeft, AlertCircle, CheckCircle2, XCircle, Clock } from "lucide-react";
 
 interface ChallengeMatchupProps {
   challenge: ChallengeDetail;
@@ -15,73 +23,14 @@ interface ChallengeMatchupProps {
 
 /* ---------- Shared sub-components ---------- */
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    pending: "bg-amber-500/20 text-amber-400",
-    accepted: "bg-blue-500/20 text-blue-400",
-    active: "bg-green-500/20 text-green-400",
-    resolved: "bg-purple-500/20 text-purple-400",
-    declined: "bg-red-500/20 text-red-400",
-    cancelled: "bg-muted/20 text-muted",
-  };
-
-  return (
-    <span
-      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-        styles[status] ?? "bg-muted/20 text-muted"
-      }`}
-    >
-      {status.charAt(0).toUpperCase() + status.slice(1)}
-    </span>
-  );
-}
-
-function PlayerAvatar({
-  name,
-  avatarUrl,
-  isWinner,
-}: {
-  name: string;
-  avatarUrl: string | null;
-  isWinner: boolean;
-}) {
-  const initial = name.charAt(0).toUpperCase();
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <div
-        className={`flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold ${
-          isWinner
-            ? "bg-green-500/20 text-green-400 ring-2 ring-green-500"
-            : "bg-indigo-500/20 text-indigo-400"
-        }`}
-      >
-        {avatarUrl ? (
-          <Image
-            src={avatarUrl}
-            alt={name}
-            width={56}
-            height={56}
-            className="h-14 w-14 rounded-full object-cover"
-          />
-        ) : (
-          initial
-        )}
-      </div>
-      {isWinner && (
-        <span className="text-xs font-semibold text-green-400">Winner</span>
-      )}
-    </div>
-  );
-}
-
 function ResultIcon({ result }: { result: string }) {
   switch (result) {
     case "hit":
-      return <span className="text-green-400">&#10003;</span>;
+      return <CheckCircle2 className="h-4 w-4 text-neon-green" />;
     case "miss":
-      return <span className="text-red-400">&#10007;</span>;
+      return <XCircle className="h-4 w-4 text-bold-red" />;
     default:
-      return <span className="text-amber-400">&#8987;</span>;
+      return <Clock className="h-4 w-4 text-amber-400" />;
   }
 }
 
@@ -110,27 +59,30 @@ function PickRow({ pick }: PickRowProps) {
         <span className="truncate text-sm font-medium">
           {pick.prop?.player_name ?? "Unknown"}
         </span>
-        <span
-          className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-semibold ${
-            CATEGORY_COLORS[statCat] ?? ""
-          }`}
+        <Badge
+          variant="secondary"
+          className={cn("text-xs", CATEGORY_COLORS[statCat] ?? "")}
         >
           {CATEGORY_LABELS[statCat] ?? statCat}
-        </span>
+        </Badge>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <span className="text-sm font-bold">{pick.prop?.line ?? "\u2014"}</span>
-        <span
-          className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${
+        <span className="text-sm font-bold tabular-nums">
+          {pick.prop?.line ?? "\u2014"}
+        </span>
+        <Badge
+          variant="secondary"
+          className={cn(
+            "text-xs",
             pick.selection === "over"
-              ? "bg-green-500/20 text-green-400"
-              : "bg-red-500/20 text-red-400"
-          }`}
+              ? "bg-neon-green/15 text-neon-green"
+              : "bg-bold-red/15 text-bold-red"
+          )}
         >
           {pick.selection === "over" ? "Over" : "Under"}
-        </span>
+        </Badge>
         {pick.actual_value !== null && (
-          <span className="text-xs text-muted">
+          <span className="text-xs text-muted-foreground">
             Actual: {pick.actual_value}
           </span>
         )}
@@ -156,34 +108,60 @@ function PlayerSide({
   isWinner: boolean;
   showPicks: boolean;
 }) {
+  const initial = name.charAt(0).toUpperCase();
+
   return (
     <div className="flex flex-1 flex-col gap-3">
       {/* Player identity */}
-      <div className="flex flex-col items-center gap-1">
-        <PlayerAvatar name={name} avatarUrl={avatarUrl} isWinner={isWinner} />
+      <div className="flex flex-col items-center gap-2">
+        <Avatar
+          className={cn(
+            "h-14 w-14",
+            isWinner && "ring-2 ring-neon-green"
+          )}
+        >
+          {avatarUrl && <AvatarImage src={avatarUrl} alt={name} />}
+          <AvatarFallback
+            className={cn(
+              "text-lg font-bold",
+              isWinner
+                ? "bg-neon-green/20 text-neon-green"
+                : "bg-primary/10 text-primary"
+            )}
+          >
+            {initial}
+          </AvatarFallback>
+        </Avatar>
         <span className="text-sm font-semibold">{name}</span>
-        <span className="text-xs text-muted">{label}</span>
+        <span className="text-xs text-muted-foreground">{label}</span>
+        {isWinner && (
+          <Badge variant="secondary" className="bg-neon-green/15 text-neon-green border-neon-green/30">
+            Winner
+          </Badge>
+        )}
       </div>
 
       {/* Card info */}
       {card ? (
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-center gap-2">
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+            <Badge
+              variant="secondary"
+              className={cn(
+                "text-xs",
                 card.status === "resolved"
-                  ? "bg-purple-500/20 text-purple-400"
+                  ? "bg-purple-500/15 text-purple-400"
                   : card.status === "locked"
-                    ? "bg-amber-500/20 text-amber-400"
-                    : "bg-muted/20 text-muted"
-              }`}
+                    ? "bg-amber-500/15 text-amber-400"
+                    : "bg-muted/15 text-muted-foreground"
+              )}
             >
               {card.status === "resolved"
                 ? `${card.score}/${card.total_picks}`
                 : card.status === "locked"
                   ? "Locked In"
                   : "Draft"}
-            </span>
+            </Badge>
           </div>
 
           {/* Picks */}
@@ -196,7 +174,7 @@ function PlayerSide({
           )}
         </div>
       ) : (
-        <p className="text-center text-xs text-muted">No card yet</p>
+        <p className="text-center text-xs text-muted-foreground">No card yet</p>
       )}
     </div>
   );
@@ -277,169 +255,192 @@ export default function ChallengeMatchup({
       {/* Back link */}
       <Link
         href="/challenges"
-        className="inline-flex min-h-[44px] items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
+        className="inline-flex min-h-[44px] items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
-        &larr; Back to Challenges
+        <ArrowLeft className="h-4 w-4" />
+        Back to Challenges
       </Link>
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <h1 className="text-xl font-bold sm:text-2xl">Challenge Matchup</h1>
-          <StatusBadge status={challenge.status} />
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
+            Challenge Matchup
+          </h1>
+          <Badge
+            variant="secondary"
+            className={CHALLENGE_STATUS_STYLES[challenge.status] ?? ""}
+          >
+            {challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
+          </Badge>
         </div>
-        <span className="text-sm text-muted">{date}</span>
+        <span className="text-sm text-muted-foreground">{date}</span>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
-          {error}
-          <button
-            onClick={() => setError(null)}
-            className="ml-2 text-red-300 hover:text-red-200"
-          >
-            Dismiss
-          </button>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {error}
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() => setError(null)}
+              className="ml-2 text-destructive underline"
+            >
+              Dismiss
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Winner Banner (resolved only) */}
       {challenge.status === "resolved" && (
-        <div
-          className={`rounded-2xl border px-4 py-3 text-center text-sm font-semibold ${
+        <Card
+          className={cn(
+            "border",
             isDraw
-              ? "border-border bg-muted/10 text-muted"
+              ? "border-border bg-muted/10"
               : challenge.winner_id === currentUserId
-                ? "border-green-500/30 bg-green-500/10 text-green-400"
-                : "border-red-500/30 bg-red-500/10 text-red-400"
-          }`}
+                ? "border-neon-green/30 bg-neon-green/10"
+                : "border-bold-red/30 bg-bold-red/10"
+          )}
         >
-          {isDraw
-            ? "It's a draw!"
-            : challenge.winner_id === currentUserId
-              ? "You won this challenge!"
-              : `${otherPlayerName} won this challenge`}
-        </div>
+          <CardContent className="py-3 text-center text-sm font-semibold">
+            {isDraw
+              ? "It's a draw!"
+              : challenge.winner_id === currentUserId
+                ? "You won this challenge!"
+                : `${otherPlayerName} won this challenge`}
+          </CardContent>
+        </Card>
       )}
 
       {/* Matchup Layout */}
-      <div className="rounded-2xl border border-border bg-surface p-4">
-        <div className="flex flex-col gap-4 md:flex-row">
-          {/* Challenger Side */}
-          <PlayerSide
-            label="Challenger"
-            name={challengerName}
-            avatarUrl={challenge.challenger.avatar_url}
-            card={challenge.challenger_card}
-            isWinner={challengerIsWinner}
-            showPicks={showPicks}
-          />
+      <Card className="border-border bg-card">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-4 md:flex-row">
+            {/* Challenger Side */}
+            <PlayerSide
+              label="Challenger"
+              name={challengerName}
+              avatarUrl={challenge.challenger.avatar_url}
+              card={challenge.challenger_card}
+              isWinner={challengerIsWinner}
+              showPicks={showPicks}
+            />
 
-          {/* VS divider - horizontal on mobile, vertical on desktop */}
-          <div className="flex items-center justify-center md:flex-col md:justify-start md:pt-8">
-            <div className="hidden h-px flex-1 bg-border md:block md:h-auto md:w-px" />
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-400">
-              VS
+            {/* VS divider */}
+            <div className="flex items-center justify-center md:flex-col md:justify-start md:pt-8">
+              <Separator className="hidden flex-1 md:block md:h-auto" orientation="vertical" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+                VS
+              </div>
+              <Separator className="hidden flex-1 md:block md:h-auto" orientation="vertical" />
             </div>
-            <div className="hidden h-px flex-1 bg-border md:block md:h-auto md:w-px" />
-          </div>
 
-          {/* Opponent Side */}
-          <PlayerSide
-            label="Opponent"
-            name={opponentName}
-            avatarUrl={challenge.opponent.avatar_url}
-            card={challenge.opponent_card}
-            isWinner={opponentIsWinner}
-            showPicks={showPicks}
-          />
-        </div>
-      </div>
+            {/* Opponent Side */}
+            <PlayerSide
+              label="Opponent"
+              name={opponentName}
+              avatarUrl={challenge.opponent.avatar_url}
+              card={challenge.opponent_card}
+              isWinner={opponentIsWinner}
+              showPicks={showPicks}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Status-specific CTAs */}
       {challenge.status === "pending" && (
-        <div className="rounded-2xl border border-border bg-surface p-4">
-          {isChallenger ? (
-            <div className="flex flex-col items-center gap-3 text-center">
-              <p className="text-sm text-muted">
-                Waiting for <span className="font-semibold text-foreground">{opponentName}</span> to accept
-              </p>
-              <button
-                onClick={() => handleAction("cancel")}
-                disabled={actionLoading}
-                className="min-h-[44px] rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted transition-colors hover:bg-surface-hover disabled:opacity-50"
-              >
-                {actionLoading ? "Cancelling..." : "Cancel Challenge"}
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-3 text-center">
-              <p className="text-sm text-muted">
-                <span className="font-semibold text-foreground">{challengerName}</span> challenged you!
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handleAction("accept")}
+        <Card className="border-border bg-card">
+          <CardContent className="p-4">
+            {isChallenger ? (
+              <div className="flex flex-col items-center gap-3 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Waiting for <span className="font-semibold text-foreground">{opponentName}</span> to accept
+                </p>
+                <Button
+                  onClick={() => handleAction("cancel")}
                   disabled={actionLoading}
-                  className="min-h-[44px] rounded-lg bg-indigo-500 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-600 disabled:opacity-50"
+                  variant="outline"
+                  size="sm"
                 >
-                  {actionLoading ? "..." : "Accept"}
-                </button>
-                <button
-                  onClick={() => handleAction("decline")}
-                  disabled={actionLoading}
-                  className="min-h-[44px] rounded-lg border border-border px-5 py-2 text-sm font-semibold text-muted transition-colors hover:bg-surface-hover disabled:opacity-50"
-                >
-                  {actionLoading ? "..." : "Decline"}
-                </button>
+                  {actionLoading ? "Cancelling..." : "Cancel Challenge"}
+                </Button>
               </div>
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3 text-center">
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-semibold text-foreground">{challengerName}</span> challenged you!
+                </p>
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => handleAction("accept")}
+                    disabled={actionLoading}
+                    size="sm"
+                  >
+                    {actionLoading ? "..." : "Accept"}
+                  </Button>
+                  <Button
+                    onClick={() => handleAction("decline")}
+                    disabled={actionLoading}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {actionLoading ? "..." : "Decline"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {challenge.status === "accepted" && (
-        <div className="rounded-2xl border border-border bg-surface p-4">
-          <div className="flex flex-col items-center gap-3 text-center">
-            {!myCard ? (
-              <>
-                <p className="text-sm text-muted">
-                  Time to make your picks for this challenge!
+        <Card className="border-border bg-card">
+          <CardContent className="p-4">
+            <div className="flex flex-col items-center gap-3 text-center">
+              {!myCard ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Time to make your picks for this challenge!
+                  </p>
+                  <Link href={`/props?challenge_id=${challenge.id}`}>
+                    <Button size="sm">Make Your Picks</Button>
+                  </Link>
+                </>
+              ) : !theirCard ? (
+                <p className="text-sm text-muted-foreground">
+                  Waiting for <span className="font-semibold text-foreground">{otherPlayerName}</span> to make
+                  their picks
                 </p>
-                <Link
-                  href={`/props?challenge_id=${challenge.id}`}
-                  className="inline-flex min-h-[44px] items-center rounded-lg bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-600"
-                >
-                  Make Your Picks
-                </Link>
-              </>
-            ) : !theirCard ? (
-              <p className="text-sm text-muted">
-                Waiting for <span className="font-semibold text-foreground">{otherPlayerName}</span> to make
-                their picks
-              </p>
-            ) : (
-              <p className="text-sm text-muted">
-                Both players have submitted cards. The challenge will begin soon.
-              </p>
-            )}
-          </div>
-        </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Both players have submitted cards. The challenge will begin soon.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {challenge.status === "active" && (
-        <div className="rounded-2xl border border-border bg-surface p-4">
-          <div className="flex flex-col items-center gap-2 text-center">
-            <p className="text-sm font-semibold text-green-400">
-              Challenge is live!
-            </p>
-            <p className="text-xs text-muted">
-              Both players have locked in their picks. Results will be revealed
-              once games finish.
-            </p>
-          </div>
-        </div>
+        <Card className="border-neon-green/20 bg-neon-green/5">
+          <CardContent className="p-4">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <p className="text-sm font-semibold text-neon-green">
+                Challenge is live!
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Both players have locked in their picks. Results will be revealed
+                once games finish.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

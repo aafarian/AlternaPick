@@ -5,6 +5,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
 import type { StatCategory } from "@/lib/supabase/types";
 import type { CardWithPicks } from "@/lib/cards/api";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import { CheckCircle2, XCircle, Clock } from "lucide-react";
+import PlayerAvatar from "@/components/players/PlayerAvatar";
 
 // ---------------------------------------------------------------------------
 // Data fetching (admin client bypasses RLS for public access)
@@ -20,7 +28,7 @@ async function getSharedCard(token: string): Promise<SharedCardData | null> {
 
   // Fetch card by share_token
   const { data: card, error } = await (admin.from("cards") as any)
-    .select("*, picks(*, props(player_name, stat_category, line, game_id))")
+    .select("*, picks(*, props(player_name, player_id, stat_category, line, game_id))")
     .eq("share_token", token)
     .single();
 
@@ -95,11 +103,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 function ResultIcon({ result }: { result: string }) {
   switch (result) {
     case "hit":
-      return <span className="text-green-400 text-lg">&#10003;</span>;
+      return <CheckCircle2 className="h-4 w-4 text-neon-green" />;
     case "miss":
-      return <span className="text-red-400 text-lg">&#10007;</span>;
+      return <XCircle className="h-4 w-4 text-bold-red" />;
     default:
-      return <span className="text-amber-400 text-lg">&#8987;</span>;
+      return <Clock className="h-4 w-4 text-amber-400" />;
   }
 }
 
@@ -131,38 +139,41 @@ export default async function ShareCardPage({ params }: PageProps) {
       {/* Branding */}
       <Link
         href="/"
-        className="mb-8 text-2xl font-bold tracking-tight text-white"
+        className="mb-8 text-2xl font-bold tracking-tight"
       >
-        SportsTower
+        <span className="text-primary">Sports</span>Tower
       </Link>
 
       {/* Card container */}
-      <div className="w-full max-w-md rounded-2xl border border-border bg-surface shadow-xl">
+      <Card className="w-full max-w-md border-border bg-card shadow-xl">
         {/* Card header */}
-        <div className="flex flex-col gap-2 border-b border-border px-5 py-4">
+        <CardContent className="flex flex-col gap-2 border-b border-border px-5 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-bold text-indigo-400">
-                {username.charAt(0).toUpperCase()}
-              </div>
-              <span className="font-semibold text-white">{username}</span>
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
+                  {username.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="font-semibold">{username}</span>
             </div>
-            <span className="text-xs text-muted">{date}</span>
+            <span className="text-xs text-muted-foreground">{date}</span>
           </div>
 
           {/* Score */}
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted">
+            <span className="text-sm text-muted-foreground">
               {card.status === "resolved" ? "Final Score" : "In Progress"}
             </span>
             <span
-              className={`text-2xl font-bold ${
+              className={cn(
+                "text-2xl font-black tabular-nums",
                 card.status === "resolved"
                   ? isGoodScore
-                    ? "text-green-400"
-                    : "text-red-400"
+                    ? "text-neon-green"
+                    : "text-bold-red"
                   : "text-amber-400"
-              }`}
+              )}
             >
               {card.score}/{card.total_picks}
             </span>
@@ -170,12 +181,12 @@ export default async function ShareCardPage({ params }: PageProps) {
 
           {/* Hit/miss summary */}
           {card.status === "resolved" && (
-            <div className="flex gap-3 text-xs text-muted">
-              <span className="text-green-400">{hits} hits</span>
-              <span className="text-red-400">{misses} misses</span>
+            <div className="flex gap-3 text-xs text-muted-foreground">
+              <span className="text-neon-green">{hits} hits</span>
+              <span className="text-bold-red">{misses} misses</span>
             </div>
           )}
-        </div>
+        </CardContent>
 
         {/* Picks list */}
         <div className="flex flex-col gap-1 p-2">
@@ -188,32 +199,40 @@ export default async function ShareCardPage({ params }: PageProps) {
               >
                 <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                   <ResultIcon result={pick.result} />
+                  <PlayerAvatar
+                    playerId={pick.props?.player_id ?? null}
+                    playerName={pick.props?.player_name ?? "Unknown"}
+                    size="sm"
+                  />
                   <div className="flex min-w-0 flex-col">
-                    <span className="truncate text-sm font-medium text-white">
+                    <span className="truncate text-sm font-medium">
                       {pick.props?.player_name ?? "Unknown"}
                     </span>
-                    <span
-                      className={`w-fit rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
-                        CATEGORY_COLORS[statCat] ?? ""
-                      }`}
+                    <Badge
+                      variant="secondary"
+                      className={cn("w-fit text-[10px]", CATEGORY_COLORS[statCat] ?? "")}
                     >
                       {CATEGORY_LABELS[statCat] ?? statCat}
-                    </span>
+                    </Badge>
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className="text-sm font-bold text-white">{pick.props?.line ?? "\u2014"}</span>
-                  <span
-                    className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${
+                  <span className="text-sm font-bold tabular-nums">
+                    {pick.props?.line ?? "\u2014"}
+                  </span>
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "text-xs",
                       pick.selection === "over"
-                        ? "bg-green-500/20 text-green-400"
-                        : "bg-red-500/20 text-red-400"
-                    }`}
+                        ? "bg-neon-green/15 text-neon-green"
+                        : "bg-bold-red/15 text-bold-red"
+                    )}
                   >
                     {pick.selection === "over" ? "Over" : "Under"}
-                  </span>
+                  </Badge>
                   {pick.actual_value !== null && (
-                    <span className="text-xs text-muted">
+                    <span className="text-xs text-muted-foreground">
                       ({pick.actual_value})
                     </span>
                   )}
@@ -224,16 +243,14 @@ export default async function ShareCardPage({ params }: PageProps) {
         </div>
 
         {/* Footer CTA */}
-        <div className="border-t border-border px-5 py-4 text-center">
-          <p className="mb-2 text-xs text-muted">Think you can do better?</p>
-          <Link
-            href="/props"
-            className="inline-flex min-h-[44px] items-center rounded-lg bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-600"
-          >
-            Make Your Picks
+        <Separator />
+        <div className="px-5 py-4 text-center">
+          <p className="mb-2 text-xs text-muted-foreground">Think you can do better?</p>
+          <Link href="/props">
+            <Button size="sm">Make Your Picks</Button>
           </Link>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

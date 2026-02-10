@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { unauthorized, notFound, handleApiError } from "@/lib/api/errors";
 import { markNotificationRead } from "@/lib/notifications/queries";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -18,28 +19,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const notification = await markNotificationRead(supabase, user.id, id);
 
     if (!notification) {
-      return NextResponse.json(
-        { error: "Notification not found" },
-        { status: 404 }
-      );
+      return notFound("Notification");
     }
 
     return NextResponse.json({ notification });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to mark notification as read", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to mark notification as read");
   }
 }

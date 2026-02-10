@@ -36,7 +36,7 @@ type PickWithProp = Pick & {
   props: Prop & { games: Game };
 };
 
-function extractStatValue(
+export function extractStatValue(
   stats: PlayerBoxScore,
   category: StatCategory
 ): number {
@@ -70,7 +70,7 @@ function extractStatValue(
   }
 }
 
-function fuzzyMatchPlayer(
+export function fuzzyMatchPlayer(
   boxscore: PlayerBoxScore[],
   playerName: string
 ): PlayerBoxScore | undefined {

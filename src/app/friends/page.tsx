@@ -7,6 +7,10 @@ import UserSearchBar from "@/components/friends/UserSearchBar";
 import FriendRequestCard from "@/components/friends/FriendRequestCard";
 import type { FriendRequest } from "@/components/friends/FriendRequestCard";
 import FriendsList from "@/components/friends/FriendsList";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { AlertCircle } from "lucide-react";
 
 export default function FriendsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -119,13 +123,10 @@ export default function FriendsPage() {
   if (authLoading || (!user && !error)) {
     return (
       <div className="flex flex-col gap-8 py-8">
-        <div className="h-8 w-36 animate-pulse rounded-lg bg-surface" />
-        <div className="h-12 w-full animate-pulse rounded-2xl bg-surface" />
+        <Skeleton className="h-8 w-36" />
+        <Skeleton className="h-12 w-full rounded-xl" />
         {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="h-20 animate-pulse rounded-2xl border border-border bg-surface"
-          />
+          <Skeleton key={i} className="h-20 rounded-xl" />
         ))}
       </div>
     );
@@ -135,8 +136,8 @@ export default function FriendsPage() {
     <div className="flex flex-col gap-8 py-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">Friends</h1>
-        <p className="text-sm text-muted">
+        <h1 className="text-2xl font-bold tracking-tight">Friends</h1>
+        <p className="text-sm text-muted-foreground">
           {friends.length} friend{friends.length !== 1 ? "s" : ""}
           {pendingRequests.length > 0 &&
             ` \u00B7 ${pendingRequests.length} pending request${pendingRequests.length !== 1 ? "s" : ""}`}
@@ -150,25 +151,27 @@ export default function FriendsPage() {
 
       {/* Error state */}
       {error && (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-center text-sm text-red-400">
-          {error}
-          <button
-            onClick={fetchData}
-            className="ml-2 underline hover:text-red-300"
-          >
-            Retry
-          </button>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {error}
+            <Button
+              variant="link"
+              size="sm"
+              onClick={fetchData}
+              className="ml-2 text-destructive underline"
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Loading state */}
       {loadingData && (
         <div className="flex flex-col gap-3">
           {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-20 animate-pulse rounded-2xl border border-border bg-surface"
-            />
+            <Skeleton key={i} className="h-20 rounded-xl" />
           ))}
         </div>
       )}

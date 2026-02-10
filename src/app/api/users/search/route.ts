@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { unauthorized, handleApiError } from "@/lib/api/errors";
 import type { Profile, Friendship } from "@/lib/supabase/types";
 
 type FriendshipStatusLabel =
@@ -29,10 +30,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const { searchParams } = new URL(request.url);
@@ -119,11 +117,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ users });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to search users", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to search users");
   }
 }

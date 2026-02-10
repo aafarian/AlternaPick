@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { handleApiError } from "@/lib/api/errors";
 import type { Game, Prop, StatCategory } from "@/lib/supabase/types";
 
 export async function GET(request: NextRequest) {
@@ -38,11 +39,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ games: withProps });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to fetch props", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch props");
   }
 }

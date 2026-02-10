@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
 import {
   getGlobalLeaderboard,
   getFriendsLeaderboard,
@@ -76,10 +77,7 @@ export async function GET(request: NextRequest) {
 
     // Validate scope
     if (scope !== "global" && scope !== "friends") {
-      return NextResponse.json(
-        { error: "Invalid scope. Must be 'global' or 'friends'." },
-        { status: 400 }
-      );
+      return badRequest("Invalid scope. Must be 'global' or 'friends'.");
     }
 
     // Clamp limit and offset
@@ -95,10 +93,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (scope === "friends" && !user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     // Fetch leaderboard rows from query layer
@@ -157,11 +152,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to fetch leaderboard", message },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch leaderboard");
   }
 }

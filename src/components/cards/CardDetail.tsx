@@ -1,66 +1,110 @@
 "use client";
 
 import type { CardWithPicks } from "@/lib/cards/api";
-import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
+import { CATEGORY_LABELS } from "@/lib/constants";
+import { formatClock } from "@/lib/format";
 import type { StatCategory } from "@/lib/supabase/types";
 import ShareButton from "@/components/cards/ShareButton";
-
-interface CardDetailProps {
-  card: CardWithPicks;
-}
+import PlayerAvatar from "@/components/players/PlayerAvatar";
+import { useLiveStats } from "@/lib/cards/use-live-stats";
+import type { LivePickData } from "@/lib/cards/live-types";
+import {
+  Card,
+  CardHeader,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { CheckCircle2, XCircle, Clock } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function StatusBadge({ status, score, total }: { status: string; score: number; total: number }) {
   if (status === "locked") {
     return (
-      <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-semibold text-amber-400">
+      <Badge variant="secondary" className="border-amber-500/30 bg-amber-500/15 text-amber-400">
         Locked
-      </span>
+      </Badge>
     );
   }
 
   const isGoodScore = score >= total / 2;
   return (
-    <span
-      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+    <Badge
+      variant="secondary"
+      className={
         isGoodScore
-          ? "bg-green-500/20 text-green-400"
-          : "bg-red-500/20 text-red-400"
-      }`}
+          ? "border-neon-green/30 bg-neon-green/15 text-neon-green"
+          : "border-bold-red/30 bg-bold-red/15 text-bold-red"
+      }
     >
-      Resolved
-    </span>
-  );
-}
-
-function ScoreDisplay({ score, total, status }: { score: number; total: number; status: string }) {
-  if (status !== "resolved") {
-    return <span className="text-sm text-muted">Pending</span>;
-  }
-
-  const isGoodScore = score >= total / 2;
-  return (
-    <span
-      className={`text-lg font-bold ${
-        isGoodScore ? "text-green-400" : "text-red-400"
-      }`}
-    >
-      {score}/{total}
-    </span>
+      {score}/{total} Correct
+    </Badge>
   );
 }
 
 function ResultIcon({ result }: { result: string }) {
   switch (result) {
     case "hit":
-      return <span className="text-green-400">✓</span>;
+      return <CheckCircle2 className="h-4 w-4 text-neon-green" />;
     case "miss":
-      return <span className="text-red-400">✗</span>;
+      return <XCircle className="h-4 w-4 text-bold-red" />;
     default:
-      return <span className="text-amber-400">⏳</span>;
+      return <Clock className="h-4 w-4 text-amber-400" />;
   }
 }
 
-export default function CardDetail({ card }: CardDetailProps) {
+function LiveBadge({ pick }: { pick: LivePickData }) {
+  if (!pick.game_status) return null;
+
+  if (pick.game_status.status === "scheduled") {
+    return (
+      <span className="text-[10px] text-muted-foreground">Tip-off pending</span>
+    );
+  }
+
+  if (pick.game_status.status === "live") {
+    return (
+      <Badge variant="secondary" className="gap-1 border-primary/30 bg-primary/10 text-[10px] text-primary">
+        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+        {formatClock(pick.game_status.period, pick.game_status.clock)}
+      </Badge>
+    );
+  }
+
+  return (
+    <span className="text-[10px] text-muted-foreground">Final</span>
+  );
+}
+
+function LiveValue({ pick }: { pick: LivePickData }) {
+  if (pick.current_value === null) return null;
+
+  return (
+    <span
+      className={cn(
+        "text-xs font-bold tabular-nums",
+        pick.trending === "hit" && "text-neon-green",
+        pick.trending === "miss" && "text-bold-red",
+        pick.trending === "push" && "text-amber-400"
+      )}
+    >
+      {pick.current_value}
+    </span>
+  );
+}
+
+export default function CardDetail({ card }: { card: CardWithPicks }) {
+  const isLocked = card.status === "locked";
+  const { data: liveData } = useLiveStats(card.id, isLocked);
+
+  const livePickMap = new Map<string, LivePickData>();
+  if (liveData) {
+    for (const lp of liveData.picks) {
+      livePickMap.set(lp.pick_id, lp);
+    }
+  }
+
   const date = new Date(card.created_at).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -69,54 +113,62 @@ export default function CardDetail({ card }: CardDetailProps) {
   });
 
   return (
-    <div className="rounded-2xl border border-border bg-surface">
-      {/* Card header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-        <div className="flex items-center gap-2 sm:gap-3">
+    <Card className="border-border bg-card">
+      <CardHeader className="flex-row items-center justify-between space-y-0 px-4 py-3">
+        <div className="flex items-center gap-3">
           <StatusBadge status={card.status} score={card.score} total={card.total_picks} />
-          <span className="text-xs text-muted sm:text-sm">{date}</span>
+          <span className="text-xs text-muted-foreground">{date}</span>
         </div>
-        <div className="flex items-center gap-2 sm:gap-3">
-          {card.status === "resolved" && <ShareButton cardId={card.id} />}
-          <ScoreDisplay score={card.score} total={card.total_picks} status={card.status} />
-        </div>
-      </div>
+        {card.status === "resolved" && (
+          <span className="text-lg font-black tabular-nums">
+            {card.score}/{card.total_picks}
+          </span>
+        )}
+      </CardHeader>
 
-      {/* Picks */}
-      <div className="flex flex-col gap-1 p-2">
+      <Separator />
+
+      <CardContent className="flex flex-col gap-1 p-2">
         {card.picks.map((pick) => {
           const statCat = (pick.props?.stat_category ?? "points") as StatCategory;
+          const livePick = livePickMap.get(pick.id);
           return (
             <div
               key={pick.id}
               className="flex flex-wrap items-center justify-between gap-1 rounded-lg bg-background/50 px-3 py-2.5"
             >
-              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              <div className="flex min-w-0 items-center gap-2">
                 <ResultIcon result={pick.result} />
-                <span className="truncate text-sm font-medium">
+                <PlayerAvatar
+                  playerId={pick.props?.player_id ?? null}
+                  playerName={pick.props?.player_name ?? "Unknown"}
+                  size="sm"
+                />
+                <span className="truncate text-sm font-bold">
                   {pick.props?.player_name ?? "Unknown"}
                 </span>
-                <span
-                  className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-semibold sm:px-2 ${
-                    CATEGORY_COLORS[statCat] ?? ""
-                  }`}
-                >
+                <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider">
                   {CATEGORY_LABELS[statCat] ?? statCat}
-                </span>
+                </Badge>
               </div>
-              <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-                <span className="text-sm font-bold">{pick.props?.line ?? "\u2014"}</span>
-                <span
-                  className={`rounded-md px-1.5 py-0.5 text-xs font-medium sm:px-2 ${
+              <div className="flex shrink-0 items-center gap-2">
+                {livePick && <LiveValue pick={livePick} />}
+                <span className="text-sm font-black tabular-nums">
+                  {pick.props?.line ?? "\u2014"}
+                </span>
+                <Badge
+                  variant="secondary"
+                  className={
                     pick.selection === "over"
-                      ? "bg-green-500/20 text-green-400"
-                      : "bg-red-500/20 text-red-400"
-                  }`}
+                      ? "border-neon-green/30 bg-neon-green/15 text-neon-green"
+                      : "border-bold-red/30 bg-bold-red/15 text-bold-red"
+                  }
                 >
                   {pick.selection === "over" ? "Over" : "Under"}
-                </span>
-                {pick.actual_value !== null && (
-                  <span className="hidden text-sm text-muted sm:inline">
+                </Badge>
+                {livePick && <LiveBadge pick={livePick} />}
+                {!livePick && pick.actual_value !== null && (
+                  <span className="hidden text-xs text-muted-foreground sm:inline">
                     Actual: {pick.actual_value}
                   </span>
                 )}
@@ -124,7 +176,13 @@ export default function CardDetail({ card }: CardDetailProps) {
             </div>
           );
         })}
-      </div>
-    </div>
+      </CardContent>
+
+      {card.status === "resolved" && (
+        <CardFooter className="justify-end px-4 py-3">
+          <ShareButton cardId={card.id} />
+        </CardFooter>
+      )}
+    </Card>
   );
 }
