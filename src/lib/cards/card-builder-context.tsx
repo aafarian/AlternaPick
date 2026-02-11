@@ -13,6 +13,7 @@ import type {
   ChallengeOpponent,
 } from "./types";
 import type { PickSelection } from "@/lib/supabase/types";
+import type { GameMode } from "@/lib/modes/types";
 import {
   cardBuilderReducer,
   initialCardBuilderState,
@@ -27,6 +28,8 @@ interface CardBuilderContextValue {
   setLocking: (isLocking: boolean) => void;
   setError: (error: string | null) => void;
   setChallenge: (challengeId: string, opponent: ChallengeOpponent) => void;
+  setMode: (mode: GameMode) => void;
+  setCardSize: (size: number) => void;
   isPickSelected: (propId: string) => boolean;
   getSelection: (propId: string) => PickSelection | null;
   showSuccess: () => void;
@@ -85,6 +88,16 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const setMode = useCallback(
+    (mode: GameMode) => dispatch({ type: "SET_MODE", mode }),
+    []
+  );
+
+  const setCardSize = useCallback(
+    (size: number) => dispatch({ type: "SET_CARD_SIZE", size }),
+    []
+  );
+
   const showSuccessFn = useCallback(
     () => dispatch({ type: "SHOW_SUCCESS" }),
     []
@@ -108,7 +121,7 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
     [state.picks]
   );
 
-  const isFull = state.picks.length >= state.maxPicks;
+  const isFull = state.picks.length >= state.cardSize;
 
   return (
     <CardBuilderContext.Provider
@@ -121,6 +134,8 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
         setLocking,
         setError,
         setChallenge,
+        setMode,
+        setCardSize,
         isPickSelected,
         getSelection,
         showSuccess: showSuccessFn,

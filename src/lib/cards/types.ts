@@ -1,8 +1,10 @@
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
+import type { GameMode } from "@/lib/modes/types";
 
 export interface CardBuilderPick {
   prop_id: string;
   player_name: string;
+  player_team: string;
   stat_category: StatCategory;
   line: number;
   selection: PickSelection;
@@ -17,6 +19,8 @@ export interface ChallengeOpponent {
 export interface CardBuilderState {
   picks: CardBuilderPick[];
   maxPicks: number;
+  gameMode: GameMode;
+  cardSize: number;
   isLocking: boolean;
   error: string | null;
   challengeId: string | null;
@@ -37,4 +41,6 @@ export type CardBuilderAction =
       opponent: ChallengeOpponent;
     }
   | { type: "SHOW_SUCCESS" }
-  | { type: "HIDE_SUCCESS" };
+  | { type: "HIDE_SUCCESS" }
+  | { type: "SET_MODE"; mode: GameMode }
+  | { type: "SET_CARD_SIZE"; size: number };

@@ -93,6 +93,7 @@ export default function PropLine({
       addPick({
         prop_id: propId,
         player_name: playerName,
+        player_team: playerTeam ?? "",
         stat_category: statCategory,
         line,
         selection: side,
@@ -102,6 +103,7 @@ export default function PropLine({
       addPick({
         prop_id: propId,
         player_name: playerName,
+        player_team: playerTeam ?? "",
         stat_category: statCategory,
         line,
         selection: side,
