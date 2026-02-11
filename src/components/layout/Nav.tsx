@@ -52,17 +52,25 @@ export interface NotificationCounts {
   notifications: number;
 }
 
+/** Paths that are handled by the mobile BottomTabBar */
+const bottomTabPaths = new Set(["/props", "/picks", "/challenges", "/leaderboard", "/profile"]);
+
 export default function Nav({
   onNavigate,
   user,
   notificationCounts,
+  mobileSecondaryOnly = false,
 }: {
   onNavigate?: () => void;
   user?: AuthUser | null;
   notificationCounts?: NotificationCounts;
+  mobileSecondaryOnly?: boolean;
 }) {
   const pathname = usePathname();
-  const links = user ? authenticatedLinks : publicLinks;
+  const baseLinks = user ? authenticatedLinks : publicLinks;
+  const links = mobileSecondaryOnly
+    ? baseLinks.filter((l) => !bottomTabPaths.has(l.href))
+    : baseLinks;
   const isProfileActive =
     pathname === "/profile" || pathname === "/settings";
 

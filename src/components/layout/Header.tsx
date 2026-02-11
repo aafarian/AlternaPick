@@ -76,7 +76,7 @@ export default function Header() {
           )}
         </div>
 
-        {/* Mobile: streak + bell + hamburger */}
+        {/* Mobile: streak + bell + hamburger (secondary items only) */}
         <div className="flex items-center gap-1 md:hidden">
           {user && <StreakBadge />}
           {user && (
@@ -87,24 +87,27 @@ export default function Header() {
               }
             />
           )}
-          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-72 bg-background/95 backdrop-blur-xl border-border">
-              <SheetTitle className="text-lg font-bold mb-4">
-                <span className="text-primary">Alterna</span>Pick
-              </SheetTitle>
-              <Nav
-                onNavigate={() => setSheetOpen(false)}
-                user={user}
-                notificationCounts={notificationCounts}
-              />
-            </SheetContent>
-          </Sheet>
+          {user && (
+            <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Toggle menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-72 bg-background/95 backdrop-blur-xl border-border">
+                <SheetTitle className="text-lg font-bold mb-4">
+                  <span className="text-primary">Alterna</span>Pick
+                </SheetTitle>
+                <Nav
+                  onNavigate={() => setSheetOpen(false)}
+                  user={user}
+                  notificationCounts={notificationCounts}
+                  mobileSecondaryOnly
+                />
+              </SheetContent>
+            </Sheet>
+          )}
         </div>
       </div>
     </header>
