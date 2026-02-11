@@ -53,10 +53,8 @@ export default function NotificationsPage() {
       );
 
       try {
-        const res = await fetch("/api/notifications", {
+        const res = await fetch(`/api/notifications/${notificationId}`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ notification_id: notificationId }),
         });
         if (!res.ok) {
           // Revert on failure
@@ -89,7 +87,7 @@ export default function NotificationsPage() {
       const res = await fetch("/api/notifications", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mark_all: true }),
+        body: JSON.stringify({ action: "mark_all_read" }),
       });
       if (!res.ok) {
         setNotifications(prevNotifications);
