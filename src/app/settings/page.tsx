@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Profile } from "@/lib/supabase/types";
+import type { Profile, NotificationPreferences } from "@/lib/supabase/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Bell, Shield } from "lucide-react";
 import ProfileSection from "@/components/settings/ProfileSection";
+import NotificationPreferencesSection from "@/components/settings/NotificationPreferencesSection";
+import AccountSection from "@/components/settings/AccountSection";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -22,6 +24,15 @@ export default async function SettingsPage() {
     .single();
 
   const typedProfile = profile as Profile | null;
+
+  // Determine auth provider info from user identities
+  const identities = user.identities ?? [];
+  const hasGoogleProvider = identities.some(
+    (identity) => identity.provider === "google"
+  );
+  const hasPasswordProvider = identities.some(
+    (identity) => identity.provider === "email"
+  );
 
   return (
     <div className="flex flex-col gap-6 py-8">
@@ -52,27 +63,19 @@ export default async function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="notifications" className="mt-6">
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="text-lg font-semibold">Notification Preferences</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Control which notifications you receive and how they are delivered.
-            </p>
-            <div className="mt-6 text-sm text-muted-foreground">
-              Notification preferences coming soon.
-            </div>
-          </div>
+          <NotificationPreferencesSection
+            initialPreferences={
+              (typedProfile?.notification_preferences as NotificationPreferences | null) ?? null
+            }
+          />
         </TabsContent>
 
         <TabsContent value="account" className="mt-6">
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="text-lg font-semibold">Account Settings</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Manage your email, password, and account preferences.
-            </p>
-            <div className="mt-6 text-sm text-muted-foreground">
-              Account settings coming soon.
-            </div>
-          </div>
+          <AccountSection
+            email={user.email ?? ""}
+            hasGoogleProvider={hasGoogleProvider}
+            hasPasswordProvider={hasPasswordProvider}
+          />
         </TabsContent>
       </Tabs>
     </div>

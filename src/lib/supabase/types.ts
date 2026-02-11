@@ -43,6 +43,8 @@ export type NotificationType =
   | "challenge_resolved"
   | "card_resolved";
 
+export type NotificationPreferences = Record<NotificationType, boolean>;
+
 export interface Database {
   public: {
     Tables: {
@@ -52,6 +54,8 @@ export interface Database {
           username: string;
           display_name: string | null;
           avatar_url: string | null;
+          notification_preferences: NotificationPreferences | null;
+          is_deactivated: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -60,6 +64,8 @@ export interface Database {
           username: string;
           display_name?: string | null;
           avatar_url?: string | null;
+          notification_preferences?: NotificationPreferences | null;
+          is_deactivated?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -68,6 +74,8 @@ export interface Database {
           username?: string;
           display_name?: string | null;
           avatar_url?: string | null;
+          notification_preferences?: NotificationPreferences | null;
+          is_deactivated?: boolean;
           updated_at?: string;
         };
       };
