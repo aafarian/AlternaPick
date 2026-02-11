@@ -132,7 +132,7 @@ export default function LeaderboardPage() {
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Win Rate</p>
                   <p className="text-sm font-bold">
-                    {(userRank.stats.win_rate * 100).toFixed(1)}%
+                    {userRank.stats.win_rate.toFixed(1)}%
                   </p>
                 </div>
                 <div>

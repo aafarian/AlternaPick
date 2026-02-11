@@ -51,7 +51,7 @@ export default function LeaderboardRow({
             </p>
             <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
               <span className="font-bold text-foreground">
-                {(stats.win_rate * 100).toFixed(1)}%
+                {stats.win_rate.toFixed(1)}%
               </span>
               <span>
                 {stats.current_streak}/{stats.best_streak} streak
@@ -99,7 +99,7 @@ export default function LeaderboardRow({
       </TableCell>
 
       <TableCell className="text-sm font-bold">
-        {(stats.win_rate * 100).toFixed(1)}%
+        {stats.win_rate.toFixed(1)}%
       </TableCell>
 
       <TableCell className="text-sm text-muted-foreground">
