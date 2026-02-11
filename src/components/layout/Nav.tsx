@@ -7,12 +7,17 @@ import type { AuthUser } from "@/lib/auth/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Trophy,
   LayoutGrid,
   Swords,
   Users,
-  Activity,
-  Clock,
   User,
   Settings,
   LogOut,
@@ -31,11 +36,7 @@ const authenticatedLinks: NavLink[] = [
   { href: "/picks", label: "My Picks", icon: LayoutGrid },
   { href: "/challenges", label: "Challenges", icon: Swords, badgeKey: "challenges" },
   { href: "/friends", label: "Friends", icon: Users, badgeKey: "friends" },
-  { href: "/activity", label: "Activity", icon: Activity },
-  { href: "/history", label: "History", icon: Clock },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
-  { href: "/profile", label: "Profile", icon: User },
-  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 const publicLinks: NavLink[] = [
@@ -60,6 +61,8 @@ export default function Nav({
 }) {
   const pathname = usePathname();
   const links = user ? authenticatedLinks : publicLinks;
+  const isProfileActive =
+    pathname === "/profile" || pathname === "/settings";
 
   return (
     <nav className="flex flex-col gap-1 md:flex-row md:items-center md:gap-0.5 md:overflow-x-auto md:scrollbar-none">
@@ -95,18 +98,49 @@ export default function Nav({
       })}
 
       {user ? (
-        <form action={signOut}>
-          <Button
-            type="submit"
-            variant="ghost"
-            size="sm"
-            onClick={onNavigate}
-            className="w-full justify-start gap-2 text-muted-foreground hover:bg-secondary hover:text-foreground md:w-auto"
-          >
-            <LogOut className="h-4 w-4 md:hidden" />
-            Sign Out
-          </Button>
-        </form>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`w-full justify-start gap-2 md:w-auto ${
+                isProfileActive
+                  ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+            >
+              <User className="h-4 w-4 md:hidden" />
+              Profile
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem asChild>
+              <Link href="/profile" onClick={onNavigate} className="gap-2">
+                <User className="h-4 w-4" />
+                My Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/settings" onClick={onNavigate} className="gap-2">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <form action={signOut} className="w-full">
+                <button
+                  type="submit"
+                  onClick={onNavigate}
+                  className="flex w-full items-center gap-2 text-sm"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </button>
+              </form>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ) : (
         <Link href="/auth/login" onClick={onNavigate}>
           <Button

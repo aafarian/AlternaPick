@@ -123,30 +123,31 @@ export async function resolveEligibleChallenges(): Promise<
         (opponentProfile as { username: string } | null)?.username ??
         "Opponent";
 
-      const challengerBody = isTie
-        ? `Your challenge vs ${opponentName} ended in a tie (${challengerScore}-${opponentScore})!`
-        : winnerId === challenge.challenger_id
-          ? `You won your challenge vs ${opponentName} (${challengerScore}-${opponentScore})!`
-          : `You lost your challenge vs ${opponentName} (${challengerScore}-${opponentScore})!`;
-
-      const opponentBody = isTie
-        ? `Your challenge vs ${challengerName} ended in a tie (${opponentScore}-${challengerScore})!`
-        : winnerId === challenge.opponent_id
-          ? `You won your challenge vs ${challengerName} (${opponentScore}-${challengerScore})!`
-          : `You lost your challenge vs ${challengerName} (${opponentScore}-${challengerScore})!`;
+      const challengerMsg = getChallengeNotificationMessage(
+        challengerScore,
+        opponentScore,
+        opponentName,
+        winnerId === challenge.challenger_id
+      );
+      const opponentMsg = getChallengeNotificationMessage(
+        opponentScore,
+        challengerScore,
+        challengerName,
+        winnerId === challenge.opponent_id
+      );
 
       await createNotification(supabase, {
         user_id: challenge.challenger_id,
         type: "challenge_resolved",
-        title: "Challenge Resolved",
-        body: challengerBody,
+        title: challengerMsg.title,
+        body: challengerMsg.body,
         metadata: { challenge_id: challenge.id },
       });
       await createNotification(supabase, {
         user_id: challenge.opponent_id,
         type: "challenge_resolved",
-        title: "Challenge Resolved",
-        body: opponentBody,
+        title: opponentMsg.title,
+        body: opponentMsg.body,
         metadata: { challenge_id: challenge.id },
       });
     } catch (notifError) {
@@ -166,6 +167,60 @@ export async function resolveEligibleChallenges(): Promise<
   }
 
   return results;
+}
+
+function getChallengeNotificationMessage(
+  myScore: number,
+  theirScore: number,
+  opponentName: string,
+  isWinner: boolean
+): { title: string; body: string } {
+  const isTie = myScore === theirScore;
+  const margin = Math.abs(myScore - theirScore);
+
+  if (isTie) {
+    return {
+      title: "Dead Heat",
+      body: `You and ${opponentName} tied ${myScore}-${theirScore}. Run it back?`,
+    };
+  }
+
+  if (isWinner) {
+    if (margin >= 3) {
+      return {
+        title: "Dominant Win!",
+        body: `You destroyed ${opponentName} ${myScore}-${theirScore}. Not even close.`,
+      };
+    }
+    if (margin === 1) {
+      return {
+        title: "Clutch Win!",
+        body: `You edged out ${opponentName} ${myScore}-${theirScore}. That was tight.`,
+      };
+    }
+    return {
+      title: "Victory!",
+      body: `You beat ${opponentName} ${myScore}-${theirScore}. Nice work.`,
+    };
+  }
+
+  // Loss
+  if (margin >= 3) {
+    return {
+      title: "Tough Loss",
+      body: `${opponentName} got you ${theirScore}-${myScore}. Run it back?`,
+    };
+  }
+  if (margin === 1) {
+    return {
+      title: "So Close!",
+      body: `You fell just short against ${opponentName} ${myScore}-${theirScore}. Next time.`,
+    };
+  }
+  return {
+    title: "Better Luck Next Time",
+    body: `${opponentName} took it ${theirScore}-${myScore}. Shake it off.`,
+  };
 }
 
 /**

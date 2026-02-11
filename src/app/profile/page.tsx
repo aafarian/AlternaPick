@@ -3,6 +3,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, LeaderboardEntry } from "@/lib/supabase/types";
 import ProfileCard from "@/components/profile/ProfileCard";
+import ProfileChecklist from "@/components/onboarding/ProfileChecklist";
+import type { ChecklistItem } from "@/components/onboarding/ProfileChecklist";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
 
@@ -16,17 +18,19 @@ export default async function ProfilePage() {
     redirect("/auth/login");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  const { data: stats } = await supabase
-    .from("leaderboard_entries")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
+  const [{ data: profile }, { data: stats }, friendshipResult] =
+    await Promise.all([
+      supabase.from("profiles").select("*").eq("id", user.id).single(),
+      supabase
+        .from("leaderboard_entries")
+        .select("*")
+        .eq("user_id", user.id)
+        .single(),
+      (supabase.from("friendships") as any)
+        .select("id", { count: "exact", head: true })
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+        .eq("status", "accepted"),
+    ]);
 
   if (!profile) {
     return (
@@ -39,6 +43,26 @@ export default async function ProfilePage() {
       </div>
     );
   }
+
+  const friendCount = (friendshipResult.count ?? 0) as number;
+
+  const checklistItems: ChecklistItem[] = [
+    {
+      label: "Set display name",
+      completed: !!(profile as Profile).display_name?.trim(),
+      href: "/settings",
+    },
+    {
+      label: "Set avatar",
+      completed: !!(profile as Profile).avatar_url,
+      href: "/settings",
+    },
+    {
+      label: "Add a friend",
+      completed: friendCount > 0,
+      href: "/friends",
+    },
+  ];
 
   return (
     <div className="flex flex-col gap-6 py-8">
@@ -56,6 +80,7 @@ export default async function ProfilePage() {
         email={user.email ?? ""}
         stats={(stats as LeaderboardEntry | null) ?? null}
       />
+      <ProfileChecklist items={checklistItems} />
     </div>
   );
 }

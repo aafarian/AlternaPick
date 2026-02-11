@@ -1,0 +1,18 @@
+name: Game Sync & Resolution
+on:
+  schedule:
+    # Every 10 minutes from 7 PM to 2 AM ET (NBA game hours)
+    # UTC: 00:00-07:00 (next day)
+    - cron: "*/10 0-7 * * *"
+    # Also cover afternoon games (1 PM - 7 PM ET = 18:00-00:00 UTC)
+    - cron: "*/10 18-23 * * *"
+  workflow_dispatch: {}
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync game statuses & resolve cards
+        run: |
+          curl -sf -X POST "${{ secrets.APP_URL }}/api/games/sync-status" \
+            -H "Authorization: Bearer ${{ secrets.SYNC_SECRET }}" \
+            -H "Content-Type: application/json"

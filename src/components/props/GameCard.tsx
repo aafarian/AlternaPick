@@ -1,10 +1,12 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import type { Game, Prop, StatCategory } from "@/lib/supabase/types";
 import PropLine from "./PropLine";
 import CountdownBadge from "./CountdownBadge";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { teamTricode } from "@/lib/constants";
+import { teamTricode, teamLogoUrl } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 const STAT_SORT_ORDER: Record<StatCategory, number> = {
   points: 0,
@@ -21,11 +23,28 @@ const STAT_SORT_ORDER: Record<StatCategory, number> = {
   turnovers: 11,
 };
 
-interface GameCardProps {
-  game: Game & { props: Prop[] };
+function TeamLogo({ team }: { team: string }) {
+  const url = teamLogoUrl(team);
+  if (!url) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt={teamTricode(team)}
+      width={24}
+      height={24}
+      className="shrink-0 object-contain"
+    />
+  );
 }
 
-export default function GameCard({ game }: GameCardProps) {
+interface GameCardProps {
+  game: Game & { props: Prop[] };
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+export default function GameCard({ game, expanded, onToggle }: GameCardProps) {
   // Sort props: group by team (away first, then home), then by stat category within each team
   const awayCode = teamTricode(game.away_team);
   const homeCode = teamTricode(game.home_team);
@@ -42,36 +61,58 @@ export default function GameCard({ game }: GameCardProps) {
   });
 
   return (
-    <Card id={`game-${game.id}`} className="scroll-mt-32 border-border bg-card">
-      <CardHeader className="flex-row items-center justify-between space-y-0 border-b border-border px-4 py-3">
-        <div className="flex items-center gap-2">
+    <Card id={`game-${game.id}`} className="scroll-mt-40 border-border bg-card">
+      <CardHeader
+        onClick={onToggle}
+        className={cn(
+          "flex-row items-center justify-between space-y-0 px-4 py-3 transition-colors hover:bg-secondary/30",
+          expanded && "border-b border-border"
+        )}
+      >
+        <div className="flex items-center gap-2.5">
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-muted-foreground transition-transform",
+              expanded && "rotate-180"
+            )}
+          />
+          <TeamLogo team={game.away_team} />
           <span className="font-bold">{game.away_team}</span>
-          <span className="text-muted-foreground">@</span>
+          <span className="text-xs text-muted-foreground">@</span>
           <span className="font-bold">{game.home_team}</span>
+          <TeamLogo team={game.home_team} />
         </div>
-        <CountdownBadge commenceTime={game.commence_time} />
+
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">
+            {game.props.length} props
+          </span>
+          <CountdownBadge commenceTime={game.commence_time} />
+        </div>
       </CardHeader>
 
-      <CardContent className="p-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {sortedProps.map((prop) => (
-            <PropLine
-              key={prop.id}
-              propId={prop.id}
-              gameId={game.id}
-              playerName={prop.player_name}
-              playerId={prop.player_id}
-              playerTeam={prop.player_team}
-              playerPosition={prop.player_position}
-              statCategory={prop.stat_category}
-              line={prop.line}
-              awayTeam={game.away_team}
-              homeTeam={game.home_team}
-              lineHistory={prop.line_history}
-            />
-          ))}
-        </div>
-      </CardContent>
+      {expanded && (
+        <CardContent className="p-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {sortedProps.map((prop) => (
+              <PropLine
+                key={prop.id}
+                propId={prop.id}
+                gameId={game.id}
+                playerName={prop.player_name}
+                playerId={prop.player_id}
+                playerTeam={prop.player_team}
+                playerPosition={prop.player_position}
+                statCategory={prop.stat_category}
+                line={prop.line}
+                awayTeam={game.away_team}
+                homeTeam={game.home_team}
+                lineHistory={prop.line_history}
+              />
+            ))}
+          </div>
+        </CardContent>
+      )}
     </Card>
   );
 }

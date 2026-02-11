@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { Notification } from "@/lib/supabase/types";
 import { formatTimeAgo } from "@/lib/format";
-import { getNotificationIcon } from "@/lib/constants";
+import { getNotificationIcon, getNotificationTitle } from "@/lib/constants";
 
 interface NotificationBellProps {
   count: number;
@@ -124,14 +124,17 @@ export default function NotificationBell({
                 key={n.id}
                 type="button"
                 onClick={() => handleItemClick(n)}
-                className="flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent focus:bg-accent focus:outline-none"
+                className="group flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-secondary/50 focus:bg-secondary/50 focus:outline-none"
               >
                 <span className="mt-0.5 text-base leading-none">
                   {getNotificationIcon(n.type)}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{n.title}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <p className="truncate text-sm font-medium">{getNotificationTitle(n.type, n.title, n.body)}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground" title={n.body}>
+                    {n.body}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground/60">
                     {formatTimeAgo(n.created_at, true)}
                   </p>
                 </div>

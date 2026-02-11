@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchTodaysGames } from "@/lib/stats-service/client";
+import { resolveEligibleCards } from "@/lib/cards/resolution";
+import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import { unauthorized, serverError, handleApiError } from "@/lib/api/errors";
 import type { Game } from "@/lib/supabase/types";
 
@@ -57,16 +59,59 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const supabase = createAdminClient();
+    const now = new Date();
+
+    // Step 0: Force-finalize stale games (started > 6 hours ago, still not "final" in DB).
+    // This catches games from previous days that were never synced to "final",
+    // whether they were stuck at "live" or "scheduled".
+    const staleThreshold = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+    let staleFinalizedCount = 0;
+
+    const staleResult = await (supabase.from("games") as any)
+      .select("id")
+      .neq("status", "final")
+      .lt("commence_time", staleThreshold.toISOString());
+
+    const staleGames = ((staleResult.data ?? []) as { id: string }[]);
+    if (staleGames.length > 0) {
+      const staleIds = staleGames.map((g) => g.id);
+      const { error: staleError } = await (supabase.from("games") as any)
+        .update({ status: "final" })
+        .in("id", staleIds);
+
+      if (!staleError) {
+        staleFinalizedCount = staleIds.length;
+      }
+    }
+
     const nbaGames = await fetchTodaysGames();
 
     if (nbaGames.length === 0) {
-      return NextResponse.json({ updated: 0, games: [], message: "No NBA games today" });
+      // No NBA games today — but still resolve if stale games were finalized
+      let cardsResolved = 0;
+      let challengesResolved = 0;
+      if (staleFinalizedCount > 0) {
+        try {
+          const cardResults = await resolveEligibleCards();
+          cardsResolved = cardResults.length;
+          const challengeResults = await resolveEligibleChallenges();
+          challengesResolved = challengeResults.length;
+        } catch (resolveError) {
+          console.error("Auto-resolution error:", resolveError);
+        }
+      }
+      return NextResponse.json({
+        updated: 0,
+        games: [],
+        stale_finalized: staleFinalizedCount,
+        cards_resolved: cardsResolved,
+        challenges_resolved: challengesResolved,
+        message: "No NBA games today",
+      });
     }
 
-    const supabase = createAdminClient();
-
     // Get today's games from Supabase
-    const now = new Date();
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
     const tomorrowEnd = new Date(now);
@@ -85,6 +130,7 @@ export async function POST(request: NextRequest) {
 
     const games = (gamesResult.data ?? []) as Game[];
     const updated: { odds_team: string; nba_team: string; status: string; nba_game_id: string }[] = [];
+    let anyBecameFinal = false;
 
     for (const nbaGame of nbaGames) {
       const homeTeamFull = TRICODE_TO_TEAM[nbaGame.home_tricode];
@@ -106,6 +152,7 @@ export async function POST(request: NextRequest) {
       if (!match) continue;
 
       const newStatus = mapNbaStatus(nbaGame.status);
+      const previousStatus = match.status;
 
       const { error: updateError } = await (supabase.from("games") as any)
         .update({
@@ -123,10 +170,37 @@ export async function POST(request: NextRequest) {
           status: newStatus,
           nba_game_id: nbaGame.game_id,
         });
+
+        // Track if any game just transitioned to final
+        if (newStatus === "final" && previousStatus !== "final") {
+          anyBecameFinal = true;
+        }
       }
     }
 
-    return NextResponse.json({ updated: updated.length, games: updated });
+    // Auto-resolve cards and challenges when any games become final
+    let cardsResolved = 0;
+    let challengesResolved = 0;
+
+    if (anyBecameFinal || staleFinalizedCount > 0) {
+      try {
+        const cardResults = await resolveEligibleCards();
+        cardsResolved = cardResults.length;
+
+        const challengeResults = await resolveEligibleChallenges();
+        challengesResolved = challengeResults.length;
+      } catch (resolveError) {
+        console.error("Auto-resolution error:", resolveError);
+      }
+    }
+
+    return NextResponse.json({
+      updated: updated.length,
+      games: updated,
+      stale_finalized: staleFinalizedCount,
+      cards_resolved: cardsResolved,
+      challenges_resolved: challengesResolved,
+    });
   } catch (error) {
     return handleApiError(error, "Failed to sync game statuses");
   }

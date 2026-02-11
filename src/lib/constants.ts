@@ -30,6 +30,63 @@ export function getNotificationAccent(type: string): string {
   return NOTIFICATION_ACCENTS[type] ?? "bg-muted/15 text-muted-foreground";
 }
 
+/**
+ * Derive a display-friendly notification title from type + body.
+ * Handles both legacy ("Card Resolved") and new titles gracefully.
+ */
+export function getNotificationTitle(
+  type: string,
+  title: string,
+  body: string
+): string {
+  // If title is already something fun (not the generic fallback), use it
+  if (
+    type === "card_resolved" &&
+    title !== "Card Resolved" &&
+    title !== "card_resolved"
+  ) {
+    return title;
+  }
+  if (
+    type === "challenge_resolved" &&
+    title !== "Challenge Resolved" &&
+    title !== "challenge_resolved"
+  ) {
+    return title;
+  }
+
+  // Derive a better title for legacy notifications
+  if (type === "card_resolved") {
+    // Body: "Your card scored X/Y!" or "X out of Y. ..."
+    const match = body.match(/(\d+)\/(\d+)/) ?? body.match(/(\d+) out of (\d+)/);
+    if (match) {
+      const score = parseInt(match[1], 10);
+      const total = parseInt(match[2], 10);
+      const ratio = total > 0 ? score / total : 0;
+      if (score === total) return "Perfect Card!";
+      if (ratio >= 0.8) return "On Fire!";
+      if (ratio >= 0.6) return "Nice Card!";
+      if (ratio >= 0.4) return "Not Bad";
+      if (score > 0) return "Tough Break";
+      return "Ice Cold";
+    }
+    return "Card Results";
+  }
+
+  if (type === "challenge_resolved") {
+    const lower = body.toLowerCase();
+    if (lower.includes("destroyed") || lower.includes("dominated")) return "Dominant Win!";
+    if (lower.includes("edged")) return "Clutch Win!";
+    if (lower.includes("won") || lower.includes("beat")) return "Victory!";
+    if (lower.includes("tie") || lower.includes("deadlock")) return "Dead Heat";
+    if (lower.includes("fell just short")) return "So Close!";
+    if (lower.includes("lost") || lower.includes("got you") || lower.includes("took it")) return "Tough Loss";
+    return "Challenge Results";
+  }
+
+  return title;
+}
+
 /* ---------- Challenge status styles ---------- */
 
 export const CHALLENGE_STATUS_STYLES: Record<string, string> = {

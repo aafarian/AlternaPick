@@ -3,8 +3,6 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import CardListWithLoadMore from "@/components/cards/CardListWithLoadMore";
 import LiveTracker from "@/components/live/LiveTracker";
-import ProfileChecklist from "@/components/onboarding/ProfileChecklist";
-import type { ChecklistItem } from "@/components/onboarding/ProfileChecklist";
 import type { CardWithPicks } from "@/lib/cards/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,44 +41,10 @@ export default async function CardsPage() {
   }
 
   // Fetch locked and resolved cards separately for proper pagination
-  // Also fetch profile and friendship data for the completion checklist
-  const [activeCards, completedCards, profileResult, friendshipResult] =
-    await Promise.all([
-      getCardsByStatus(user.id, "locked"),
-      getCardsByStatus(user.id, "resolved", PAGE_SIZE),
-      (supabase.from("profiles") as any)
-        .select("display_name, avatar_url")
-        .eq("id", user.id)
-        .single(),
-      (supabase.from("friendships") as any)
-        .select("id", { count: "exact", head: true })
-        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
-        .eq("status", "accepted"),
-    ]);
-
-  const profile = profileResult.data as {
-    display_name: string | null;
-    avatar_url: string | null;
-  } | null;
-  const friendCount = (friendshipResult.count ?? 0) as number;
-
-  const checklistItems: ChecklistItem[] = [
-    {
-      label: "Set display name",
-      completed: !!profile?.display_name?.trim(),
-      href: "/settings",
-    },
-    {
-      label: "Set avatar",
-      completed: !!profile?.avatar_url,
-      href: "/settings",
-    },
-    {
-      label: "Add a friend",
-      completed: friendCount > 0,
-      href: "/friends",
-    },
-  ];
+  const [activeCards, completedCards] = await Promise.all([
+    getCardsByStatus(user.id, "locked"),
+    getCardsByStatus(user.id, "resolved", PAGE_SIZE),
+  ]);
 
   const avgScore =
     completedCards.length > 0
@@ -134,9 +98,6 @@ export default async function CardsPage() {
           </Card>
         </div>
       )}
-
-      {/* Profile completion checklist */}
-      <ProfileChecklist items={checklistItems} />
 
       {/* Tabs for Live / Finished */}
       <Tabs defaultValue="live">

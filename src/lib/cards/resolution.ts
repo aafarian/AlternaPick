@@ -70,31 +70,39 @@ export function extractStatValue(
   }
 }
 
+/** Strip diacritics (ä→a, é→e, etc.) and lowercase for name matching. */
+function normForMatch(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 export function fuzzyMatchPlayer(
   boxscore: PlayerBoxScore[],
   playerName: string
 ): PlayerBoxScore | undefined {
-  const normalized = playerName.toLowerCase().trim();
+  const normalized = normForMatch(playerName);
 
-  // Exact match
+  // Exact match (diacritics-insensitive)
   const exact = boxscore.find(
-    (p) => p.player_name.toLowerCase() === normalized
+    (p) => normForMatch(p.player_name) === normalized
   );
   if (exact) return exact;
 
   // Last name match
   const lastName = normalized.split(" ").pop() ?? "";
   const lastNameMatches = boxscore.filter((p) =>
-    p.player_name.toLowerCase().includes(lastName)
+    normForMatch(p.player_name).includes(lastName)
   );
   if (lastNameMatches.length === 1) return lastNameMatches[0];
 
   // Partial match
-  return boxscore.find(
-    (p) =>
-      p.player_name.toLowerCase().includes(normalized) ||
-      normalized.includes(p.player_name.toLowerCase())
-  );
+  return boxscore.find((p) => {
+    const norm = normForMatch(p.player_name);
+    return norm.includes(normalized) || normalized.includes(norm);
+  });
 }
 
 export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
@@ -129,11 +137,15 @@ export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
       // Fire-and-forget: notify card owner about resolution
       if (result.user_id) {
         try {
+          const { title, body } = getCardNotificationMessage(
+            result.score,
+            result.total
+          );
           await createNotification(supabase, {
             user_id: result.user_id,
             type: "card_resolved",
-            title: "Card Resolved",
-            body: `Your card scored ${result.score}/${result.total}!`,
+            title,
+            body,
             metadata: { card_id: result.card_id },
           });
         } catch (notifError) {
@@ -266,6 +278,48 @@ async function persistResolution(
   if (result.user_id) {
     await updateLeaderboardStats(supabase, result.user_id, result.score);
   }
+}
+
+function getCardNotificationMessage(
+  score: number,
+  total: number
+): { title: string; body: string } {
+  const ratio = total > 0 ? score / total : 0;
+
+  if (score === total) {
+    return {
+      title: "Perfect Card!",
+      body: `You went ${score} for ${total}. Absolute masterclass.`,
+    };
+  }
+  if (ratio >= 0.8) {
+    return {
+      title: "On Fire!",
+      body: `${score} out of ${total} hits. Almost perfect.`,
+    };
+  }
+  if (ratio >= 0.6) {
+    return {
+      title: "Nice Card!",
+      body: `${score} out of ${total} hits. Solid work.`,
+    };
+  }
+  if (ratio >= 0.4) {
+    return {
+      title: "Not Bad",
+      body: `${score} out of ${total}. Room to improve.`,
+    };
+  }
+  if (score > 0) {
+    return {
+      title: "Tough Break",
+      body: `${score} out of ${total}. Shake it off.`,
+    };
+  }
+  return {
+    title: "Ice Cold",
+    body: `0 for ${total}. Tomorrow's a new day.`,
+  };
 }
 
 /**

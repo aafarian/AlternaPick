@@ -195,18 +195,23 @@ export async function GET(request: NextRequest) {
     }
 
     const status = searchParams.get("status");
-    const limit = parseInt(searchParams.get("limit") ?? "20", 10);
-    const offset = parseInt(searchParams.get("offset") ?? "0", 10);
+    const limit = Math.min(parseInt(searchParams.get("limit") ?? "20", 10), 100);
+    const cursor = searchParams.get("cursor"); // ISO date string (created_at of last item)
 
     // Scope by authenticated user (defense-in-depth with RLS)
     let query = (supabase.from("cards") as any)
       .select("id, user_id, status, score, total_picks, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, stat_category, line, game_id))")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1);
+      .limit(limit);
 
     if (status === "locked" || status === "resolved") {
       query = query.eq("status", status);
+    }
+
+    // Cursor-based pagination: fetch cards older than the cursor
+    if (cursor) {
+      query = query.lt("created_at", cursor);
     }
 
     const { data: cards, error: cardsError } = await query;
@@ -215,7 +220,16 @@ export async function GET(request: NextRequest) {
       return serverError("Failed to fetch cards", cardsError.message);
     }
 
-    return NextResponse.json({ cards: cards ?? [] });
+    const cardsList = (cards ?? []) as { created_at: string }[];
+    const nextCursor =
+      cardsList.length === limit
+        ? cardsList[cardsList.length - 1].created_at
+        : null;
+
+    return NextResponse.json({
+      cards: cardsList,
+      next_cursor: nextCursor,
+    });
   } catch (error) {
     return handleApiError(error, "Failed to fetch cards");
   }

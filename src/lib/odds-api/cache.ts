@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CACHE_TTL_MS } from "./constants";
 import type { OddsApiEvent, ParsedPlayerProp } from "./types";
@@ -37,7 +38,7 @@ export async function isCacheStale(): Promise<boolean> {
   return now.getTime() - lastFetched > CACHE_TTL_MS;
 }
 
-export async function getCachedProps(): Promise<
+async function getCachedPropsInternal(): Promise<
   (Game & { props: Prop[] })[] | null
 > {
   const supabase = createAdminClient();
@@ -56,13 +57,21 @@ export async function getCachedProps(): Promise<
 
   const result = await supabase
     .from("games")
-    .select("*, props(*)")
+    .select("id, home_team, away_team, commence_time, props(id, game_id, player_name, player_id, player_team, player_position, stat_category, line, line_history)")
     .gte("commence_time", rangeStart.toISOString())
     .lte("commence_time", rangeEnd.toISOString())
     .order("commence_time", { ascending: true });
 
   return result.data as (Game & { props: Prop[] })[] | null;
 }
+
+export const PROPS_CACHE_TAG = "props-page-data";
+
+export const getCachedProps = unstable_cache(
+  getCachedPropsInternal,
+  [PROPS_CACHE_TAG],
+  { revalidate: 120, tags: [PROPS_CACHE_TAG] }
+);
 
 export async function cacheProps(
   events: OddsApiEvent[],

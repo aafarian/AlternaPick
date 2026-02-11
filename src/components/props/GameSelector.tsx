@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { teamTricode, teamLogoUrl } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import CountdownBadge from "./CountdownBadge";
@@ -14,6 +13,8 @@ interface GameInfo {
 
 interface GameSelectorProps {
   games: GameInfo[];
+  activeId: string | null;
+  onSelect: (gameId: string) => void;
 }
 
 function TeamLogo({ team, size = 20 }: { team: string; size?: number }) {
@@ -31,17 +32,7 @@ function TeamLogo({ team, size = 20 }: { team: string; size?: number }) {
   );
 }
 
-export default function GameSelector({ games }: GameSelectorProps) {
-  const [active, setActive] = useState<string | null>(null);
-
-  function handleClick(gameId: string) {
-    setActive(gameId);
-    const el = document.getElementById(`game-${gameId}`);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }
-
+export default function GameSelector({ games, activeId, onSelect }: GameSelectorProps) {
   if (games.length === 0) return null;
 
   return (
@@ -49,10 +40,10 @@ export default function GameSelector({ games }: GameSelectorProps) {
       {games.map((game) => (
         <button
           key={game.id}
-          onClick={() => handleClick(game.id)}
+          onClick={() => onSelect(game.id)}
           className={cn(
             "flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all",
-            active === game.id
+            activeId === game.id
               ? "border-primary/40 bg-primary/10 text-foreground"
               : "border-border bg-secondary text-muted-foreground hover:border-border/80 hover:text-foreground"
           )}

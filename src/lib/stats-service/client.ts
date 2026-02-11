@@ -2,6 +2,24 @@ const STATS_SERVICE_URL =
   process.env.STATS_SERVICE_URL || "http://localhost:8000";
 const TIMEOUT_MS = 5000;
 
+// Module-level TTL cache for live endpoints (30s)
+const CACHE_TTL = 30_000;
+const cache = new Map<string, { data: unknown; expiry: number }>();
+
+function getCached<T>(key: string): T | undefined {
+  const entry = cache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() > entry.expiry) {
+    cache.delete(key);
+    return undefined;
+  }
+  return entry.data as T;
+}
+
+function setCache(key: string, data: unknown): void {
+  cache.set(key, { data, expiry: Date.now() + CACHE_TTL });
+}
+
 export interface StatsGame {
   game_id: string;
   home_team: string;
@@ -139,17 +157,29 @@ export async function fetchAllPlayers(): Promise<NbaPlayer[]> {
 export async function fetchBoxscoreLive(
   gameId: string
 ): Promise<PlayerBoxScore[]> {
+  const cacheKey = `boxscoreLive:${gameId}`;
+  const cached = getCached<PlayerBoxScore[]>(cacheKey);
+  if (cached) return cached;
+
   const response = await fetchWithRetry(
     `${STATS_SERVICE_URL}/games/${gameId}/boxscore/live`
   );
   const data = await response.json();
-  return data.data ?? [];
+  const result = data.data ?? [];
+  setCache(cacheKey, result);
+  return result;
 }
 
 export async function fetchTodaysGamesLive(): Promise<StatsGame[]> {
+  const cacheKey = "todaysGamesLive";
+  const cached = getCached<StatsGame[]>(cacheKey);
+  if (cached) return cached;
+
   const response = await fetchWithRetry(
     `${STATS_SERVICE_URL}/games/today/live`
   );
   const data = await response.json();
-  return data.data ?? [];
+  const result = data.data ?? [];
+  setCache(cacheKey, result);
+  return result;
 }

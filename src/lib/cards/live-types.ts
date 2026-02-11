@@ -51,6 +51,9 @@ export function toLivePickData(pick: {
     game_id: string;
   } | null;
 }): LivePickData {
+  const hasResult =
+    pick.result === "hit" || pick.result === "miss" || pick.result === "push";
+
   return {
     pick_id: pick.id,
     player_name: pick.prop?.player_name ?? "Unknown",
@@ -59,11 +62,23 @@ export function toLivePickData(pick: {
     line: pick.prop?.line ?? 0,
     selection: pick.selection as PickSelection,
     current_value: pick.actual_value,
-    trending:
-      pick.result === "hit" || pick.result === "miss" || pick.result === "push"
-        ? pick.result
-        : null,
-    game_status: null,
+    trending: hasResult ? (pick.result as "hit" | "miss" | "push") : null,
+    // Resolved picks should show as "final" — null causes "PRE" display
+    game_status: hasResult
+      ? {
+          game_id: pick.prop?.game_id ?? "",
+          nba_game_id: pick.prop?.game_id ?? "",
+          status: "final" as const,
+          period: 4,
+          clock: "0:00",
+          home_team: "",
+          away_team: "",
+          home_tricode: "",
+          away_tricode: "",
+          home_score: 0,
+          away_score: 0,
+        }
+      : null,
   };
 }
 

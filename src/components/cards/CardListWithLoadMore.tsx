@@ -18,21 +18,24 @@ interface CardListWithLoadMoreProps {
 export default function CardListWithLoadMore({
   initialCards,
   statusFilter,
-  pageSize = 10,
+  pageSize = 20,
   hasMoreInitially = true,
 }: CardListWithLoadMoreProps) {
   const [cards, setCards] = useState<CardWithPicks[]>(initialCards);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(
+  const [nextCursor, setNextCursor] = useState<string | null>(
     hasMoreInitially && initialCards.length >= pageSize
+      ? initialCards[initialCards.length - 1]?.created_at ?? null
+      : null
   );
 
   const loadMore = useCallback(async () => {
+    if (!nextCursor) return;
     setLoading(true);
     try {
       const params = new URLSearchParams({
         limit: String(pageSize),
-        offset: String(cards.length),
+        cursor: nextCursor,
       });
       if (statusFilter) params.set("status", statusFilter);
 
@@ -43,15 +46,13 @@ export default function CardListWithLoadMore({
       const newCards: CardWithPicks[] = data.cards ?? [];
 
       setCards((prev) => [...prev, ...newCards]);
-      if (newCards.length < pageSize) {
-        setHasMore(false);
-      }
+      setNextCursor(data.next_cursor ?? null);
     } catch {
       // Silently ignore
     } finally {
       setLoading(false);
     }
-  }, [cards.length, pageSize, statusFilter]);
+  }, [nextCursor, pageSize, statusFilter]);
 
   if (cards.length === 0) return null;
 
@@ -60,7 +61,7 @@ export default function CardListWithLoadMore({
       {cards.map((card) => (
         <CardDetail key={card.id} card={card} />
       ))}
-      {hasMore && (
+      {nextCursor && (
         <Button
           onClick={loadMore}
           disabled={loading}

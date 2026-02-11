@@ -1,11 +1,10 @@
 import { Suspense } from "react";
 import { getCachedProps } from "@/lib/odds-api/cache";
 import type { StatCategory } from "@/lib/supabase/types";
-import GameCard from "@/components/props/GameCard";
 import PropsHeader from "@/components/props/PropsHeader";
 import CategoryFilter from "@/components/props/CategoryFilter";
 import PlayerSearch from "@/components/props/PlayerSearch";
-import GameSelector from "@/components/props/GameSelector";
+import PropsGameList from "@/components/props/PropsGameList";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface PropsPageProps {
@@ -13,8 +12,12 @@ interface PropsPageProps {
 }
 
 export default async function PropsPage({ searchParams }: PropsPageProps) {
-  const { category, player } = await searchParams;
+  const { category: rawCategory, player } = await searchParams;
   const games = await getCachedProps();
+
+  // Default to "points" when no category param; "all" shows everything
+  const category = rawCategory ?? "points";
+  const isAll = category === "all";
 
   const playerQuery = player?.trim().toLowerCase() ?? "";
 
@@ -24,7 +27,7 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
       props: game.props
         .filter(
           (p) =>
-            !category || p.stat_category === (category as StatCategory)
+            isAll || p.stat_category === (category as StatCategory)
         )
         .filter(
           (p) =>
@@ -47,23 +50,14 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
     <div className="flex flex-col gap-6 py-8">
       <PropsHeader gameCount={withProps.length} />
 
-      <Suspense fallback={null}>
-        <PlayerSearch />
-      </Suspense>
+      <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-3 bg-background px-4 pb-3 pt-2">
+        <Suspense fallback={null}>
+          <PlayerSearch />
+        </Suspense>
 
-      <div className="flex flex-col gap-3">
         <Suspense fallback={null}>
           <CategoryFilter />
         </Suspense>
-
-        <GameSelector
-          games={withProps.map((g) => ({
-            id: g.id,
-            away_team: g.away_team,
-            home_team: g.home_team,
-            commence_time: g.commence_time,
-          }))}
-        />
       </div>
 
       {withProps.length === 0 ? (
@@ -88,11 +82,7 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
           </CardContent>
         </Card>
       ) : (
-        <div className="flex flex-col gap-4">
-          {withProps.map((game) => (
-            <GameCard key={game.id} game={game} />
-          ))}
-        </div>
+        <PropsGameList key={category} games={withProps} expandFirstOnly={isAll} />
       )}
     </div>
   );

@@ -23,15 +23,11 @@ const CATEGORIES: { value: StatCategory | "all"; label: string }[] = [
 export default function CategoryFilter() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const active = searchParams.get("category") ?? "all";
+  const active = searchParams.get("category") ?? "points";
 
   function handleChange(value: string) {
     const params = new URLSearchParams(searchParams.toString());
-    if (value === "all") {
-      params.delete("category");
-    } else {
-      params.set("category", value);
-    }
+    params.set("category", value);
     router.push(`/props?${params.toString()}`);
   }
 

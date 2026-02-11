@@ -3,7 +3,7 @@
 import type { Notification } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/format";
-import { getNotificationIcon, getNotificationAccent } from "@/lib/constants";
+import { getNotificationIcon, getNotificationAccent, getNotificationTitle } from "@/lib/constants";
 
 interface NotificationItemProps {
   notification: Notification;
@@ -55,7 +55,7 @@ export default function NotificationItem({
                 notification.read ? "text-muted-foreground" : "font-semibold"
               )}
             >
-              {notification.title}
+              {getNotificationTitle(notification.type, notification.title, notification.body)}
             </p>
             <p
               className={cn(

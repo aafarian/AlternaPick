@@ -9,6 +9,16 @@ interface ActivityItemProps {
   item: ActivityItemType;
 }
 
+function getCardFlavorText(score: number, total: number): string {
+  const ratio = total > 0 ? score / total : 0;
+  if (score === total) return "went perfect";
+  if (ratio >= 0.8) return "was on fire";
+  if (ratio >= 0.6) return "had a solid day";
+  if (ratio >= 0.4) return "had a mixed day";
+  if (score > 0) return "had a rough one";
+  return "went ice cold";
+}
+
 function renderMessage(item: ActivityItemType): string {
   const username =
     item.user.display_name ?? item.user.username;
@@ -16,7 +26,8 @@ function renderMessage(item: ActivityItemType): string {
   switch (item.type) {
     case "card_resolved": {
       const { score, total_picks } = item.data;
-      return `${username} went ${score}/${total_picks} on their picks`;
+      const flavor = getCardFlavorText(score, total_picks);
+      return `${username} ${flavor} \u2014 ${score}/${total_picks} hits`;
     }
     case "challenge_resolved": {
       const { challenger, opponent, winner_id, challenger_score, opponent_score } =
@@ -27,7 +38,7 @@ function renderMessage(item: ActivityItemType): string {
         opponent.display_name ?? opponent.username;
 
       if (!winner_id) {
-        return `${challengerName} and ${opponentName} tied ${challenger_score}-${opponent_score}`;
+        return `${challengerName} and ${opponentName} deadlocked ${challenger_score}-${opponent_score}`;
       }
 
       const winnerName =
@@ -38,8 +49,15 @@ function renderMessage(item: ActivityItemType): string {
         winner_id === challenger.id ? challenger_score : opponent_score;
       const loserScore =
         winner_id === challenger.id ? opponent_score : challenger_score;
+      const margin = winnerScore - loserScore;
 
-      return `${winnerName} beat ${loserName} ${winnerScore}-${loserScore} in a challenge`;
+      if (margin >= 3) {
+        return `${winnerName} dominated ${loserName} ${winnerScore}-${loserScore}`;
+      }
+      if (margin === 1) {
+        return `${winnerName} edged out ${loserName} ${winnerScore}-${loserScore}`;
+      }
+      return `${winnerName} beat ${loserName} ${winnerScore}-${loserScore}`;
     }
     case "new_friend": {
       return `You and ${username} are now friends`;

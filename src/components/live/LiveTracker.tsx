@@ -1,26 +1,36 @@
 "use client";
 
+import { useMemo } from "react";
 import type { CardWithPicks } from "@/lib/cards/api";
-import { useLiveStats } from "@/lib/cards/use-live-stats";
+import type { LiveCardData } from "@/lib/cards/live-types";
+import { useBatchLiveStats } from "@/lib/cards/use-batch-live-stats";
 import LivePickCard from "./LivePickCard";
 import { Card, CardContent } from "@/components/ui/card";
 
-function LiveCard({ card }: { card: CardWithPicks }) {
-  const { data, error } = useLiveStats(card.id, true);
-
+function LiveCard({
+  card,
+  liveData,
+  isLoading,
+  hasError,
+}: {
+  card: CardWithPicks;
+  liveData: LiveCardData | undefined;
+  isLoading: boolean;
+  hasError: boolean;
+}) {
   return (
     <LivePickCard
-      picks={data?.picks ?? []}
-      hasLiveGames={data?.has_live_games ?? false}
-      games={data?.games}
+      picks={liveData?.picks ?? []}
+      hasLiveGames={liveData?.has_live_games ?? false}
+      games={liveData?.games}
       statusLabel={
         <span className="text-xs text-muted-foreground">
           {card.picks.length} picks
         </span>
       }
-      loading={!data && !error}
+      loading={isLoading && !liveData}
       pickCount={card.picks.length}
-      error={!!error}
+      error={hasError}
     />
   );
 }
@@ -30,6 +40,16 @@ export default function LiveTracker({
 }: {
   initialCards: CardWithPicks[];
 }) {
+  const cardIds = useMemo(
+    () => initialCards.map((c) => c.id),
+    [initialCards]
+  );
+
+  const { dataMap, isLoading, error } = useBatchLiveStats(
+    cardIds,
+    initialCards.length > 0,
+  );
+
   if (initialCards.length === 0) {
     return (
       <Card className="border-border bg-card">
@@ -47,7 +67,13 @@ export default function LiveTracker({
   return (
     <div className="flex flex-col gap-6">
       {initialCards.map((card) => (
-        <LiveCard key={card.id} card={card} />
+        <LiveCard
+          key={card.id}
+          card={card}
+          liveData={dataMap.get(card.id)}
+          isLoading={isLoading}
+          hasError={!!error}
+        />
       ))}
     </div>
   );
