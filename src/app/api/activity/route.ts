@@ -155,7 +155,7 @@ export async function GET() {
       (c: any) => c.id
     );
 
-    let challengeCardScores = new Map<
+    const challengeCardScores = new Map<
       string,
       { challenger_score: number; opponent_score: number }
     >();

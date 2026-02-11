@@ -1,6 +1,7 @@
+import Image from "next/image";
 import RankBadge from "./RankBadge";
 import type { LeaderboardEntryWithProfile } from "@/app/api/leaderboard/route";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -36,7 +37,15 @@ export default function LeaderboardRow({
           </div>
 
           <Avatar className="h-10 w-10">
-            {user.avatar_url && <AvatarImage src={user.avatar_url} alt={user.username} />}
+            {user.avatar_url && (
+              <Image
+                src={user.avatar_url}
+                alt={user.username}
+                width={40}
+                height={40}
+                className="aspect-square size-full object-cover"
+              />
+            )}
             <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
               {initials}
             </AvatarFallback>
@@ -81,7 +90,15 @@ export default function LeaderboardRow({
       <TableCell>
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9">
-            {user.avatar_url && <AvatarImage src={user.avatar_url} alt={user.username} />}
+            {user.avatar_url && (
+              <Image
+                src={user.avatar_url}
+                alt={user.username}
+                width={36}
+                height={36}
+                className="aspect-square size-full object-cover"
+              />
+            )}
             <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
               {initials}
             </AvatarFallback>

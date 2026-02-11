@@ -1,6 +1,7 @@
+import Image from "next/image";
 import type { Profile, LeaderboardEntry } from "@/lib/supabase/types";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface ProfileCardProps {
   profile: Profile;
@@ -22,7 +23,13 @@ export default function ProfileCard({ profile, email, stats }: ProfileCardProps)
         <div className="flex items-center gap-4">
           <Avatar className="h-16 w-16">
             {profile.avatar_url && (
-              <AvatarImage src={profile.avatar_url} alt={profile.username} />
+              <Image
+                src={profile.avatar_url}
+                alt={profile.username}
+                width={64}
+                height={64}
+                className="aspect-square size-full object-cover"
+              />
             )}
             <AvatarFallback className="bg-primary/10 text-2xl font-bold text-primary">
               {initial}
