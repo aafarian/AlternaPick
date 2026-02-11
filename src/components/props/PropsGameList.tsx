@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import type { Game, Prop } from "@/lib/supabase/types";
+import type { EdgeMap } from "@/lib/analytics/types";
 import GameCard from "./GameCard";
 import GameSelector from "./GameSelector";
 
@@ -11,9 +12,18 @@ interface PropsGameListProps {
   games: GameWithProps[];
   /** When true, only the first game starts expanded; rest collapsed. */
   expandFirstOnly: boolean;
+  /** Category-level edge rates (rate >= 0.65, total >= 5) */
+  categoryEdges?: EdgeMap;
+  /** Player-level edge rates (rate >= 0.65, total >= 5) */
+  playerEdges?: EdgeMap;
 }
 
-export default function PropsGameList({ games, expandFirstOnly }: PropsGameListProps) {
+export default function PropsGameList({
+  games,
+  expandFirstOnly,
+  categoryEdges = {},
+  playerEdges = {},
+}: PropsGameListProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
     if (expandFirstOnly && games.length > 0) {
       return new Set([games[0].id]);
@@ -83,6 +93,8 @@ export default function PropsGameList({ games, expandFirstOnly }: PropsGameListP
             game={game}
             expanded={expandedIds.has(game.id)}
             onToggle={() => toggleGame(game.id)}
+            categoryEdges={categoryEdges}
+            playerEdges={playerEdges}
           />
         ))}
       </div>

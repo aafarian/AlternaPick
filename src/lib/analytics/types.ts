@@ -29,3 +29,6 @@ export interface TrendPoint {
   total: number;
   rate: number;
 }
+
+/** Serializable map from key (stat_category or player_name) to hit rate */
+export type EdgeMap = Record<string, number>;

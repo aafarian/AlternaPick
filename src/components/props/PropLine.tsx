@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { Target } from "lucide-react";
 import type { StatCategory } from "@/lib/supabase/types";
 import { CATEGORY_LABELS, CATEGORY_COLORS, teamLogoUrl, getPlayerHeadshotUrl } from "@/lib/constants";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
@@ -19,6 +20,8 @@ interface PropLineProps {
   awayTeam: string;
   homeTeam: string;
   lineHistory: Array<{ t: string; l: number }> | null;
+  /** User's historical accuracy rate (0-1) for this prop's player/category */
+  edgeRate?: number;
 }
 
 function getInitials(name: string): string {
@@ -74,6 +77,7 @@ export default function PropLine({
   awayTeam,
   homeTeam,
   lineHistory,
+  edgeRate,
 }: PropLineProps) {
   const { addPick, removePick, isPickSelected, getSelection, isFull } =
     useCardBuilder();
@@ -187,6 +191,17 @@ export default function PropLine({
             </span>
           );
         })()}
+
+        {/* "Your Edge" indicator for users with strong historical accuracy */}
+        {edgeRate !== undefined && (
+          <span
+            className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-neon-green"
+            title={`Your Edge: ${Math.round(edgeRate * 100)}% accuracy`}
+          >
+            <Target size={12} className="shrink-0" />
+            {Math.round(edgeRate * 100)}% accuracy
+          </span>
+        )}
       </div>
 
       {/* Over / Under buttons */}
