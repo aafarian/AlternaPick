@@ -21,6 +21,7 @@ export interface CardBuilderState {
   error: string | null;
   challengeId: string | null;
   challengeOpponent: ChallengeOpponent | null;
+  showSuccess: boolean;
 }
 
 export type CardBuilderAction =
@@ -34,4 +35,6 @@ export type CardBuilderAction =
       type: "SET_CHALLENGE";
       challengeId: string;
       opponent: ChallengeOpponent;
-    };
+    }
+  | { type: "SHOW_SUCCESS" }
+  | { type: "HIDE_SUCCESS" };

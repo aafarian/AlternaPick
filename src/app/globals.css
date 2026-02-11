@@ -157,3 +157,61 @@ body {
 @utility animate-bar-shimmer {
   animation: bar-shimmer 2s ease-in-out infinite;
 }
+
+/* Card success animation — backdrop fade */
+@keyframes success-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@utility animate-success-fade-in {
+  animation: success-fade-in 0.3s ease-out forwards;
+}
+
+/* Card success animation — pop-in for central text/checkmark */
+@keyframes success-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@utility animate-success-pop {
+  animation: success-pop 0.5s 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  opacity: 0;
+}
+
+/* Card success animation — confetti particles */
+@keyframes success-confetti {
+  0% {
+    opacity: 1;
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-180px) translateX(var(--drift-x, 0px))
+      rotate(calc(var(--rotation, 0deg) + 360deg)) scale(0.3);
+  }
+}
+
+/* Card success animation — checkmark draw */
+@keyframes success-draw-check {
+  to {
+    stroke-dashoffset: 0;
+  }
+}

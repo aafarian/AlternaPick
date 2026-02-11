@@ -7,6 +7,7 @@ export const initialCardBuilderState: CardBuilderState = {
   error: null,
   challengeId: null,
   challengeOpponent: null,
+  showSuccess: false,
 };
 
 export function cardBuilderReducer(
@@ -47,5 +48,9 @@ export function cardBuilderReducer(
         challengeId: action.challengeId,
         challengeOpponent: action.opponent,
       };
+    case "SHOW_SUCCESS":
+      return { ...state, showSuccess: true, isLocking: false };
+    case "HIDE_SUCCESS":
+      return { ...state, showSuccess: false };
   }
 }

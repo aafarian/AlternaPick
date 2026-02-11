@@ -29,6 +29,8 @@ interface CardBuilderContextValue {
   setChallenge: (challengeId: string, opponent: ChallengeOpponent) => void;
   isPickSelected: (propId: string) => boolean;
   getSelection: (propId: string) => PickSelection | null;
+  showSuccess: () => void;
+  hideSuccess: () => void;
   isFull: boolean;
 }
 
@@ -83,6 +85,16 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const showSuccessFn = useCallback(
+    () => dispatch({ type: "SHOW_SUCCESS" }),
+    []
+  );
+
+  const hideSuccessFn = useCallback(
+    () => dispatch({ type: "HIDE_SUCCESS" }),
+    []
+  );
+
   const isPickSelected = useCallback(
     (propId: string) => state.picks.some((p) => p.prop_id === propId),
     [state.picks]
@@ -111,6 +123,8 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
         setChallenge,
         isPickSelected,
         getSelection,
+        showSuccess: showSuccessFn,
+        hideSuccess: hideSuccessFn,
         isFull,
       }}
     >
