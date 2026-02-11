@@ -64,6 +64,7 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   challenge_resolved: true,
   card_resolved: true,
   achievement_unlocked: true,
+  reaction_received: true,
 };
 
 interface NotificationPreferencesSectionProps {

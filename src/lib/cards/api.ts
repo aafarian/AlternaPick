@@ -30,10 +30,14 @@ export interface CardWithPicks {
 export async function createCard(
   picks: { prop_id: string; selection: PickSelection }[],
   anonId?: string,
-  challengeId?: string | null
+  challengeId?: string | null,
+  gameMode?: string,
+  cardSize?: number
 ): Promise<CardWithPicks> {
   const body: Record<string, unknown> = { picks, anon_id: anonId };
   if (challengeId) body.challenge_id = challengeId;
+  if (gameMode) body.game_mode = gameMode;
+  if (cardSize !== undefined) body.card_size = cardSize;
 
   const response = await fetch("/api/cards", {
     method: "POST",

@@ -3,6 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { updateDailyStreak } from "@/lib/streaks/engine";
 import { unauthorized, badRequest, notFound, forbidden, conflict, serverError, handleApiError } from "@/lib/api/errors";
+import { isValidGameMode } from "@/lib/modes/definitions";
+import { validatePicksForMode } from "@/lib/modes/validation";
+import { MIN_CARD_SIZE, MAX_CARD_SIZE, DEFAULT_CARD_SIZE } from "@/lib/modes/types";
+import type { GameMode, PickValidationInput } from "@/lib/modes/types";
 import type { Card, Challenge, Pick, PickSelection } from "@/lib/supabase/types";
 
 interface CreatePickInput {
@@ -14,6 +18,8 @@ interface CreateCardBody {
   picks: CreatePickInput[];
   anon_id?: string;
   challenge_id?: string;
+  game_mode?: string;
+  card_size?: number;
 }
 
 export async function POST(request: NextRequest) {
@@ -21,9 +27,31 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as CreateCardBody;
     const { picks, anon_id, challenge_id } = body;
 
-    // Validate pick count
-    if (!picks || picks.length !== 6) {
-      return badRequest("Exactly 6 picks are required");
+    // Resolve game_mode and card_size with backward-compatible defaults
+    const gameMode: string = body.game_mode ?? "classic";
+    const cardSize: number = body.card_size ?? DEFAULT_CARD_SIZE;
+
+    // Validate game_mode
+    if (!isValidGameMode(gameMode)) {
+      return badRequest(
+        `Invalid game_mode "${gameMode}". Must be one of: classic, sabotage, mirror, one_player, one_team`
+      );
+    }
+
+    // Validate card_size range (2-6)
+    if (
+      !Number.isInteger(cardSize) ||
+      cardSize < MIN_CARD_SIZE ||
+      cardSize > MAX_CARD_SIZE
+    ) {
+      return badRequest(
+        `card_size must be an integer between ${MIN_CARD_SIZE} and ${MAX_CARD_SIZE}`
+      );
+    }
+
+    // Validate pick count matches card_size
+    if (!picks || picks.length !== cardSize) {
+      return badRequest(`Exactly ${cardSize} picks are required`);
     }
 
     // Check for duplicate prop_ids
@@ -94,20 +122,45 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Verify all props exist
-    const propsResult = await supabase
-      .from("props")
-      .select("id")
+    // Verify all props exist (also fetch player_name and player_team for mode validation)
+    const propsResult = await (supabase.from("props") as any)
+      .select("id, player_name, player_team")
       .in("id", propIds);
 
     if (propsResult.error) {
       return serverError("Failed to verify props", propsResult.error.message);
     }
 
-    const existingProps = (propsResult.data ?? []) as { id: string }[];
+    const existingProps = (propsResult.data ?? []) as {
+      id: string;
+      player_name: string;
+      player_team: string | null;
+    }[];
 
     if (existingProps.length !== propIds.length) {
       return badRequest("Some props not found");
+    }
+
+    // Validate picks against mode constraints (one_player, one_team, etc.)
+    if (gameMode !== "classic") {
+      // Build a lookup from prop_id -> prop details
+      const propLookup = new Map(existingProps.map((p) => [p.id, p]));
+
+      const validationInputs: PickValidationInput[] = picks.map((pick) => {
+        const prop = propLookup.get(pick.prop_id)!;
+        return {
+          player_name: prop.player_name,
+          player_team: prop.player_team ?? "",
+        };
+      });
+
+      const modeValidation = validatePicksForMode(
+        validationInputs,
+        gameMode as GameMode
+      );
+      if (!modeValidation.valid) {
+        return badRequest(modeValidation.error ?? "Picks violate mode constraints");
+      }
     }
 
     // Create card with user_id if authenticated, anon_id if not
@@ -117,7 +170,9 @@ export async function POST(request: NextRequest) {
         anon_id: user ? null : (anon_id ?? null),
         challenge_id: challenge_id ?? null,
         status: "locked",
-        total_picks: 6,
+        total_picks: cardSize,
+        card_size: cardSize,
+        game_mode: gameMode,
         locked_at: new Date().toISOString(),
       })
       .select()
@@ -179,6 +234,22 @@ export async function POST(request: NextRequest) {
             .update({ status: "active" })
             .eq("id", challenge_id)
             .eq("status", "accepted");
+
+          // Sabotage mode: swap user_id on both cards so each player
+          // ends up "owning" the card their opponent built for them.
+          if (gameMode === "sabotage" && challengeCards.length === 2) {
+            const cardA = challengeCards[0];
+            const cardB = challengeCards[1];
+
+            // Swap user_ids via admin client (bypasses RLS)
+            await (adminClient.from("cards") as any)
+              .update({ user_id: cardB.user_id })
+              .eq("id", cardA.id);
+
+            await (adminClient.from("cards") as any)
+              .update({ user_id: cardA.user_id })
+              .eq("id", cardB.id);
+          }
         }
       }
     }
@@ -211,7 +282,7 @@ export async function GET(request: NextRequest) {
 
     // Scope by authenticated user (defense-in-depth with RLS)
     let query = (supabase.from("cards") as any)
-      .select("id, user_id, status, score, total_picks, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, stat_category, line, game_id))")
+      .select("id, user_id, status, score, total_picks, card_size, game_mode, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, stat_category, line, game_id))")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(limit);
