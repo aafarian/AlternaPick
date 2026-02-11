@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { updateDailyStreak } from "@/lib/streaks/engine";
 import { unauthorized, badRequest, notFound, forbidden, conflict, serverError, handleApiError } from "@/lib/api/errors";
 import type { Card, Challenge, Pick, PickSelection } from "@/lib/supabase/types";
 
@@ -145,6 +146,16 @@ export async function POST(request: NextRequest) {
     }
 
     const createdPicks = (picksResult.data ?? []) as Pick[];
+
+    // Fire-and-forget: update daily streak on card lock (authenticated users only)
+    if (user) {
+      try {
+        const adminClient = createAdminClient();
+        await updateDailyStreak(adminClient, user.id);
+      } catch (streakError) {
+        console.error("Failed to update daily streak:", streakError);
+      }
+    }
 
     // If this is a challenge card, check if both participants now have locked cards
     // Must use admin client to bypass RLS (user can't see opponent's card)

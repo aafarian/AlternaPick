@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveEligibleCards } from "@/lib/cards/resolution";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
+import { resetWeeklyFreezes } from "@/lib/streaks/engine";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { unauthorized, handleApiError } from "@/lib/api/errors";
 
 export async function POST(request: NextRequest) {
@@ -14,6 +16,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Fire-and-forget: replenish streak freezes on weekly cadence
+    try {
+      const adminClient = createAdminClient();
+      await resetWeeklyFreezes(adminClient);
+    } catch (freezeError) {
+      console.error("Failed to reset weekly freezes:", freezeError);
+    }
+
     // Phase 1: Resolve eligible cards
     const results = await resolveEligibleCards();
 

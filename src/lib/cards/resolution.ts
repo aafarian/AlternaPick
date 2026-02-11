@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
+import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
 import {
   fetchBoxscore,
   type PlayerBoxScore,
@@ -152,6 +153,42 @@ export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
           console.error(
             "Failed to create card_resolved notification:",
             notifError
+          );
+        }
+
+        // Fire-and-forget: check achievements after card resolution
+        try {
+          const lbResult = await (supabase.from("leaderboard_entries") as any)
+            .select(
+              "total_cards, current_streak, best_streak, win_rate, h2h_wins, h2h_losses"
+            )
+            .eq("user_id", result.user_id)
+            .single();
+
+          const lb = (lbResult.data ?? {
+            total_cards: 0,
+            current_streak: 0,
+            best_streak: 0,
+            win_rate: 0,
+            h2h_wins: 0,
+            h2h_losses: 0,
+          }) as {
+            total_cards: number;
+            current_streak: number;
+            best_streak: number;
+            win_rate: number;
+            h2h_wins: number;
+            h2h_losses: number;
+          };
+
+          await checkAndUnlockAchievements(supabase, result.user_id, {
+            cardResolved: { score: result.score, total: result.total },
+            leaderboardStats: lb,
+          });
+        } catch (achievementError) {
+          console.error(
+            "Failed to check achievements after card resolution:",
+            achievementError
           );
         }
       }

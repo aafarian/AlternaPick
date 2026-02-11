@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
+import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
 import type { Card, Challenge } from "@/lib/supabase/types";
 
 export interface ChallengeResolutionResult {
@@ -157,13 +158,56 @@ export async function resolveEligibleChallenges(): Promise<
       );
     }
 
-    results.push({
+    const challengeResult: ChallengeResolutionResult = {
       challenge_id: challenge.id,
       winner_id: winnerId,
       challenger_score: challengerScore,
       opponent_score: opponentScore,
       is_tie: isTie,
-    });
+    };
+
+    // Fire-and-forget: check achievements for both challenge participants
+    for (const participantId of [
+      challenge.challenger_id,
+      challenge.opponent_id,
+    ]) {
+      try {
+        const lbResult = await (supabase.from("leaderboard_entries") as any)
+          .select(
+            "total_cards, current_streak, best_streak, win_rate, h2h_wins, h2h_losses"
+          )
+          .eq("user_id", participantId)
+          .single();
+
+        const lb = (lbResult.data ?? {
+          total_cards: 0,
+          current_streak: 0,
+          best_streak: 0,
+          win_rate: 0,
+          h2h_wins: 0,
+          h2h_losses: 0,
+        }) as {
+          total_cards: number;
+          current_streak: number;
+          best_streak: number;
+          win_rate: number;
+          h2h_wins: number;
+          h2h_losses: number;
+        };
+
+        await checkAndUnlockAchievements(supabase, participantId, {
+          challengeResolved: challengeResult,
+          leaderboardStats: lb,
+        });
+      } catch (achievementError) {
+        console.error(
+          `Failed to check achievements for user ${participantId} after challenge resolution:`,
+          achievementError
+        );
+      }
+    }
+
+    results.push(challengeResult);
   }
 
   return results;
