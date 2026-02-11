@@ -21,4 +21,4 @@ CREATE INDEX IF NOT EXISTS idx_friendships_requester ON friendships (requester_i
 CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships (addressee_id, status);
 
 -- Notifications: user lookup unread
-CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications (user_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications (user_id, read);
