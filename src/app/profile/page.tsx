@@ -1,10 +1,16 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import type { Profile, LeaderboardEntry } from "@/lib/supabase/types";
+import type {
+  Profile,
+  LeaderboardEntry,
+  Achievement,
+  UserAchievement,
+} from "@/lib/supabase/types";
 import ProfileCard from "@/components/profile/ProfileCard";
 import ProfileChecklist from "@/components/onboarding/ProfileChecklist";
 import type { ChecklistItem } from "@/components/onboarding/ProfileChecklist";
+import BadgeGrid from "@/components/profile/BadgeGrid";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
 
@@ -18,19 +24,28 @@ export default async function ProfilePage() {
     redirect("/auth/login");
   }
 
-  const [{ data: profile }, { data: stats }, friendshipResult] =
-    await Promise.all([
-      supabase.from("profiles").select("*").eq("id", user.id).single(),
-      supabase
-        .from("leaderboard_entries")
-        .select("*")
-        .eq("user_id", user.id)
-        .single(),
-      (supabase.from("friendships") as any)
-        .select("id", { count: "exact", head: true })
-        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
-        .eq("status", "accepted"),
-    ]);
+  const [
+    { data: profile },
+    { data: stats },
+    friendshipResult,
+    { data: achievementsData },
+    { data: userAchievementsData },
+  ] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", user.id).single(),
+    supabase
+      .from("leaderboard_entries")
+      .select("*")
+      .eq("user_id", user.id)
+      .single(),
+    (supabase.from("friendships") as any)
+      .select("id", { count: "exact", head: true })
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+      .eq("status", "accepted"),
+    (supabase.from("achievements") as any).select("*"),
+    (supabase.from("user_achievements") as any)
+      .select("*")
+      .eq("user_id", user.id),
+  ]);
 
   if (!profile) {
     return (
@@ -45,6 +60,8 @@ export default async function ProfilePage() {
   }
 
   const friendCount = (friendshipResult.count ?? 0) as number;
+  const achievements = (achievementsData ?? []) as Achievement[];
+  const userAchievements = (userAchievementsData ?? []) as UserAchievement[];
 
   const checklistItems: ChecklistItem[] = [
     {
@@ -81,6 +98,7 @@ export default async function ProfilePage() {
         stats={(stats as LeaderboardEntry | null) ?? null}
       />
       <ProfileChecklist items={checklistItems} />
+      <BadgeGrid achievements={achievements} unlocked={userAchievements} />
     </div>
   );
 }
