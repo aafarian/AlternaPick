@@ -55,6 +55,17 @@ export type AchievementCategory =
   | "social"
   | "special";
 
+export type GameMode =
+  | "classic"
+  | "sabotage"
+  | "mirror"
+  | "one_player"
+  | "one_team";
+
+export type ReactionEmoji = "fire" | "skull" | "crying" | "clown" | "goat";
+
+export type ReactionTargetType = "challenge" | "card";
+
 export interface Database {
   public: {
     Tables: {
@@ -69,6 +80,7 @@ export interface Database {
           onboarding_completed: boolean;
           streak_freezes_available: number;
           last_streak_freeze_reset: string | null;
+          referred_by: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -82,6 +94,7 @@ export interface Database {
           onboarding_completed?: boolean;
           streak_freezes_available?: number;
           last_streak_freeze_reset?: string | null;
+          referred_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -95,6 +108,7 @@ export interface Database {
           onboarding_completed?: boolean;
           streak_freezes_available?: number;
           last_streak_freeze_reset?: string | null;
+          referred_by?: string | null;
           updated_at?: string;
         };
       };
@@ -194,6 +208,8 @@ export interface Database {
           status: CardStatus;
           score: number;
           total_picks: number;
+          card_size: number;
+          game_mode: GameMode;
           locked_at: string | null;
           resolved_at: string | null;
           share_token: string | null;
@@ -207,6 +223,8 @@ export interface Database {
           status?: CardStatus;
           score?: number;
           total_picks?: number;
+          card_size?: number;
+          game_mode?: GameMode;
           locked_at?: string | null;
           share_token?: string | null;
           created_at?: string;
@@ -218,6 +236,8 @@ export interface Database {
           status?: CardStatus;
           score?: number;
           total_picks?: number;
+          card_size?: number;
+          game_mode?: GameMode;
           locked_at?: string | null;
           resolved_at?: string | null;
           share_token?: string | null;
@@ -256,6 +276,9 @@ export interface Database {
           challenger_id: string;
           opponent_id: string;
           status: ChallengeStatus;
+          game_mode: GameMode;
+          message: string | null;
+          mirror_props: string[] | null;
           winner_id: string | null;
           created_at: string;
           resolved_at: string | null;
@@ -265,6 +288,9 @@ export interface Database {
           challenger_id: string;
           opponent_id: string;
           status?: ChallengeStatus;
+          game_mode?: GameMode;
+          message?: string | null;
+          mirror_props?: string[] | null;
           winner_id?: string | null;
           created_at?: string;
           resolved_at?: string | null;
@@ -273,6 +299,9 @@ export interface Database {
           challenger_id?: string;
           opponent_id?: string;
           status?: ChallengeStatus;
+          game_mode?: GameMode;
+          message?: string | null;
+          mirror_props?: string[] | null;
           winner_id?: string | null;
           resolved_at?: string | null;
         };
@@ -385,6 +414,30 @@ export interface Database {
           unlocked_at?: string;
         };
       };
+      reactions: {
+        Row: {
+          id: string;
+          user_id: string;
+          target_type: ReactionTargetType;
+          target_id: string;
+          emoji: ReactionEmoji;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          target_type: ReactionTargetType;
+          target_id: string;
+          emoji: ReactionEmoji;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          target_type?: ReactionTargetType;
+          target_id?: string;
+          emoji?: ReactionEmoji;
+        };
+      };
       leaderboard_entries: {
         Row: {
           id: string;
@@ -442,6 +495,9 @@ export interface Database {
       notification_type: NotificationType;
       achievement_tier: AchievementTier;
       achievement_category: AchievementCategory;
+      game_mode: GameMode;
+      reaction_emoji: ReactionEmoji;
+      reaction_target_type: ReactionTargetType;
     };
   };
 }
@@ -458,5 +514,6 @@ export type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 export type Achievement = Database["public"]["Tables"]["achievements"]["Row"];
 export type UserAchievement =
   Database["public"]["Tables"]["user_achievements"]["Row"];
+export type Reaction = Database["public"]["Tables"]["reactions"]["Row"];
 export type LeaderboardEntry =
   Database["public"]["Tables"]["leaderboard_entries"]["Row"];
