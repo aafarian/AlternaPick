@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, AlertCircle, Bell, Trophy, Users, Swords, UserPlus } from "lucide-react";
+import { CheckCircle2, AlertCircle, Bell, Trophy, Users, Swords, UserPlus, Award } from "lucide-react";
 import type { NotificationType, NotificationPreferences } from "@/lib/supabase/types";
 
 const NOTIFICATION_TYPES: {
@@ -48,6 +48,12 @@ const NOTIFICATION_TYPES: {
     description: "Get notified when someone accepts your friend request.",
     icon: <Users className="h-4 w-4" />,
   },
+  {
+    key: "achievement_unlocked",
+    label: "Achievements",
+    description: "Get notified when you unlock a new badge.",
+    icon: <Award className="h-4 w-4" />,
+  },
 ];
 
 const DEFAULT_PREFERENCES: NotificationPreferences = {
@@ -57,6 +63,7 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   challenge_accepted: true,
   challenge_resolved: true,
   card_resolved: true,
+  achievement_unlocked: true,
 };
 
 interface NotificationPreferencesSectionProps {

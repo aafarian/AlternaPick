@@ -41,7 +41,8 @@ export type NotificationType =
   | "challenge_received"
   | "challenge_accepted"
   | "challenge_resolved"
-  | "card_resolved";
+  | "card_resolved"
+  | "achievement_unlocked";
 
 export type NotificationPreferences = Record<NotificationType, boolean>;
 
