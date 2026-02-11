@@ -32,6 +32,11 @@ ALTER TABLE challenges ADD CONSTRAINT challenges_message_length_check
 
 ALTER TABLE challenges ADD COLUMN mirror_props JSONB;
 
+ALTER TABLE challenges ADD COLUMN card_size INT NOT NULL DEFAULT 6;
+
+ALTER TABLE challenges ADD CONSTRAINT challenges_card_size_check
+  CHECK (card_size >= 2 AND card_size <= 6);
+
 -- ============================================================
 -- 3. profiles: add referred_by column
 -- ============================================================

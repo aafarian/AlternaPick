@@ -4,6 +4,7 @@ import type {
   Challenge,
   ChallengeStatus,
 } from "@/lib/supabase/types";
+import type { GameMode } from "@/lib/modes/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -149,14 +150,31 @@ export async function getChallenge(
   };
 }
 
+/** Options for creating a challenge beyond the basic challenger/opponent IDs. */
+export interface CreateChallengeOptions {
+  gameMode?: GameMode;
+  message?: string | null;
+  cardSize?: number;
+  mirrorProps?: string[] | null;
+}
+
 /**
  * Create a new challenge. Validates friendship and no duplicate pending/accepted/active challenges.
+ * Accepts optional game mode, trash talk message, card size, and mirror props.
  */
 export async function createChallenge(
   supabase: SupabaseClient<Database>,
   challengerId: string,
-  opponentId: string
+  opponentId: string,
+  options: CreateChallengeOptions = {}
 ): Promise<Challenge> {
+  const {
+    gameMode = "classic",
+    message = null,
+    cardSize = 6,
+    mirrorProps = null,
+  } = options;
+
   if (challengerId === opponentId) {
     throw new ChallengeValidationError("Cannot challenge yourself");
   }
@@ -209,16 +227,29 @@ export async function createChallenge(
     );
   }
 
+  // Build the insert payload
+  const insertPayload: Record<string, unknown> = {
+    challenger_id: challengerId,
+    opponent_id: opponentId,
+    status: "pending",
+    game_mode: gameMode,
+    card_size: cardSize,
+  };
+
+  if (message) {
+    insertPayload.message = message;
+  }
+
+  if (mirrorProps) {
+    insertPayload.mirror_props = mirrorProps;
+  }
+
   // Create the challenge
   const { data: challenge, error: createError } = await typedFrom(
     supabase,
     "challenges"
   )
-    .insert({
-      challenger_id: challengerId,
-      opponent_id: opponentId,
-      status: "pending",
-    })
+    .insert(insertPayload)
     .select(
       "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url)"
     )
