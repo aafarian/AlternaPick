@@ -4,16 +4,19 @@ import type { StatCategory } from "@/lib/supabase/types";
 import GameCard from "@/components/props/GameCard";
 import PropsHeader from "@/components/props/PropsHeader";
 import CategoryFilter from "@/components/props/CategoryFilter";
+import PlayerSearch from "@/components/props/PlayerSearch";
 import GameSelector from "@/components/props/GameSelector";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface PropsPageProps {
-  searchParams: Promise<{ category?: string }>;
+  searchParams: Promise<{ category?: string; player?: string }>;
 }
 
 export default async function PropsPage({ searchParams }: PropsPageProps) {
-  const { category } = await searchParams;
+  const { category, player } = await searchParams;
   const games = await getCachedProps();
+
+  const playerQuery = player?.trim().toLowerCase() ?? "";
 
   const filtered =
     games?.map((game) => ({
@@ -22,6 +25,11 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
         .filter(
           (p) =>
             !category || p.stat_category === (category as StatCategory)
+        )
+        .filter(
+          (p) =>
+            !playerQuery ||
+            p.player_name.toLowerCase().includes(playerQuery)
         )
         .sort((a, b) => a.player_name.localeCompare(b.player_name)),
     })) ?? [];
@@ -38,6 +46,10 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
   return (
     <div className="flex flex-col gap-6 py-8">
       <PropsHeader gameCount={withProps.length} />
+
+      <Suspense fallback={null}>
+        <PlayerSearch />
+      </Suspense>
 
       <div className="flex flex-col gap-3">
         <Suspense fallback={null}>
@@ -58,10 +70,21 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
         <Card className="border-border bg-card">
           <CardContent className="flex flex-col items-center gap-4 py-20 text-center">
             <span className="text-5xl">🏀</span>
-            <h2 className="text-xl font-bold">No games tonight</h2>
-            <p className="text-muted-foreground">
-              Check back on game day for player props!
-            </p>
+            {playerQuery || category ? (
+              <>
+                <h2 className="text-xl font-bold">No props found</h2>
+                <p className="text-muted-foreground">
+                  Try adjusting your search or filters.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold">No games tonight</h2>
+                <p className="text-muted-foreground">
+                  Check back on game day for player props!
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       ) : (
