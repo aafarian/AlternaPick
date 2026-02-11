@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "./NotificationBell";
+import StreakBadge from "./StreakBadge";
 import { POLL_INTERVAL_MS } from "@/lib/constants";
 import {
   Sheet,
@@ -64,6 +65,7 @@ export default function Header() {
         {/* Desktop nav + bell */}
         <div className="hidden items-center gap-1 md:flex">
           <Nav user={user} notificationCounts={notificationCounts} />
+          {user && <StreakBadge />}
           {user && (
             <NotificationBell
               count={notificationCounts.notifications}
@@ -74,8 +76,9 @@ export default function Header() {
           )}
         </div>
 
-        {/* Mobile: bell + hamburger */}
+        {/* Mobile: streak + bell + hamburger */}
         <div className="flex items-center gap-1 md:hidden">
+          {user && <StreakBadge />}
           {user && (
             <NotificationBell
               count={notificationCounts.notifications}
