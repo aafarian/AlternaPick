@@ -45,6 +45,15 @@ export type NotificationType =
 
 export type NotificationPreferences = Record<NotificationType, boolean>;
 
+export type AchievementTier = "standard" | "gold" | "legendary";
+
+export type AchievementCategory =
+  | "cards"
+  | "streaks"
+  | "accuracy"
+  | "social"
+  | "special";
+
 export interface Database {
   public: {
     Tables: {
@@ -57,6 +66,8 @@ export interface Database {
           notification_preferences: NotificationPreferences | null;
           is_deactivated: boolean;
           onboarding_completed: boolean;
+          streak_freezes_available: number;
+          last_streak_freeze_reset: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -68,6 +79,8 @@ export interface Database {
           notification_preferences?: NotificationPreferences | null;
           is_deactivated?: boolean;
           onboarding_completed?: boolean;
+          streak_freezes_available?: number;
+          last_streak_freeze_reset?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -79,6 +92,8 @@ export interface Database {
           notification_preferences?: NotificationPreferences | null;
           is_deactivated?: boolean;
           onboarding_completed?: boolean;
+          streak_freezes_available?: number;
+          last_streak_freeze_reset?: string | null;
           updated_at?: string;
         };
       };
@@ -315,6 +330,60 @@ export interface Database {
           read?: boolean;
         };
       };
+      achievements: {
+        Row: {
+          id: string;
+          key: string;
+          name: string;
+          description: string;
+          icon: string;
+          tier: AchievementTier;
+          category: AchievementCategory | null;
+          threshold: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          key: string;
+          name: string;
+          description: string;
+          icon: string;
+          tier?: AchievementTier;
+          category?: AchievementCategory | null;
+          threshold?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          key?: string;
+          name?: string;
+          description?: string;
+          icon?: string;
+          tier?: AchievementTier;
+          category?: AchievementCategory | null;
+          threshold?: number | null;
+        };
+      };
+      user_achievements: {
+        Row: {
+          id: string;
+          user_id: string;
+          achievement_id: string;
+          unlocked_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          achievement_id: string;
+          unlocked_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          achievement_id?: string;
+          unlocked_at?: string;
+        };
+      };
       leaderboard_entries: {
         Row: {
           id: string;
@@ -324,6 +393,9 @@ export interface Database {
           win_rate: number;
           current_streak: number;
           best_streak: number;
+          daily_streak: number;
+          best_daily_streak: number;
+          last_played_date: string | null;
           h2h_wins: number;
           h2h_losses: number;
           updated_at: string;
@@ -336,6 +408,9 @@ export interface Database {
           win_rate?: number;
           current_streak?: number;
           best_streak?: number;
+          daily_streak?: number;
+          best_daily_streak?: number;
+          last_played_date?: string | null;
           h2h_wins?: number;
           h2h_losses?: number;
           updated_at?: string;
@@ -346,6 +421,9 @@ export interface Database {
           win_rate?: number;
           current_streak?: number;
           best_streak?: number;
+          daily_streak?: number;
+          best_daily_streak?: number;
+          last_played_date?: string | null;
           h2h_wins?: number;
           h2h_losses?: number;
           updated_at?: string;
