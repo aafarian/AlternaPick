@@ -8,11 +8,17 @@ import { Button } from "@/components/ui/button";
 
 const PAGE_SIZE = 20;
 
-async function getResolvedCards(limit: number = PAGE_SIZE): Promise<CardWithPicks[]> {
+async function getResolvedCards(
+  userId: string,
+  limit: number = PAGE_SIZE
+): Promise<CardWithPicks[]> {
   const supabase = await createClient();
 
   const result = await (supabase.from("cards") as any)
-    .select("*, picks(*, props(player_name, player_id, stat_category, line, game_id))")
+    .select(
+      "id, user_id, status, score, total_picks, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, stat_category, line, game_id))"
+    )
+    .eq("user_id", userId)
     .eq("status", "resolved")
     .order("resolved_at", { ascending: false })
     .limit(limit);
@@ -30,9 +36,8 @@ export default async function HistoryPage() {
     redirect("/auth/login?redirectTo=/history");
   }
 
-  const cards = await getResolvedCards();
-
-  const totalResolved = cards.length;
+  const cards = await getResolvedCards(user.id);
+  const hasMoreInitially = cards.length === PAGE_SIZE;
 
   return (
     <div className="flex flex-col gap-6 py-8">
@@ -40,9 +45,10 @@ export default async function HistoryPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Game History</h1>
-          {totalResolved > 0 && (
+          {cards.length > 0 && (
             <p className="text-sm text-muted-foreground">
-              {totalResolved} resolved card{totalResolved !== 1 ? "s" : ""}
+              Showing {cards.length}{hasMoreInitially ? "+" : ""} resolved card
+              {cards.length !== 1 ? "s" : ""}
             </p>
           )}
         </div>
@@ -69,6 +75,7 @@ export default async function HistoryPage() {
           initialCards={cards}
           statusFilter="resolved"
           pageSize={PAGE_SIZE}
+          hasMoreInitially={hasMoreInitially}
         />
       )}
     </div>
