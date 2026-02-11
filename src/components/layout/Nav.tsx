@@ -22,6 +22,7 @@ import {
   Settings,
   LogOut,
   LogIn,
+  BarChart3,
 } from "lucide-react";
 
 interface NavLink {
@@ -37,6 +38,7 @@ const authenticatedLinks: NavLink[] = [
   { href: "/challenges", label: "Challenges", icon: Swords, badgeKey: "challenges" },
   { href: "/friends", label: "Friends", icon: Users, badgeKey: "friends" },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
 ];
 
 const publicLinks: NavLink[] = [
