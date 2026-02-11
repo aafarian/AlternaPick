@@ -20,7 +20,7 @@ import type { NotificationCounts } from "./Nav";
 
 export default function Header() {
   const [sheetOpen, setSheetOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const pathname = usePathname();
   const [notificationCounts, setNotificationCounts] =
     useState<NotificationCounts>({ friends: 0, challenges: 0, notifications: 0 });
@@ -64,7 +64,7 @@ export default function Header() {
 
         {/* Desktop nav + bell */}
         <div className="hidden items-center gap-1 md:flex">
-          <Nav user={user} notificationCounts={notificationCounts} />
+          {!loading && <Nav user={user} notificationCounts={notificationCounts} />}
           {user && <StreakBadge />}
           {user && (
             <NotificationBell
