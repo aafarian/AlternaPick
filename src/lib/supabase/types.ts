@@ -42,7 +42,8 @@ export type NotificationType =
   | "challenge_accepted"
   | "challenge_resolved"
   | "card_resolved"
-  | "achievement_unlocked";
+  | "achievement_unlocked"
+  | "reaction_received";
 
 export type NotificationPreferences = Record<NotificationType, boolean>;
 
@@ -279,6 +280,7 @@ export interface Database {
           game_mode: GameMode;
           message: string | null;
           mirror_props: string[] | null;
+          card_size: number;
           winner_id: string | null;
           created_at: string;
           resolved_at: string | null;
@@ -291,6 +293,7 @@ export interface Database {
           game_mode?: GameMode;
           message?: string | null;
           mirror_props?: string[] | null;
+          card_size?: number;
           winner_id?: string | null;
           created_at?: string;
           resolved_at?: string | null;
@@ -302,6 +305,7 @@ export interface Database {
           game_mode?: GameMode;
           message?: string | null;
           mirror_props?: string[] | null;
+          card_size?: number;
           winner_id?: string | null;
           resolved_at?: string | null;
         };
@@ -444,6 +448,7 @@ export interface Database {
           user_id: string;
           total_cards: number;
           total_correct_picks: number;
+          total_attempted_picks: number;
           win_rate: number;
           current_streak: number;
           best_streak: number;
@@ -459,6 +464,7 @@ export interface Database {
           user_id: string;
           total_cards?: number;
           total_correct_picks?: number;
+          total_attempted_picks?: number;
           win_rate?: number;
           current_streak?: number;
           best_streak?: number;
@@ -472,6 +478,7 @@ export interface Database {
         Update: {
           total_cards?: number;
           total_correct_picks?: number;
+          total_attempted_picks?: number;
           win_rate?: number;
           current_streak?: number;
           best_streak?: number;

@@ -313,7 +313,12 @@ async function persistResolution(
 
   // Update leaderboard stats for authenticated users
   if (result.user_id) {
-    await updateLeaderboardStats(supabase, result.user_id, result.score);
+    await updateLeaderboardStats(
+      supabase,
+      result.user_id,
+      result.score,
+      result.total
+    );
   }
 }
 
@@ -361,21 +366,27 @@ function getCardNotificationMessage(
 
 /**
  * Updates leaderboard_entries for a user after card resolution.
- * Increments total_cards, adds hits to total_correct_picks, recalculates win_rate,
- * and updates current_streak / best_streak.
- * A "winning" card (for streak) has score >= 4 out of 6.
+ * Increments total_cards, adds hits to total_correct_picks, tracks
+ * total_attempted_picks, recalculates win_rate, and updates
+ * current_streak / best_streak.
+ *
+ * A "winning" card requires >= 66% correct picks:
+ *   threshold = Math.ceil(totalPicks * 0.66)
+ *   2 picks -> need 2, 3 -> 2, 4 -> 3, 5 -> 4, 6 -> 4
  */
 async function updateLeaderboardStats(
   supabase: ReturnType<typeof createAdminClient>,
   userId: string,
-  score: number
+  score: number,
+  totalPicks: number
 ): Promise<void> {
-  const isWin = score >= 4;
+  const winThreshold = Math.ceil(totalPicks * 0.66);
+  const isWin = totalPicks > 0 && score >= winThreshold;
 
   // Fetch existing entry
   const existingResult = await (supabase.from("leaderboard_entries") as any)
     .select(
-      "total_cards, total_correct_picks, current_streak, best_streak, h2h_wins, h2h_losses"
+      "total_cards, total_correct_picks, total_attempted_picks, current_streak, best_streak, h2h_wins, h2h_losses"
     )
     .eq("user_id", userId)
     .single();
@@ -383,6 +394,7 @@ async function updateLeaderboardStats(
   const existing = existingResult.data as {
     total_cards: number;
     total_correct_picks: number;
+    total_attempted_picks: number;
     current_streak: number;
     best_streak: number;
     h2h_wins: number;
@@ -391,9 +403,11 @@ async function updateLeaderboardStats(
 
   const totalCards = (existing?.total_cards ?? 0) + 1;
   const totalCorrectPicks = (existing?.total_correct_picks ?? 0) + score;
+  const totalAttemptedPicks =
+    (existing?.total_attempted_picks ?? 0) + totalPicks;
   const winRate =
-    totalCards > 0
-      ? Math.round((totalCorrectPicks / (totalCards * 6)) * 100 * 100) / 100
+    totalAttemptedPicks > 0
+      ? Math.round((totalCorrectPicks / totalAttemptedPicks) * 100 * 100) / 100
       : 0;
 
   const currentStreak = isWin ? (existing?.current_streak ?? 0) + 1 : 0;
@@ -401,11 +415,12 @@ async function updateLeaderboardStats(
   const bestStreak = Math.max(previousBest, currentStreak);
 
   if (existing) {
-    // Update existing entry — preserve h2h stats
+    // Update existing entry -- preserve h2h stats
     await (supabase.from("leaderboard_entries") as any)
       .update({
         total_cards: totalCards,
         total_correct_picks: totalCorrectPicks,
+        total_attempted_picks: totalAttemptedPicks,
         win_rate: winRate,
         current_streak: currentStreak,
         best_streak: bestStreak,
@@ -418,6 +433,7 @@ async function updateLeaderboardStats(
       user_id: userId,
       total_cards: totalCards,
       total_correct_picks: totalCorrectPicks,
+      total_attempted_picks: totalAttemptedPicks,
       win_rate: winRate,
       current_streak: currentStreak,
       best_streak: bestStreak,
