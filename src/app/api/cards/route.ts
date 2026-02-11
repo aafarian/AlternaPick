@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { unauthorized, badRequest, notFound, conflict, handleApiError } from "@/lib/api/errors";
+import { unauthorized, badRequest, notFound, forbidden, conflict, serverError, handleApiError } from "@/lib/api/errors";
 import type { Card, Challenge, Pick, PickSelection } from "@/lib/supabase/types";
 
 interface CreatePickInput {
@@ -68,10 +68,7 @@ export async function POST(request: NextRequest) {
         challenge.challenger_id !== user.id &&
         challenge.opponent_id !== user.id
       ) {
-        return NextResponse.json(
-          { error: "You are not a participant in this challenge" },
-          { status: 403 }
-        );
+        return forbidden("You are not a participant in this challenge");
       }
 
       // Validate challenge status
@@ -87,13 +84,7 @@ export async function POST(request: NextRequest) {
         .limit(1);
 
       if (existingCardResult.error) {
-        return NextResponse.json(
-          {
-            error: "Failed to check existing cards",
-            message: existingCardResult.error.message,
-          },
-          { status: 500 }
-        );
+        return serverError("Failed to check existing cards", existingCardResult.error.message);
       }
 
       const existingCards = (existingCardResult.data ?? []) as { id: string }[];
@@ -109,10 +100,7 @@ export async function POST(request: NextRequest) {
       .in("id", propIds);
 
     if (propsResult.error) {
-      return NextResponse.json(
-        { error: "Failed to verify props", message: propsResult.error.message },
-        { status: 500 }
-      );
+      return serverError("Failed to verify props", propsResult.error.message);
     }
 
     const existingProps = (propsResult.data ?? []) as { id: string }[];
@@ -135,10 +123,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (cardResult.error || !cardResult.data) {
-      return NextResponse.json(
-        { error: "Failed to create card", message: cardResult.error?.message },
-        { status: 500 }
-      );
+      return serverError("Failed to create card", cardResult.error?.message);
     }
 
     const card = cardResult.data as Card;
@@ -156,10 +141,7 @@ export async function POST(request: NextRequest) {
       .select();
 
     if (picksResult.error) {
-      return NextResponse.json(
-        { error: "Failed to create picks", message: picksResult.error.message },
-        { status: 500 }
-      );
+      return serverError("Failed to create picks", picksResult.error.message);
     }
 
     const createdPicks = (picksResult.data ?? []) as Pick[];
@@ -209,7 +191,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ cards: [] }, { status: 401 });
+      return unauthorized();
     }
 
     const status = searchParams.get("status");
@@ -218,7 +200,7 @@ export async function GET(request: NextRequest) {
 
     // Scope by authenticated user (defense-in-depth with RLS)
     let query = (supabase.from("cards") as any)
-      .select("*, picks(*, props(player_name, player_id, stat_category, line, game_id))")
+      .select("id, user_id, status, score, total_picks, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, stat_category, line, game_id))")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
@@ -230,10 +212,7 @@ export async function GET(request: NextRequest) {
     const { data: cards, error: cardsError } = await query;
 
     if (cardsError) {
-      return NextResponse.json(
-        { error: "Failed to fetch cards", message: cardsError.message },
-        { status: 500 }
-      );
+      return serverError("Failed to fetch cards", cardsError.message);
     }
 
     return NextResponse.json({ cards: cards ?? [] });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveEligibleCards } from "@/lib/cards/resolution";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
-import { handleApiError } from "@/lib/api/errors";
+import { unauthorized, handleApiError } from "@/lib/api/errors";
 
 export async function POST(request: NextRequest) {
   // Auth check
@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   if (syncSecret) {
     const authHeader = request.headers.get("authorization");
     if (authHeader !== `Bearer ${syncSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
   }
 

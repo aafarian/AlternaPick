@@ -33,9 +33,24 @@ export function notFound(resource: string) {
   );
 }
 
+/** Return a 403 Forbidden response. */
+export function forbidden(error: string) {
+  return NextResponse.json<ApiErrorBody>({ error }, { status: 403 });
+}
+
 /** Return a 409 Conflict response. */
 export function conflict(error: string) {
   return NextResponse.json<ApiErrorBody>({ error }, { status: 409 });
+}
+
+/** Return a 429 Too Many Requests response. */
+export function tooManyRequests(error: string) {
+  return NextResponse.json<ApiErrorBody>({ error }, { status: 429 });
+}
+
+/** Return a 500 Internal Server Error response. */
+export function serverError(error: string, message?: string) {
+  return NextResponse.json<ApiErrorBody>({ error, message }, { status: 500 });
 }
 
 /**

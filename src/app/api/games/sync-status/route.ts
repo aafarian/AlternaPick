@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchTodaysGames } from "@/lib/stats-service/client";
-import { handleApiError } from "@/lib/api/errors";
+import { unauthorized, serverError, handleApiError } from "@/lib/api/errors";
 import type { Game } from "@/lib/supabase/types";
 
 // Map NBA.com tricodes to Odds API full team names
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
   if (syncSecret) {
     const authHeader = request.headers.get("authorization");
     if (authHeader !== `Bearer ${syncSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
   }
 
@@ -80,10 +80,7 @@ export async function POST(request: NextRequest) {
       .lte("commence_time", tomorrowEnd.toISOString());
 
     if (gamesResult.error) {
-      return NextResponse.json(
-        { error: "Failed to fetch games from DB", message: gamesResult.error.message },
-        { status: 500 }
-      );
+      return serverError("Failed to fetch games from DB", gamesResult.error.message);
     }
 
     const games = (gamesResult.data ?? []) as Game[];
