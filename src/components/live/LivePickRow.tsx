@@ -183,15 +183,13 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
           </div>
         )}
 
-        {/* Avatar */}
-        {!isSettled && (
-          <PlayerAvatar
-            playerId={pick.player_id}
-            playerName={pick.player_name}
-            size="lg"
-            className="ring-1 ring-border/60"
-          />
-        )}
+        {/* Avatar — always shown */}
+        <PlayerAvatar
+          playerId={pick.player_id}
+          playerName={pick.player_name}
+          size="lg"
+          className="ring-1 ring-border/60"
+        />
 
         {/* Player info */}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -247,6 +245,10 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
             >
               {pick.current_value}
             </span>
+          ) : isFinal ? (
+            <span className="text-xs font-medium leading-none text-muted-foreground/50">
+              N/A
+            </span>
           ) : (
             <span className="text-base leading-none text-muted-foreground/30">
               &mdash;
@@ -272,6 +274,9 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
       </div>
 
       {/* Progress bar */}
+      {!hasValue && isPreGame && (
+        <div className="relative h-2 w-full rounded-full bg-secondary/20" />
+      )}
       {hasValue && (
         <div className="relative h-2 w-full overflow-visible rounded-full bg-secondary/30">
           {/* Line marker */}
