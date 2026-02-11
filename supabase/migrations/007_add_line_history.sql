@@ -1,0 +1,1 @@
+ALTER TABLE props ADD COLUMN line_history JSONB DEFAULT NULL;

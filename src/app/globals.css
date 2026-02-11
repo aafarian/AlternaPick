@@ -4,7 +4,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* SportsTower — always-dark sports betting palette */
+/* AlternaPick — always-dark sports betting palette */
 :root {
   --radius: 0.625rem;
 
@@ -59,7 +59,7 @@
   --sidebar-border: oklch(0.30 0.005 260);
   --sidebar-ring: oklch(0.72 0.19 155);
 
-  /* Custom additions for SportsTower */
+  /* Custom additions for AlternaPick */
   --surface: oklch(0.18 0.005 260);
   --surface-hover: oklch(0.22 0.005 260);
   --neon-green: #00d26a;
@@ -134,4 +134,18 @@ body {
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* Live stats bar shimmer animation */
+@keyframes bar-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+@utility animate-bar-shimmer {
+  animation: bar-shimmer 2s ease-in-out infinite;
 }

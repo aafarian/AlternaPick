@@ -1,94 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ChallengeDetail } from "@/lib/challenges/queries";
-import { CATEGORY_LABELS, CATEGORY_COLORS, CHALLENGE_STATUS_STYLES } from "@/lib/constants";
-import type { StatCategory } from "@/lib/supabase/types";
+import { useLiveChallenge } from "@/lib/challenges/use-live-challenge";
+import type { LivePickData } from "@/lib/cards/live-types";
+import { toLivePickData } from "@/lib/cards/live-types";
+import { CHALLENGE_STATUS_STYLES } from "@/lib/constants";
+import GameScoreBanner from "@/components/live/GameScoreBanner";
+import LivePickCard from "@/components/live/LivePickCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, AlertCircle, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2 } from "lucide-react";
 
 interface ChallengeMatchupProps {
   challenge: ChallengeDetail;
   currentUserId: string;
-}
-
-/* ---------- Shared sub-components ---------- */
-
-function ResultIcon({ result }: { result: string }) {
-  switch (result) {
-    case "hit":
-      return <CheckCircle2 className="h-4 w-4 text-neon-green" />;
-    case "miss":
-      return <XCircle className="h-4 w-4 text-bold-red" />;
-    default:
-      return <Clock className="h-4 w-4 text-amber-400" />;
-  }
-}
-
-interface PickRowProps {
-  pick: {
-    id: string;
-    selection: string;
-    result: string;
-    actual_value: number | null;
-    prop: {
-      id: string;
-      player_name: string;
-      stat_category: string;
-      line: number;
-      game_id: string;
-    } | null;
-  };
-}
-
-function PickRow({ pick }: PickRowProps) {
-  const statCat = (pick.prop?.stat_category ?? "points") as StatCategory;
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-1 rounded-lg bg-background/50 px-3 py-2">
-      <div className="flex min-w-0 items-center gap-2">
-        <ResultIcon result={pick.result} />
-        <span className="truncate text-sm font-medium">
-          {pick.prop?.player_name ?? "Unknown"}
-        </span>
-        <Badge
-          variant="secondary"
-          className={cn("text-xs", CATEGORY_COLORS[statCat] ?? "")}
-        >
-          {CATEGORY_LABELS[statCat] ?? statCat}
-        </Badge>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <span className="text-sm font-bold tabular-nums">
-          {pick.prop?.line ?? "\u2014"}
-        </span>
-        <Badge
-          variant="secondary"
-          className={cn(
-            "text-xs",
-            pick.selection === "over"
-              ? "bg-neon-green/15 text-neon-green"
-              : "bg-bold-red/15 text-bold-red"
-          )}
-        >
-          {pick.selection === "over" ? "Over" : "Under"}
-        </Badge>
-        {pick.actual_value !== null && (
-          <span className="text-xs text-muted-foreground">
-            Actual: {pick.actual_value}
-          </span>
-        )}
-      </div>
-    </div>
-  );
 }
 
 /* ---------- Player Side Panel ---------- */
@@ -100,6 +32,8 @@ function PlayerSide({
   card,
   isWinner,
   showPicks,
+  livePickMap,
+  hasLiveGames,
 }: {
   label: string;
   name: string;
@@ -107,8 +41,36 @@ function PlayerSide({
   card: ChallengeDetail["challenger_card"];
   isWinner: boolean;
   showPicks: boolean;
+  livePickMap: Map<string, LivePickData>;
+  hasLiveGames: boolean;
 }) {
   const initial = name.charAt(0).toUpperCase();
+
+  // Build LivePickData[] for the card's picks
+  const picks: LivePickData[] =
+    showPicks && card
+      ? card.picks.map((pick) => livePickMap.get(pick.id) ?? toLivePickData(pick))
+      : [];
+
+  const statusBadge = card ? (
+    <Badge
+      variant="secondary"
+      className={cn(
+        "text-xs",
+        card.status === "resolved"
+          ? "bg-purple-500/15 text-purple-400"
+          : card.status === "locked"
+            ? "bg-amber-500/15 text-amber-400"
+            : "bg-muted/15 text-muted-foreground"
+      )}
+    >
+      {card.status === "resolved"
+        ? `${card.score}/${card.total_picks}`
+        : card.status === "locked"
+          ? "Locked In"
+          : "Draft"}
+    </Badge>
+  ) : null;
 
   return (
     <div className="flex flex-1 flex-col gap-3">
@@ -141,38 +103,13 @@ function PlayerSide({
         )}
       </div>
 
-      {/* Card info */}
+      {/* Card — shared LivePickCard */}
       {card ? (
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-center gap-2">
-            <Badge
-              variant="secondary"
-              className={cn(
-                "text-xs",
-                card.status === "resolved"
-                  ? "bg-purple-500/15 text-purple-400"
-                  : card.status === "locked"
-                    ? "bg-amber-500/15 text-amber-400"
-                    : "bg-muted/15 text-muted-foreground"
-              )}
-            >
-              {card.status === "resolved"
-                ? `${card.score}/${card.total_picks}`
-                : card.status === "locked"
-                  ? "Locked In"
-                  : "Draft"}
-            </Badge>
-          </div>
-
-          {/* Picks */}
-          {showPicks && card.picks.length > 0 && (
-            <div className="mt-2 flex flex-col gap-1">
-              {card.picks.map((pick) => (
-                <PickRow key={pick.id} pick={pick} />
-              ))}
-            </div>
-          )}
-        </div>
+        <LivePickCard
+          picks={picks}
+          hasLiveGames={hasLiveGames}
+          statusLabel={statusBadge}
+        />
       ) : (
         <p className="text-center text-xs text-muted-foreground">No card yet</p>
       )}
@@ -189,6 +126,28 @@ export default function ChallengeMatchup({
   const router = useRouter();
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Live stats polling — enabled when either card is locked
+  const hasLockedCards =
+    challenge.challenger_card?.status === "locked" ||
+    challenge.opponent_card?.status === "locked";
+
+  const { data: liveData, isLoading: liveLoading } = useLiveChallenge(
+    challenge.id,
+    hasLockedCards
+  );
+
+  // Build live pick maps
+  const challengerLivePickMap = new Map<string, LivePickData>();
+  const opponentLivePickMap = new Map<string, LivePickData>();
+  if (liveData) {
+    for (const lp of liveData.challenger_card?.picks ?? []) {
+      challengerLivePickMap.set(lp.pick_id, lp);
+    }
+    for (const lp of liveData.opponent_card?.picks ?? []) {
+      opponentLivePickMap.set(lp.pick_id, lp);
+    }
+  }
 
   const isChallenger = challenge.challenger_id === currentUserId;
   const challengerName =
@@ -273,9 +232,23 @@ export default function ChallengeMatchup({
           >
             {challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
           </Badge>
+          {liveData?.has_live_games && (
+            <div className="flex items-center gap-1">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
+              <span className="text-xs font-bold text-primary">LIVE</span>
+            </div>
+          )}
+          {liveLoading && !liveData && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
         </div>
         <span className="text-sm text-muted-foreground">{date}</span>
       </div>
+
+      {/* Live Game Scores */}
+      {liveData && liveData.games.length > 0 && (
+        <GameScoreBanner games={liveData.games} />
+      )}
 
       {/* Error */}
       {error && (
@@ -317,41 +290,39 @@ export default function ChallengeMatchup({
         </Card>
       )}
 
-      {/* Matchup Layout */}
-      <Card className="border-border bg-card">
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-4 md:flex-row">
-            {/* Challenger Side */}
-            <PlayerSide
-              label="Challenger"
-              name={challengerName}
-              avatarUrl={challenge.challenger.avatar_url}
-              card={challenge.challenger_card}
-              isWinner={challengerIsWinner}
-              showPicks={showPicks}
-            />
+      {/* Matchup Layout — no wrapper card, just the two sides */}
+      <div className="flex flex-col items-stretch gap-6 md:flex-row md:gap-4">
+        {/* Challenger Side */}
+        <PlayerSide
+          label="Challenger"
+          name={challengerName}
+          avatarUrl={challenge.challenger.avatar_url}
+          card={challenge.challenger_card}
+          isWinner={challengerIsWinner}
+          showPicks={showPicks}
+          livePickMap={challengerLivePickMap}
+          hasLiveGames={liveData?.challenger_card?.has_live_games ?? false}
+        />
 
-            {/* VS divider */}
-            <div className="flex items-center justify-center md:flex-col md:justify-start md:pt-8">
-              <Separator className="hidden flex-1 md:block md:h-auto" orientation="vertical" />
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-                VS
-              </div>
-              <Separator className="hidden flex-1 md:block md:h-auto" orientation="vertical" />
-            </div>
-
-            {/* Opponent Side */}
-            <PlayerSide
-              label="Opponent"
-              name={opponentName}
-              avatarUrl={challenge.opponent.avatar_url}
-              card={challenge.opponent_card}
-              isWinner={opponentIsWinner}
-              showPicks={showPicks}
-            />
+        {/* VS badge */}
+        <div className="flex shrink-0 items-center justify-center md:self-center">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+            VS
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Opponent Side */}
+        <PlayerSide
+          label="Opponent"
+          name={opponentName}
+          avatarUrl={challenge.opponent.avatar_url}
+          card={challenge.opponent_card}
+          isWinner={opponentIsWinner}
+          showPicks={showPicks}
+          livePickMap={opponentLivePickMap}
+          hasLiveGames={liveData?.opponent_card?.has_live_games ?? false}
+        />
+      </div>
 
       {/* Status-specific CTAs */}
       {challenge.status === "pending" && (

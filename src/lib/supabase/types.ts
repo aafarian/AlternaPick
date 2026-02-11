@@ -117,6 +117,7 @@ export interface Database {
           player_name: string;
           player_id: string | null;
           player_team: string | null;
+          player_position: string | null;
           stat_category: StatCategory;
           line: number;
           over_odds: number | null;
@@ -124,6 +125,7 @@ export interface Database {
           bookmaker: string | null;
           fetched_at: string;
           created_at: string;
+          line_history: Array<{ t: string; l: number }> | null;
         };
         Insert: {
           id?: string;
@@ -131,6 +133,7 @@ export interface Database {
           player_name: string;
           player_id?: string | null;
           player_team?: string | null;
+          player_position?: string | null;
           stat_category: StatCategory;
           line: number;
           over_odds?: number | null;
@@ -138,18 +141,21 @@ export interface Database {
           bookmaker?: string | null;
           fetched_at?: string;
           created_at?: string;
+          line_history?: Array<{ t: string; l: number }> | null;
         };
         Update: {
           game_id?: string;
           player_name?: string;
           player_id?: string | null;
           player_team?: string | null;
+          player_position?: string | null;
           stat_category?: StatCategory;
           line?: number;
           over_odds?: number | null;
           under_odds?: number | null;
           bookmaker?: string | null;
           fetched_at?: string;
+          line_history?: Array<{ t: string; l: number }> | null;
         };
       };
       cards: {

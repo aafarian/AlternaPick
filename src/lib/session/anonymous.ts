@@ -1,4 +1,4 @@
-export const ANON_SESSION_KEY = "st_anon_id";
+export const ANON_SESSION_KEY = "ap_anon_id";
 
 export function getAnonymousId(): string {
   if (typeof window === "undefined") {

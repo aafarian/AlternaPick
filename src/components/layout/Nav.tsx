@@ -16,7 +16,6 @@ import {
   User,
   LogOut,
   LogIn,
-  Radio,
 } from "lucide-react";
 
 interface NavLink {
@@ -28,8 +27,7 @@ interface NavLink {
 
 const authenticatedLinks: NavLink[] = [
   { href: "/props", label: "Props", icon: LayoutGrid },
-  { href: "/cards", label: "My Cards", icon: LayoutGrid },
-  { href: "/live", label: "Live", icon: Radio },
+  { href: "/picks", label: "My Picks", icon: LayoutGrid },
   { href: "/challenges", label: "Challenges", icon: Swords, badgeKey: "challenges" },
   { href: "/friends", label: "Friends", icon: Users, badgeKey: "friends" },
   { href: "/activity", label: "Activity", icon: Activity },

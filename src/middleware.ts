@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
-const PROTECTED_ROUTES = ["/cards", "/history", "/profile", "/friends", "/challenges", "/activity", "/notifications", "/live"];
-const PUBLIC_EXCEPTIONS = ["/cards/share/"];
+const PROTECTED_ROUTES = ["/picks", "/history", "/profile", "/friends", "/challenges", "/activity", "/notifications", "/live"];
+const PUBLIC_EXCEPTIONS = ["/picks/share/"];
 const AUTH_ROUTES = ["/auth/login", "/auth/signup"];
 
 export async function middleware(request: NextRequest) {
@@ -22,9 +22,16 @@ export async function middleware(request: NextRequest) {
 
   // Redirect authenticated users away from auth pages
   if (user && AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
-    const cardsUrl = request.nextUrl.clone();
-    cardsUrl.pathname = "/cards";
-    return NextResponse.redirect(cardsUrl);
+    const propsUrl = request.nextUrl.clone();
+    propsUrl.pathname = "/props";
+    return NextResponse.redirect(propsUrl);
+  }
+
+  // Redirect signed-in users from landing page to props
+  if (user && pathname === "/") {
+    const propsUrl = request.nextUrl.clone();
+    propsUrl.pathname = "/props";
+    return NextResponse.redirect(propsUrl);
   }
 
   return response;

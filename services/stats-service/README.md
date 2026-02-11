@@ -1,4 +1,4 @@
-# Sports Tower - Stats Service
+# AlternaPick - Stats Service
 
 NBA player stats microservice powered by [FastAPI](https://fastapi.tiangolo.com/) and [nba_api](https://github.com/swar/nba_api).
 

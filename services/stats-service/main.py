@@ -1,5 +1,5 @@
 """
-Sports Tower - Stats Microservice
+AlternaPick - Stats Microservice
 
 FastAPI microservice that provides NBA player stats via the nba_api library.
 Runs as a separate process from the Next.js app and is called via REST.
@@ -18,7 +18,7 @@ from endpoints.players import router as players_router
 load_dotenv()
 
 app = FastAPI(
-    title="Sports Tower Stats Service",
+    title="AlternaPick Stats Service",
     description="NBA player stats microservice powered by nba_api",
     version="0.1.0",
 )

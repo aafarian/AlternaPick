@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { teamTricode, teamLogoUrl } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import CountdownBadge from "./CountdownBadge";
 
 interface GameInfo {
   id: string;
@@ -13,15 +14,6 @@ interface GameInfo {
 
 interface GameSelectorProps {
   games: GameInfo[];
-}
-
-function formatTime(commenceTime: string): string {
-  const date = new Date(commenceTime);
-  return date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
 }
 
 function TeamLogo({ team, size = 20 }: { team: string; size?: number }) {
@@ -70,9 +62,7 @@ export default function GameSelector({ games }: GameSelectorProps) {
             <span className="tracking-wider">
               {teamTricode(game.away_team)} @ {teamTricode(game.home_team)}
             </span>
-            <span className="text-[10px] text-muted-foreground">
-              {formatTime(game.commence_time)}
-            </span>
+            <CountdownBadge commenceTime={game.commence_time} size="sm" />
           </div>
           <TeamLogo team={game.home_team} />
         </button>

@@ -24,7 +24,7 @@ export function getShareUrl(shareToken: string): string {
     process.env.NEXT_PUBLIC_VERCEL_URL ??
     "http://localhost:3000";
   const origin = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
-  return `${origin}/cards/share/${shareToken}`;
+  return `${origin}/picks/share/${shareToken}`;
 }
 
 interface PickSummaryInput {
@@ -39,7 +39,7 @@ interface PickSummaryInput {
 
 /**
  * Formats a text summary of a card's results for clipboard sharing.
- * Example: "I went 4/6 on my SportsTower picks! LeBron James PTS O 25.5 ✓ ..."
+ * Example: "I went 4/6 on my AlternaPick picks! LeBron James PTS O 25.5 ✓ ..."
  */
 export function getCardShareSummary(
   score: number,
@@ -47,7 +47,7 @@ export function getCardShareSummary(
   picks: PickSummaryInput[],
   shareUrl: string
 ): string {
-  const header = `I went ${score}/${totalPicks} on my SportsTower picks!`;
+  const header = `I went ${score}/${totalPicks} on my AlternaPick picks!`;
 
   const pickLines = picks.map((pick) => {
     const playerName = pick.props?.player_name ?? "Unknown";

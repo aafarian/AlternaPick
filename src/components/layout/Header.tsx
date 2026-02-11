@@ -57,8 +57,8 @@ export default function Header() {
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-1 text-xl font-bold tracking-tight">
-          <span className="text-primary">Sports</span>
-          <span className="text-foreground">Tower</span>
+          <span className="text-primary">Alterna</span>
+          <span className="text-foreground">Pick</span>
         </Link>
 
         {/* Desktop nav + bell */}
@@ -93,7 +93,7 @@ export default function Header() {
             </SheetTrigger>
             <SheetContent side="right" className="w-72 bg-background/95 backdrop-blur-xl border-border">
               <SheetTitle className="text-lg font-bold mb-4">
-                <span className="text-primary">Sports</span>Tower
+                <span className="text-primary">Alterna</span>Pick
               </SheetTitle>
               <Nav
                 onNavigate={() => setSheetOpen(false)}

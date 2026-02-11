@@ -37,14 +37,14 @@ export async function resolveLoginEmail(login: string) {
  */
 export async function claimCardsAfterLogin() {
   const cookieStore = await cookies();
-  const anonId = cookieStore.get("st_anon_id")?.value;
+  const anonId = cookieStore.get("ap_anon_id")?.value;
   if (!anonId) return;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {
     await claimAnonymousCards(user.id, anonId);
-    cookieStore.delete("st_anon_id");
+    cookieStore.delete("ap_anon_id");
   }
 }
 

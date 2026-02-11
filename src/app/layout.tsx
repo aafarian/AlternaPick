@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SportsTower - Predict. Compete. Dominate.",
+  title: "AlternaPick - Predict. Compete. Dominate.",
   description:
     "Pick over/unders on NBA player props, challenge your friends head-to-head, and climb the leaderboard. No money, just bragging rights.",
 };

@@ -17,7 +17,7 @@ import { AlertCircle } from "lucide-react";
 function LoginForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const redirectTo = searchParams.get("redirectTo") ?? "/cards";
+  const redirectTo = searchParams.get("redirectTo") ?? "/picks";
   const [error, setError] = useState<string | null>(
     searchParams.get("error") ? "Authentication failed. Please try again." : null
   );

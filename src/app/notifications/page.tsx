@@ -106,7 +106,7 @@ export default function NotificationsPage() {
       const meta = notification.metadata as Record<string, unknown> | null;
 
       if (meta?.card_id) {
-        router.push("/cards");
+        router.push("/picks");
         return;
       }
       if (meta?.challenge_id) {

@@ -60,8 +60,8 @@ export default function UpdatePasswordPage() {
           <p className="text-sm text-muted-foreground">
             Your password has been reset successfully.
           </p>
-          <Button onClick={() => router.push("/cards")} size="sm">
-            Go to My Cards
+          <Button onClick={() => router.push("/picks")} size="sm">
+            Go to My Picks
           </Button>
         </CardContent>
       </Card>

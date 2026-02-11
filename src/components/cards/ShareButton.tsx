@@ -29,7 +29,7 @@ export default function ShareButton({ cardId }: ShareButtonProps) {
       if (navigator.share) {
         try {
           await navigator.share({
-            title: "Check out my SportsTower card!",
+            title: "Check out my AlternaPick card!",
             url: shareUrl,
           });
           setStatus("copied");

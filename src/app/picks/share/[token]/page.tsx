@@ -67,7 +67,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const data = await getSharedCard(token);
 
   if (!data) {
-    return { title: "SportsTower - Card Not Found" };
+    return { title: "AlternaPick - Card Not Found" };
   }
 
   const { card, username } = data;
@@ -81,17 +81,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     .join(", ");
 
   return {
-    title: `SportsTower - ${username}'s Card: ${card.score}/${card.total_picks}`,
+    title: `AlternaPick - ${username}'s Card: ${card.score}/${card.total_picks}`,
     description: `${username} went ${card.score}/${card.total_picks}. Picks: ${pickSummary}${card.picks.length > 3 ? "..." : ""}`,
     openGraph: {
-      title: `SportsTower - ${username}'s Card: ${card.score}/${card.total_picks}`,
-      description: `${username} went ${card.score}/${card.total_picks}. Check out this card on SportsTower!`,
+      title: `AlternaPick - ${username}'s Card: ${card.score}/${card.total_picks}`,
+      description: `${username} went ${card.score}/${card.total_picks}. Check out this card on AlternaPick!`,
       type: "website",
     },
     twitter: {
       card: "summary",
-      title: `SportsTower - ${username}'s Card: ${card.score}/${card.total_picks}`,
-      description: `${username} went ${card.score}/${card.total_picks}. Check out this card on SportsTower!`,
+      title: `AlternaPick - ${username}'s Card: ${card.score}/${card.total_picks}`,
+      description: `${username} went ${card.score}/${card.total_picks}. Check out this card on AlternaPick!`,
     },
   };
 }
@@ -141,7 +141,7 @@ export default async function ShareCardPage({ params }: PageProps) {
         href="/"
         className="mb-8 text-2xl font-bold tracking-tight"
       >
-        <span className="text-primary">Sports</span>Tower
+        <span className="text-primary">Alterna</span>Pick
       </Link>
 
       {/* Card container */}

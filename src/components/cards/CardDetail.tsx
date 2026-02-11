@@ -1,13 +1,14 @@
 "use client";
 
 import type { CardWithPicks } from "@/lib/cards/api";
-import { CATEGORY_LABELS } from "@/lib/constants";
+import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
 import { formatClock } from "@/lib/format";
 import type { StatCategory } from "@/lib/supabase/types";
 import ShareButton from "@/components/cards/ShareButton";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
 import { useLiveStats } from "@/lib/cards/use-live-stats";
 import type { LivePickData } from "@/lib/cards/live-types";
+import GameScoreBanner from "@/components/live/GameScoreBanner";
 import {
   Card,
   CardHeader,
@@ -65,8 +66,8 @@ function LiveBadge({ pick }: { pick: LivePickData }) {
 
   if (pick.game_status.status === "live") {
     return (
-      <Badge variant="secondary" className="gap-1 border-primary/30 bg-primary/10 text-[10px] text-primary">
-        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+      <Badge variant="secondary" className="gap-1 border-foreground/30 bg-foreground/10 text-[10px] text-foreground">
+        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-foreground" />
         {formatClock(pick.game_status.period, pick.game_status.clock)}
       </Badge>
     );
@@ -119,12 +120,26 @@ export default function CardDetail({ card }: { card: CardWithPicks }) {
           <StatusBadge status={card.status} score={card.score} total={card.total_picks} />
           <span className="text-xs text-muted-foreground">{date}</span>
         </div>
-        {card.status === "resolved" && (
-          <span className="text-lg font-black tabular-nums">
-            {card.score}/{card.total_picks}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {liveData?.has_live_games && (
+            <div className="flex items-center gap-1">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-foreground" />
+              <span className="text-xs font-bold text-foreground">LIVE</span>
+            </div>
+          )}
+          {card.status === "resolved" && (
+            <span className="text-lg font-black tabular-nums">
+              {card.score}/{card.total_picks}
+            </span>
+          )}
+        </div>
       </CardHeader>
+
+      {liveData && liveData.games.length > 0 && (
+        <div className="px-3 pb-2">
+          <GameScoreBanner games={liveData.games} />
+        </div>
+      )}
 
       <Separator />
 
@@ -147,7 +162,7 @@ export default function CardDetail({ card }: { card: CardWithPicks }) {
                 <span className="truncate text-sm font-bold">
                   {pick.props?.player_name ?? "Unknown"}
                 </span>
-                <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider">
+                <Badge variant="secondary" className={cn("text-[10px] font-bold uppercase tracking-wider", CATEGORY_COLORS[statCat] ?? "")}>
                   {CATEGORY_LABELS[statCat] ?? statCat}
                 </Badge>
               </div>

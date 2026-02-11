@@ -2,8 +2,8 @@
 
 import type { Game, Prop, StatCategory } from "@/lib/supabase/types";
 import PropLine from "./PropLine";
+import CountdownBadge from "./CountdownBadge";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { teamTricode } from "@/lib/constants";
 
 const STAT_SORT_ORDER: Record<StatCategory, number> = {
@@ -23,15 +23,6 @@ const STAT_SORT_ORDER: Record<StatCategory, number> = {
 
 interface GameCardProps {
   game: Game & { props: Prop[] };
-}
-
-function formatGameTime(commenceTime: string): string {
-  const date = new Date(commenceTime);
-  return date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
 }
 
 export default function GameCard({ game }: GameCardProps) {
@@ -58,9 +49,7 @@ export default function GameCard({ game }: GameCardProps) {
           <span className="text-muted-foreground">@</span>
           <span className="font-bold">{game.home_team}</span>
         </div>
-        <Badge variant="secondary" className="text-xs font-medium">
-          {formatGameTime(game.commence_time)}
-        </Badge>
+        <CountdownBadge commenceTime={game.commence_time} />
       </CardHeader>
 
       <CardContent className="p-3">
@@ -73,10 +62,12 @@ export default function GameCard({ game }: GameCardProps) {
               playerName={prop.player_name}
               playerId={prop.player_id}
               playerTeam={prop.player_team}
+              playerPosition={prop.player_position}
               statCategory={prop.stat_category}
               line={prop.line}
               awayTeam={game.away_team}
               homeTeam={game.home_team}
+              lineHistory={prop.line_history}
             />
           ))}
         </div>

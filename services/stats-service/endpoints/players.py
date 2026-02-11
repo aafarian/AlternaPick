@@ -39,6 +39,21 @@ def _get_enriched_players() -> list[dict]:
     except Exception:
         pass  # Fall back to no team data
 
+    # Try to get position data from PlayerIndex (network call, may fail)
+    position_map: dict[str, str] = {}
+    try:
+        from nba_api.stats.endpoints import playerindex
+
+        pi = playerindex.PlayerIndex(timeout=10)
+        rows = pi.get_normalized_dict()["PlayerIndex"]
+        for row in rows:
+            pid = str(row.get("PERSON_ID", ""))
+            pos = row.get("POSITION", "")
+            if pid and pos:
+                position_map[pid] = pos
+    except Exception:
+        pass  # Fall back to no position data
+
     result = []
     for pid, p in static_list.items():
         entry = {
@@ -49,6 +64,8 @@ def _get_enriched_players() -> list[dict]:
         }
         if pid in team_map:
             entry["team_abbreviation"] = team_map[pid]["team_abbreviation"]
+        if pid in position_map:
+            entry["position"] = position_map[pid]
         result.append(entry)
 
     _player_cache["data"] = result

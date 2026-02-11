@@ -1,7 +1,7 @@
 [project]
-name = "sports-tower-stats-service"
+name = "alternapick-stats-service"
 version = "0.1.0"
-description = "NBA player stats microservice for Sports Tower, powered by nba_api and FastAPI"
+description = "NBA player stats microservice for AlternaPick, powered by nba_api and FastAPI"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.109.0",

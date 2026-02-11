@@ -26,7 +26,14 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
         .sort((a, b) => a.player_name.localeCompare(b.player_name)),
     })) ?? [];
 
-  const withProps = filtered.filter((g) => g.props.length > 0);
+  const LOCK_BUFFER_MS = 5 * 60 * 1000;
+  const now = Date.now();
+
+  const withProps = filtered
+    .filter((g) => g.props.length > 0)
+    .filter(
+      (g) => new Date(g.commence_time).getTime() - now > LOCK_BUFFER_MS
+    );
 
   return (
     <div className="flex flex-col gap-6 py-8">

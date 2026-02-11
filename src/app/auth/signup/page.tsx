@@ -47,7 +47,7 @@ export default function SignupPage() {
     }
 
     // Step 3: Navigate — auth context will have the user by now
-    router.push("/cards");
+    router.push("/picks");
   }
 
   async function handleGoogleSignIn() {

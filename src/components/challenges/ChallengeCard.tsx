@@ -73,6 +73,12 @@ export default function ChallengeCard({
                 >
                   {challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
                 </Badge>
+                {challenge.status === "active" && (
+                  <div className="flex items-center gap-1">
+                    <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
+                    <span className="text-[10px] font-bold text-primary">LIVE</span>
+                  </div>
+                )}
                 {challenge.status === "resolved" && (
                   <Badge
                     variant="secondary"

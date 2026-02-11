@@ -1,0 +1,1 @@
+ALTER TABLE props ADD COLUMN IF NOT EXISTS player_position TEXT;

@@ -2,71 +2,26 @@
 
 import type { CardWithPicks } from "@/lib/cards/api";
 import { useLiveStats } from "@/lib/cards/use-live-stats";
-import GameScoreBanner from "./GameScoreBanner";
-import LivePickRow from "./LivePickRow";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
+import LivePickCard from "./LivePickCard";
+import { Card, CardContent } from "@/components/ui/card";
 
 function LiveCard({ card }: { card: CardWithPicks }) {
-  const { data, isLoading, error } = useLiveStats(card.id, true);
-
-  const date = new Date(card.created_at).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const { data, error } = useLiveStats(card.id, true);
 
   return (
-    <Card className="border-border bg-card">
-      <CardHeader className="flex-row items-center justify-between space-y-0 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="border-amber-500/30 bg-amber-500/15 text-amber-400">
-            Locked
-          </Badge>
-          <span className="text-xs text-muted-foreground">{date}</span>
-        </div>
-        {isLoading && !data && (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        )}
-        {data?.has_live_games && (
-          <div className="flex items-center gap-1">
-            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
-            <span className="text-xs font-bold text-primary">LIVE</span>
-          </div>
-        )}
-      </CardHeader>
-
-      {error && (
-        <div className="px-4 pb-2">
-          <span className="text-xs text-muted-foreground">Unable to fetch live data</span>
-        </div>
-      )}
-
-      {data && (
-        <>
-          {data.games.length > 0 && (
-            <div className="px-3 pb-2">
-              <GameScoreBanner games={data.games} />
-            </div>
-          )}
-          <CardContent className="flex flex-col gap-2 p-3">
-            {data.picks.map((pick) => (
-              <LivePickRow key={pick.pick_id} pick={pick} />
-            ))}
-          </CardContent>
-        </>
-      )}
-
-      {!data && !isLoading && (
-        <CardContent className="py-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            Waiting for game data...
-          </p>
-        </CardContent>
-      )}
-    </Card>
+    <LivePickCard
+      picks={data?.picks ?? []}
+      hasLiveGames={data?.has_live_games ?? false}
+      games={data?.games}
+      statusLabel={
+        <span className="text-xs text-muted-foreground">
+          {card.picks.length} picks
+        </span>
+      }
+      loading={!data && !error}
+      pickCount={card.picks.length}
+      error={!!error}
+    />
   );
 }
 

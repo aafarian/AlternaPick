@@ -36,7 +36,7 @@ export default function CardBuilderPanel() {
       );
       const redirectTo = challengeId
         ? `/challenges/${challengeId}`
-        : "/cards";
+        : "/picks";
       clearCard();
       router.push(redirectTo);
     } catch (err) {

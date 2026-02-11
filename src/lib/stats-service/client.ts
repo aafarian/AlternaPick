@@ -22,6 +22,7 @@ export interface NbaPlayer {
   first_name: string;
   last_name: string;
   team_abbreviation?: string;
+  position?: string;
 }
 
 export interface PlayerBoxScore {

@@ -13,10 +13,12 @@ interface PropLineProps {
   playerName: string;
   playerId: string | null;
   playerTeam: string | null;
+  playerPosition: string | null;
   statCategory: StatCategory;
   line: number;
   awayTeam: string;
   homeTeam: string;
+  lineHistory: Array<{ t: string; l: number }> | null;
 }
 
 function getInitials(name: string): string {
@@ -66,10 +68,12 @@ export default function PropLine({
   playerName,
   playerId,
   playerTeam,
+  playerPosition,
   statCategory,
   line,
   awayTeam,
   homeTeam,
+  lineHistory,
 }: PropLineProps) {
   const { addPick, removePick, isPickSelected, getSelection, isFull } =
     useCardBuilder();
@@ -148,27 +152,41 @@ export default function PropLine({
           {playerName}
         </span>
 
-        {/* Team abbreviation */}
+        {/* Team abbreviation + position */}
         {playerTeam && (
           <span className="relative z-10 mt-0.5 text-[11px] font-medium text-muted-foreground">
-            {playerTeam}
+            {playerTeam}{playerPosition ? ` - ${playerPosition}` : ""}
           </span>
         )}
       </div>
 
       {/* Line number + stat category */}
-      <div className="flex items-baseline justify-center gap-1.5 pb-2">
-        <span className="text-3xl font-black tabular-nums tracking-tight">
-          {line}
-        </span>
-        <span
-          className={cn(
-            "text-xs font-bold uppercase",
-            CATEGORY_COLORS[statCategory].replace(/bg-\S+\s*/, "")
-          )}
-        >
-          {CATEGORY_LABELS[statCategory]}
-        </span>
+      <div className="flex flex-col items-center gap-0.5 pb-2">
+        <div className="flex items-baseline justify-center gap-1.5">
+          <span className="text-3xl font-black tabular-nums tracking-tight">
+            {line}
+          </span>
+          <span
+            className={cn(
+              "text-xs font-bold uppercase",
+              CATEGORY_COLORS[statCategory].replace(/bg-\S+\s*/, "")
+            )}
+          >
+            {CATEGORY_LABELS[statCategory]}
+          </span>
+        </div>
+        {lineHistory && lineHistory.length >= 2 && (() => {
+          const openLine = lineHistory[0].l;
+          const diff = line - openLine;
+          if (diff === 0) return null;
+          const arrow = diff > 0 ? "\u2191" : "\u2193";
+          const color = diff > 0 ? "text-neon-green" : "text-bold-red";
+          return (
+            <span className={cn("text-[10px] font-medium", color)}>
+              opened {openLine} {arrow}
+            </span>
+          );
+        })()}
       </div>
 
       {/* Over / Under buttons */}

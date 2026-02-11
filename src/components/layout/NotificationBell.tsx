@@ -24,7 +24,7 @@ interface NotificationBellProps {
 function getNavigationPath(notification: Notification): string | null {
   const meta = notification.metadata as Record<string, unknown> | null;
 
-  if (meta?.card_id) return "/cards";
+  if (meta?.card_id) return "/picks";
   if (meta?.challenge_id) return `/challenges/${meta.challenge_id}`;
   if (
     notification.type === "friend_request" ||
