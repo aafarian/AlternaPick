@@ -56,6 +56,7 @@ export interface Database {
           avatar_url: string | null;
           notification_preferences: NotificationPreferences | null;
           is_deactivated: boolean;
+          onboarding_completed: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -66,6 +67,7 @@ export interface Database {
           avatar_url?: string | null;
           notification_preferences?: NotificationPreferences | null;
           is_deactivated?: boolean;
+          onboarding_completed?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -76,6 +78,7 @@ export interface Database {
           avatar_url?: string | null;
           notification_preferences?: NotificationPreferences | null;
           is_deactivated?: boolean;
+          onboarding_completed?: boolean;
           updated_at?: string;
         };
       };
