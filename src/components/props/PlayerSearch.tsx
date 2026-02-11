@@ -17,6 +17,13 @@ export default function PlayerSearch() {
     setValue(currentPlayer);
   }, [currentPlayer]);
 
+  // Clean up debounce timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
   const pushSearch = useCallback(
     (query: string) => {
       const params = new URLSearchParams(searchParams.toString());

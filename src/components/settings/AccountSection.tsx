@@ -49,7 +49,7 @@ export default function AccountSection({
           for verification if you have one set.
         </p>
         {hasPasswordProvider ? (
-          <ChangePasswordForm />
+          <ChangePasswordForm email={email} />
         ) : (
           <p className="text-sm text-muted-foreground">
             Your account uses Google sign-in only. To set a password, use the{" "}
@@ -160,7 +160,7 @@ export default function AccountSection({
   );
 }
 
-function ChangePasswordForm() {
+function ChangePasswordForm({ email }: { email: string }) {
   const { supabase } = useAuth();
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
@@ -175,8 +175,18 @@ function ChangePasswordForm() {
 
     const form = e.currentTarget;
     const formData = new FormData(form);
+    const currentPassword = formData.get("current_password") as string;
     const newPassword = formData.get("new_password") as string;
     const confirmPassword = formData.get("confirm_password") as string;
+
+    if (!currentPassword) {
+      setMessage({
+        type: "error",
+        text: "Current password is required.",
+      });
+      setSaving(false);
+      return;
+    }
 
     if (!newPassword || newPassword.length < 6) {
       setMessage({
@@ -189,6 +199,22 @@ function ChangePasswordForm() {
 
     if (newPassword !== confirmPassword) {
       setMessage({ type: "error", text: "Passwords do not match." });
+      setSaving(false);
+      return;
+    }
+
+    // Verify current password before allowing change
+    const { error: verifyError } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password: currentPassword,
+      });
+
+    if (verifyError) {
+      setMessage({
+        type: "error",
+        text: "Current password is incorrect.",
+      });
       setSaving(false);
       return;
     }
@@ -228,6 +254,16 @@ function ChangePasswordForm() {
       )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="current_password">Current Password</Label>
+          <Input
+            id="current_password"
+            name="current_password"
+            type="password"
+            required
+            placeholder="Enter your current password"
+          />
+        </div>
         <div className="space-y-2">
           <Label htmlFor="new_password">New Password</Label>
           <Input
