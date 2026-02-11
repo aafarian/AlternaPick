@@ -14,6 +14,7 @@ import {
   Activity,
   Clock,
   User,
+  Settings,
   LogOut,
   LogIn,
 } from "lucide-react";
@@ -34,6 +35,7 @@ const authenticatedLinks: NavLink[] = [
   { href: "/history", label: "History", icon: Clock },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/profile", label: "Profile", icon: User },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 const publicLinks: NavLink[] = [
