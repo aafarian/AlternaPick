@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import type { Profile } from "@/lib/supabase/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Bell, Shield } from "lucide-react";
+import ProfileSection from "@/components/settings/ProfileSection";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -12,6 +14,14 @@ export default async function SettingsPage() {
   if (!user) {
     redirect("/auth/login?redirectTo=/settings");
   }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  const typedProfile = profile as Profile | null;
 
   return (
     <div className="flex flex-col gap-6 py-8">
@@ -34,15 +44,11 @@ export default async function SettingsPage() {
         </TabsList>
 
         <TabsContent value="profile" className="mt-6">
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="text-lg font-semibold">Profile Settings</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Manage your display name, avatar, and public profile information.
-            </p>
-            <div className="mt-6 text-sm text-muted-foreground">
-              Profile editing coming soon.
-            </div>
-          </div>
+          <ProfileSection
+            displayName={typedProfile?.display_name ?? null}
+            avatarUrl={typedProfile?.avatar_url ?? null}
+            username={typedProfile?.username ?? user.email?.split("@")[0] ?? "user"}
+          />
         </TabsContent>
 
         <TabsContent value="notifications" className="mt-6">

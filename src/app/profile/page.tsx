@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, LeaderboardEntry } from "@/lib/supabase/types";
 import ProfileCard from "@/components/profile/ProfileCard";
-import ProfileEditForm from "@/components/profile/ProfileEditForm";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { Settings } from "lucide-react";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -41,16 +42,19 @@ export default async function ProfilePage() {
 
   return (
     <div className="flex flex-col gap-6 py-8">
-      <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/settings" className="gap-1.5">
+            <Settings className="h-4 w-4" />
+            Edit Profile
+          </Link>
+        </Button>
+      </div>
       <ProfileCard
         profile={profile as Profile}
         email={user.email ?? ""}
         stats={(stats as LeaderboardEntry | null) ?? null}
-      />
-      <Separator />
-      <ProfileEditForm
-        displayName={(profile as Profile).display_name}
-        avatarUrl={(profile as Profile).avatar_url}
       />
     </div>
   );
