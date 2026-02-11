@@ -9,14 +9,23 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Target, BarChart3, Trophy } from "lucide-react";
 
-async function getCards(userId: string): Promise<CardWithPicks[]> {
+const PAGE_SIZE = 20;
+
+const CARD_SELECT = "id, user_id, status, score, total_picks, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, stat_category, line, game_id))";
+
+async function getCardsByStatus(
+  userId: string,
+  status: "locked" | "resolved",
+  limit: number = PAGE_SIZE,
+): Promise<CardWithPicks[]> {
   const supabase = await createClient();
 
   const result = await (supabase.from("cards") as any)
-    .select("*, picks(*, props(player_name, player_id, stat_category, line, game_id))")
+    .select(CARD_SELECT)
     .eq("user_id", userId)
+    .eq("status", status)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(limit);
 
   return (result.data ?? []) as CardWithPicks[];
 }
@@ -31,10 +40,11 @@ export default async function CardsPage() {
     redirect("/auth/login?redirectTo=/picks");
   }
 
-  const cards = await getCards(user.id);
-
-  const activeCards = cards.filter((c) => c.status === "locked");
-  const completedCards = cards.filter((c) => c.status === "resolved");
+  // Fetch locked and resolved cards separately for proper pagination
+  const [activeCards, completedCards] = await Promise.all([
+    getCardsByStatus(user.id, "locked"),
+    getCardsByStatus(user.id, "resolved", PAGE_SIZE),
+  ]);
 
   const avgScore =
     completedCards.length > 0
@@ -116,7 +126,8 @@ export default async function CardsPage() {
             <CardListWithLoadMore
               initialCards={completedCards}
               statusFilter="resolved"
-              pageSize={20}
+              pageSize={PAGE_SIZE}
+              hasMoreInitially={completedCards.length >= PAGE_SIZE}
             />
           )}
         </TabsContent>
