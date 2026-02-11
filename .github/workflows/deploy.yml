@@ -20,7 +20,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
-            cd ~/alternapick
+            cd /home/deploy/alternapick
 
             git pull origin main
 
