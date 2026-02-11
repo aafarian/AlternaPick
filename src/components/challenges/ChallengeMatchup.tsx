@@ -34,6 +34,7 @@ function PlayerSide({
   showPicks,
   livePickMap,
   hasLiveGames,
+  liveLoading,
 }: {
   label: string;
   name: string;
@@ -43,12 +44,13 @@ function PlayerSide({
   showPicks: boolean;
   livePickMap: Map<string, LivePickData>;
   hasLiveGames: boolean;
+  liveLoading: boolean;
 }) {
   const initial = name.charAt(0).toUpperCase();
 
-  // Build LivePickData[] for the card's picks
+  // Build LivePickData[] for the card's picks — only use fallback when live data is loaded
   const picks: LivePickData[] =
-    showPicks && card
+    showPicks && card && !liveLoading
       ? card.picks.map((pick) => livePickMap.get(pick.id) ?? toLivePickData(pick))
       : [];
 
@@ -109,6 +111,8 @@ function PlayerSide({
           picks={picks}
           hasLiveGames={hasLiveGames}
           statusLabel={statusBadge}
+          loading={liveLoading}
+          pickCount={card.picks.length}
         />
       ) : (
         <p className="text-center text-xs text-muted-foreground">No card yet</p>
@@ -302,6 +306,7 @@ export default function ChallengeMatchup({
           showPicks={showPicks}
           livePickMap={challengerLivePickMap}
           hasLiveGames={liveData?.challenger_card?.has_live_games ?? false}
+          liveLoading={hasLockedCards && !liveData}
         />
 
         {/* VS badge */}
@@ -321,6 +326,7 @@ export default function ChallengeMatchup({
           showPicks={showPicks}
           livePickMap={opponentLivePickMap}
           hasLiveGames={liveData?.opponent_card?.has_live_games ?? false}
+          liveLoading={hasLockedCards && !liveData}
         />
       </div>
 
