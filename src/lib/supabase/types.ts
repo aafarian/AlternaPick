@@ -439,6 +439,8 @@ export interface Database {
       challenge_status: ChallengeStatus;
       friendship_status: FriendshipStatus;
       notification_type: NotificationType;
+      achievement_tier: AchievementTier;
+      achievement_category: AchievementCategory;
     };
   };
 }
@@ -452,5 +454,8 @@ export type Pick = Database["public"]["Tables"]["picks"]["Row"];
 export type Challenge = Database["public"]["Tables"]["challenges"]["Row"];
 export type Friendship = Database["public"]["Tables"]["friendships"]["Row"];
 export type Notification = Database["public"]["Tables"]["notifications"]["Row"];
+export type Achievement = Database["public"]["Tables"]["achievements"]["Row"];
+export type UserAchievement =
+  Database["public"]["Tables"]["user_achievements"]["Row"];
 export type LeaderboardEntry =
   Database["public"]["Tables"]["leaderboard_entries"]["Row"];
