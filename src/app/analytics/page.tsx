@@ -4,11 +4,19 @@ import {
   getPlayerStats,
   getDirectionStats,
   getTrendData,
+  getCardSizeStats,
+  getTeamStats,
+  getScoreDistribution,
+  getGameModeStats,
 } from "@/lib/analytics/queries";
 import CategoryChart from "@/components/analytics/CategoryChart";
 import PlayerHitRate from "@/components/analytics/PlayerHitRate";
 import DirectionSplit from "@/components/analytics/DirectionSplit";
 import TrendChart from "@/components/analytics/TrendChart";
+import CardSizeChart from "@/components/analytics/CardSizeChart";
+import TeamHitRate from "@/components/analytics/TeamHitRate";
+import ScoreDistribution from "@/components/analytics/ScoreDistribution";
+import GameModeStats from "@/components/analytics/GameModeStats";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -40,18 +48,43 @@ export default async function AnalyticsPage() {
     );
   }
 
-  const [categories, players, directions, trend] = await Promise.all([
+  const [
+    categories,
+    players,
+    directions,
+    trend,
+    cardSizes,
+    teams,
+    scoreDistributionData,
+    gameModes,
+  ] = await Promise.all([
     getCategoryStats(supabase, user.id),
     getPlayerStats(supabase, user.id, 10),
     getDirectionStats(supabase, user.id),
     getTrendData(supabase, user.id, 30),
+    getCardSizeStats(supabase, user.id),
+    getTeamStats(supabase, user.id, 10),
+    getScoreDistribution(supabase, user.id),
+    getGameModeStats(supabase, user.id),
   ]);
 
-  const totalPicks =
-    categories.reduce((sum, c) => sum + c.total, 0);
-  const totalHits =
-    categories.reduce((sum, c) => sum + c.hits, 0);
-  const overallRate = totalPicks > 0 ? Math.round((totalHits / totalPicks) * 100) : 0;
+  const totalPicks = categories.reduce((sum, c) => sum + c.total, 0);
+  const totalHits = categories.reduce((sum, c) => sum + c.hits, 0);
+  const overallRate =
+    totalPicks > 0 ? Math.round((totalHits / totalPicks) * 100) : 0;
+  const totalCards = cardSizes.reduce((sum, s) => sum + s.cards, 0);
+
+  // Compute best streak from trend data
+  let bestStreak = 0;
+  let currentStreak = 0;
+  for (const point of trend) {
+    if (point.rate >= 0.5) {
+      currentStreak += 1;
+      if (currentStreak > bestStreak) bestStreak = currentStreak;
+    } else {
+      currentStreak = 0;
+    }
+  }
 
   const isEmpty = totalPicks === 0;
 
@@ -96,18 +129,62 @@ export default async function AnalyticsPage() {
         </p>
       </div>
 
-      {/* Summary card */}
+      {/* Overview Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Total Cards
+            </p>
+            <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
+              {totalCards}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Win Rate
+            </p>
+            <p
+              className={`mt-1 text-2xl font-black tabular-nums ${
+                overallRate >= 60
+                  ? "text-neon-green"
+                  : overallRate >= 40
+                    ? "text-electric-blue"
+                    : "text-bold-red"
+              }`}
+            >
+              {overallRate}%
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Best Streak
+            </p>
+            <p className="mt-1 text-2xl font-black tabular-nums text-amber-400">
+              {bestStreak} day{bestStreak !== 1 ? "s" : ""}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Total Picks
+            </p>
+            <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
+              {totalPicks}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Summary stats row */}
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-6">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Total Picks
-              </p>
-              <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-                {totalPicks}
-              </p>
-            </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 Hits
@@ -144,12 +221,29 @@ export default async function AnalyticsPage() {
         </CardContent>
       </Card>
 
-      {/* Charts grid */}
+      {/* Core Charts grid (existing) */}
       <div className="grid gap-6 lg:grid-cols-2">
         <CategoryChart data={categories} />
         <PlayerHitRate data={players} />
         <DirectionSplit data={directions} />
         <TrendChart data={trend} />
+      </div>
+
+      {/* Advanced Analytics Section */}
+      <div>
+        <h2 className="text-lg font-bold tracking-tight text-foreground">
+          Advanced Analytics
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Deeper insights into your prop picking patterns
+        </p>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <CardSizeChart data={cardSizes} />
+        <GameModeStats data={gameModes} />
+        <ScoreDistribution data={scoreDistributionData} />
+        <TeamHitRate data={teams} />
       </div>
     </div>
   );
