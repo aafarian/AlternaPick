@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, AlertCircle, Loader2 } from "lucide-react";
+import ReactionBar from "@/components/challenges/ReactionBar";
 
 interface ChallengeMatchupProps {
   challenge: ChallengeDetail;
@@ -292,6 +293,17 @@ export default function ChallengeMatchup({
                 : `${otherPlayerName} won this challenge`}
           </CardContent>
         </Card>
+      )}
+
+      {/* Reactions — resolved challenges only */}
+      {challenge.status === "resolved" && (
+        <div className="flex justify-center">
+          <ReactionBar
+            targetType="challenge"
+            targetId={challenge.id}
+            currentUserId={currentUserId}
+          />
+        </div>
       )}
 
       {/* Matchup Layout — no wrapper card, just the two sides */}
