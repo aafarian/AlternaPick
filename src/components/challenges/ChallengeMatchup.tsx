@@ -18,6 +18,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, AlertCircle, Loader2 } from "lucide-react";
 import ReactionBar from "@/components/challenges/ReactionBar";
+import TrashTalkBubble from "@/components/challenges/TrashTalkBubble";
+import QuickActions from "@/components/challenges/QuickActions";
+import GameModeBadge from "@/components/challenges/GameModeBadge";
+import type { GameMode } from "@/lib/modes/types";
 
 interface ChallengeMatchupProps {
   challenge: ChallengeDetail;
@@ -237,6 +241,9 @@ export default function ChallengeMatchup({
           >
             {challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
           </Badge>
+          {challenge.game_mode && (
+            <GameModeBadge mode={challenge.game_mode as GameMode} size="md" />
+          )}
           {liveData?.has_live_games && (
             <div className="flex items-center gap-1">
               <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
@@ -249,6 +256,15 @@ export default function ChallengeMatchup({
         </div>
         <span className="text-sm text-muted-foreground">{date}</span>
       </div>
+
+      {/* Trash Talk Bubble */}
+      {challenge.message && (
+        <TrashTalkBubble
+          message={challenge.message}
+          senderName={challengerName}
+          senderAvatar={challenge.challenger.avatar_url}
+        />
+      )}
 
       {/* Live Game Scores */}
       {liveData && liveData.games.length > 0 && (
@@ -305,6 +321,15 @@ export default function ChallengeMatchup({
           />
         </div>
       )}
+
+      {/* Quick Actions — resolved challenges only */}
+      <QuickActions
+        challengeId={challenge.id}
+        opponentId={isChallenger ? challenge.opponent_id : challenge.challenger_id}
+        gameMode={(challenge.game_mode as GameMode) ?? "classic"}
+        isParticipant={true}
+        isResolved={challenge.status === "resolved"}
+      />
 
       {/* Matchup Layout — no wrapper card, just the two sides */}
       <div className="flex flex-col items-stretch gap-6 md:flex-row md:gap-4">

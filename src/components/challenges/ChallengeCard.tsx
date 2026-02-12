@@ -7,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import GameModeBadge from "@/components/challenges/GameModeBadge";
+import type { GameMode } from "@/lib/modes/types";
 
 interface ChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -65,7 +67,7 @@ export default function ChallengeCard({
               </AvatarFallback>
             </Avatar>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-bold">{displayName}</span>
                 <Badge
                   variant="secondary"
@@ -73,6 +75,9 @@ export default function ChallengeCard({
                 >
                   {challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
                 </Badge>
+                {challenge.game_mode && (
+                  <GameModeBadge mode={challenge.game_mode as GameMode} />
+                )}
                 {challenge.status === "active" && (
                   <div className="flex items-center gap-1">
                     <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
@@ -102,6 +107,14 @@ export default function ChallengeCard({
                 {isChallenger ? "You challenged" : "Challenged you"} &middot;{" "}
                 {date}
               </p>
+              {/* Trash talk preview */}
+              {challenge.message && (
+                <p className="mt-1 text-xs italic text-muted-foreground truncate max-w-[250px]">
+                  &ldquo;{challenge.message.length > 50
+                    ? challenge.message.slice(0, 50) + "..."
+                    : challenge.message}&rdquo;
+                </p>
+              )}
             </div>
           </div>
 
