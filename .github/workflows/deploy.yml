@@ -54,8 +54,9 @@ jobs:
             DOMAIN=${{ secrets.DOMAIN }}
             ENVEOF
 
-            # Stop app to free RAM for the build
-            docker compose down
+            # Stop all containers and kill anything holding port 80/443
+            docker compose down --remove-orphans
+            docker rm -f $(docker ps -aq) 2>/dev/null || true
 
             # Build (uses layer cache — only changed layers rebuild)
             docker compose build
