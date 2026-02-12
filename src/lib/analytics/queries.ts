@@ -9,12 +9,16 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, StatCategory } from "@/lib/supabase/types";
+import type { Database, GameMode, StatCategory } from "@/lib/supabase/types";
 import type {
   CategoryStats,
   PlayerStats,
   DirectionStats,
   TrendPoint,
+  CardSizeStats,
+  TeamStats,
+  ScoreDistributionEntry,
+  GameModeStats,
 } from "./types";
 
 // ---------- Internal helpers ----------
@@ -24,7 +28,21 @@ interface ResolvedPickRow {
   selection: "over" | "under";
   result: "hit" | "miss";
   cards: { user_id: string | null; resolved_at: string | null } | null;
-  props: { stat_category: StatCategory; player_name: string } | null;
+  props: {
+    stat_category: StatCategory;
+    player_name: string;
+    player_team: string | null;
+  } | null;
+}
+
+/** Row shape for resolved cards with card_size and game_mode */
+interface ResolvedCardRow {
+  id: string;
+  card_size: number;
+  game_mode: GameMode;
+  score: number;
+  total_picks: number;
+  resolved_at: string | null;
 }
 
 /**
@@ -50,7 +68,7 @@ async function fetchResolvedPicks(
   // Step 2 – get resolved picks for those cards with prop join
   const picksResult = await (supabase.from("picks") as any)
     .select(
-      "selection, result, cards:card_id(user_id, resolved_at), props:prop_id(stat_category, player_name)"
+      "selection, result, cards:card_id(user_id, resolved_at), props:prop_id(stat_category, player_name, player_team)"
     )
     .in("card_id", cardIds)
     .in("result", ["hit", "miss"]);
@@ -58,6 +76,24 @@ async function fetchResolvedPicks(
   if (picksResult.error || !picksResult.data) return [];
 
   return picksResult.data as ResolvedPickRow[];
+}
+
+/**
+ * Fetch all resolved cards for a user with card_size, game_mode, score, etc.
+ * Used by card-level analytics (card size stats, score distribution, game mode stats).
+ */
+async function fetchResolvedCards(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<ResolvedCardRow[]> {
+  const result = await (supabase.from("cards") as any)
+    .select("id, card_size, game_mode, score, total_picks, resolved_at")
+    .eq("user_id", userId)
+    .eq("status", "resolved");
+
+  if (result.error || !result.data) return [];
+
+  return result.data as ResolvedCardRow[];
 }
 
 // ---------- Public query functions ----------
@@ -245,5 +281,167 @@ export async function getTrendData(
   }
 
   results.sort((a, b) => a.date.localeCompare(b.date));
+  return results;
+}
+
+// ---------- Enhanced Analytics (Phase 8) ----------
+
+/**
+ * Get hit-rate stats grouped by card size.
+ * For each card_size, counts total cards, total picks, total hits, and hit rate.
+ */
+export async function getCardSizeStats(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<CardSizeStats[]> {
+  const cards = await fetchResolvedCards(supabase, userId);
+
+  const map = new Map<
+    number,
+    { cards: number; hits: number; total: number }
+  >();
+
+  for (const card of cards) {
+    const entry = map.get(card.card_size) ?? { cards: 0, hits: 0, total: 0 };
+    entry.cards += 1;
+    entry.hits += card.score;
+    entry.total += card.total_picks;
+    map.set(card.card_size, entry);
+  }
+
+  const results: CardSizeStats[] = [];
+  for (const [cardSize, { cards: cardCount, hits, total }] of map) {
+    results.push({
+      cardSize,
+      cards: cardCount,
+      hits,
+      total,
+      rate: total > 0 ? Math.round((hits / total) * 1000) / 1000 : 0,
+    });
+  }
+
+  results.sort((a, b) => a.cardSize - b.cardSize);
+  return results;
+}
+
+/**
+ * Get hit-rate stats grouped by team (player_team from props).
+ */
+export async function getTeamStats(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  limit: number = 10
+): Promise<TeamStats[]> {
+  const picks = await fetchResolvedPicks(supabase, userId);
+
+  const map = new Map<string, { hits: number; total: number }>();
+
+  for (const pick of picks) {
+    const team = pick.props?.player_team;
+    if (!team) continue;
+
+    const entry = map.get(team) ?? { hits: 0, total: 0 };
+    entry.total += 1;
+    if (pick.result === "hit") entry.hits += 1;
+    map.set(team, entry);
+  }
+
+  const results: TeamStats[] = [];
+  for (const [team, { hits, total }] of map) {
+    results.push({
+      team,
+      hits,
+      total,
+      rate: total > 0 ? Math.round((hits / total) * 1000) / 1000 : 0,
+    });
+  }
+
+  results.sort((a, b) => b.total - a.total);
+  return results.slice(0, limit);
+}
+
+/**
+ * Get score distribution: for each card_size, count how many cards
+ * achieved each possible score (0 through card_size).
+ */
+export async function getScoreDistribution(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<ScoreDistributionEntry[]> {
+  const cards = await fetchResolvedCards(supabase, userId);
+
+  // Group by (cardSize, score) -> count
+  const map = new Map<string, number>();
+
+  for (const card of cards) {
+    const key = `${card.card_size}:${card.score}`;
+    map.set(key, (map.get(key) ?? 0) + 1);
+  }
+
+  const results: ScoreDistributionEntry[] = [];
+  for (const [key, count] of map) {
+    const [cardSizeStr, scoreStr] = key.split(":");
+    results.push({
+      cardSize: Number(cardSizeStr),
+      score: Number(scoreStr),
+      count,
+    });
+  }
+
+  // Sort by cardSize ascending, then score ascending
+  results.sort(
+    (a, b) => a.cardSize - b.cardSize || a.score - b.score
+  );
+  return results;
+}
+
+/**
+ * Get win-rate stats grouped by game mode.
+ * A "win" is defined as score/total_picks >= 0.66.
+ */
+export async function getGameModeStats(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<GameModeStats[]> {
+  const cards = await fetchResolvedCards(supabase, userId);
+
+  const map = new Map<
+    GameMode,
+    { cards: number; wins: number; totalScore: number }
+  >();
+
+  for (const card of cards) {
+    const entry = map.get(card.game_mode) ?? {
+      cards: 0,
+      wins: 0,
+      totalScore: 0,
+    };
+    entry.cards += 1;
+    entry.totalScore += card.score;
+    if (card.total_picks > 0 && card.score / card.total_picks >= 0.66) {
+      entry.wins += 1;
+    }
+    map.set(card.game_mode, entry);
+  }
+
+  const results: GameModeStats[] = [];
+  for (const [mode, { cards: cardCount, wins, totalScore }] of map) {
+    results.push({
+      mode,
+      cards: cardCount,
+      wins,
+      winRate:
+        cardCount > 0
+          ? Math.round((wins / cardCount) * 1000) / 1000
+          : 0,
+      avgScore:
+        cardCount > 0
+          ? Math.round((totalScore / cardCount) * 100) / 100
+          : 0,
+    });
+  }
+
+  // Sort by total cards descending
+  results.sort((a, b) => b.cards - a.cards);
   return results;
 }
