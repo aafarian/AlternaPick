@@ -152,10 +152,20 @@ function parseOddsResponse(data: OddsApiOddsResponse): ParsedPlayerProp[] {
 export async function fetchAllProps(): Promise<FetchPropsResult> {
   const events = await fetchEvents();
 
+  // Only fetch odds for games that haven't started yet (saves API credits)
+  const now = Date.now();
+  const upcomingEvents = events.filter(
+    (e) => new Date(e.commence_time).getTime() > now
+  );
+
   const propsMap = new Map<string, ParsedPlayerProp[]>();
   let latestCredits: CreditUsage = { used: null, remaining: null };
 
-  for (const event of events) {
+  console.log(
+    `[Odds API] ${events.length} total events, ${upcomingEvents.length} upcoming — fetching odds for upcoming only`
+  );
+
+  for (const event of upcomingEvents) {
     try {
       const { props, credits } = await fetchEventOdds(event.id);
       propsMap.set(event.id, props);

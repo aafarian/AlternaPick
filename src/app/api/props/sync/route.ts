@@ -18,7 +18,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const stale = await isCacheStale();
+    const force = request.nextUrl.searchParams.get("force") === "true";
+    const stale = force || await isCacheStale();
 
     if (!stale) {
       return NextResponse.json({
