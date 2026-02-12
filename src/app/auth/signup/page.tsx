@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signUp } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,8 +15,42 @@ import { AlertCircle } from "lucide-react";
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Detect referral query param (?ref=username)
+  const refParam = searchParams.get("ref");
+
+  // Persist ref in localStorage so it survives OAuth redirects
+  useEffect(() => {
+    if (refParam) {
+      localStorage.setItem("sports_tower_ref", refParam);
+    }
+  }, [refParam]);
+
+  /**
+   * Process referral after successful signup.
+   * Reads from URL param or localStorage fallback (for OAuth flow).
+   */
+  async function processReferralIfNeeded() {
+    const referrer =
+      refParam || localStorage.getItem("sports_tower_ref");
+    if (!referrer) return;
+
+    try {
+      await fetch("/api/referrals/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ referrer_username: referrer }),
+      });
+    } catch {
+      // Non-fatal: referral processing failure should not block signup flow
+      console.error("Failed to process referral");
+    } finally {
+      localStorage.removeItem("sports_tower_ref");
+    }
+  }
 
   async function handleSignUp(formData: FormData) {
     setError(null);
@@ -46,12 +80,20 @@ export default function SignupPage() {
       return;
     }
 
-    // Step 3: Navigate — auth context will have the user by now
+    // Step 3: Process referral if the user came via a referral link
+    await processReferralIfNeeded();
+
+    // Step 4: Navigate — auth context will have the user by now
     router.push("/picks");
   }
 
   async function handleGoogleSignIn() {
     const supabase = createClient();
+    const ref = refParam || localStorage.getItem("sports_tower_ref");
+    // Persist ref for the OAuth redirect flow
+    if (ref) {
+      localStorage.setItem("sports_tower_ref", ref);
+    }
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -64,6 +106,12 @@ export default function SignupPage() {
     <Card className="border-border bg-card">
       <CardContent className="p-6">
         <h2 className="mb-6 text-xl font-semibold">Create Account</h2>
+
+        {refParam && (
+          <div className="mb-4 rounded-lg border border-primary/20 bg-primary/5 p-3 text-center text-sm">
+            Invited by <span className="font-semibold text-primary">@{refParam}</span>
+          </div>
+        )}
 
         {error && (
           <Alert variant="destructive" className="mb-4">
