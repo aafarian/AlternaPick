@@ -11,16 +11,19 @@ export async function isCacheStale(): Promise<boolean> {
   const now = new Date();
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date(now);
-  todayEnd.setHours(23, 59, 59, 999);
+  // Include tomorrow so we always have next-day props ready
+  const tomorrowEnd = new Date(now);
+  tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
+  tomorrowEnd.setHours(23, 59, 59, 999);
 
   const gamesResult = await supabase
     .from("games")
     .select("id")
     .gte("commence_time", todayStart.toISOString())
-    .lte("commence_time", todayEnd.toISOString());
+    .lte("commence_time", tomorrowEnd.toISOString());
 
   const games = (gamesResult.data ?? []) as Pick<Game, "id">[];
+  // No games at all for today+tomorrow — stale, need to sync
   if (games.length === 0) return true;
 
   const gameIds = games.map((g) => g.id);
@@ -32,6 +35,7 @@ export async function isCacheStale(): Promise<boolean> {
     .limit(1);
 
   const props = (propsResult.data ?? []) as Pick<Prop, "fetched_at">[];
+  // No props for any of these games — stale
   if (props.length === 0) return true;
 
   const lastFetched = new Date(props[0].fetched_at).getTime();

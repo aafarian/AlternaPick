@@ -22,7 +22,15 @@ interface PropsPageProps {
 
 export default async function PropsPage({ searchParams }: PropsPageProps) {
   const { category: rawCategory, player } = await searchParams;
-  const games = await getCachedProps();
+
+  // Fetch props with a timeout so the page never hangs
+  let games: Awaited<ReturnType<typeof getCachedProps>> = null;
+  try {
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000));
+    games = await Promise.race([getCachedProps(), timeout]);
+  } catch {
+    games = null;
+  }
 
   // Build edge maps for authenticated users
   let categoryEdges: EdgeMap = {};
@@ -78,15 +86,50 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
   const LOCK_BUFFER_MS = 5 * 60 * 1000;
   const now = Date.now();
 
+  // Show all upcoming games (not just today) sorted by start time
   const withProps = filtered
     .filter((g) => g.props.length > 0)
     .filter(
       (g) => new Date(g.commence_time).getTime() - now > LOCK_BUFFER_MS
     );
 
+  // Group games by date for section headers
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const dayAfter = new Date(tomorrow);
+  dayAfter.setDate(dayAfter.getDate() + 1);
+
+  type DateGroup = { label: string; games: typeof withProps };
+  const dateGroups: DateGroup[] = [];
+
+  const todayGames = withProps.filter((g) => {
+    const t = new Date(g.commence_time).getTime();
+    return t >= today.getTime() && t < tomorrow.getTime();
+  });
+  const tomorrowGames = withProps.filter((g) => {
+    const t = new Date(g.commence_time).getTime();
+    return t >= tomorrow.getTime() && t < dayAfter.getTime();
+  });
+  const laterGames = withProps.filter((g) => {
+    const t = new Date(g.commence_time).getTime();
+    return t >= dayAfter.getTime();
+  });
+
+  if (todayGames.length > 0) dateGroups.push({ label: "Tonight", games: todayGames });
+  if (tomorrowGames.length > 0) {
+    const label = `Tomorrow, ${tomorrow.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+    dateGroups.push({ label, games: tomorrowGames });
+  }
+  if (laterGames.length > 0) {
+    const label = dayAfter.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+    dateGroups.push({ label, games: laterGames });
+  }
+
   return (
     <div className="flex flex-col gap-6 py-8">
-      <PropsHeader gameCount={withProps.length} />
+      <PropsHeader gameCount={withProps.length} dateLabel={dateGroups.length > 1 ? "Upcoming" : dateGroups[0]?.label} />
 
       <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-3 bg-background px-4 pb-3 pt-2">
         <Suspense fallback={null}>
@@ -111,22 +154,39 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
               </>
             ) : (
               <>
-                <h2 className="text-xl font-bold">No games tonight</h2>
+                <h2 className="text-xl font-bold">No games available</h2>
                 <p className="text-muted-foreground">
-                  Check back on game day for player props!
+                  Check back later for upcoming player props!
                 </p>
               </>
             )}
           </CardContent>
         </Card>
-      ) : (
+      ) : dateGroups.length === 1 ? (
         <PropsGameList
           key={category}
-          games={withProps}
+          games={dateGroups[0].games}
           expandFirstOnly={isAll}
           categoryEdges={categoryEdges}
           playerEdges={playerEdges}
         />
+      ) : (
+        <div className="flex flex-col gap-6">
+          {dateGroups.map((group) => (
+            <div key={group.label}>
+              <h2 className="mb-3 text-lg font-bold text-muted-foreground">
+                {group.label}
+              </h2>
+              <PropsGameList
+                key={`${category}-${group.label}`}
+                games={group.games}
+                expandFirstOnly={isAll || group.label !== "Tonight"}
+                categoryEdges={categoryEdges}
+                playerEdges={playerEdges}
+              />
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

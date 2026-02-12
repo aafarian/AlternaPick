@@ -17,7 +17,6 @@ import { X, Lock, Loader2, Swords, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CardSuccessAnimation from "./CardSuccessAnimation";
 import ModeSelector from "./ModeSelector";
-import CardSizeSelector from "./CardSizeSelector";
 
 interface FriendProfile {
   id: string;
@@ -36,12 +35,11 @@ export default function CardBuilderPanel() {
     setLocking,
     setError,
     setMode,
-    setCardSize,
     showSuccess,
     hideSuccess,
     isFull,
   } = useCardBuilder();
-  const { picks, isLocking, error, challengeId, challengeOpponent, gameMode, cardSize } = state;
+  const { picks, isLocking, error, challengeId, challengeOpponent, gameMode } = state;
   const redirectRef = useRef<string | null>(null);
 
   // Challenge-a-friend state
@@ -50,6 +48,8 @@ export default function CardBuilderPanel() {
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [challengeMessage, setChallengeMessage] = useState("");
   const [creatingChallenge, setCreatingChallenge] = useState(false);
+  const [friendSearch, setFriendSearch] = useState("");
+  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
 
   const fetchFriendsForChallenge = useCallback(async () => {
     setLoadingFriends(true);
@@ -68,7 +68,12 @@ export default function CardBuilderPanel() {
 
   const handleChallengeFromPicks = useCallback(
     async (opponentId: string) => {
-      if (!isFull || creatingChallenge) return;
+      if (creatingChallenge) return;
+
+      if (picks.length < 2) {
+        setError("You need at least 2 picks to send a challenge");
+        return;
+      }
 
       // Validate picks against the selected mode before creating
       const validation = validatePicksForMode(
@@ -80,6 +85,7 @@ export default function CardBuilderPanel() {
         return;
       }
 
+      const size = picks.length;
       setCreatingChallenge(true);
       setError(null);
       try {
@@ -89,7 +95,7 @@ export default function CardBuilderPanel() {
           body: JSON.stringify({
             opponent_id: opponentId,
             game_mode: gameMode,
-            card_size: cardSize,
+            card_size: size,
             message: challengeMessage.trim() || undefined,
           }),
         });
@@ -105,11 +111,13 @@ export default function CardBuilderPanel() {
           anonId,
           newChallengeId,
           gameMode,
-          cardSize
+          size
         );
 
         setShowChallengePicker(false);
         setChallengeMessage("");
+        setFriendSearch("");
+        setSelectedFriendId(null);
         redirectRef.current = `/challenges/${newChallengeId}`;
         showSuccess();
       } catch (err) {
@@ -118,7 +126,7 @@ export default function CardBuilderPanel() {
         setCreatingChallenge(false);
       }
     },
-    [isFull, creatingChallenge, picks, gameMode, cardSize, challengeMessage, setError, showSuccess]
+    [creatingChallenge, picks, gameMode, challengeMessage, setError, showSuccess]
   );
 
   const handleAnimationDismiss = useCallback(() => {
@@ -133,11 +141,6 @@ export default function CardBuilderPanel() {
   const handleModeSelect = useCallback(
     (mode: GameMode) => setMode(mode),
     [setMode]
-  );
-
-  const handleSizeSelect = useCallback(
-    (size: number) => setCardSize(size),
-    [setCardSize]
   );
 
   if (picks.length === 0 && !challengeId && !state.showSuccess) return null;
@@ -169,7 +172,7 @@ export default function CardBuilderPanel() {
         anonId,
         challengeId,
         gameMode,
-        cardSize
+        picks.length
       );
       redirectRef.current = challengeId
         ? `/challenges/${challengeId}`
@@ -188,212 +191,292 @@ export default function CardBuilderPanel() {
         <CardSuccessAnimation onDismiss={handleAnimationDismiss} />
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-surface/80 backdrop-blur-xl">
-        <div className="mx-auto max-w-6xl px-4 py-3">
-          {/* Challenge banner — existing challenge context */}
-          {challengeId && opponentLabel && (
-            <div className="mb-2 flex items-center gap-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-1.5">
-              <span className="text-sm font-semibold text-orange-400">
-                Challenge vs. {opponentLabel}
-              </span>
-              {gameMode !== "classic" && (
-                <Badge variant="outline" className="border-orange-500/40 text-orange-400">
-                  {modeConfig.icon} {modeConfig.displayName}
-                </Badge>
-              )}
-            </div>
-          )}
-
-          {/* Constraint filter banner — existing challenges only */}
-          {filterBanner && (
-            <div className="mb-2 flex items-center gap-2 rounded-lg border border-neon-green/30 bg-neon-green/10 px-3 py-1.5">
-              <span className="text-sm font-semibold text-neon-green">
-                {filterBanner}
-              </span>
-            </div>
-          )}
-
-          {error && (
-            <div className="mb-2 rounded-lg bg-destructive/10 px-3 py-1.5 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="flex items-center justify-between gap-2 sm:order-none sm:contents">
-              <div className="flex shrink-0 items-center gap-2">
-                <span className="text-sm font-bold">
-                  {picks.length}/{state.maxPicks} Picks
-                </span>
-              </div>
-
-              <div className="flex shrink-0 items-center gap-2">
-                <Button
-                  onClick={clearCard}
-                  disabled={isLocking || creatingChallenge}
-                  variant="outline"
-                  size="sm"
-                >
-                  Clear
-                </Button>
-                {/* Challenge a Friend — only for non-challenge cards when user is logged in */}
-                {!challengeId && user && !showChallengePicker && (
-                  <Button
-                    onClick={() => {
-                      setShowChallengePicker(true);
-                      fetchFriendsForChallenge();
-                    }}
-                    disabled={!isFull || isLocking}
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      "font-bold",
-                      isFull && "border-orange-500/40 text-orange-400 hover:bg-orange-500/10"
-                    )}
-                  >
-                    <Swords className="mr-1.5 h-3.5 w-3.5" />
-                    Challenge
-                  </Button>
-                )}
-                <Button
-                  onClick={handleLockIn}
-                  disabled={!isFull || isLocking || creatingChallenge}
-                  size="sm"
-                  className={cn(
-                    "font-bold",
-                    isFull && !isLocking && !creatingChallenge && "animate-pulse shadow-[0_0_20px_rgba(0,210,106,0.4)]",
-                    challengeId
-                      ? "bg-orange-500 text-white hover:bg-orange-600"
-                      : ""
-                  )}
-                >
-                  {isLocking ? (
-                    <>
-                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                      Locking...
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="mr-1.5 h-3.5 w-3.5" />
-                      {challengeId ? "Lock In Challenge" : "Lock In"}
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            {/* Challenge picker — includes mode/size settings */}
-            {showChallengePicker && (
-              <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowChallengePicker(false)}
-                      className="rounded-md p-1 transition-colors hover:bg-secondary"
-                    >
-                      <ArrowLeft className="h-4 w-4 text-muted-foreground" />
-                    </button>
-                    <span className="text-sm font-bold text-orange-400">
-                      Challenge a Friend
-                    </span>
-                  </div>
-                </div>
-
-                {/* Mode + Size selectors */}
-                <div className="mb-3 flex flex-col gap-3 rounded-lg border border-border bg-card/50 p-3 sm:flex-row sm:items-end sm:gap-6">
-                  <ModeSelector
-                    activeMode={gameMode}
-                    onSelect={handleModeSelect}
-                  />
-                  <CardSizeSelector
-                    activeSize={cardSize}
-                    onSelect={handleSizeSelect}
-                  />
-                </div>
-
-                {/* Optional trash talk */}
-                <input
-                  type="text"
-                  placeholder="Talk some trash... (optional)"
-                  value={challengeMessage}
-                  onChange={(e) => setChallengeMessage(e.target.value.slice(0, 200))}
-                  className="mb-2 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm placeholder:text-muted-foreground focus:border-orange-500 focus:outline-none"
+      <div className="fixed bottom-0 left-0 right-0 z-50">
+        {/* Challenge picker panel — sits ABOVE the bar */}
+        {showChallengePicker && (
+          <div className="border-t border-orange-500/30 bg-surface/95 backdrop-blur-xl">
+            <div className="mx-auto max-w-6xl px-4 py-2.5">
+              {/* Row 1: Mode pills */}
+              <div className="mb-2">
+                <ModeSelector
+                  activeMode={gameMode}
+                  onSelect={handleModeSelect}
+                  compact
+                  modes={["classic", "sabotage"]}
                 />
+              </div>
 
-                {/* Friend list */}
+              {/* Row 2: Friends + trash talk + send */}
+              <div className="flex items-center gap-2">
+                {/* Friend selection */}
                 {loadingFriends ? (
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5">
                     {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-10 w-24 animate-pulse rounded-lg bg-secondary" />
+                      <div key={i} className="h-8 w-20 animate-pulse rounded-lg bg-secondary" />
                     ))}
                   </div>
                 ) : friends.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No friends to challenge. Add friends first!</p>
-                ) : (
-                  <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-                    {friends.map((friend) => {
-                      const name = friend.display_name || friend.username;
-                      return (
-                        <button
-                          key={friend.id}
-                          onClick={() => handleChallengeFromPicks(friend.id)}
-                          disabled={creatingChallenge}
-                          className={cn(
-                            "flex shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 transition-all hover:border-orange-500/50 hover:bg-orange-500/10",
-                            creatingChallenge && "opacity-50"
-                          )}
-                        >
-                          <Avatar className="h-6 w-6">
-                            <AvatarFallback className="bg-primary/10 text-[10px] font-bold text-primary">
-                              {name.charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-xs font-bold">{name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                {creatingChallenge && (
-                  <div className="mt-2 flex items-center gap-2 text-xs text-orange-400">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Sending challenge...
-                  </div>
+                  <span className="text-xs text-muted-foreground">No friends yet. Add friends first!</span>
+                ) : (() => {
+                  const query = friendSearch.toLowerCase().trim();
+                  const filtered = query
+                    ? friends.filter((f) =>
+                        (f.display_name || f.username).toLowerCase().includes(query) ||
+                        f.username.toLowerCase().includes(query)
+                      )
+                    : friends;
+                  return (
+                    <>
+                      {/* Search — only if 5+ friends */}
+                      {friends.length >= 5 && (
+                        <input
+                          type="text"
+                          placeholder="Search..."
+                          value={friendSearch}
+                          onChange={(e) => setFriendSearch(e.target.value)}
+                          className="h-8 w-28 shrink-0 rounded-md border border-border bg-background px-2 text-xs placeholder:text-muted-foreground focus:border-orange-500 focus:outline-none"
+                        />
+                      )}
+                      {filtered.length === 0 ? (
+                        <span className="shrink-0 text-xs text-muted-foreground">No match</span>
+                      ) : (
+                        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+                          {filtered.map((friend) => {
+                            const name = friend.display_name || friend.username;
+                            const isSelected = selectedFriendId === friend.id;
+                            return (
+                              <button
+                                key={friend.id}
+                                onClick={() => setSelectedFriendId(isSelected ? null : friend.id)}
+                                disabled={creatingChallenge}
+                                className={cn(
+                                  "flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 transition-all",
+                                  isSelected
+                                    ? "border-orange-500 bg-orange-500/15 text-orange-400"
+                                    : "border-border bg-card hover:border-orange-500/50 hover:bg-orange-500/10",
+                                  creatingChallenge && "opacity-50"
+                                )}
+                              >
+                                <Avatar className="h-5 w-5">
+                                  <AvatarFallback className={cn(
+                                    "text-[9px] font-bold",
+                                    isSelected ? "bg-orange-500/20 text-orange-400" : "bg-primary/10 text-primary"
+                                  )}>
+                                    {name.charAt(0).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-xs font-bold">{name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+
+                <div className="h-5 w-px shrink-0 bg-border" />
+
+                {/* Trash talk */}
+                <input
+                  type="text"
+                  placeholder="Trash talk..."
+                  value={challengeMessage}
+                  onChange={(e) => setChallengeMessage(e.target.value.slice(0, 200))}
+                  className="h-8 w-32 shrink-0 rounded-md border border-border bg-background px-2.5 text-xs placeholder:text-muted-foreground focus:border-orange-500 focus:outline-none"
+                />
+
+                {/* Send button */}
+                <Button
+                  onClick={() => {
+                    if (selectedFriendId) handleChallengeFromPicks(selectedFriendId);
+                  }}
+                  disabled={!selectedFriendId || picks.length < 2 || creatingChallenge}
+                  size="sm"
+                  className={cn(
+                    "shrink-0 font-bold",
+                    selectedFriendId && picks.length >= 2 && !creatingChallenge
+                      ? "bg-orange-500 text-white hover:bg-orange-600 shadow-[0_0_16px_rgba(249,115,22,0.3)]"
+                      : ""
+                  )}
+                >
+                  {creatingChallenge ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Swords className="mr-1.5 h-3.5 w-3.5" />
+                      Send
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Main bottom bar */}
+        <div className="border-t border-border bg-surface/80 backdrop-blur-xl">
+          <div className="mx-auto max-w-6xl px-4 py-3">
+            {/* Challenge banner — existing challenge context */}
+            {challengeId && opponentLabel && (
+              <div className="mb-2 flex items-center gap-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-1.5">
+                <span className="text-sm font-semibold text-orange-400">
+                  Challenge vs. {opponentLabel}
+                </span>
+                {gameMode !== "classic" && (
+                  <Badge variant="outline" className="border-orange-500/40 text-orange-400">
+                    {modeConfig.icon} {modeConfig.displayName}
+                  </Badge>
                 )}
               </div>
             )}
 
-            {/* Scrollable picks list */}
-            <div className="flex flex-1 gap-2 overflow-x-auto scrollbar-hide">
-              {picks.map((pick) => (
-                <Badge
-                  key={pick.prop_id}
-                  variant="secondary"
-                  className="shrink-0 gap-1.5 rounded-lg border border-border px-2.5 py-1.5"
-                >
-                  <span className="text-xs font-medium">
-                    {pick.player_name.split(" ").pop()}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {CATEGORY_LABELS[pick.stat_category] ?? pick.stat_category}
-                  </span>
-                  <span
+            {/* Constraint filter banner — existing challenges only */}
+            {filterBanner && (
+              <div className="mb-2 flex items-center gap-2 rounded-lg border border-neon-green/30 bg-neon-green/10 px-3 py-1.5">
+                <span className="text-sm font-semibold text-neon-green">
+                  {filterBanner}
+                </span>
+              </div>
+            )}
+
+            {error && (
+              <div className="mb-2 rounded-lg bg-destructive/10 px-3 py-1.5 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
+            {/* Actions row */}
+            <div className="flex items-center gap-3">
+              {/* CTA buttons — LEFT side */}
+              <div className="flex shrink-0 items-center gap-2">
+                {challengeId ? (
+                  /* Existing challenge — single Lock In button */
+                  <Button
+                    onClick={handleLockIn}
+                    disabled={!isFull || isLocking}
+                    size="sm"
                     className={cn(
-                      "text-xs font-bold",
-                      pick.selection === "over" ? "text-neon-green" : "text-bold-red"
+                      "font-bold",
+                      isFull && !isLocking && "animate-pulse shadow-[0_0_20px_rgba(249,115,22,0.4)]",
+                      "bg-orange-500 text-white hover:bg-orange-600"
                     )}
                   >
-                    {pick.selection === "over" ? "O" : "U"} {pick.line}
-                  </span>
-                  <button
-                    onClick={() => removePick(pick.prop_id)}
-                    className="ml-0.5 text-muted-foreground hover:text-foreground"
-                    aria-label={`Remove ${pick.player_name}`}
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
+                    {isLocking ? (
+                      <>
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        Locking...
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="mr-1.5 h-3.5 w-3.5" />
+                        Lock In Challenge
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  /* Regular card — Solo + Challenge split */
+                  <>
+                    <Button
+                      onClick={handleLockIn}
+                      disabled={!isFull || isLocking || creatingChallenge}
+                      size="sm"
+                      className={cn(
+                        "font-bold",
+                        isFull && !isLocking && !creatingChallenge && "animate-pulse shadow-[0_0_20px_rgba(0,210,106,0.4)]"
+                      )}
+                    >
+                      {isLocking ? (
+                        <>
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          Locking...
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="mr-1.5 h-3.5 w-3.5" />
+                          Lock In Solo
+                        </>
+                      )}
+                    </Button>
+                    {user && (
+                      <>
+                        <span className="text-xs text-muted-foreground">or</span>
+                        <Button
+                          onClick={() => {
+                            if (showChallengePicker) {
+                              setShowChallengePicker(false);
+                            } else {
+                              setShowChallengePicker(true);
+                              fetchFriendsForChallenge();
+                            }
+                          }}
+                          disabled={isLocking}
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "font-bold border-orange-500/40 text-orange-400 hover:bg-orange-500/10",
+                            showChallengePicker && "bg-orange-500/10"
+                          )}
+                        >
+                          <Swords className="mr-1.5 h-3.5 w-3.5" />
+                          Challenge
+                        </Button>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Pick count + Clear — middle */}
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="text-sm font-bold">
+                  {picks.length}/{state.maxPicks}
+                </span>
+                <Button
+                  onClick={clearCard}
+                  disabled={isLocking || creatingChallenge}
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-muted-foreground"
+                >
+                  Clear
+                </Button>
+              </div>
+
+              {/* Scrollable picks — fills remaining space */}
+              {picks.length > 0 && (
+                <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto scrollbar-hide">
+                  {picks.map((pick) => (
+                    <Badge
+                      key={pick.prop_id}
+                      variant="secondary"
+                      className="shrink-0 gap-1 rounded-lg border border-border px-2 py-1"
+                    >
+                      <span className="text-[11px] font-medium">
+                        {pick.player_name.split(" ").pop()}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-[11px] font-bold",
+                          pick.selection === "over" ? "text-neon-green" : "text-bold-red"
+                        )}
+                      >
+                        {pick.selection === "over" ? "O" : "U"} {pick.line}
+                      </span>
+                      <button
+                        onClick={() => removePick(pick.prop_id)}
+                        className="ml-0.5 text-muted-foreground hover:text-foreground"
+                        aria-label={`Remove ${pick.player_name}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -8,20 +8,57 @@ interface ModeSelectorProps {
   activeMode: GameMode;
   onSelect: (mode: GameMode) => void;
   disabled?: boolean;
+  compact?: boolean;
+  /** Filter to only show specific modes (by key). Shows all if omitted. */
+  modes?: GameMode[];
 }
 
 export default function ModeSelector({
   activeMode,
   onSelect,
   disabled = false,
+  compact = false,
+  modes,
 }: ModeSelectorProps) {
+  const modeList = modes
+    ? GAME_MODE_LIST.filter((m) => modes.includes(m.key))
+    : GAME_MODE_LIST;
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+        {modeList.map((mode) => {
+          const isActive = activeMode === mode.key;
+          return (
+            <button
+              key={mode.key}
+              onClick={() => onSelect(mode.key)}
+              disabled={disabled}
+              className={cn(
+                "flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition-all",
+                isActive
+                  ? "border-neon-green bg-neon-green/10 text-neon-green"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground",
+                disabled && "cursor-not-allowed opacity-50"
+              )}
+              title={mode.rules}
+            >
+              <span className="text-sm leading-none">{mode.icon}</span>
+              {mode.displayName}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Game Mode
       </span>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-        {GAME_MODE_LIST.map((mode) => {
+        {modeList.map((mode) => {
           const isActive = activeMode === mode.key;
 
           return (

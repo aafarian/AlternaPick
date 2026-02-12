@@ -11,6 +11,11 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
+      - name: Sync props (respects 2h cache TTL)
+        run: |
+          curl -sf -X POST "${{ secrets.APP_URL }}/api/props/sync" \
+            -H "Authorization: Bearer ${{ secrets.SYNC_SECRET }}" \
+            -H "Content-Type: application/json" || true
       - name: Sync game statuses & resolve cards
         run: |
           curl -sf -X POST "${{ secrets.APP_URL }}/api/games/sync-status" \

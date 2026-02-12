@@ -7,13 +7,41 @@ interface CardSizeSelectorProps {
   activeSize: number;
   onSelect: (size: number) => void;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 export default function CardSizeSelector({
   activeSize,
   onSelect,
   disabled = false,
+  compact = false,
 }: CardSizeSelectorProps) {
+  if (compact) {
+    return (
+      <div className="flex items-center gap-1">
+        {CARD_SIZES.map((size) => {
+          const isActive = activeSize === size;
+          return (
+            <button
+              key={size}
+              onClick={() => onSelect(size)}
+              disabled={disabled}
+              className={cn(
+                "flex h-7 w-8 items-center justify-center rounded-md border text-xs font-bold transition-all",
+                isActive
+                  ? "border-neon-green bg-neon-green/10 text-neon-green"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground",
+                disabled && "cursor-not-allowed opacity-50"
+              )}
+            >
+              {size}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
