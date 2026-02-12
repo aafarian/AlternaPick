@@ -18,11 +18,32 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          command_timeout: 10m
           script: |
             set -e
             cd /home/deploy/alternapick
 
-            git pull origin main
+            # Ensure DNS is working (fix if broken)
+            if ! host github.com > /dev/null 2>&1; then
+              echo "DNS resolution failed, adding fallback nameservers..."
+              echo -e "nameserver 8.8.8.8\nnameserver 1.1.1.1" | sudo tee /etc/resolv.conf > /dev/null
+              sleep 2
+            fi
+
+            # Pull with retry
+            for i in 1 2 3; do
+              echo "git pull attempt $i..."
+              if git pull origin main; then
+                break
+              fi
+              if [ "$i" -eq 3 ]; then
+                echo "git pull failed after 3 attempts"
+                exit 1
+              fi
+              echo "Retrying in 10s..."
+              sleep 10
+            done
 
             # Write .env from secrets
             cat > .env << 'ENVEOF'
@@ -40,3 +61,16 @@ jobs:
 
             # Clean up old images
             docker image prune -f
+
+            # Health check — verify the app responds
+            echo "Waiting for app to start..."
+            sleep 5
+            for i in 1 2 3 4 5; do
+              if curl -sf --max-time 5 http://localhost:3000 > /dev/null 2>&1; then
+                echo "Health check passed!"
+                exit 0
+              fi
+              echo "Health check attempt $i failed, retrying in 5s..."
+              sleep 5
+            done
+            echo "WARNING: App may not be healthy — check logs with: docker compose logs web"
