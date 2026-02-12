@@ -7,10 +7,12 @@ import type {
   Achievement,
   UserAchievement,
 } from "@/lib/supabase/types";
+import { getReferralInfo, getReferralStats } from "@/lib/referrals/queries";
 import ProfileCard from "@/components/profile/ProfileCard";
 import ProfileChecklist from "@/components/onboarding/ProfileChecklist";
 import type { ChecklistItem } from "@/components/onboarding/ProfileChecklist";
 import BadgeGrid from "@/components/profile/BadgeGrid";
+import ReferralSection from "@/components/profile/ReferralSection";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
 
@@ -63,6 +65,28 @@ export default async function ProfilePage() {
   const achievements = (achievementsData ?? []) as Achievement[];
   const userAchievements = (userAchievementsData ?? []) as UserAchievement[];
 
+  // Fetch referral data (non-blocking — graceful fallback on error)
+  let referralInfo = { referralLink: "", totalReferred: 0, rewardsEarned: 0 };
+  let referredUsers: { username: string; display_name: string | null; created_at: string }[] = [];
+  try {
+    const [info, stats_referral] = await Promise.all([
+      getReferralInfo(supabase, user.id),
+      getReferralStats(supabase, user.id),
+    ]);
+    referralInfo = info;
+    referredUsers = stats_referral.referredUsers;
+  } catch {
+    // Silently degrade — referral section will still render with defaults
+  }
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.NEXT_PUBLIC_VERCEL_URL ??
+    "http://localhost:3000";
+  const referralBaseUrl = baseUrl.startsWith("http")
+    ? baseUrl
+    : `https://${baseUrl}`;
+
   const checklistItems: ChecklistItem[] = [
     {
       label: "Set display name",
@@ -99,6 +123,11 @@ export default async function ProfilePage() {
       />
       <ProfileChecklist items={checklistItems} />
       <BadgeGrid achievements={achievements} unlocked={userAchievements} />
+      <ReferralSection
+        referralInfo={referralInfo}
+        referredUsers={referredUsers}
+        baseUrl={referralBaseUrl}
+      />
     </div>
   );
 }
