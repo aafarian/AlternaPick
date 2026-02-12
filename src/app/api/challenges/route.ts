@@ -47,7 +47,23 @@ export async function GET(request: NextRequest) {
 
     const challenges = await getChallenges(supabase, user.id, statusFilter);
 
-    return NextResponse.json({ challenges });
+    // Also fetch which challenges the user has submitted cards for (avoids client waterfall)
+    const challengeIds = challenges
+      .filter((c) => ["pending", "accepted", "active"].includes(c.status))
+      .map((c) => c.id);
+
+    let userCardChallengeIds: string[] = [];
+    if (challengeIds.length > 0) {
+      const { data: userCards } = await (supabase.from("cards") as any)
+        .select("challenge_id")
+        .eq("user_id", user.id)
+        .in("challenge_id", challengeIds);
+      userCardChallengeIds = ((userCards ?? []) as Array<{ challenge_id: string }>).map(
+        (c) => c.challenge_id
+      );
+    }
+
+    return NextResponse.json({ challenges, userCardChallengeIds });
   } catch (error) {
     return handleApiError(error, "Failed to fetch challenges");
   }

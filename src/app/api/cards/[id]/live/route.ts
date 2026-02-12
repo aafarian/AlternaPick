@@ -27,7 +27,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     // Fetch card with picks, props, and game data (including DB status for fallback)
     const cardResult = await (supabase.from("cards") as any)
       .select(
-        "id, status, picks(id, selection, result, actual_value, props(player_name, player_id, stat_category, line, game_id, games(nba_game_id, status, home_team, away_team, home_score, away_score)))"
+        "id, status, picks(id, selection, result, actual_value, props(player_name, player_id, stat_category, line, game_id, games(nba_game_id, status, home_team, away_team, home_score, away_score, commence_time)))"
       )
       .eq("id", id)
       .eq("user_id", user.id)

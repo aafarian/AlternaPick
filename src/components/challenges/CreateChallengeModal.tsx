@@ -21,6 +21,7 @@ import {
 } from "@/lib/modes";
 import type { GameMode, CardSize } from "@/lib/modes";
 import MirrorPropPicker from "./MirrorPropPicker";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ChevronRight,
@@ -74,6 +75,7 @@ export default function CreateChallengeModal({
   const [mirrorProps, setMirrorProps] = useState<string[]>([]);
 
   // Shared
+  const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -135,12 +137,14 @@ export default function CreateChallengeModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error ?? "Failed to create challenge");
       }
       onCreated();
       onClose();
+      // Redirect challenger to props page to make their picks
+      router.push(`/props?challenge_id=${data.challenge.id}`);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to create challenge"
@@ -227,7 +231,7 @@ export default function CreateChallengeModal({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="bg-card border-border max-w-md">
+      <DialogContent className="bg-card border-border max-w-md max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <div className="flex items-center gap-2">
             {step !== "opponent" && (
@@ -249,6 +253,9 @@ export default function CreateChallengeModal({
             {error}
           </div>
         )}
+
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto min-h-0 -mx-6 px-6">
 
         {/* Step indicator */}
         <div className="flex items-center gap-1.5">
@@ -485,8 +492,10 @@ export default function CreateChallengeModal({
           />
         )}
 
+        </div>{/* end scrollable content */}
+
         {/* ========== Footer buttons ========== */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 pt-2 border-t border-border shrink-0">
           <Button onClick={onClose} variant="outline" className="flex-1">
             Cancel
           </Button>

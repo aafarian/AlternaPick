@@ -12,6 +12,8 @@ export interface LiveGameStatus {
   away_tricode: string;
   home_score: number;
   away_score: number;
+  /** ISO 8601 start time — used to show "Today 7:00 PM" for scheduled games */
+  commence_time: string | null;
 }
 
 export interface LivePickData {
@@ -77,6 +79,7 @@ export function toLivePickData(pick: {
           away_tricode: "",
           home_score: 0,
           away_score: 0,
+          commence_time: null,
         }
       : null,
   };

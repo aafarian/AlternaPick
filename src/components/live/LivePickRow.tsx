@@ -2,7 +2,7 @@
 
 import type { LivePickData } from "@/lib/cards/live-types";
 import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
-import { formatClock } from "@/lib/format";
+import { formatClock, formatGameTime } from "@/lib/format";
 import type { StatCategory } from "@/lib/supabase/types";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
 import { Badge } from "@/components/ui/badge";
@@ -135,19 +135,21 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
 
         {/* Game clock */}
         {isLive && pick.game_status && (
-          <span className="flex shrink-0 items-center gap-1 text-[10px] text-foreground">
-            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-foreground" />
+          <span className="flex shrink-0 items-center gap-1 text-[10px] font-semibold text-white/70">
+            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
             {formatClock(pick.game_status.period, pick.game_status.clock)}
           </span>
         )}
         {isFinal && (
-          <span className="shrink-0 text-[10px] text-muted-foreground">
+          <span className="shrink-0 text-[10px] font-semibold text-white/50">
             Final
           </span>
         )}
         {isPreGame && !isSettled && (
-          <span className="shrink-0 text-[10px] text-muted-foreground/60">
-            Pre
+          <span className="shrink-0 text-[10px] font-semibold text-white/70">
+            {pick.game_status?.commence_time
+              ? formatGameTime(pick.game_status.commence_time)
+              : "Scheduled"}
           </span>
         )}
       </div>
@@ -256,18 +258,21 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
           )}
 
           {isLive && pick.game_status && (
-            <span className="text-[10px] leading-none tabular-nums text-muted-foreground/60">
+            <span className="flex items-center gap-1 text-[10px] font-semibold leading-none tabular-nums text-white/70">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
               {formatClock(pick.game_status.period, pick.game_status.clock)}
             </span>
           )}
           {isFinal && (
-            <span className="text-[10px] leading-none text-muted-foreground/50">
+            <span className="text-[10px] font-semibold leading-none text-white/50">
               Final
             </span>
           )}
           {isPreGame && (
-            <span className="rounded bg-secondary/60 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground/40">
-              Pre
+            <span className="text-[10px] font-semibold leading-none text-white/70">
+              {pick.game_status?.commence_time
+                ? formatGameTime(pick.game_status.commence_time)
+                : "Scheduled"}
             </span>
           )}
         </div>

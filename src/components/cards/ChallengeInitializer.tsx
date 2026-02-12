@@ -47,10 +47,12 @@ export default function ChallengeInitializer() {
         // is missing.
         const opponent = challenge.opponent ?? challenge.challenger;
 
-        setChallenge(id, {
-          username: opponent.username,
-          display_name: opponent.display_name,
-        });
+        setChallenge(
+          id,
+          { username: opponent.username, display_name: opponent.display_name },
+          challenge.game_mode ?? "classic",
+          challenge.card_size ?? 6,
+        );
       } catch {
         // Silently fail — the user can still build a normal card
       }

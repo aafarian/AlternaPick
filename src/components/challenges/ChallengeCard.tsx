@@ -76,7 +76,7 @@ export default function ChallengeCard({
                   {challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
                 </Badge>
                 {challenge.game_mode && (
-                  <GameModeBadge mode={challenge.game_mode as GameMode} />
+                  <GameModeBadge mode={challenge.game_mode as GameMode} size="md" showClassic />
                 )}
                 {challenge.status === "active" && (
                   <div className="flex items-center gap-1">
@@ -143,14 +143,37 @@ export default function ChallengeCard({
             )}
 
             {challenge.status === "pending" && isChallenger && (
-              <Button
-                onClick={() => onCancel?.(challenge.id)}
-                disabled={isLoading}
-                variant="outline"
-                size="sm"
-              >
-                {isLoading ? "..." : "Cancel"}
-              </Button>
+              <div className="flex items-center gap-2">
+                {!userHasCard && (
+                  <Button
+                    size="sm"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      window.location.href = `/props?challenge_id=${challenge.id}`;
+                    }}
+                  >
+                    Make Your Picks
+                  </Button>
+                )}
+                {userHasCard && (
+                  <Badge variant="secondary" className="bg-neon-green/15 text-neon-green border-neon-green/30">
+                    Picks Submitted
+                  </Badge>
+                )}
+                <Button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onCancel?.(challenge.id);
+                  }}
+                  disabled={isLoading}
+                  variant="outline"
+                  size="sm"
+                >
+                  {isLoading ? "..." : "Cancel"}
+                </Button>
+              </div>
             )}
 
             {(challenge.status === "accepted" ||
@@ -160,12 +183,16 @@ export default function ChallengeCard({
                   Picks Submitted
                 </Badge>
               ) : (
-                <Link
-                  href={`/props?challenge_id=${challenge.id}`}
-                  onClick={(e) => e.stopPropagation()}
+                <Button
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.location.href = `/props?challenge_id=${challenge.id}`;
+                  }}
                 >
-                  <Button size="sm">Make Your Picks</Button>
-                </Link>
+                  Make Your Picks
+                </Button>
               ))}
 
             {challenge.status === "resolved" && (

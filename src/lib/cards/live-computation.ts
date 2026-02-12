@@ -29,6 +29,7 @@ export interface PickWithPropAndGame {
       away_team?: string | null;
       home_score?: number | null;
       away_score?: number | null;
+      commence_time?: string | null;
     };
   };
 }
@@ -61,6 +62,7 @@ export function buildLivePicksForCard(
         away_tricode: gameInfo.away_tricode,
         home_score: gameInfo.home_score,
         away_score: gameInfo.away_score,
+        commence_time: gameInfo.start_time || pick.props.games?.commence_time || null,
       };
 
       if (gameInfo.status === "live") {
@@ -82,6 +84,7 @@ export function buildLivePicksForCard(
         away_tricode: "",
         home_score: pick.props.games?.home_score ?? 0,
         away_score: pick.props.games?.away_score ?? 0,
+        commence_time: pick.props.games?.commence_time || null,
       };
     }
 

@@ -174,8 +174,11 @@ export default function ChallengeMatchup({
     : challenge.challenger_card;
   const otherPlayerName = isChallenger ? opponentName : challengerName;
 
-  // Determine pick visibility: show picks when status is active or resolved
-  const showPicks =
+  // Pick visibility:
+  // - Always show your own picks (any status)
+  // - Only show opponent's picks when both cards are locked (active/resolved)
+  const showMyPicks = !!myCard;
+  const showTheirPicks =
     challenge.status === "active" || challenge.status === "resolved";
 
   // Winner detection
@@ -243,7 +246,7 @@ export default function ChallengeMatchup({
             {challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
           </Badge>
           {challenge.game_mode && (
-            <GameModeBadge mode={challenge.game_mode as GameMode} size="md" />
+            <GameModeBadge mode={challenge.game_mode as GameMode} size="lg" showClassic />
           )}
           {liveData?.has_live_games && (
             <div className="flex items-center gap-1">
@@ -352,7 +355,7 @@ export default function ChallengeMatchup({
           avatarUrl={challenge.challenger.avatar_url}
           card={challenge.challenger_card}
           isWinner={challengerIsWinner}
-          showPicks={showPicks}
+          showPicks={isChallenger ? showMyPicks : showTheirPicks}
           livePickMap={challengerLivePickMap}
           hasLiveGames={liveData?.challenger_card?.has_live_games ?? false}
           liveLoading={hasLockedCards && !liveData}
@@ -372,7 +375,7 @@ export default function ChallengeMatchup({
           avatarUrl={challenge.opponent.avatar_url}
           card={challenge.opponent_card}
           isWinner={opponentIsWinner}
-          showPicks={showPicks}
+          showPicks={isChallenger ? showTheirPicks : showMyPicks}
           livePickMap={opponentLivePickMap}
           hasLiveGames={liveData?.opponent_card?.has_live_games ?? false}
           liveLoading={hasLockedCards && !liveData}
@@ -385,9 +388,20 @@ export default function ChallengeMatchup({
           <CardContent className="p-4">
             {isChallenger ? (
               <div className="flex flex-col items-center gap-3 text-center">
-                <p className="text-sm text-muted-foreground">
-                  Waiting for <span className="font-semibold text-foreground">{opponentName}</span> to accept
-                </p>
+                {!myCard ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Make your picks while waiting for <span className="font-semibold text-foreground">{opponentName}</span> to accept
+                    </p>
+                    <Link href={`/props?challenge_id=${challenge.id}`}>
+                      <Button size="sm">Make Your Picks</Button>
+                    </Link>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Picks submitted! Waiting for <span className="font-semibold text-foreground">{opponentName}</span> to accept
+                  </p>
+                )}
                 <Button
                   onClick={() => handleAction("cancel")}
                   disabled={actionLoading}

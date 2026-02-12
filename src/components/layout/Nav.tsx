@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "@/lib/auth/actions";
 import type { AuthUser } from "@/lib/auth/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -137,17 +136,20 @@ export default function Nav({
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <form action={signOut} className="w-full">
-                <button
-                  type="submit"
-                  onClick={onNavigate}
-                  className="flex w-full items-center gap-2 text-sm"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Sign Out
-                </button>
-              </form>
+            <DropdownMenuItem
+              onSelect={async (e) => {
+                e.preventDefault();
+                onNavigate?.();
+                // Sign out client-side so onAuthStateChange fires immediately
+                const { createClient } = await import("@/lib/supabase/client");
+                const supabase = createClient();
+                await supabase.auth.signOut();
+                window.location.href = "/";
+              }}
+              className="gap-2 cursor-pointer"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

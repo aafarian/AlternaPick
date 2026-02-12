@@ -39,6 +39,8 @@ export type CardBuilderAction =
       type: "SET_CHALLENGE";
       challengeId: string;
       opponent: ChallengeOpponent;
+      gameMode?: GameMode;
+      cardSize?: number;
     }
   | { type: "SHOW_SUCCESS" }
   | { type: "HIDE_SUCCESS" }

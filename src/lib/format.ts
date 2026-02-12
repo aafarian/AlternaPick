@@ -45,6 +45,47 @@ export function formatClock(period: number, clock: string): string {
   // End of other periods
   if (isZero && period >= 1) return `End Q${period}`;
 
-  const display = match ? `${match[1]}:${match[2].padStart(2, "0")}` : clock;
+  const display = match ? `${minutes}:${match[2].padStart(2, "0")}` : clock;
   return `Q${period} ${display}`;
+}
+
+/**
+ * Formats an ISO 8601 commence_time into a short, human-readable game time.
+ * Examples: "Today 7:00 PM", "Tomorrow 1:30 PM", "Feb 12 9:00 PM"
+ */
+export function formatGameTime(commenceTime: string): string {
+  const gameDate = new Date(commenceTime);
+  const now = new Date();
+
+  const timeStr = gameDate.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  // Check if same calendar day
+  const isToday =
+    gameDate.getFullYear() === now.getFullYear() &&
+    gameDate.getMonth() === now.getMonth() &&
+    gameDate.getDate() === now.getDate();
+
+  if (isToday) return `Today ${timeStr}`;
+
+  // Check if tomorrow
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow =
+    gameDate.getFullYear() === tomorrow.getFullYear() &&
+    gameDate.getMonth() === tomorrow.getMonth() &&
+    gameDate.getDate() === tomorrow.getDate();
+
+  if (isTomorrow) return `Tomorrow ${timeStr}`;
+
+  // Otherwise show short date
+  const dateStr = gameDate.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+
+  return `${dateStr} ${timeStr}`;
 }

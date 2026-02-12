@@ -25,20 +25,23 @@ export function cardBuilderReducer(
       if (state.picks.some((p) => p.prop_id === action.pick.prop_id))
         return state;
 
-      // Enforce mode constraints (one_player, one_team)
-      const validation = validateIncomingPick(
-        state.picks.map((p) => ({
-          player_name: p.player_name,
-          player_team: p.player_team,
-        })),
-        {
-          player_name: action.pick.player_name,
-          player_team: action.pick.player_team,
-        },
-        state.gameMode
-      );
-      if (!validation.valid) {
-        return { ...state, error: validation.error ?? "Pick violates mode constraints" };
+      // Only enforce mode constraints when picking for an existing challenge
+      // (regular cards: mode is chosen later at challenge/submit time)
+      if (state.challengeId) {
+        const validation = validateIncomingPick(
+          state.picks.map((p) => ({
+            player_name: p.player_name,
+            player_team: p.player_team,
+          })),
+          {
+            player_name: action.pick.player_name,
+            player_team: action.pick.player_team,
+          },
+          state.gameMode
+        );
+        if (!validation.valid) {
+          return { ...state, error: validation.error ?? "Pick violates mode constraints" };
+        }
       }
 
       return { ...state, picks: [...state.picks, action.pick], error: null };
@@ -64,12 +67,17 @@ export function cardBuilderReducer(
       return { ...state, isLocking: action.isLocking };
     case "SET_ERROR":
       return { ...state, error: action.error, isLocking: false };
-    case "SET_CHALLENGE":
+    case "SET_CHALLENGE": {
+      const newSize = action.cardSize ?? state.cardSize;
       return {
         ...state,
         challengeId: action.challengeId,
         challengeOpponent: action.opponent,
+        gameMode: action.gameMode ?? state.gameMode,
+        cardSize: newSize,
+        maxPicks: newSize,
       };
+    }
     case "SHOW_SUCCESS":
       return { ...state, showSuccess: true, isLocking: false };
     case "HIDE_SUCCESS":

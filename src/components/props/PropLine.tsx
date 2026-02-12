@@ -6,6 +6,7 @@ import { Target } from "lucide-react";
 import type { StatCategory } from "@/lib/supabase/types";
 import { CATEGORY_LABELS, CATEGORY_COLORS, teamLogoUrl, getPlayerHeadshotUrl } from "@/lib/constants";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
+import { getModeConfig } from "@/lib/modes/definitions";
 import { cn } from "@/lib/utils";
 
 interface PropLineProps {
@@ -79,10 +80,22 @@ export default function PropLine({
   lineHistory,
   edgeRate,
 }: PropLineProps) {
-  const { addPick, removePick, isPickSelected, getSelection, isFull } =
+  const { addPick, removePick, isPickSelected, getSelection, isFull, state } =
     useCardBuilder();
 
+  // For existing challenges with constrained modes, hide non-matching props
   const selected = isPickSelected(propId);
+  if (state.challengeId && state.picks.length > 0 && !selected) {
+    const modeConfig = getModeConfig(state.gameMode);
+    const anchor = state.picks[0];
+    if (modeConfig.constraints.sameTeam && (playerTeam ?? "") !== anchor.player_team) {
+      return null;
+    }
+    if (modeConfig.constraints.samePlayer && playerName !== anchor.player_name) {
+      return null;
+    }
+  }
+
   const selection = getSelection(propId);
 
   function handleClick(side: "over" | "under") {

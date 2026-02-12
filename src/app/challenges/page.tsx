@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
-import { createClient } from "@/lib/supabase/client";
 import ChallengeCard from "@/components/challenges/ChallengeCard";
 import CreateChallengeModal from "@/components/challenges/CreateChallengeModal";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
@@ -13,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, AlertCircle } from "lucide-react";
+import { Plus, AlertCircle, Inbox } from "lucide-react";
 
 type TabKey = "active" | "pending" | "sent" | "history";
 
@@ -30,7 +29,7 @@ export default function ChallengesPage() {
 
   const [challenges, setChallenges] = useState<ChallengeWithProfiles[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabKey>("active");
+  const [activeTab, setActiveTab] = useState<TabKey | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,28 +47,9 @@ export default function ChallengesPage() {
       const fetched: ChallengeWithProfiles[] = data.challenges ?? [];
       setChallenges(fetched);
 
-      if (user) {
-        const challengeIds = fetched
-          .filter((c) => c.status === "accepted" || c.status === "active")
-          .map((c) => c.id);
-
-        if (challengeIds.length > 0) {
-          const supabase = createClient();
-          const { data: userCards } = await (supabase.from("cards") as any)
-            .select("challenge_id")
-            .eq("user_id", user.id)
-            .in("challenge_id", challengeIds);
-
-          const ids = new Set<string>(
-            ((userCards ?? []) as Array<{ challenge_id: string }>).map(
-              (c) => c.challenge_id
-            )
-          );
-          setUserCardChallengeIds(ids);
-        } else {
-          setUserCardChallengeIds(new Set());
-        }
-      }
+      // Card IDs come from the API in a single round trip
+      const cardIds: string[] = data.userCardChallengeIds ?? [];
+      setUserCardChallengeIds(new Set(cardIds));
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to load challenges"
@@ -145,7 +125,11 @@ export default function ChallengesPage() {
     history: historyChallenges.length,
   };
 
-  const currentChallenges = tabData[activeTab];
+  // Auto-select tab: show pending if there are incoming challenges, else active
+  const resolvedTab: TabKey =
+    activeTab ?? (pendingReceived.length > 0 ? "pending" : "active");
+
+  const currentChallenges = tabData[resolvedTab];
 
   if (authLoading || (!user && !authLoading)) {
     return (
@@ -192,8 +176,31 @@ export default function ChallengesPage() {
         </Alert>
       )}
 
+      {/* Incoming challenge banner — shows when on any tab other than pending */}
+      {pendingReceived.length > 0 && resolvedTab !== "pending" && (
+        <button
+          onClick={() => setActiveTab("pending")}
+          className="flex w-full items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left transition-colors hover:bg-amber-500/15"
+        >
+          <Inbox className="h-5 w-5 shrink-0 text-amber-400" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-400">
+              {pendingReceived.length === 1
+                ? "You have a new challenge!"
+                : `You have ${pendingReceived.length} new challenges!`}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Tap to view incoming {pendingReceived.length === 1 ? "challenge" : "challenges"}
+            </p>
+          </div>
+          <Badge className="bg-amber-500 text-white">
+            {pendingReceived.length}
+          </Badge>
+        </button>
+      )}
+
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
+      <Tabs value={resolvedTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
         <TabsList className="bg-secondary">
           {TABS.map((tab) => (
             <TabsTrigger
@@ -203,7 +210,14 @@ export default function ChallengesPage() {
             >
               {tab.label}
               {tabCounts[tab.key] > 0 && (
-                <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px]">
+                <Badge
+                  variant="secondary"
+                  className={`h-5 min-w-5 px-1.5 text-[10px] ${
+                    tab.key === "pending" && tabCounts.pending > 0
+                      ? "animate-pulse bg-amber-500 text-white"
+                      : ""
+                  }`}
+                >
                   {tabCounts[tab.key]}
                 </Badge>
               )}
@@ -223,18 +237,18 @@ export default function ChallengesPage() {
         <Card className="border-border bg-card">
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <span className="text-3xl">
-              {activeTab === "active" && "\u2694\uFE0F"}
-              {activeTab === "pending" && "\uD83D\uDCE8"}
-              {activeTab === "sent" && "\uD83D\uDCE4"}
-              {activeTab === "history" && "\uD83D\uDCDC"}
+              {resolvedTab === "active" && "\u2694\uFE0F"}
+              {resolvedTab === "pending" && "\uD83D\uDCE8"}
+              {resolvedTab === "sent" && "\uD83D\uDCE4"}
+              {resolvedTab === "history" && "\uD83D\uDCDC"}
             </span>
             <p className="text-muted-foreground">
-              {activeTab === "active" && "No active challenges"}
-              {activeTab === "pending" && "No pending challenges"}
-              {activeTab === "sent" && "No sent challenges"}
-              {activeTab === "history" && "No challenge history yet"}
+              {resolvedTab === "active" && "No active challenges"}
+              {resolvedTab === "pending" && "No pending challenges"}
+              {resolvedTab === "sent" && "No sent challenges"}
+              {resolvedTab === "history" && "No challenge history yet"}
             </p>
-            {(activeTab === "active" || activeTab === "sent") && (
+            {(resolvedTab === "active" || resolvedTab === "sent") && (
               <Button
                 variant="link"
                 onClick={() => setModalOpen(true)}
