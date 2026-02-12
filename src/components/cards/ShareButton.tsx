@@ -8,6 +8,12 @@ interface ShareButtonProps {
   cardId: string;
 }
 
+/**
+ * Card-specific share button.
+ *
+ * Generates a share token via the API (for legacy token-based links),
+ * then shares or copies the OG-enabled share URL.
+ */
 export default function ShareButton({ cardId }: ShareButtonProps) {
   const [status, setStatus] = useState<"idle" | "loading" | "copied" | "error">("idle");
 
@@ -15,6 +21,7 @@ export default function ShareButton({ cardId }: ShareButtonProps) {
     setStatus("loading");
 
     try {
+      // Hit the share API to ensure a share_token is generated
       const response = await fetch(`/api/cards/${cardId}/share`, {
         method: "POST",
       });
@@ -23,25 +30,33 @@ export default function ShareButton({ cardId }: ShareButtonProps) {
         throw new Error("Failed to generate share link");
       }
 
-      const data = await response.json();
-      const shareUrl: string = data.share_url;
+      // Build the OG-enabled share URL
+      const siteUrl =
+        process.env.NEXT_PUBLIC_SITE_URL ??
+        (typeof window !== "undefined" ? window.location.origin : "https://alternapick.com");
+      const shareUrl = `${siteUrl}/cards/share?id=${cardId}`;
+      const shareTitle = "Check out my AlternaPick card!";
+      const shareText = "See how I did on my NBA player prop picks!";
 
-      if (navigator.share) {
+      // Try Web Share API first
+      if (typeof navigator !== "undefined" && navigator.share) {
         try {
           await navigator.share({
-            title: "Check out my AlternaPick card!",
+            title: shareTitle,
+            text: shareText,
             url: shareUrl,
           });
           setStatus("copied");
+          setTimeout(() => setStatus("idle"), 2000);
+          return;
         } catch {
-          await navigator.clipboard.writeText(shareUrl);
-          setStatus("copied");
+          // User cancelled or API failed -- fall through to clipboard
         }
-      } else {
-        await navigator.clipboard.writeText(shareUrl);
-        setStatus("copied");
       }
 
+      // Clipboard fallback
+      await navigator.clipboard.writeText(shareUrl);
+      setStatus("copied");
       setTimeout(() => setStatus("idle"), 2000);
     } catch {
       setStatus("error");

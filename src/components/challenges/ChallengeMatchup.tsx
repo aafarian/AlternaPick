@@ -21,6 +21,7 @@ import ReactionBar from "@/components/challenges/ReactionBar";
 import TrashTalkBubble from "@/components/challenges/TrashTalkBubble";
 import QuickActions from "@/components/challenges/QuickActions";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
+import ShareButton from "@/components/ui/ShareButton";
 import type { GameMode } from "@/lib/modes/types";
 
 interface ChallengeMatchupProps {
@@ -318,6 +319,17 @@ export default function ChallengeMatchup({
             targetType="challenge"
             targetId={challenge.id}
             currentUserId={currentUserId}
+          />
+        </div>
+      )}
+
+      {/* Share — resolved challenges only */}
+      {challenge.status === "resolved" && (
+        <div className="flex justify-center">
+          <ShareButton
+            url={`${typeof window !== "undefined" ? window.location.origin : ""}/challenges/${challenge.id}/share`}
+            title={`${challengerName} vs ${opponentName} - AlternaPick Challenge`}
+            text={`Check out this challenge on AlternaPick! ${challengerName} vs ${opponentName}`}
           />
         </div>
       )}
