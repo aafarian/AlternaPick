@@ -1,16 +1,20 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { createCard } from "@/lib/cards/api";
 import { getAnonymousId } from "@/lib/session/anonymous";
 import { CATEGORY_LABELS } from "@/lib/constants";
+import { getModeConfig } from "@/lib/modes/definitions";
+import type { GameMode } from "@/lib/modes/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, Lock, Loader2 } from "lucide-react";
+import { X, Lock, Loader2, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CardSuccessAnimation from "./CardSuccessAnimation";
+import ModeSelector from "./ModeSelector";
+import CardSizeSelector from "./CardSizeSelector";
 
 export default function CardBuilderPanel() {
   const router = useRouter();
@@ -20,12 +24,15 @@ export default function CardBuilderPanel() {
     clearCard,
     setLocking,
     setError,
+    setMode,
+    setCardSize,
     showSuccess,
     hideSuccess,
     isFull,
   } = useCardBuilder();
-  const { picks, isLocking, error, challengeId, challengeOpponent } = state;
+  const { picks, isLocking, error, challengeId, challengeOpponent, gameMode, cardSize } = state;
   const redirectRef = useRef<string | null>(null);
+  const [settingsExpanded, setSettingsExpanded] = useState(true);
 
   const handleAnimationDismiss = useCallback(() => {
     hideSuccess();
@@ -41,6 +48,34 @@ export default function CardBuilderPanel() {
   const opponentLabel =
     challengeOpponent?.display_name ?? challengeOpponent?.username ?? null;
 
+  // Mode and size are locked once the first pick is added
+  const isLocked = picks.length > 0;
+
+  // Build constrained-mode filter banner info
+  const modeConfig = getModeConfig(gameMode);
+  let filterBanner: string | null = null;
+  if (picks.length > 0) {
+    if (modeConfig.constraints.samePlayer) {
+      filterBanner = `One Player Mode: All picks must be for ${picks[0].player_name}`;
+    } else if (modeConfig.constraints.sameTeam) {
+      filterBanner = `One Team Mode: All picks must be from ${picks[0].player_team}`;
+    }
+  }
+
+  const handleModeSelect = useCallback(
+    (mode: GameMode) => {
+      setMode(mode);
+    },
+    [setMode]
+  );
+
+  const handleSizeSelect = useCallback(
+    (size: number) => {
+      setCardSize(size);
+    },
+    [setCardSize]
+  );
+
   async function handleLockIn() {
     if (!isFull || isLocking) return;
 
@@ -52,7 +87,9 @@ export default function CardBuilderPanel() {
       await createCard(
         picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
         anonId,
-        challengeId
+        challengeId,
+        gameMode,
+        cardSize
       );
       redirectRef.current = challengeId
         ? `/challenges/${challengeId}`
@@ -82,18 +119,72 @@ export default function CardBuilderPanel() {
             </div>
           )}
 
+          {/* Mode constraint filter banner */}
+          {filterBanner && (
+            <div className="mb-2 flex items-center gap-2 rounded-lg border border-neon-green/30 bg-neon-green/10 px-3 py-1.5">
+              <span className="text-sm font-semibold text-neon-green">
+                {filterBanner}
+              </span>
+            </div>
+          )}
+
           {error && (
             <div className="mb-2 rounded-lg bg-destructive/10 px-3 py-1.5 text-sm text-destructive">
               {error}
             </div>
           )}
 
+          {/* Collapsible mode + size settings */}
+          {!challengeId && (
+            <div className="mb-2">
+              <button
+                onClick={() => setSettingsExpanded((prev) => !prev)}
+                className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {settingsExpanded ? (
+                  <ChevronDown className="h-3 w-3" />
+                ) : (
+                  <ChevronUp className="h-3 w-3" />
+                )}
+                Card Settings
+                {isLocked && (
+                  <span className="ml-1 text-[10px] normal-case text-muted-foreground/60">
+                    (locked after first pick)
+                  </span>
+                )}
+              </button>
+
+              {settingsExpanded && (
+                <div className="flex flex-col gap-3 rounded-lg border border-border bg-card/50 p-3 sm:flex-row sm:items-end sm:gap-6">
+                  <ModeSelector
+                    activeMode={gameMode}
+                    onSelect={handleModeSelect}
+                    disabled={isLocked}
+                  />
+                  <CardSizeSelector
+                    activeSize={cardSize}
+                    onSelect={handleSizeSelect}
+                    disabled={isLocked}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div className="flex items-center justify-between gap-2 sm:order-none sm:contents">
-              <div className="shrink-0">
+              <div className="flex shrink-0 items-center gap-2">
                 <span className="text-sm font-bold">
                   {picks.length}/{state.maxPicks} Picks
                 </span>
+                {gameMode !== "classic" && (
+                  <Badge
+                    variant="outline"
+                    className="border-neon-green/40 text-neon-green"
+                  >
+                    {modeConfig.icon} {modeConfig.displayName}
+                  </Badge>
+                )}
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
