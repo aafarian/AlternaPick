@@ -24,6 +24,7 @@ async function getCardsByStatus(
     .select(CARD_SELECT)
     .eq("user_id", userId)
     .eq("status", status)
+    .gt("total_picks", 0)
     .order("created_at", { ascending: false })
     .limit(limit);
 
