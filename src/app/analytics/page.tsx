@@ -36,7 +36,7 @@ interface AnalyticsPageProps {
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const { mode: modeParam } = await searchParams;
   const mode: GameMode | "all" =
-    modeParam === "all" ? "all" : modeParam && isValidGameMode(modeParam) ? modeParam : "classic";
+    modeParam === "all" || !modeParam ? "all" : isValidGameMode(modeParam) ? modeParam : "all";
   const supabase = await createClient();
   const {
     data: { user },

@@ -33,13 +33,11 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
   // Progress toward the line
   const rawPct =
     hasValue && pick.line > 0 ? (pick.current_value! / pick.line) * 100 : 0;
-  const displayPct = Math.min(rawPct, 140);
   const pastLine = rawPct >= 100;
 
-  // Scale so bar + line marker stay consistent
-  const scale = Math.max(displayPct, 100);
-  const linePosition = (100 / scale) * 100;
-  const barWidth = (displayPct / scale) * 100;
+  // Line marker fixed at 90%; bar scales within that range or fills 100% when over
+  const linePosition = 90;
+  const barWidth = pastLine ? 100 : (rawPct / 100) * 90;
 
   // Settled: line is decided and won't change
   // - Stats only go up, so once over the line -> settled
