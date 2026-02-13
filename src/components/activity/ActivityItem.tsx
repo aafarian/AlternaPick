@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ActivityItem as ActivityItemType } from "@/app/api/activity/route";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatTimeAgo } from "@/lib/format";
@@ -67,28 +68,54 @@ function renderMessage(item: ActivityItemType): string {
   }
 }
 
+function getItemHref(item: ActivityItemType): string | null {
+  switch (item.type) {
+    case "challenge_resolved":
+      return `/challenges/${item.data.challenge_id}`;
+    case "new_friend":
+      return `/users/${item.user.username}`;
+    default:
+      return null;
+  }
+}
+
 export default function ActivityItem({ item }: ActivityItemProps) {
   const icon = getNotificationIcon(item.type);
   const accentClass = getNotificationAccent(item.type);
   const message = renderMessage(item);
   const timeAgo = formatTimeAgo(item.timestamp);
+  const href = getItemHref(item);
+
+  const content = (
+    <CardContent className="flex items-start gap-3 p-4">
+      {/* Icon */}
+      <div
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg ${accentClass}`}
+      >
+        {icon}
+      </div>
+
+      {/* Content */}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm leading-relaxed">{message}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{timeAgo}</p>
+      </div>
+    </CardContent>
+  );
+
+  if (href) {
+    return (
+      <Link href={href}>
+        <Card className="border-border bg-card transition-colors hover:bg-secondary/50">
+          {content}
+        </Card>
+      </Link>
+    );
+  }
 
   return (
     <Card className="border-border bg-card">
-      <CardContent className="flex items-start gap-3 p-4">
-        {/* Icon */}
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg ${accentClass}`}
-        >
-          {icon}
-        </div>
-
-        {/* Content */}
-        <div className="min-w-0 flex-1">
-          <p className="text-sm leading-relaxed">{message}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{timeAgo}</p>
-        </div>
-      </CardContent>
+      {content}
     </Card>
   );
 }

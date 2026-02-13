@@ -74,7 +74,7 @@ export default function Nav({
     pathname === "/profile" || pathname === "/settings";
 
   return (
-    <nav className="flex flex-col gap-1 md:flex-row md:items-center md:gap-0.5 md:overflow-x-auto md:scrollbar-none">
+    <nav className={`flex flex-col md:flex-row md:items-center md:gap-0.5 md:overflow-x-auto md:scrollbar-none ${mobileSecondaryOnly ? "gap-1.5" : "gap-1"}`}>
       {links.map((link) => {
         const isActive = pathname === link.href;
         const badgeCount =
@@ -89,6 +89,8 @@ export default function Nav({
               variant="ghost"
               size="sm"
               className={`relative w-full justify-start gap-2 md:w-auto ${
+                mobileSecondaryOnly ? "h-10 text-sm" : ""
+              } ${
                 isActive
                   ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -113,6 +115,8 @@ export default function Nav({
               variant="ghost"
               size="sm"
               className={`w-full justify-start gap-2 md:w-auto focus-visible:ring-0 focus-visible:border-transparent ${
+                mobileSecondaryOnly ? "h-10 text-sm" : ""
+              } ${
                 isProfileActive
                   ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"

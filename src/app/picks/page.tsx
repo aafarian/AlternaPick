@@ -47,17 +47,17 @@ export default async function CardsPage() {
     getCardsByStatus(user.id, "resolved", PAGE_SIZE),
   ]);
 
-  const avgScore =
-    completedCards.length > 0
-      ? (
-          completedCards.reduce((sum, c) => sum + c.score, 0) /
-          completedCards.length
-        ).toFixed(1)
+  const totalHits = completedCards.reduce((sum, c) => sum + c.score, 0);
+  const totalAttempted = completedCards.reduce((sum, c) => sum + c.total_picks, 0);
+  const hitRate =
+    totalAttempted > 0
+      ? Math.round((totalHits / totalAttempted) * 100)
       : null;
 
-  const bestScore =
+  // Find the best card (highest score) and its total picks
+  const bestCard =
     completedCards.length > 0
-      ? Math.max(...completedCards.map((c) => c.score))
+      ? completedCards.reduce((best, c) => (c.score > best.score ? c : best), completedCards[0])
       : null;
 
   return (
@@ -86,14 +86,14 @@ export default async function CardsPage() {
           <Card className="border-border bg-card">
             <CardContent className="flex flex-col items-center gap-1 p-4">
               <BarChart3 className="h-5 w-5 text-muted-foreground" />
-              <span className="text-2xl font-black">{avgScore}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Avg Score</span>
+              <span className="text-2xl font-black">{hitRate}%</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Hit Rate</span>
             </CardContent>
           </Card>
           <Card className="border-border bg-card">
             <CardContent className="flex flex-col items-center gap-1 p-4">
               <Trophy className="h-5 w-5 text-neon-green" />
-              <span className="text-2xl font-black text-neon-green">{bestScore}/6</span>
+              <span className="text-2xl font-black text-neon-green">{bestCard?.score}/{bestCard?.total_picks}</span>
               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Best</span>
             </CardContent>
           </Card>

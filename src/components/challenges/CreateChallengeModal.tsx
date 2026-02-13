@@ -277,7 +277,7 @@ export default function CreateChallengeModal({
         )}
 
         {/* Scrollable content area */}
-        <div className="flex-1 overflow-y-auto min-h-0 -mx-6 px-6">
+        <div className="flex flex-1 flex-col gap-3 overflow-y-auto min-h-0 -mx-6 px-6">
 
         {/* Step indicator */}
         <div className="flex items-center gap-1.5">

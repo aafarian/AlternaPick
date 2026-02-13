@@ -25,7 +25,7 @@ export default function GameModeStats({ data }: GameModeStatsProps) {
     return (
       <div className="rounded-xl border border-border bg-card p-5">
         <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-          Win Rate by Game Mode
+          Card Win Rate by Mode
         </h2>
         <p className="text-sm text-muted-foreground">No data yet</p>
       </div>

@@ -169,7 +169,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="p-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Win Rate
+              Hit Rate
             </p>
             <p
               className={`mt-1 text-2xl font-black tabular-nums ${
