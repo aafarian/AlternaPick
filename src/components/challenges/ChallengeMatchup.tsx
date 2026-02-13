@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import confetti from "canvas-confetti";
 import type { ChallengeDetail } from "@/lib/challenges/queries";
 import { useLiveChallenge } from "@/lib/challenges/use-live-challenge";
 import type { LivePickData } from "@/lib/cards/live-types";
@@ -103,13 +104,11 @@ function PlayerSide({
             {initial}
           </AvatarFallback>
         </Avatar>
-        <span className="text-sm font-semibold">{name}</span>
+        <span className="text-sm font-semibold">
+          {isWinner && <span className="mr-1">👑</span>}
+          {name}
+        </span>
         <span className="text-xs text-muted-foreground">{label}</span>
-        {isWinner && (
-          <Badge variant="secondary" className="bg-neon-green/15 text-neon-green border-neon-green/30">
-            Winner
-          </Badge>
-        )}
       </div>
 
       {/* Card — shared LivePickCard */}
@@ -193,6 +192,32 @@ export default function ChallengeMatchup({
     challenge.winner_id === challenge.opponent_id;
   const isDraw =
     challenge.status === "resolved" && challenge.winner_id === null;
+
+  // Confetti on victory
+  const isWinner = challenge.status === "resolved" && challenge.winner_id === currentUserId;
+  useEffect(() => {
+    if (!isWinner) return;
+    const duration = 1500;
+    const end = Date.now() + duration;
+    const frame = () => {
+      confetti({
+        particleCount: 3,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0, y: 0.6 },
+        colors: ["#00d26a", "#3b82f6", "#fbbf24"],
+      });
+      confetti({
+        particleCount: 3,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1, y: 0.6 },
+        colors: ["#00d26a", "#3b82f6", "#fbbf24"],
+      });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    };
+    frame();
+  }, [isWinner]);
 
   const date = new Date(challenge.created_at).toLocaleDateString("en-US", {
     month: "short",
@@ -301,28 +326,6 @@ export default function ChallengeMatchup({
         </Alert>
       )}
 
-      {/* Winner Banner (resolved only) */}
-      {challenge.status === "resolved" && (
-        <Card
-          className={cn(
-            "border",
-            isDraw
-              ? "border-border bg-muted/10"
-              : challenge.winner_id === currentUserId
-                ? "border-neon-green/30 bg-neon-green/10"
-                : "border-bold-red/30 bg-bold-red/10"
-          )}
-        >
-          <CardContent className="py-3 text-center text-sm font-semibold">
-            {isDraw
-              ? "It's a draw!"
-              : challenge.winner_id === currentUserId
-                ? "You won this challenge!"
-                : `${otherPlayerName} won this challenge`}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Reactions — resolved challenges only */}
       {challenge.status === "resolved" && (
         <div className="flex justify-center">
@@ -369,11 +372,44 @@ export default function ChallengeMatchup({
           liveLoading={shouldFetchLive && !liveData}
         />
 
-        {/* VS badge */}
-        <div className="flex shrink-0 items-center justify-center md:self-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-            VS
-          </div>
+        {/* VS / Result badge */}
+        <div className="flex shrink-0 flex-col items-center justify-center gap-1 md:self-center">
+          {challenge.status === "resolved" ? (
+            <>
+              <div
+                className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold",
+                  isDraw
+                    ? "bg-muted/20 text-muted-foreground"
+                    : challenge.winner_id === currentUserId
+                      ? "bg-neon-green/15 text-neon-green"
+                      : "bg-bold-red/15 text-bold-red"
+                )}
+              >
+                {isDraw ? "TIE" : challenge.winner_id === currentUserId ? "W" : "L"}
+              </div>
+              <span
+                className={cn(
+                  "text-[10px] font-semibold",
+                  isDraw
+                    ? "text-muted-foreground"
+                    : challenge.winner_id === currentUserId
+                      ? "text-neon-green"
+                      : "text-bold-red"
+                )}
+              >
+                {isDraw
+                  ? "Draw"
+                  : challenge.winner_id === currentUserId
+                    ? "Victory"
+                    : "Defeat"}
+              </span>
+            </>
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+              VS
+            </div>
+          )}
         </div>
 
         {/* Opponent Side */}
