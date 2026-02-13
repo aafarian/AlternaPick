@@ -33,13 +33,11 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
   // Progress toward the line
   const rawPct =
     hasValue && pick.line > 0 ? (pick.current_value! / pick.line) * 100 : 0;
-  const displayPct = Math.min(rawPct, 140);
   const pastLine = rawPct >= 100;
 
-  // Scale so bar + line marker stay consistent
-  const scale = Math.max(displayPct, 100);
-  const linePosition = (100 / scale) * 100;
-  const barWidth = (displayPct / scale) * 100;
+  // Line marker fixed at 90%; bar scales within that range or fills 100% when over
+  const linePosition = 90;
+  const barWidth = pastLine ? 100 : (rawPct / 100) * 90;
 
   // Settled: line is decided and won't change
   // - Stats only go up, so once over the line -> settled
@@ -289,20 +287,25 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
 
       {/* Progress bar — always rendered so width animates from 0% when data arrives */}
       <div className="relative h-2 w-full overflow-visible rounded-full bg-secondary/30">
-        {/* Line marker */}
+        {/* Line marker — triangle pointing toward the pick direction */}
         <div
-          className="absolute -top-[3px] z-20 flex flex-col items-center transition-[left] duration-700 ease-out"
+          className="absolute -top-[3px] z-20 transition-[left] duration-700 ease-out"
           style={{
             left: `${linePosition}%`,
             transform: "translateX(-50%)",
           }}
         >
-          <div
-            className={cn(
-              "h-[14px] w-[2px] rounded-full",
-              pastLine ? "bg-foreground/40" : "bg-foreground/80"
+          <svg
+            width="8"
+            height="14"
+            viewBox="0 0 8 14"
+          >
+            {isOver ? (
+              <polygon points="0,0 8,7 0,14" fill="currentColor" className="text-foreground" />
+            ) : (
+              <polygon points="8,0 0,7 8,14" fill="currentColor" className="text-foreground" />
             )}
-          />
+          </svg>
         </div>
 
         {/* Colored fill */}

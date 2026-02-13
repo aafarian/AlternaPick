@@ -131,6 +131,7 @@ export async function POST(request: NextRequest) {
     const games = (gamesResult.data ?? []) as Game[];
     const updated: { odds_team: string; nba_team: string; status: string; nba_game_id: string }[] = [];
     let anyBecameFinal = false;
+    const gamesBecameLive: string[] = []; // DB game IDs that just went live
 
     for (const nbaGame of nbaGames) {
       const homeTeamFull = TRICODE_TO_TEAM[nbaGame.home_tricode];
@@ -175,6 +176,59 @@ export async function POST(request: NextRequest) {
         if (newStatus === "final" && previousStatus !== "final") {
           anyBecameFinal = true;
         }
+
+        // Track games that just went live (scheduled → live)
+        if (newStatus === "live" && previousStatus === "scheduled") {
+          gamesBecameLive.push(match.id);
+        }
+      }
+    }
+
+    // Auto-cancel accepted challenges where only one side locked a card
+    // and any of that card's games just went live (prevents peeking at live picks)
+    let challengesCancelled = 0;
+
+    if (gamesBecameLive.length > 0) {
+      try {
+        // Find accepted challenges (one or both sides may have created cards)
+        const acceptedResult = await (supabase.from("challenges") as any)
+          .select("id")
+          .eq("status", "accepted");
+
+        const acceptedChallenges = (acceptedResult.data ?? []) as { id: string }[];
+
+        for (const challenge of acceptedChallenges) {
+          // Count cards for this challenge
+          const cardsForChallenge = await (supabase.from("cards") as any)
+            .select("id, picks(props(game_id))")
+            .eq("challenge_id", challenge.id)
+            .eq("status", "locked");
+
+          const cards = (cardsForChallenge.data ?? []) as {
+            id: string;
+            picks: { props: { game_id: string } | null }[];
+          }[];
+
+          // Only cancel if exactly one card exists (asymmetric — one side committed, other didn't)
+          if (cards.length !== 1) continue;
+
+          // Check if any of that card's picks reference a game that just went live
+          const hasLiveGame = cards[0].picks.some(
+            (p) => p.props?.game_id && gamesBecameLive.includes(p.props.game_id)
+          );
+
+          if (hasLiveGame) {
+            const { error: cancelError } = await (supabase.from("challenges") as any)
+              .update({ status: "cancelled" })
+              .eq("id", challenge.id);
+
+            if (!cancelError) {
+              challengesCancelled += 1;
+            }
+          }
+        }
+      } catch (cancelError) {
+        console.error("Failed to cancel stale challenges:", cancelError);
       }
     }
 
@@ -198,6 +252,7 @@ export async function POST(request: NextRequest) {
       updated: updated.length,
       games: updated,
       stale_finalized: staleFinalizedCount,
+      challenges_cancelled: challengesCancelled,
       cards_resolved: cardsResolved,
       challenges_resolved: challengesResolved,
     });
