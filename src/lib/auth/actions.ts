@@ -127,7 +127,7 @@ export async function signUp(formData: FormData) {
  * Validates format, checks availability, and updates the profile.
  */
 export async function updateUsername(username: string) {
-  const trimmed = username.trim().toLowerCase();
+  const trimmed = username.trim();
 
   if (!/^[a-zA-Z0-9_]{3,20}$/.test(trimmed)) {
     return { error: "Username must be 3-20 characters, alphanumeric and underscores only" };
@@ -139,11 +139,11 @@ export async function updateUsername(username: string) {
 
   const admin = createAdminClient();
 
-  // Check availability (exclude current user's own row)
+  // Case-insensitive availability check (exclude current user's own row)
   const { data: existing } = await admin
     .from("profiles")
     .select("id")
-    .eq("username", trimmed)
+    .ilike("username", trimmed)
     .neq("id", user.id)
     .maybeSingle();
 

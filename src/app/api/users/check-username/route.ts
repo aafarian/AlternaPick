@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const { data: existing } = await admin
       .from("profiles")
       .select("id")
-      .eq("username", username)
+      .ilike("username", username)
       .maybeSingle();
 
     return NextResponse.json({ available: !existing });
