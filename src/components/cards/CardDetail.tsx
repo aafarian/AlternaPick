@@ -1,14 +1,12 @@
 "use client";
 
 import type { CardWithPicks } from "@/lib/cards/api";
-import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
-import { formatClock } from "@/lib/format";
-import type { StatCategory } from "@/lib/supabase/types";
-import ShareButton from "@/components/cards/ShareButton";
-import PlayerAvatar from "@/components/players/PlayerAvatar";
-import { useLiveStats } from "@/lib/cards/use-live-stats";
+import { toLivePickData } from "@/lib/cards/live-types";
 import type { LivePickData } from "@/lib/cards/live-types";
+import ShareButton from "@/components/cards/ShareButton";
+import { useLiveStats } from "@/lib/cards/use-live-stats";
 import GameScoreBanner from "@/components/live/GameScoreBanner";
+import LivePickRow from "@/components/live/LivePickRow";
 import {
   Card,
   CardHeader,
@@ -17,8 +15,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, XCircle, Clock } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 function StatusBadge({ status, score, total }: { status: string; score: number; total: number }) {
   if (status === "locked") {
@@ -41,57 +37,6 @@ function StatusBadge({ status, score, total }: { status: string; score: number; 
     >
       {score}/{total} Correct
     </Badge>
-  );
-}
-
-function ResultIcon({ result }: { result: string }) {
-  switch (result) {
-    case "hit":
-      return <CheckCircle2 className="h-4 w-4 text-neon-green" />;
-    case "miss":
-      return <XCircle className="h-4 w-4 text-bold-red" />;
-    default:
-      return <Clock className="h-4 w-4 text-amber-400" />;
-  }
-}
-
-function LiveBadge({ pick }: { pick: LivePickData }) {
-  if (!pick.game_status) return null;
-
-  if (pick.game_status.status === "scheduled") {
-    return (
-      <span className="text-[10px] text-muted-foreground">Tip-off pending</span>
-    );
-  }
-
-  if (pick.game_status.status === "live") {
-    return (
-      <Badge variant="secondary" className="gap-1 border-foreground/30 bg-foreground/10 text-[10px] text-foreground">
-        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-foreground" />
-        {formatClock(pick.game_status.period, pick.game_status.clock)}
-      </Badge>
-    );
-  }
-
-  return (
-    <span className="text-[10px] text-muted-foreground">Final</span>
-  );
-}
-
-function LiveValue({ pick }: { pick: LivePickData }) {
-  if (pick.current_value === null) return null;
-
-  return (
-    <span
-      className={cn(
-        "text-xs font-bold tabular-nums",
-        pick.trending === "hit" && "text-neon-green",
-        pick.trending === "miss" && "text-bold-red",
-        pick.trending === "push" && "text-amber-400"
-      )}
-    >
-      {pick.current_value}
-    </span>
   );
 }
 
@@ -136,53 +81,25 @@ export default function CardDetail({ card }: { card: CardWithPicks }) {
 
       <Separator />
 
-      <CardContent className="flex flex-col gap-1 p-2">
+      <CardContent className="flex flex-col gap-0 p-0">
         {card.picks.map((pick) => {
-          const statCat = (pick.props?.stat_category ?? "points") as StatCategory;
-          const livePick = livePickMap.get(pick.id);
-          return (
-            <div
-              key={pick.id}
-              className="flex flex-wrap items-center justify-between gap-1 rounded-lg bg-background/50 px-3 py-2.5"
-            >
-              <div className="flex min-w-0 items-center gap-2">
-                <ResultIcon result={pick.result} />
-                <PlayerAvatar
-                  playerId={pick.props?.player_id ?? null}
-                  playerName={pick.props?.player_name ?? "Unknown"}
-                  size="sm"
-                />
-                <span className="truncate text-sm font-bold">
-                  {pick.props?.player_name ?? "Unknown"}
-                </span>
-                <Badge variant="secondary" className={cn("text-[10px] font-bold uppercase tracking-wider", CATEGORY_COLORS[statCat] ?? "")}>
-                  {CATEGORY_LABELS[statCat] ?? statCat}
-                </Badge>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {livePick && <LiveValue pick={livePick} />}
-                <span className="text-sm font-black tabular-nums">
-                  {pick.props?.line ?? "\u2014"}
-                </span>
-                <Badge
-                  variant="secondary"
-                  className={
-                    pick.selection === "over"
-                      ? "border-neon-green/30 bg-neon-green/15 text-neon-green"
-                      : "border-bold-red/30 bg-bold-red/15 text-bold-red"
-                  }
-                >
-                  {pick.selection === "over" ? "Over" : "Under"}
-                </Badge>
-                {livePick && <LiveBadge pick={livePick} />}
-                {!livePick && pick.actual_value !== null && (
-                  <span className="hidden text-xs text-muted-foreground sm:inline">
-                    Actual: {pick.actual_value}
-                  </span>
-                )}
-              </div>
-            </div>
-          );
+          // Use live data if available, otherwise convert the static pick
+          const livePick = livePickMap.get(pick.id) ?? toLivePickData({
+            id: pick.id,
+            selection: pick.selection,
+            result: pick.result,
+            actual_value: pick.actual_value,
+            prop: pick.props ? {
+              id: pick.prop_id,
+              player_name: pick.props.player_name,
+              player_id: pick.props.player_id,
+              stat_category: pick.props.stat_category,
+              line: pick.props.line,
+              game_id: pick.props.game_id,
+            } : null,
+          });
+
+          return <LivePickRow key={pick.id} pick={livePick} />;
         })}
       </CardContent>
 
