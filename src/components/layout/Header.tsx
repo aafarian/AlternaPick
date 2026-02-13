@@ -87,7 +87,7 @@ export default function Header() {
               }
             />
           )}
-          {user && (
+          {user ? (
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -107,7 +107,13 @@ export default function Header() {
                 />
               </SheetContent>
             </Sheet>
-          )}
+          ) : !loading ? (
+            <Link href="/auth/login">
+              <Button variant="default" size="sm">
+                Sign In
+              </Button>
+            </Link>
+          ) : null}
         </div>
       </div>
     </header>
