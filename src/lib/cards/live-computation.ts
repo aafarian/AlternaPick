@@ -1,5 +1,6 @@
 import { extractStatValue, fuzzyMatchPlayer } from "@/lib/cards/resolution";
 import {
+  fetchBoxscore,
   fetchBoxscoreLive,
   fetchTodaysGamesLive,
   type PlayerBoxScore,
@@ -157,11 +158,11 @@ export function buildLivePicksForCard(
 }
 
 /**
- * Fetches live game statuses and boxscores, skipping stale/final games.
+ * Fetches live game statuses and boxscores for today's games.
  * Returns gameStatusMap and boxscoreMap ready for buildLivePicksForCard().
  *
  * Strategy:
- * 1. Collect nba_game_ids that are NOT "final" in DB
+ * 1. Collect all nba_game_ids from picks
  * 2. Fetch today's games first (fast, 30s cached)
  * 3. Only fetch boxscores for games that are in today's schedule
  *    (skips yesterday's stale games that would timeout)
@@ -172,12 +173,14 @@ export async function fetchLiveMaps(
   gameStatusMap: Map<string, StatsGame>;
   boxscoreMap: Map<string, PlayerBoxScore[]>;
 }> {
-  // Collect nba_game_ids that need live data (not final in DB)
+  // Collect nba_game_ids that need live data.
+  // Include "final" games — they may have ended today and still have
+  // boxscores available. The todayIds filter below ensures we only
+  // fetch boxscores for games in today's schedule (skips stale games).
   const candidateIds = new Set<string>();
   for (const pick of picks) {
     const nbaId = pick.props?.games?.nba_game_id;
-    const dbStatus = pick.props?.games?.status;
-    if (nbaId && dbStatus !== "final") {
+    if (nbaId) {
       candidateIds.add(nbaId);
     }
   }
@@ -198,14 +201,39 @@ export async function fetchLiveMaps(
   // Step 2: Only fetch boxscores for games that are in today's schedule
   const todayIds = Array.from(candidateIds).filter((id) => gameStatusMap.has(id));
 
-  if (todayIds.length > 0) {
-    const results = await Promise.all(
-      todayIds.map((gid) => fetchBoxscoreLive(gid).catch(() => [] as PlayerBoxScore[]))
+  // Split by status: live games use the cached /live endpoint,
+  // final games use the regular endpoint (the /live variant may not
+  // return data for finished games)
+  const liveIds = todayIds.filter((id) => gameStatusMap.get(id)?.status === "live");
+  const finalIds = todayIds.filter((id) => gameStatusMap.get(id)?.status === "final");
+
+  const fetches: Promise<void>[] = [];
+
+  if (liveIds.length > 0) {
+    fetches.push(
+      Promise.all(
+        liveIds.map((gid) => fetchBoxscoreLive(gid).catch(() => [] as PlayerBoxScore[]))
+      ).then((results) => {
+        for (let i = 0; i < liveIds.length; i++) {
+          boxscoreMap.set(liveIds[i], results[i]);
+        }
+      })
     );
-    for (let i = 0; i < todayIds.length; i++) {
-      boxscoreMap.set(todayIds[i], results[i]);
-    }
   }
+
+  if (finalIds.length > 0) {
+    fetches.push(
+      Promise.all(
+        finalIds.map((gid) => fetchBoxscore(gid).catch(() => [] as PlayerBoxScore[]))
+      ).then((results) => {
+        for (let i = 0; i < finalIds.length; i++) {
+          boxscoreMap.set(finalIds[i], results[i]);
+        }
+      })
+    );
+  }
+
+  await Promise.all(fetches);
 
   return { gameStatusMap, boxscoreMap };
 }

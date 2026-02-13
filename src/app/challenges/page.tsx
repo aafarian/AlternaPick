@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import ChallengeCard from "@/components/challenges/ChallengeCard";
 import CreateChallengeModal from "@/components/challenges/CreateChallengeModal";
@@ -25,7 +24,6 @@ const TABS: { key: TabKey; label: string }[] = [
 
 export default function ChallengesPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
 
   const [challenges, setChallenges] = useState<ChallengeWithProfiles[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,12 +59,9 @@ export default function ChallengesPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
-      router.push("/auth/login?redirectTo=/challenges");
-      return;
-    }
+    if (!user) return;
     fetchChallenges();
-  }, [user, authLoading, router, fetchChallenges]);
+  }, [user, authLoading, fetchChallenges]);
 
   const handleAction = async (
     challengeId: string,

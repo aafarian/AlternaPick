@@ -306,11 +306,18 @@ export default function CreateChallengeModal({
                   ))}
                 </div>
               ) : filteredFriends.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  {friends.length === 0
-                    ? "No friends yet. Add friends first!"
-                    : "No friends match your search."}
-                </p>
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  {friends.length === 0 ? (
+                    <>
+                      <p>No friends yet.</p>
+                      <a href="/friends" className="text-primary underline hover:text-primary/80">
+                        Add friends first!
+                      </a>
+                    </>
+                  ) : (
+                    <p>No friends match your search.</p>
+                  )}
+                </div>
               ) : (
                 <div className="flex flex-col gap-1 p-1">
                   {filteredFriends.map((friend) => {

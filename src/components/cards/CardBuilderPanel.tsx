@@ -38,6 +38,7 @@ export default function CardBuilderPanel() {
     showSuccess,
     hideSuccess,
     isFull,
+    canLockIn,
   } = useCardBuilder();
   const { picks, isLocking, error, challengeId, challengeOpponent, gameMode } = state;
   const redirectRef = useRef<string | null>(null);
@@ -160,7 +161,7 @@ export default function CardBuilderPanel() {
   }
 
   async function handleLockIn() {
-    if (!isFull || isLocking) return;
+    if (!canLockIn || isLocking) return;
 
     setLocking(true);
     setError(null);
@@ -191,7 +192,7 @@ export default function CardBuilderPanel() {
         <CardSuccessAnimation onDismiss={handleAnimationDismiss} />
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 z-50">
+      <div className="fixed bottom-0 left-0 right-0 z-50 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0">
         {/* Challenge picker panel — sits ABOVE the bar */}
         {showChallengePicker && (
           <div className="border-t border-orange-500/30 bg-surface/95 backdrop-blur-xl">
@@ -216,7 +217,7 @@ export default function CardBuilderPanel() {
                     ))}
                   </div>
                 ) : friends.length === 0 ? (
-                  <span className="text-xs text-muted-foreground">No friends yet. Add friends first!</span>
+                  <span className="text-xs text-muted-foreground">No friends yet. <a href="/friends" className="text-primary underline">Add friends</a></span>
                 ) : (() => {
                   const query = friendSearch.toLowerCase().trim();
                   const filtered = query
@@ -357,11 +358,11 @@ export default function CardBuilderPanel() {
                   /* Existing challenge — single Lock In button */
                   <Button
                     onClick={handleLockIn}
-                    disabled={!isFull || isLocking}
+                    disabled={!canLockIn || isLocking}
                     size="sm"
                     className={cn(
                       "font-bold",
-                      isFull && !isLocking && "animate-pulse shadow-[0_0_20px_rgba(249,115,22,0.4)]",
+                      canLockIn && !isLocking && "animate-pulse shadow-[0_0_20px_rgba(249,115,22,0.4)]",
                       "bg-orange-500 text-white hover:bg-orange-600"
                     )}
                   >
@@ -382,11 +383,11 @@ export default function CardBuilderPanel() {
                   <>
                     <Button
                       onClick={handleLockIn}
-                      disabled={!isFull || isLocking || creatingChallenge}
+                      disabled={!canLockIn || isLocking || creatingChallenge}
                       size="sm"
                       className={cn(
                         "font-bold",
-                        isFull && !isLocking && !creatingChallenge && "animate-pulse shadow-[0_0_20px_rgba(0,210,106,0.4)]"
+                        canLockIn && !isLocking && !creatingChallenge && "animate-pulse shadow-[0_0_20px_rgba(0,210,106,0.4)]"
                       )}
                     >
                       {isLocking ? (

@@ -137,14 +137,16 @@ export default function ChallengeMatchup({
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Live stats polling — enabled when either card is locked
-  const hasLockedCards =
+  // Live stats — enabled when cards are locked (polling) or challenge is
+  // resolved (single fetch for final scores so users can see results)
+  const shouldFetchLive =
     challenge.challenger_card?.status === "locked" ||
-    challenge.opponent_card?.status === "locked";
+    challenge.opponent_card?.status === "locked" ||
+    challenge.status === "resolved";
 
   const { data: liveData, isLoading: liveLoading } = useLiveChallenge(
     challenge.id,
-    hasLockedCards
+    shouldFetchLive
   );
 
   // Build live pick maps
@@ -358,7 +360,7 @@ export default function ChallengeMatchup({
           showPicks={isChallenger ? showMyPicks : showTheirPicks}
           livePickMap={challengerLivePickMap}
           hasLiveGames={liveData?.challenger_card?.has_live_games ?? false}
-          liveLoading={hasLockedCards && !liveData}
+          liveLoading={shouldFetchLive && !liveData}
         />
 
         {/* VS badge */}
@@ -378,7 +380,7 @@ export default function ChallengeMatchup({
           showPicks={isChallenger ? showTheirPicks : showMyPicks}
           livePickMap={opponentLivePickMap}
           hasLiveGames={liveData?.opponent_card?.has_live_games ?? false}
-          liveLoading={hasLockedCards && !liveData}
+          liveLoading={shouldFetchLive && !liveData}
         />
       </div>
 

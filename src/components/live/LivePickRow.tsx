@@ -249,7 +249,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
             </span>
           ) : isFinal ? (
             <span className="text-xs font-medium leading-none text-muted-foreground/50">
-              N/A
+              Pending
             </span>
           ) : (
             <span className="text-base leading-none text-muted-foreground/30">
@@ -279,7 +279,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
       </div>
 
       {/* Progress bar */}
-      {!hasValue && isPreGame && (
+      {!hasValue && (isPreGame || isFinal) && (
         <div className="relative h-2 w-full rounded-full bg-secondary/20" />
       )}
       {hasValue && (

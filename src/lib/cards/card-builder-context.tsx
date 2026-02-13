@@ -35,6 +35,7 @@ interface CardBuilderContextValue {
   showSuccess: () => void;
   hideSuccess: () => void;
   isFull: boolean;
+  canLockIn: boolean;
 }
 
 const CardBuilderContext = createContext<CardBuilderContextValue | null>(null);
@@ -122,6 +123,7 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
   );
 
   const isFull = state.picks.length >= state.cardSize;
+  const canLockIn = state.picks.length >= 2;
 
   return (
     <CardBuilderContext.Provider
@@ -141,6 +143,7 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
         showSuccess: showSuccessFn,
         hideSuccess: hideSuccessFn,
         isFull,
+        canLockIn,
       }}
     >
       {children}

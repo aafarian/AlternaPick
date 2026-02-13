@@ -12,7 +12,7 @@ export default function PropsLayout({ children }: { children: ReactNode }) {
       <Suspense fallback={null}>
         <ChallengeInitializer />
       </Suspense>
-      <div className="pb-24">{children}</div>
+      <div className="pb-36 md:pb-24">{children}</div>
       <CardBuilderPanel />
     </CardBuilderProvider>
   );
