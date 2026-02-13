@@ -10,6 +10,9 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, GameMode, StatCategory } from "@/lib/supabase/types";
+
+/** Resolved mode filter: undefined or "all" means no filtering. */
+type ModeFilter = GameMode | "all" | undefined;
 import type {
   CategoryStats,
   PlayerStats,
@@ -52,13 +55,20 @@ interface ResolvedCardRow {
  */
 async function fetchResolvedPicks(
   supabase: SupabaseClient<Database>,
-  userId: string
+  userId: string,
+  mode?: ModeFilter
 ): Promise<ResolvedPickRow[]> {
   // Step 1 – get card IDs belonging to this user that are resolved
-  const cardsResult = await (supabase.from("cards") as any)
+  let cardsQuery = (supabase.from("cards") as any)
     .select("id")
     .eq("user_id", userId)
     .eq("status", "resolved");
+
+  if (mode && mode !== "all") {
+    cardsQuery = cardsQuery.eq("game_mode", mode);
+  }
+
+  const cardsResult = await cardsQuery;
 
   if (cardsResult.error || !cardsResult.data) return [];
 
@@ -84,12 +94,19 @@ async function fetchResolvedPicks(
  */
 async function fetchResolvedCards(
   supabase: SupabaseClient<Database>,
-  userId: string
+  userId: string,
+  mode?: ModeFilter
 ): Promise<ResolvedCardRow[]> {
-  const result = await (supabase.from("cards") as any)
+  let query = (supabase.from("cards") as any)
     .select("id, card_size, game_mode, score, total_picks, resolved_at")
     .eq("user_id", userId)
     .eq("status", "resolved");
+
+  if (mode && mode !== "all") {
+    query = query.eq("game_mode", mode);
+  }
+
+  const result = await query;
 
   if (result.error || !result.data) return [];
 
@@ -103,9 +120,10 @@ async function fetchResolvedCards(
  */
 export async function getCategoryStats(
   supabase: SupabaseClient<Database>,
-  userId: string
+  userId: string,
+  mode?: ModeFilter
 ): Promise<CategoryStats[]> {
-  const picks = await fetchResolvedPicks(supabase, userId);
+  const picks = await fetchResolvedPicks(supabase, userId, mode);
 
   const map = new Map<StatCategory, { hits: number; total: number }>();
 
@@ -140,9 +158,10 @@ export async function getCategoryStats(
 export async function getPlayerStats(
   supabase: SupabaseClient<Database>,
   userId: string,
-  limit: number = 10
+  limit: number = 10,
+  mode?: ModeFilter
 ): Promise<PlayerStats[]> {
-  const picks = await fetchResolvedPicks(supabase, userId);
+  const picks = await fetchResolvedPicks(supabase, userId, mode);
 
   const map = new Map<string, { hits: number; total: number }>();
 
@@ -176,9 +195,10 @@ export async function getPlayerStats(
  */
 export async function getDirectionStats(
   supabase: SupabaseClient<Database>,
-  userId: string
+  userId: string,
+  mode?: ModeFilter
 ): Promise<DirectionStats> {
-  const picks = await fetchResolvedPicks(supabase, userId);
+  const picks = await fetchResolvedPicks(supabase, userId, mode);
 
   const stats: DirectionStats = {
     over: { hits: 0, total: 0, rate: 0 },
@@ -212,18 +232,25 @@ export async function getDirectionStats(
 export async function getTrendData(
   supabase: SupabaseClient<Database>,
   userId: string,
-  days: number = 30
+  days: number = 30,
+  mode?: ModeFilter
 ): Promise<TrendPoint[]> {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
   const cutoffISO = cutoff.toISOString();
 
   // Step 1 – get resolved cards in the date range
-  const cardsResult = await (supabase.from("cards") as any)
+  let cardsQuery = (supabase.from("cards") as any)
     .select("id, resolved_at")
     .eq("user_id", userId)
     .eq("status", "resolved")
     .gte("resolved_at", cutoffISO);
+
+  if (mode && mode !== "all") {
+    cardsQuery = cardsQuery.eq("game_mode", mode);
+  }
+
+  const cardsResult = await cardsQuery;
 
   if (cardsResult.error || !cardsResult.data) return [];
 
@@ -292,9 +319,10 @@ export async function getTrendData(
  */
 export async function getCardSizeStats(
   supabase: SupabaseClient<Database>,
-  userId: string
+  userId: string,
+  mode?: ModeFilter
 ): Promise<CardSizeStats[]> {
-  const cards = await fetchResolvedCards(supabase, userId);
+  const cards = await fetchResolvedCards(supabase, userId, mode);
 
   const map = new Map<
     number,
@@ -330,9 +358,10 @@ export async function getCardSizeStats(
 export async function getTeamStats(
   supabase: SupabaseClient<Database>,
   userId: string,
-  limit: number = 10
+  limit: number = 10,
+  mode?: ModeFilter
 ): Promise<TeamStats[]> {
-  const picks = await fetchResolvedPicks(supabase, userId);
+  const picks = await fetchResolvedPicks(supabase, userId, mode);
 
   const map = new Map<string, { hits: number; total: number }>();
 
@@ -366,9 +395,10 @@ export async function getTeamStats(
  */
 export async function getScoreDistribution(
   supabase: SupabaseClient<Database>,
-  userId: string
+  userId: string,
+  mode?: ModeFilter
 ): Promise<ScoreDistributionEntry[]> {
-  const cards = await fetchResolvedCards(supabase, userId);
+  const cards = await fetchResolvedCards(supabase, userId, mode);
 
   // Group by (cardSize, score) -> count
   const map = new Map<string, number>();
