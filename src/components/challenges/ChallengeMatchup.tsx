@@ -86,24 +86,32 @@ function PlayerSide({
     <div className="flex flex-1 flex-col gap-3">
       {/* Player identity */}
       <div className="flex flex-col items-center gap-2">
-        <Avatar
-          className={cn(
-            "h-14 w-14",
-            isWinner && "ring-2 ring-neon-green"
+        <div className="flex items-center gap-2">
+          {isWinner && (
+            <span className="text-lg text-neon-green animate-pulse">✦</span>
           )}
-        >
-          {avatarUrl && <AvatarImage src={avatarUrl} alt={name} />}
-          <AvatarFallback
+          <Avatar
             className={cn(
-              "text-lg font-bold",
-              isWinner
-                ? "bg-neon-green/20 text-neon-green"
-                : "bg-primary/10 text-primary"
+              "h-14 w-14",
+              isWinner && "ring-2 ring-neon-green"
             )}
           >
-            {initial}
-          </AvatarFallback>
-        </Avatar>
+            {avatarUrl && <AvatarImage src={avatarUrl} alt={name} />}
+            <AvatarFallback
+              className={cn(
+                "text-lg font-bold",
+                isWinner
+                  ? "bg-neon-green/20 text-neon-green"
+                  : "bg-primary/10 text-primary"
+              )}
+            >
+              {initial}
+            </AvatarFallback>
+          </Avatar>
+          {isWinner && (
+            <span className="text-lg text-neon-green animate-pulse">✦</span>
+          )}
+        </div>
         <span className="text-sm font-semibold">
           {isWinner && <span className="mr-1">👑</span>}
           {name}
@@ -365,7 +373,7 @@ export default function ChallengeMatchup({
       <div className="flex flex-col items-stretch gap-6 md:flex-row md:gap-4">
         {/* Challenger Side */}
         <PlayerSide
-          label="Challenger"
+          label={isChallenger ? "You" : "Opponent"}
           name={challengerName}
           avatarUrl={challenge.challenger.avatar_url}
           card={challenge.challenger_card}
@@ -376,49 +384,16 @@ export default function ChallengeMatchup({
           liveLoading={shouldFetchLive && !liveData}
         />
 
-        {/* VS / Result badge */}
-        <div className="flex shrink-0 flex-col items-center justify-center gap-1 md:self-center">
-          {challenge.status === "resolved" ? (
-            <>
-              <div
-                className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold",
-                  isDraw
-                    ? "bg-muted/20 text-muted-foreground"
-                    : challenge.winner_id === currentUserId
-                      ? "bg-neon-green/15 text-neon-green"
-                      : "bg-bold-red/15 text-bold-red"
-                )}
-              >
-                {isDraw ? "TIE" : challenge.winner_id === currentUserId ? "W" : "L"}
-              </div>
-              <span
-                className={cn(
-                  "text-[10px] font-semibold",
-                  isDraw
-                    ? "text-muted-foreground"
-                    : challenge.winner_id === currentUserId
-                      ? "text-neon-green"
-                      : "text-bold-red"
-                )}
-              >
-                {isDraw
-                  ? "Draw"
-                  : challenge.winner_id === currentUserId
-                    ? "Victory"
-                    : "Defeat"}
-              </span>
-            </>
-          ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-              VS
-            </div>
-          )}
+        {/* VS badge */}
+        <div className="flex shrink-0 items-center justify-center md:self-center">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+            VS
+          </div>
         </div>
 
         {/* Opponent Side */}
         <PlayerSide
-          label="Opponent"
+          label={isChallenger ? "Opponent" : "You"}
           name={opponentName}
           avatarUrl={challenge.opponent.avatar_url}
           card={challenge.opponent_card}

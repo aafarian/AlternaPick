@@ -299,10 +299,6 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
             width="8"
             height="14"
             viewBox="0 0 8 14"
-            className={cn(
-              "transition-opacity",
-              pastLine ? "opacity-40" : "opacity-80"
-            )}
           >
             {isOver ? (
               <polygon points="0,0 8,7 0,14" fill="currentColor" className="text-foreground" />
