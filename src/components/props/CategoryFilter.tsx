@@ -4,7 +4,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { StatCategory } from "@/lib/supabase/types";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const CATEGORIES: { value: StatCategory | "all"; label: string }[] = [
+type CategoryOption = { value: StatCategory | "all"; label: string };
+
+const NBA_CATEGORIES: CategoryOption[] = [
   { value: "all", label: "All" },
   { value: "points", label: "Points" },
   { value: "rebounds", label: "Rebounds" },
@@ -20,10 +22,21 @@ const CATEGORIES: { value: StatCategory | "all"; label: string }[] = [
   { value: "blk_stl", label: "Blk+Stl" },
 ];
 
-export default function CategoryFilter() {
+const EPL_CATEGORIES: CategoryOption[] = [
+  { value: "all", label: "All" },
+  { value: "shots", label: "Shots" },
+  { value: "shots_on_target", label: "On Target" },
+  { value: "goals", label: "Goals" },
+  { value: "assists", label: "Assists" },
+];
+
+export default function CategoryFilter({ sport = "nba" }: { sport?: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const active = searchParams.get("category") ?? "points";
+
+  const defaultCategory = sport === "epl" ? "shots" : "points";
+  const active = searchParams.get("category") ?? defaultCategory;
+  const categories = sport === "epl" ? EPL_CATEGORIES : NBA_CATEGORIES;
 
   function handleChange(value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -33,12 +46,12 @@ export default function CategoryFilter() {
 
   return (
     <Tabs value={active} onValueChange={handleChange}>
-      <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto bg-transparent p-0 scrollbar-none">
-        {CATEGORIES.map(({ value, label }) => (
+      <TabsList className="h-auto w-fit justify-start gap-1.5 overflow-x-auto bg-transparent p-0 scrollbar-none">
+        {categories.map(({ value, label }) => (
           <TabsTrigger
             key={value}
             value={value}
-            className="shrink-0 cursor-pointer rounded-full border border-border bg-secondary px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-all data-[state=active]:border-primary data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-[0_0_10px_rgba(0,210,106,0.15)]"
+            className="flex-none cursor-pointer rounded-full border border-border bg-secondary px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-all data-[state=active]:border-primary data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-[0_0_10px_rgba(0,210,106,0.15)]"
           >
             {label}
           </TabsTrigger>

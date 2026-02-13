@@ -66,6 +66,14 @@ export interface PlayerBoxScore {
   free_throws_attempted: number;
   plus_minus: number;
   fouls: number;
+  // Soccer-specific stats (optional, present when fetched from soccer endpoints)
+  goals?: number;
+  shots?: number;
+  shots_on_target?: number;
+  tackles?: number;
+  passes?: number;
+  fouls_committed?: number;
+  saves?: number;
 }
 
 class StatsServiceError extends Error {
@@ -119,6 +127,8 @@ async function fetchWithRetry(
   }
   throw new StatsServiceError("Stats service unreachable", 503);
 }
+
+// --- NBA endpoints ---
 
 export async function fetchTodaysGames(): Promise<StatsGame[]> {
   const response = await fetchWithRetry(
@@ -187,6 +197,64 @@ export async function fetchTodaysGamesLive(): Promise<StatsGame[]> {
 
   const response = await fetchWithRetry(
     `${STATS_SERVICE_URL}/games/today/live`
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result);
+  return result;
+}
+
+// --- Soccer (EPL) endpoints ---
+
+export async function fetchSoccerGames(): Promise<StatsGame[]> {
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/soccer/games/today`
+  );
+  const data = await response.json();
+  return data.data ?? [];
+}
+
+export async function fetchSoccerGamesLive(): Promise<StatsGame[]> {
+  const cacheKey = "soccerGamesLive";
+  const cached = getCached<StatsGame[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/soccer/games/today/live`
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result);
+  return result;
+}
+
+export async function fetchSoccerBoxscore(
+  fixtureId: string
+): Promise<PlayerBoxScore[]> {
+  const cacheKey = `soccerBoxscore:${fixtureId}`;
+  const cached = getCached<PlayerBoxScore[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/soccer/games/${fixtureId}/boxscore`,
+    0
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  return result;
+}
+
+export async function fetchSoccerBoxscoreLive(
+  fixtureId: string
+): Promise<PlayerBoxScore[]> {
+  const cacheKey = `soccerBoxscoreLive:${fixtureId}`;
+  const cached = getCached<PlayerBoxScore[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/soccer/games/${fixtureId}/boxscore/live`,
+    0
   );
   const data = await response.json();
   const result = data.data ?? [];

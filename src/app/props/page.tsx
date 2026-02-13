@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { getCachedProps } from "@/lib/odds-api/cache";
+import type { SportKey } from "@/lib/odds-api/constants";
 import type { StatCategory } from "@/lib/supabase/types";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/helpers";
@@ -7,6 +8,7 @@ import { getCategoryStats, getPlayerStats } from "@/lib/analytics/queries";
 import type { EdgeMap } from "@/lib/analytics/types";
 import { teamMatchesQuery } from "@/lib/constants";
 import PropsHeader from "@/components/props/PropsHeader";
+import SportSelector from "@/components/props/SportSelector";
 import CategoryFilter from "@/components/props/CategoryFilter";
 import PlayerSearch from "@/components/props/PlayerSearch";
 import PropsGameList from "@/components/props/PropsGameList";
@@ -18,17 +20,22 @@ const EDGE_MIN_RATE = 0.65;
 const EDGE_MIN_TOTAL = 5;
 
 interface PropsPageProps {
-  searchParams: Promise<{ category?: string; player?: string }>;
+  searchParams: Promise<{ category?: string; player?: string; sport?: string }>;
 }
 
 export default async function PropsPage({ searchParams }: PropsPageProps) {
-  const { category: rawCategory, player } = await searchParams;
+  const { category: rawCategory, player, sport: rawSport } = await searchParams;
+
+  // Determine sport (default to NBA)
+  const sport: SportKey = rawSport === "epl" ? "epl" : "nba";
+  const defaultCategory = sport === "epl" ? "shots" : "points";
+  const emptyEmoji = sport === "epl" ? "\u26BD" : "\uD83C\uDFC0";
 
   // Fetch props with a timeout so the page never hangs
   let games: Awaited<ReturnType<typeof getCachedProps>> = null;
   try {
     const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000));
-    games = await Promise.race([getCachedProps(), timeout]);
+    games = await Promise.race([getCachedProps(sport), timeout]);
   } catch {
     games = null;
   }
@@ -62,8 +69,8 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
     // If analytics fetch fails, continue without edge data
   }
 
-  // Default to "points" when no category param; "all" shows everything
-  const category = rawCategory ?? "points";
+  // Default category per sport when no category param; "all" shows everything
+  const category = rawCategory ?? defaultCategory;
   const isAll = category === "all";
 
   const playerQuery = player?.trim().toLowerCase() ?? "";
@@ -135,18 +142,22 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
 
       <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-3 bg-background px-4 pb-3 pt-2">
         <Suspense fallback={null}>
+          <SportSelector />
+        </Suspense>
+
+        <Suspense fallback={null}>
           <PlayerSearch />
         </Suspense>
 
         <Suspense fallback={null}>
-          <CategoryFilter />
+          <CategoryFilter sport={sport} />
         </Suspense>
       </div>
 
       {withProps.length === 0 ? (
         <Card className="border-border bg-card">
           <CardContent className="flex flex-col items-center gap-4 py-20 text-center">
-            <span className="text-5xl">🏀</span>
+            <span className="text-5xl">{emptyEmoji}</span>
             {playerQuery || category ? (
               <>
                 <h2 className="text-xl font-bold">No props found</h2>

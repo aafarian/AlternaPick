@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchTodaysGames } from "@/lib/stats-service/client";
+import { fetchTodaysGames, fetchSoccerGames } from "@/lib/stats-service/client";
 import { resolveEligibleCards } from "@/lib/cards/resolution";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import { unauthorized, serverError, handleApiError } from "@/lib/api/errors";
@@ -87,30 +87,6 @@ export async function POST(request: NextRequest) {
 
     const nbaGames = await fetchTodaysGames();
 
-    if (nbaGames.length === 0) {
-      // No NBA games today — but still resolve if stale games were finalized
-      let cardsResolved = 0;
-      let challengesResolved = 0;
-      if (staleFinalizedCount > 0) {
-        try {
-          const cardResults = await resolveEligibleCards();
-          cardsResolved = cardResults.length;
-          const challengeResults = await resolveEligibleChallenges();
-          challengesResolved = challengeResults.length;
-        } catch (resolveError) {
-          console.error("Auto-resolution error:", resolveError);
-        }
-      }
-      return NextResponse.json({
-        updated: 0,
-        games: [],
-        stale_finalized: staleFinalizedCount,
-        cards_resolved: cardsResolved,
-        challenges_resolved: challengesResolved,
-        message: "No NBA games today",
-      });
-    }
-
     // Get today's games from Supabase
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
@@ -118,70 +94,133 @@ export async function POST(request: NextRequest) {
     tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
     tomorrowEnd.setHours(23, 59, 59, 999);
 
-    const gamesResult = await supabase
-      .from("games")
-      .select("*")
-      .gte("commence_time", todayStart.toISOString())
-      .lte("commence_time", tomorrowEnd.toISOString());
-
-    if (gamesResult.error) {
-      return serverError("Failed to fetch games from DB", gamesResult.error.message);
-    }
-
-    const games = (gamesResult.data ?? []) as Game[];
     const updated: { odds_team: string; nba_team: string; status: string; nba_game_id: string }[] = [];
     let anyBecameFinal = false;
-    const gamesBecameLive: string[] = []; // DB game IDs that just went live
+    const gamesBecameLive: string[] = [];
 
-    for (const nbaGame of nbaGames) {
-      const homeTeamFull = TRICODE_TO_TEAM[nbaGame.home_tricode];
-      const awayTeamFull = TRICODE_TO_TEAM[nbaGame.away_tricode];
+    if (nbaGames.length > 0) {
+      const gamesResult = await supabase
+        .from("games")
+        .select("*")
+        .gte("commence_time", todayStart.toISOString())
+        .lte("commence_time", tomorrowEnd.toISOString());
 
-      // Find matching DB game by team names
-      const match = games.find((g) => {
-        const homeMatch =
-          g.home_team === homeTeamFull ||
-          g.home_team.includes(nbaGame.home_team) ||
-          nbaGame.home_team.includes(g.home_team.split(" ").pop() ?? "");
-        const awayMatch =
-          g.away_team === awayTeamFull ||
-          g.away_team.includes(nbaGame.away_team) ||
-          nbaGame.away_team.includes(g.away_team.split(" ").pop() ?? "");
-        return homeMatch && awayMatch;
-      });
+      if (gamesResult.error) {
+        return serverError("Failed to fetch games from DB", gamesResult.error.message);
+      }
 
-      if (!match) continue;
+      const games = (gamesResult.data ?? []) as Game[];
 
-      const newStatus = mapNbaStatus(nbaGame.status);
-      const previousStatus = match.status;
+      for (const nbaGame of nbaGames) {
+        const homeTeamFull = TRICODE_TO_TEAM[nbaGame.home_tricode];
+        const awayTeamFull = TRICODE_TO_TEAM[nbaGame.away_tricode];
 
-      const { error: updateError } = await (supabase.from("games") as any)
-        .update({
-          status: newStatus,
-          home_score: nbaGame.home_score,
-          away_score: nbaGame.away_score,
-          nba_game_id: nbaGame.game_id,
-        })
-        .eq("id", match.id);
-
-      if (!updateError) {
-        updated.push({
-          odds_team: `${match.away_team} @ ${match.home_team}`,
-          nba_team: `${nbaGame.away_team} @ ${nbaGame.home_team}`,
-          status: newStatus,
-          nba_game_id: nbaGame.game_id,
+        // Find matching DB game by team names
+        const match = games.find((g) => {
+          const homeMatch =
+            g.home_team === homeTeamFull ||
+            g.home_team.includes(nbaGame.home_team) ||
+            nbaGame.home_team.includes(g.home_team.split(" ").pop() ?? "");
+          const awayMatch =
+            g.away_team === awayTeamFull ||
+            g.away_team.includes(nbaGame.away_team) ||
+            nbaGame.away_team.includes(g.away_team.split(" ").pop() ?? "");
+          return homeMatch && awayMatch;
         });
 
-        // Track if any game just transitioned to final
-        if (newStatus === "final" && previousStatus !== "final") {
-          anyBecameFinal = true;
-        }
+        if (!match) continue;
 
-        // Track games that just went live (scheduled → live)
-        if (newStatus === "live" && previousStatus === "scheduled") {
-          gamesBecameLive.push(match.id);
+        const newStatus = mapNbaStatus(nbaGame.status);
+        const previousStatus = match.status;
+
+        const { error: updateError } = await (supabase.from("games") as any)
+          .update({
+            status: newStatus,
+            home_score: nbaGame.home_score,
+            away_score: nbaGame.away_score,
+            nba_game_id: nbaGame.game_id,
+          })
+          .eq("id", match.id);
+
+        if (!updateError) {
+          updated.push({
+            odds_team: `${match.away_team} @ ${match.home_team}`,
+            nba_team: `${nbaGame.away_team} @ ${nbaGame.home_team}`,
+            status: newStatus,
+            nba_game_id: nbaGame.game_id,
+          });
+
+          if (newStatus === "final" && previousStatus !== "final") {
+            anyBecameFinal = true;
+          }
+
+          if (newStatus === "live" && previousStatus === "scheduled") {
+            gamesBecameLive.push(match.id);
+          }
         }
       }
+    }
+
+    // --- Soccer (EPL) game sync ---
+    try {
+      const soccerGames = await fetchSoccerGames();
+
+      if (soccerGames.length > 0) {
+        const eplGamesResult = await supabase
+          .from("games")
+          .select("*")
+          .eq("sport", "epl")
+          .gte("commence_time", todayStart.toISOString())
+          .lte("commence_time", tomorrowEnd.toISOString());
+
+        const eplDbGames = (eplGamesResult.data ?? []) as Game[];
+
+        for (const soccerGame of soccerGames) {
+          const match = eplDbGames.find((g) => {
+            const homeMatch =
+              g.home_team === soccerGame.home_team ||
+              g.home_team.includes(soccerGame.home_team) ||
+              soccerGame.home_team.includes(g.home_team);
+            const awayMatch =
+              g.away_team === soccerGame.away_team ||
+              g.away_team.includes(soccerGame.away_team) ||
+              soccerGame.away_team.includes(g.away_team);
+            return homeMatch && awayMatch;
+          });
+
+          if (!match) continue;
+
+          const newStatus = soccerGame.status as "scheduled" | "live" | "final";
+          const previousStatus = match.status;
+
+          const { error: updateError } = await (supabase.from("games") as any)
+            .update({
+              status: newStatus,
+              home_score: soccerGame.home_score,
+              away_score: soccerGame.away_score,
+              nba_game_id: soccerGame.game_id,
+            })
+            .eq("id", match.id);
+
+          if (!updateError) {
+            updated.push({
+              odds_team: `${match.away_team} @ ${match.home_team}`,
+              nba_team: `${soccerGame.away_team} @ ${soccerGame.home_team}`,
+              status: newStatus,
+              nba_game_id: soccerGame.game_id,
+            });
+
+            if (newStatus === "final" && previousStatus !== "final") {
+              anyBecameFinal = true;
+            }
+            if (newStatus === "live" && previousStatus === "scheduled") {
+              gamesBecameLive.push(match.id);
+            }
+          }
+        }
+      }
+    } catch (soccerError) {
+      console.error("Failed to sync soccer games:", soccerError);
     }
 
     // Auto-cancel accepted challenges where only one side locked a card
@@ -190,7 +229,6 @@ export async function POST(request: NextRequest) {
 
     if (gamesBecameLive.length > 0) {
       try {
-        // Find accepted challenges (one or both sides may have created cards)
         const acceptedResult = await (supabase.from("challenges") as any)
           .select("id")
           .eq("status", "accepted");
@@ -198,7 +236,6 @@ export async function POST(request: NextRequest) {
         const acceptedChallenges = (acceptedResult.data ?? []) as { id: string }[];
 
         for (const challenge of acceptedChallenges) {
-          // Count cards for this challenge
           const cardsForChallenge = await (supabase.from("cards") as any)
             .select("id, picks(props(game_id))")
             .eq("challenge_id", challenge.id)
@@ -209,10 +246,8 @@ export async function POST(request: NextRequest) {
             picks: { props: { game_id: string } | null }[];
           }[];
 
-          // Only cancel if exactly one card exists (asymmetric — one side committed, other didn't)
           if (cards.length !== 1) continue;
 
-          // Check if any of that card's picks reference a game that just went live
           const hasLiveGame = cards[0].picks.some(
             (p) => p.props?.game_id && gamesBecameLive.includes(p.props.game_id)
           );
