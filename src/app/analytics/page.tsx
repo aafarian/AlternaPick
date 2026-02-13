@@ -17,16 +17,26 @@ import CardSizeChart from "@/components/analytics/CardSizeChart";
 import TeamHitRate from "@/components/analytics/TeamHitRate";
 import ScoreDistribution from "@/components/analytics/ScoreDistribution";
 import GameModeStats from "@/components/analytics/GameModeStats";
+import ModeFilter from "@/components/analytics/ModeFilter";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { isValidGameMode } from "@/lib/modes/definitions";
+import type { GameMode } from "@/lib/supabase/types";
 
 export const metadata = {
   title: "Analytics | Sports Tower",
   description: "Your prop pick analytics and hit rate breakdown.",
 };
 
-export default async function AnalyticsPage() {
+interface AnalyticsPageProps {
+  searchParams: Promise<{ mode?: string }>;
+}
+
+export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
+  const { mode: modeParam } = await searchParams;
+  const mode: GameMode | "all" =
+    modeParam === "all" ? "all" : modeParam && isValidGameMode(modeParam) ? modeParam : "classic";
   const supabase = await createClient();
   const {
     data: { user },
@@ -58,15 +68,25 @@ export default async function AnalyticsPage() {
     scoreDistributionData,
     gameModes,
   ] = await Promise.all([
-    getCategoryStats(supabase, user.id),
-    getPlayerStats(supabase, user.id, 10),
-    getDirectionStats(supabase, user.id),
-    getTrendData(supabase, user.id, 30),
-    getCardSizeStats(supabase, user.id),
-    getTeamStats(supabase, user.id, 10),
-    getScoreDistribution(supabase, user.id),
+    getCategoryStats(supabase, user.id, mode),
+    getPlayerStats(supabase, user.id, 10, mode),
+    getDirectionStats(supabase, user.id, mode),
+    getTrendData(supabase, user.id, 30, mode),
+    getCardSizeStats(supabase, user.id, mode),
+    getTeamStats(supabase, user.id, 10, mode),
+    getScoreDistribution(supabase, user.id, mode),
     getGameModeStats(supabase, user.id),
   ]);
+
+  // Determine which modes the user actually has data for
+  const availableModes: GameMode[] = ["classic"];
+  for (const gm of gameModes) {
+    if (gm.cards > 0 && gm.mode !== "classic") {
+      availableModes.push(gm.mode);
+    }
+  }
+  // Ensure classic is first, then preserve the order from gameModes
+  const isAllMode = mode === "all";
 
   const totalPicks = categories.reduce((sum, c) => sum + c.total, 0);
   const totalHits = categories.reduce((sum, c) => sum + c.hits, 0);
@@ -97,15 +117,17 @@ export default async function AnalyticsPage() {
             Your prop pick performance breakdown
           </p>
         </div>
+        <ModeFilter activeMode={mode} availableModes={availableModes} />
         <Card className="border-border bg-card">
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <span className="text-4xl">📊</span>
             <p className="text-lg font-semibold text-foreground">
-              No data yet
+              No data for this mode
             </p>
             <p className="max-w-sm text-sm text-muted-foreground">
-              Play some games to see your analytics! Once your cards are
-              resolved, your hit rates and trends will appear here.
+              {mode === "all"
+                ? "Play some games to see your analytics! Once your cards are resolved, your hit rates and trends will appear here."
+                : "No resolved cards for this game mode yet. Try a different filter or play more games!"}
             </p>
             <Link href="/props">
               <Button variant="default" size="sm" className="mt-2">
@@ -128,6 +150,9 @@ export default async function AnalyticsPage() {
           {overallRate}% overall hit rate
         </p>
       </div>
+
+      {/* Mode Filter Tabs */}
+      <ModeFilter activeMode={mode} availableModes={availableModes} />
 
       {/* Overview Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -241,7 +266,7 @@ export default async function AnalyticsPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <CardSizeChart data={cardSizes} />
-        <GameModeStats data={gameModes} />
+        {isAllMode && <GameModeStats data={gameModes} />}
         <ScoreDistribution data={scoreDistributionData} />
         <TeamHitRate data={teams} />
       </div>

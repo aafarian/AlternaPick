@@ -11,6 +11,8 @@ import {
   getScoreDistribution,
   getGameModeStats,
 } from "@/lib/analytics/queries";
+import { isValidGameMode } from "@/lib/modes/definitions";
+import type { GameMode } from "@/lib/supabase/types";
 
 /**
  * All available analytics section keys.
@@ -61,6 +63,11 @@ export async function GET(request: NextRequest) {
       return unauthorized();
     }
 
+    // Parse game mode filter
+    const modeParam = request.nextUrl.searchParams.get("mode");
+    const mode: GameMode | "all" | undefined =
+      modeParam && isValidGameMode(modeParam) ? modeParam : modeParam === "all" ? "all" : undefined;
+
     // Parse requested sections from query param
     const sectionParam = request.nextUrl.searchParams.get("section");
     const requested: Set<SectionKey> = sectionParam
@@ -83,25 +90,25 @@ export async function GET(request: NextRequest) {
     const fetchers: Partial<Record<SectionKey, Promise<unknown>>> = {};
 
     if (requested.has("categories")) {
-      fetchers.categories = getCategoryStats(supabase, user.id);
+      fetchers.categories = getCategoryStats(supabase, user.id, mode);
     }
     if (requested.has("players")) {
-      fetchers.players = getPlayerStats(supabase, user.id, 10);
+      fetchers.players = getPlayerStats(supabase, user.id, 10, mode);
     }
     if (requested.has("directions")) {
-      fetchers.directions = getDirectionStats(supabase, user.id);
+      fetchers.directions = getDirectionStats(supabase, user.id, mode);
     }
     if (requested.has("trend")) {
-      fetchers.trend = getTrendData(supabase, user.id, 30);
+      fetchers.trend = getTrendData(supabase, user.id, 30, mode);
     }
     if (requested.has("cardSizes")) {
-      fetchers.cardSizes = getCardSizeStats(supabase, user.id);
+      fetchers.cardSizes = getCardSizeStats(supabase, user.id, mode);
     }
     if (requested.has("teams")) {
-      fetchers.teams = getTeamStats(supabase, user.id, 10);
+      fetchers.teams = getTeamStats(supabase, user.id, 10, mode);
     }
     if (requested.has("scoreDistribution")) {
-      fetchers.scoreDistribution = getScoreDistribution(supabase, user.id);
+      fetchers.scoreDistribution = getScoreDistribution(supabase, user.id, mode);
     }
     if (requested.has("gameModes")) {
       fetchers.gameModes = getGameModeStats(supabase, user.id);

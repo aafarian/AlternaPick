@@ -12,7 +12,7 @@ interface ScoreDistributionProps {
   data: ScoreDistributionEntry[];
 }
 
-const MARGIN = { top: 8, right: 8, bottom: 20, left: 8 };
+const MARGIN = { top: 18, right: 8, bottom: 20, left: 8 };
 const BAR_HEIGHT = 120;
 
 export default function ScoreDistribution({ data }: ScoreDistributionProps) {
