@@ -105,12 +105,16 @@ export const POLL_INTERVAL_MS = 30_000;
 /* ---------- Player headshots ---------- */
 
 export function getPlayerHeadshotUrl(playerId: string): string {
+  // NBA player IDs are long numeric strings (10+ digits)
+  // Soccer player IDs from api-football are shorter — no CDN available
+  if (!playerId || playerId.length < 8) return "";
   return `https://cdn.nba.com/headshots/nba/latest/260x190/${playerId}.png`;
 }
 
 /* ---------- Team data ---------- */
 
 const TEAM_TRICODES: Record<string, string> = {
+  // NBA
   "Atlanta Hawks": "ATL",
   "Boston Celtics": "BOS",
   "Brooklyn Nets": "BKN",
@@ -142,6 +146,29 @@ const TEAM_TRICODES: Record<string, string> = {
   "Toronto Raptors": "TOR",
   "Utah Jazz": "UTA",
   "Washington Wizards": "WAS",
+  // EPL
+  "Arsenal": "ARS",
+  "Aston Villa": "AVL",
+  "AFC Bournemouth": "BOU",
+  "Brentford": "BRE",
+  "Brighton & Hove Albion": "BHA",
+  "Brighton and Hove Albion": "BHA",
+  "Chelsea": "CHE",
+  "Crystal Palace": "CRY",
+  "Everton": "EVE",
+  "Fulham": "FUL",
+  "Ipswich Town": "IPS",
+  "Leicester City": "LEI",
+  "Liverpool": "LIV",
+  "Manchester City": "MCI",
+  "Manchester United": "MUN",
+  "Newcastle United": "NEW",
+  "Nottingham Forest": "NFO",
+  "Southampton": "SOU",
+  "Tottenham Hotspur": "TOT",
+  "West Ham United": "WHU",
+  "Wolverhampton Wanderers": "WOL",
+  "Wolves": "WOL",
 };
 
 export function teamTricode(teamName: string): string {
@@ -174,11 +201,25 @@ const TEAM_NBA_IDS: Record<string, number> = {
   UTA: 1610612762, WAS: 1610612764,
 };
 
+const EPL_TEAM_IDS: Record<string, number> = {
+  ARS: 42, AVL: 66, BOU: 35, BRE: 55, BHA: 51, CHE: 49, CRY: 52,
+  EVE: 45, FUL: 36, IPS: 57, LEI: 46, LIV: 40, MCI: 50, MUN: 33,
+  NEW: 34, NFO: 65, SOU: 41, TOT: 47, WHU: 48, WOL: 39,
+};
+
 export function teamLogoUrl(teamName: string): string {
   const code = teamTricode(teamName);
-  const id = TEAM_NBA_IDS[code];
-  if (!id) return "";
-  return `https://cdn.nba.com/logos/nba/${id}/global/L/logo.svg`;
+  // NBA logo
+  const nbaId = TEAM_NBA_IDS[code];
+  if (nbaId) {
+    return `https://cdn.nba.com/logos/nba/${nbaId}/global/L/logo.svg`;
+  }
+  // EPL logo (api-football CDN)
+  const eplId = EPL_TEAM_IDS[code];
+  if (eplId) {
+    return `https://media.api-sports.io/football/teams/${eplId}.png`;
+  }
+  return "";
 }
 
 export const CATEGORY_LABELS: Record<StatCategory, string> = {
@@ -194,6 +235,14 @@ export const CATEGORY_LABELS: Record<StatCategory, string> = {
   pts_ast: "Pts+Ast",
   reb_ast: "Reb+Ast",
   blk_stl: "Blk+Stl",
+  // Soccer
+  shots: "Shots",
+  shots_on_target: "Shots on Target",
+  tackles: "Tackles",
+  passes: "Passes",
+  goals: "Goals",
+  fouls_committed: "Fouls",
+  saves: "Saves",
 };
 
 export const CATEGORY_COLORS: Record<StatCategory, string> = {
@@ -209,4 +258,12 @@ export const CATEGORY_COLORS: Record<StatCategory, string> = {
   pts_ast: "bg-lime-500/20 text-lime-400",
   reb_ast: "bg-cyan-500/20 text-cyan-400",
   blk_stl: "bg-rose-500/20 text-rose-400",
+  // Soccer
+  shots: "bg-orange-500/20 text-orange-400",
+  shots_on_target: "bg-red-500/20 text-red-400",
+  tackles: "bg-yellow-500/20 text-yellow-400",
+  passes: "bg-blue-500/20 text-blue-400",
+  goals: "bg-green-500/20 text-green-400",
+  fouls_committed: "bg-gray-500/20 text-gray-400",
+  saves: "bg-purple-500/20 text-purple-400",
 };

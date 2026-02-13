@@ -3,6 +3,7 @@ import { createNotification } from "@/lib/notifications/queries";
 import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
 import {
   fetchBoxscore,
+  fetchSoccerBoxscore,
   type PlayerBoxScore,
 } from "@/lib/stats-service/client";
 import type {
@@ -34,7 +35,7 @@ export interface ResolutionResult {
 }
 
 type PickWithProp = Pick & {
-  props: Prop & { games: Game };
+  props: Prop & { games: Game & { sport?: string } };
 };
 
 export function extractStatValue(
@@ -66,6 +67,21 @@ export function extractStatValue(
       return stats.rebounds + stats.assists;
     case "blk_stl":
       return stats.blocks + stats.steals;
+    // Soccer stats
+    case "goals":
+      return stats.goals ?? 0;
+    case "shots":
+      return stats.shots ?? 0;
+    case "shots_on_target":
+      return stats.shots_on_target ?? 0;
+    case "tackles":
+      return stats.tackles ?? 0;
+    case "passes":
+      return stats.passes ?? 0;
+    case "fouls_committed":
+      return stats.fouls_committed ?? 0;
+    case "saves":
+      return stats.saves ?? 0;
     default:
       return 0;
   }
@@ -223,11 +239,16 @@ async function resolveCard(
       continue;
     }
 
-    // Fetch boxscore (with cache)
+    // Fetch boxscore (with cache) — use sport-aware endpoint
     let boxscore = boxscoreCache.get(nbaGameId);
     if (!boxscore) {
       try {
-        boxscore = await fetchBoxscore(nbaGameId);
+        const gameSport = pick.props?.games?.sport;
+        if (gameSport === "epl") {
+          boxscore = await fetchSoccerBoxscore(nbaGameId);
+        } else {
+          boxscore = await fetchBoxscore(nbaGameId);
+        }
         boxscoreCache.set(nbaGameId, boxscore);
       } catch {
         boxscore = [];

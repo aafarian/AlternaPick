@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { isCacheStale, cacheProps, PROPS_CACHE_TAG } from "@/lib/odds-api/cache";
-import { fetchAllProps } from "@/lib/odds-api/client";
+import { fetchAllPropsMultiSport } from "@/lib/odds-api/client";
 import { unauthorized, tooManyRequests, serverError, handleApiError } from "@/lib/api/errors";
 
 export async function POST(request: NextRequest) {
@@ -28,23 +28,33 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const { events, props: propsMap, credits } = await fetchAllProps();
+    const multiResults = await fetchAllPropsMultiSport();
 
-    await cacheProps(events, propsMap);
+    let totalGames = 0;
+    let totalProps = 0;
+    let latestCreditsRemaining: number | null = null;
+
+    for (const [sport, { events, props: propsMap, credits }] of multiResults) {
+      await cacheProps(events, propsMap, sport);
+
+      totalGames += events.length;
+      for (const props of propsMap.values()) {
+        totalProps += props.length;
+      }
+      if (credits.remaining !== null) {
+        latestCreditsRemaining = credits.remaining;
+      }
+    }
 
     // Invalidate the props page cache so next load gets fresh data
     revalidateTag(PROPS_CACHE_TAG, "max");
 
-    let totalProps = 0;
-    for (const props of propsMap.values()) {
-      totalProps += props.length;
-    }
-
     return NextResponse.json({
       synced: true,
-      gamesCount: events.length,
+      gamesCount: totalGames,
       propsCount: totalProps,
-      creditsRemaining: credits.remaining,
+      creditsRemaining: latestCreditsRemaining,
+      sports: Array.from(multiResults.keys()),
     });
   } catch (error) {
     const message =

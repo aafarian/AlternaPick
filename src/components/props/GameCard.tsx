@@ -10,6 +10,7 @@ import { teamTricode, teamLogoUrl } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 const STAT_SORT_ORDER: Record<StatCategory, number> = {
+  // NBA
   points: 0,
   rebounds: 1,
   assists: 2,
@@ -22,6 +23,14 @@ const STAT_SORT_ORDER: Record<StatCategory, number> = {
   steals: 9,
   blk_stl: 10,
   turnovers: 11,
+  // Soccer
+  shots: 12,
+  shots_on_target: 13,
+  goals: 14,
+  tackles: 15,
+  passes: 16,
+  fouls_committed: 17,
+  saves: 18,
 };
 
 function TeamLogo({ team }: { team: string }) {

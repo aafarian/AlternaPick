@@ -3,6 +3,9 @@ import {
   fetchBoxscore,
   fetchBoxscoreLive,
   fetchTodaysGamesLive,
+  fetchSoccerBoxscore,
+  fetchSoccerBoxscoreLive,
+  fetchSoccerGamesLive,
   type PlayerBoxScore,
   type StatsGame,
 } from "@/lib/stats-service/client";
@@ -25,6 +28,7 @@ export interface PickWithPropAndGame {
     game_id: string;
     games: {
       nba_game_id: string | null;
+      sport?: string | null;
       status?: string | null;
       home_team?: string | null;
       away_team?: string | null;
@@ -173,61 +177,102 @@ export async function fetchLiveMaps(
   gameStatusMap: Map<string, StatsGame>;
   boxscoreMap: Map<string, PlayerBoxScore[]>;
 }> {
-  // Collect nba_game_ids that need live data.
+  // Collect game IDs that need live data, grouped by sport.
   // Include "final" games — they may have ended today and still have
   // boxscores available. The todayIds filter below ensures we only
   // fetch boxscores for games in today's schedule (skips stale games).
-  const candidateIds = new Set<string>();
+  const nbaCandidateIds = new Set<string>();
+  const soccerCandidateIds = new Set<string>();
   for (const pick of picks) {
     const nbaId = pick.props?.games?.nba_game_id;
     if (nbaId) {
-      candidateIds.add(nbaId);
+      const sport = pick.props?.games?.sport;
+      if (sport === "epl") {
+        soccerCandidateIds.add(nbaId);
+      } else {
+        nbaCandidateIds.add(nbaId);
+      }
     }
   }
 
   const gameStatusMap = new Map<string, StatsGame>();
   const boxscoreMap = new Map<string, PlayerBoxScore[]>();
 
-  if (candidateIds.size === 0) {
+  if (nbaCandidateIds.size === 0 && soccerCandidateIds.size === 0) {
     return { gameStatusMap, boxscoreMap };
   }
 
-  // Step 1: Fetch today's games (fast, cached)
-  const todaysGames = await fetchTodaysGamesLive().catch(() => [] as StatsGame[]);
-  for (const g of todaysGames) {
+  // Step 1: Fetch today's games (fast, cached) for both sports
+  const [nbaGames, soccerGames] = await Promise.all([
+    nbaCandidateIds.size > 0
+      ? fetchTodaysGamesLive().catch(() => [] as StatsGame[])
+      : Promise.resolve([] as StatsGame[]),
+    soccerCandidateIds.size > 0
+      ? fetchSoccerGamesLive().catch(() => [] as StatsGame[])
+      : Promise.resolve([] as StatsGame[]),
+  ]);
+
+  for (const g of nbaGames) {
+    gameStatusMap.set(g.game_id, g);
+  }
+  for (const g of soccerGames) {
     gameStatusMap.set(g.game_id, g);
   }
 
   // Step 2: Only fetch boxscores for games that are in today's schedule
-  const todayIds = Array.from(candidateIds).filter((id) => gameStatusMap.has(id));
-
-  // Split by status: live games use the cached /live endpoint,
-  // final games use the regular endpoint (the /live variant may not
-  // return data for finished games)
-  const liveIds = todayIds.filter((id) => gameStatusMap.get(id)?.status === "live");
-  const finalIds = todayIds.filter((id) => gameStatusMap.get(id)?.status === "final");
-
   const fetches: Promise<void>[] = [];
 
-  if (liveIds.length > 0) {
+  // NBA boxscores
+  const nbaTodayIds = Array.from(nbaCandidateIds).filter((id) => gameStatusMap.has(id));
+  const nbaLiveIds = nbaTodayIds.filter((id) => gameStatusMap.get(id)?.status === "live");
+  const nbaFinalIds = nbaTodayIds.filter((id) => gameStatusMap.get(id)?.status === "final");
+
+  if (nbaLiveIds.length > 0) {
     fetches.push(
       Promise.all(
-        liveIds.map((gid) => fetchBoxscoreLive(gid).catch(() => [] as PlayerBoxScore[]))
+        nbaLiveIds.map((gid) => fetchBoxscoreLive(gid).catch(() => [] as PlayerBoxScore[]))
       ).then((results) => {
-        for (let i = 0; i < liveIds.length; i++) {
-          boxscoreMap.set(liveIds[i], results[i]);
+        for (let i = 0; i < nbaLiveIds.length; i++) {
+          boxscoreMap.set(nbaLiveIds[i], results[i]);
+        }
+      })
+    );
+  }
+  if (nbaFinalIds.length > 0) {
+    fetches.push(
+      Promise.all(
+        nbaFinalIds.map((gid) => fetchBoxscore(gid).catch(() => [] as PlayerBoxScore[]))
+      ).then((results) => {
+        for (let i = 0; i < nbaFinalIds.length; i++) {
+          boxscoreMap.set(nbaFinalIds[i], results[i]);
         }
       })
     );
   }
 
-  if (finalIds.length > 0) {
+  // Soccer boxscores
+  const soccerTodayIds = Array.from(soccerCandidateIds).filter((id) => gameStatusMap.has(id));
+  const soccerLiveIds = soccerTodayIds.filter((id) => gameStatusMap.get(id)?.status === "live");
+  const soccerFinalIds = soccerTodayIds.filter((id) => gameStatusMap.get(id)?.status === "final");
+
+  if (soccerLiveIds.length > 0) {
     fetches.push(
       Promise.all(
-        finalIds.map((gid) => fetchBoxscore(gid).catch(() => [] as PlayerBoxScore[]))
+        soccerLiveIds.map((gid) => fetchSoccerBoxscoreLive(gid).catch(() => [] as PlayerBoxScore[]))
       ).then((results) => {
-        for (let i = 0; i < finalIds.length; i++) {
-          boxscoreMap.set(finalIds[i], results[i]);
+        for (let i = 0; i < soccerLiveIds.length; i++) {
+          boxscoreMap.set(soccerLiveIds[i], results[i]);
+        }
+      })
+    );
+  }
+  if (soccerFinalIds.length > 0) {
+    fetches.push(
+      Promise.all(
+        soccerFinalIds.map((gid) => fetchSoccerBoxscore(gid).catch(() => [] as PlayerBoxScore[]))
+      ).then((results) => {
+        for (let i = 0; i < soccerFinalIds.length; i++) {
+          boxscoreMap.set(soccerFinalIds[i], results[i]);
         }
       })
     );

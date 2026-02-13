@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CACHE_TTL_MS } from "./constants";
+import type { SportKey } from "./constants";
 import type { OddsApiEvent, ParsedPlayerProp } from "./types";
 import type { Game, Prop } from "@/lib/supabase/types";
 import { fetchAllPlayers } from "@/lib/stats-service/client";
@@ -42,29 +43,35 @@ export async function isCacheStale(): Promise<boolean> {
   return now.getTime() - lastFetched > CACHE_TTL_MS;
 }
 
-async function getCachedPropsInternal(): Promise<
+async function getCachedPropsInternal(sport?: SportKey): Promise<
   (Game & { props: Prop[] })[] | null
 > {
   const supabase = createAdminClient();
 
-  // Look back 1 day and forward 2 days in UTC to cover:
+  // Look back 1 day and forward 7 days in UTC to cover:
   // - Tonight's games that may still be in progress or just ended
-  // - Tomorrow's upcoming games (which the Odds API returns early)
+  // - Upcoming games within the next week (EPL plays weekly, NBA daily)
   // - Late-night games that cross into the next UTC day
   const now = new Date();
   const rangeStart = new Date(
     Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0)
   );
   const rangeEnd = new Date(
-    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 2, 23, 59, 59, 999)
+    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 7, 23, 59, 59, 999)
   );
 
-  const result = await supabase
+  let query = supabase
     .from("games")
-    .select("id, home_team, away_team, commence_time, props(id, game_id, player_name, player_id, player_team, player_position, stat_category, line, line_history)")
+    .select("id, home_team, away_team, commence_time, sport, props(id, game_id, player_name, player_id, player_team, player_position, stat_category, line, line_history)")
     .gte("commence_time", rangeStart.toISOString())
     .lte("commence_time", rangeEnd.toISOString())
     .order("commence_time", { ascending: true });
+
+  if (sport) {
+    query = query.eq("sport", sport);
+  }
+
+  const result = await query;
 
   return result.data as (Game & { props: Prop[] })[] | null;
 }
@@ -79,7 +86,8 @@ export const getCachedProps = unstable_cache(
 
 export async function cacheProps(
   events: OddsApiEvent[],
-  propsMap: Map<string, ParsedPlayerProp[]>
+  propsMap: Map<string, ParsedPlayerProp[]>,
+  sport: SportKey = "nba"
 ) {
   const supabase = createAdminClient();
   const now = new Date().toISOString();
@@ -97,54 +105,58 @@ export async function cacheProps(
   }
 
   // Build player name → NBA player_id + team lookup maps
+  // Only fetch NBA player enrichment for NBA sport
   let playerIdMap = new Map<string, string>();
   let playerTeamMap = new Map<string, string>();
   let playerPositionMap = new Map<string, string>();
-  try {
-    const allPlayers = await fetchAllPlayers();
 
-    // Exact match maps
-    playerIdMap = new Map(
-      allPlayers.map((p) => [p.full_name.toLowerCase(), p.id])
-    );
-    playerTeamMap = new Map(
-      allPlayers
-        .filter((p) => p.team_abbreviation)
-        .map((p) => [p.full_name.toLowerCase(), p.team_abbreviation!])
-    );
-    playerPositionMap = new Map(
-      allPlayers
-        .filter((p) => p.position)
-        .map((p) => [p.full_name.toLowerCase(), p.position!])
-    );
+  if (sport === "nba") {
+    try {
+      const allPlayers = await fetchAllPlayers();
 
-    // Normalized match maps (fallback for "Jr." vs "Jr", "P.J." vs "PJ", etc.)
-    const normalizedIdMap = new Map(
-      allPlayers.map((p) => [normalizeName(p.full_name), p.id])
-    );
-    const normalizedTeamMap = new Map(
-      allPlayers
-        .filter((p) => p.team_abbreviation)
-        .map((p) => [normalizeName(p.full_name), p.team_abbreviation!])
-    );
-    const normalizedPositionMap = new Map(
-      allPlayers
-        .filter((p) => p.position)
-        .map((p) => [normalizeName(p.full_name), p.position!])
-    );
+      // Exact match maps
+      playerIdMap = new Map(
+        allPlayers.map((p) => [p.full_name.toLowerCase(), p.id])
+      );
+      playerTeamMap = new Map(
+        allPlayers
+          .filter((p) => p.team_abbreviation)
+          .map((p) => [p.full_name.toLowerCase(), p.team_abbreviation!])
+      );
+      playerPositionMap = new Map(
+        allPlayers
+          .filter((p) => p.position)
+          .map((p) => [p.full_name.toLowerCase(), p.position!])
+      );
 
-    // Merge normalized into main maps (exact match takes priority)
-    for (const [key, val] of normalizedIdMap) {
-      if (!playerIdMap.has(key)) playerIdMap.set(key, val);
+      // Normalized match maps (fallback for "Jr." vs "Jr", "P.J." vs "PJ", etc.)
+      const normalizedIdMap = new Map(
+        allPlayers.map((p) => [normalizeName(p.full_name), p.id])
+      );
+      const normalizedTeamMap = new Map(
+        allPlayers
+          .filter((p) => p.team_abbreviation)
+          .map((p) => [normalizeName(p.full_name), p.team_abbreviation!])
+      );
+      const normalizedPositionMap = new Map(
+        allPlayers
+          .filter((p) => p.position)
+          .map((p) => [normalizeName(p.full_name), p.position!])
+      );
+
+      // Merge normalized into main maps (exact match takes priority)
+      for (const [key, val] of normalizedIdMap) {
+        if (!playerIdMap.has(key)) playerIdMap.set(key, val);
+      }
+      for (const [key, val] of normalizedTeamMap) {
+        if (!playerTeamMap.has(key)) playerTeamMap.set(key, val);
+      }
+      for (const [key, val] of normalizedPositionMap) {
+        if (!playerPositionMap.has(key)) playerPositionMap.set(key, val);
+      }
+    } catch {
+      // Stats service unavailable — player_id/team/position stays null, non-blocking
     }
-    for (const [key, val] of normalizedTeamMap) {
-      if (!playerTeamMap.has(key)) playerTeamMap.set(key, val);
-    }
-    for (const [key, val] of normalizedPositionMap) {
-      if (!playerPositionMap.has(key)) playerPositionMap.set(key, val);
-    }
-  } catch {
-    // Stats service unavailable — player_id/team/position stays null, non-blocking
   }
 
   // Lookup helper: tries exact match first, then normalized
@@ -160,6 +172,7 @@ export async function cacheProps(
       home_team: event.home_team,
       away_team: event.away_team,
       commence_time: event.commence_time,
+      sport,
     }));
 
   if (gameRows.length === 0) return;

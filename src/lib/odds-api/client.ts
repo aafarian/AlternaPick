@@ -1,10 +1,8 @@
 import {
   ODDS_API_BASE_URL,
-  SPORT_KEY,
   DEFAULT_REGION,
-  MARKETS,
-  MARKET_TO_STAT_CATEGORY,
-  type MarketKey,
+  SPORT_CONFIGS,
+  type SportKey,
 } from "./constants";
 import type {
   OddsApiEvent,
@@ -13,6 +11,7 @@ import type {
   CreditUsage,
   FetchPropsResult,
 } from "./types";
+import type { StatCategory } from "@/lib/supabase/types";
 
 function getApiKey(): string {
   const key = process.env.ODDS_API_KEY;
@@ -31,8 +30,9 @@ function parseCreditHeader(
   };
 }
 
-export async function fetchEvents(): Promise<OddsApiEvent[]> {
-  const url = `${ODDS_API_BASE_URL}/v4/sports/${SPORT_KEY}/events?apiKey=${getApiKey()}`;
+export async function fetchEvents(sportKey: SportKey = "nba"): Promise<OddsApiEvent[]> {
+  const config = SPORT_CONFIGS[sportKey];
+  const url = `${ODDS_API_BASE_URL}/v4/sports/${config.oddsApiKey}/events?apiKey=${getApiKey()}`;
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -45,10 +45,11 @@ export async function fetchEvents(): Promise<OddsApiEvent[]> {
 
 export async function fetchEventOdds(
   eventId: string,
-  markets: readonly string[] = MARKETS
+  sportKey: SportKey = "nba"
 ): Promise<{ props: ParsedPlayerProp[]; credits: CreditUsage }> {
-  const marketsParam = markets.join(",");
-  const url = `${ODDS_API_BASE_URL}/v4/sports/${SPORT_KEY}/events/${eventId}/odds?apiKey=${getApiKey()}&regions=${DEFAULT_REGION}&markets=${marketsParam}&oddsFormat=american`;
+  const config = SPORT_CONFIGS[sportKey];
+  const marketsParam = config.markets.join(",");
+  const url = `${ODDS_API_BASE_URL}/v4/sports/${config.oddsApiKey}/events/${eventId}/odds?apiKey=${getApiKey()}&regions=${DEFAULT_REGION}&markets=${marketsParam}&oddsFormat=american`;
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -61,19 +62,21 @@ export async function fetchEventOdds(
   const credits = parseCreditHeader(response.headers);
   const data: OddsApiOddsResponse = await response.json();
 
-  const props = parseOddsResponse(data);
+  const props = parseOddsResponse(data, config.marketToCategory);
 
   return { props, credits };
 }
 
-function parseOddsResponse(data: OddsApiOddsResponse): ParsedPlayerProp[] {
+function parseOddsResponse(
+  data: OddsApiOddsResponse,
+  marketToCategory: Record<string, StatCategory>
+): ParsedPlayerProp[] {
   // Use a map to deduplicate: keep first bookmaker's line per player+stat combo
   const dedupMap = new Map<string, ParsedPlayerProp>();
 
   for (const bookmaker of data.bookmakers) {
     for (const market of bookmaker.markets) {
-      const statCategory =
-        MARKET_TO_STAT_CATEGORY[market.key as MarketKey];
+      const statCategory = marketToCategory[market.key];
       if (!statCategory) continue;
 
       // Group outcomes by player (Over + Under pairs)
@@ -149,8 +152,8 @@ function parseOddsResponse(data: OddsApiOddsResponse): ParsedPlayerProp[] {
   });
 }
 
-export async function fetchAllProps(): Promise<FetchPropsResult> {
-  const events = await fetchEvents();
+export async function fetchAllProps(sportKey: SportKey = "nba"): Promise<FetchPropsResult> {
+  const events = await fetchEvents(sportKey);
 
   // Only fetch odds for games that haven't started yet (saves API credits)
   const now = Date.now();
@@ -162,12 +165,12 @@ export async function fetchAllProps(): Promise<FetchPropsResult> {
   let latestCredits: CreditUsage = { used: null, remaining: null };
 
   console.log(
-    `[Odds API] ${events.length} total events, ${upcomingEvents.length} upcoming — fetching odds for upcoming only`
+    `[Odds API] [${sportKey}] ${events.length} total events, ${upcomingEvents.length} upcoming — fetching odds for upcoming only`
   );
 
   for (const event of upcomingEvents) {
     try {
-      const { props, credits } = await fetchEventOdds(event.id);
+      const { props, credits } = await fetchEventOdds(event.id, sportKey);
       propsMap.set(event.id, props);
       latestCredits = credits;
 
@@ -189,4 +192,20 @@ export async function fetchAllProps(): Promise<FetchPropsResult> {
   }
 
   return { events, props: propsMap, credits: latestCredits };
+}
+
+export async function fetchAllPropsMultiSport(): Promise<Map<SportKey, FetchPropsResult>> {
+  const results = new Map<SportKey, FetchPropsResult>();
+  const sports: SportKey[] = ["nba", "epl"];
+
+  for (const sport of sports) {
+    try {
+      const result = await fetchAllProps(sport);
+      results.set(sport, result);
+    } catch (error) {
+      console.error(`[Odds API] Failed to fetch props for ${sport}:`, error);
+    }
+  }
+
+  return results;
 }

@@ -10,7 +10,14 @@ export type StatCategory =
   | "pts_reb"
   | "pts_ast"
   | "reb_ast"
-  | "blk_stl";
+  | "blk_stl"
+  | "shots"
+  | "shots_on_target"
+  | "tackles"
+  | "passes"
+  | "goals"
+  | "fouls_committed"
+  | "saves";
 
 export type GameStatus =
   | "scheduled"
@@ -124,6 +131,7 @@ export interface Database {
           home_score: number;
           away_score: number;
           nba_game_id: string | null;
+          sport: string;
           created_at: string;
           updated_at: string;
         };
@@ -137,6 +145,7 @@ export interface Database {
           home_score?: number;
           away_score?: number;
           nba_game_id?: string | null;
+          sport?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -149,6 +158,7 @@ export interface Database {
           home_score?: number;
           away_score?: number;
           nba_game_id?: string | null;
+          sport?: string;
           updated_at?: string;
         };
       };
