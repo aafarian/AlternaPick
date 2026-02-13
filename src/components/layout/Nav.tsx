@@ -112,7 +112,7 @@ export default function Nav({
             <Button
               variant="ghost"
               size="sm"
-              className={`w-full justify-start gap-2 md:w-auto ${
+              className={`w-full justify-start gap-2 md:w-auto focus-visible:ring-0 focus-visible:border-transparent ${
                 isProfileActive
                   ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"

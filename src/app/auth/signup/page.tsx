@@ -94,6 +94,8 @@ function SignupForm() {
     // Persist ref for the OAuth redirect flow
     if (ref) {
       localStorage.setItem("sports_tower_ref", ref);
+      // Also set a cookie so the server-side callback route can read it
+      document.cookie = `ap_ref=${encodeURIComponent(ref)}; path=/; max-age=3600; SameSite=Lax`;
     }
     await supabase.auth.signInWithOAuth({
       provider: "google",

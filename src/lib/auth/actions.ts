@@ -122,6 +122,48 @@ export async function signUp(formData: FormData) {
   return { success: true };
 }
 
+/**
+ * Updates the authenticated user's username.
+ * Validates format, checks availability, and updates the profile.
+ */
+export async function updateUsername(username: string) {
+  const trimmed = username.trim().toLowerCase();
+
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(trimmed)) {
+    return { error: "Username must be 3-20 characters, alphanumeric and underscores only" };
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const admin = createAdminClient();
+
+  // Check availability (exclude current user's own row)
+  const { data: existing } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("username", trimmed)
+    .neq("id", user.id)
+    .maybeSingle();
+
+  if (existing) {
+    return { error: "Username already taken" };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (admin.from("profiles") as any)
+    .update({ username: trimmed })
+    .eq("id", user.id);
+
+  if (error) {
+    console.error("[updateUsername] Error:", error.message);
+    return { error: "Failed to update username" };
+  }
+
+  return { success: true };
+}
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();

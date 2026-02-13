@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import Image from "next/image";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, Pencil, X, Loader2 } from "lucide-react";
+import { updateUsername } from "@/lib/auth/actions";
 
 interface ProfileSectionProps {
   displayName: string | null;
@@ -30,7 +31,80 @@ export default function ProfileSection({
     text: string;
   } | null>(null);
 
-  const initial = (displayName ?? username).charAt(0).toUpperCase();
+  // Username editing state
+  const [currentUsername, setCurrentUsername] = useState(username);
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState(username);
+  const [usernameChecking, setUsernameChecking] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const usernameDebounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const usernameValid = /^[a-zA-Z0-9_]{3,20}$/.test(newUsername);
+
+  // Debounced username availability check
+  useEffect(() => {
+    if (!editingUsername) return;
+
+    setUsernameAvailable(null);
+    setUsernameError(null);
+
+    // No check needed if same as current or invalid format
+    if (newUsername === currentUsername || !usernameValid) return;
+
+    if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
+
+    usernameDebounceRef.current = setTimeout(async () => {
+      setUsernameChecking(true);
+      try {
+        const res = await fetch(
+          `/api/users/check-username?username=${encodeURIComponent(newUsername)}`
+        );
+        const data = await res.json();
+        setUsernameAvailable(data.available);
+        if (!data.available) setUsernameError("Username already taken");
+      } catch {
+        setUsernameError("Failed to check availability");
+      } finally {
+        setUsernameChecking(false);
+      }
+    }, 400);
+
+    return () => {
+      if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
+    };
+  }, [newUsername, editingUsername, currentUsername, usernameValid]);
+
+  async function handleUsernameSave() {
+    if (!usernameValid || newUsername === currentUsername) return;
+    if (usernameAvailable !== true) return;
+
+    setUsernameSaving(true);
+    setUsernameError(null);
+
+    const result = await updateUsername(newUsername);
+
+    if (result.error) {
+      setUsernameError(result.error);
+      setUsernameSaving(false);
+      return;
+    }
+
+    setCurrentUsername(newUsername);
+    setEditingUsername(false);
+    setUsernameSaving(false);
+    setMessage({ type: "success", text: "Username updated!" });
+  }
+
+  function handleUsernameCancel() {
+    setEditingUsername(false);
+    setNewUsername(currentUsername);
+    setUsernameAvailable(null);
+    setUsernameError(null);
+  }
+
+  const initial = (displayName ?? currentUsername).charAt(0).toUpperCase();
   const previewUrl = avatar || avatarUrl;
 
   async function handleSave(e: React.FormEvent) {
@@ -98,8 +172,70 @@ export default function ProfileSection({
             </AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-medium">{name || username}</p>
-            <p className="text-sm text-muted-foreground">@{username}</p>
+            <p className="font-medium">{name || currentUsername}</p>
+            {editingUsername ? (
+              <div className="mt-1 flex items-center gap-2">
+                <div className="relative">
+                  <Input
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value.trim())}
+                    className="h-8 w-40 pr-8 text-sm"
+                    maxLength={20}
+                    autoFocus
+                  />
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                    {usernameChecking && (
+                      <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                    )}
+                    {!usernameChecking && usernameAvailable === true && (
+                      <CheckCircle2 className="size-3.5 text-neon-green" />
+                    )}
+                    {!usernameChecking && usernameAvailable === false && (
+                      <AlertCircle className="size-3.5 text-destructive" />
+                    )}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0"
+                  onClick={handleUsernameSave}
+                  disabled={
+                    !usernameValid ||
+                    usernameAvailable !== true ||
+                    usernameSaving ||
+                    newUsername === currentUsername
+                  }
+                >
+                  {usernameSaving ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="size-3.5" />
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0"
+                  onClick={handleUsernameCancel}
+                >
+                  <X className="size-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm text-muted-foreground">@{currentUsername}</p>
+                <button
+                  onClick={() => setEditingUsername(true)}
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <Pencil className="size-3" />
+                </button>
+              </div>
+            )}
+            {usernameError && editingUsername && (
+              <p className="mt-1 text-xs text-destructive">{usernameError}</p>
+            )}
           </div>
         </div>
 

@@ -120,19 +120,12 @@ export default function CardDetail({ card }: { card: CardWithPicks }) {
           <StatusBadge status={card.status} score={card.score} total={card.total_picks} />
           <span className="text-xs text-muted-foreground">{date}</span>
         </div>
-        <div className="flex items-center gap-2">
-          {liveData?.has_live_games && (
-            <div className="flex items-center gap-1">
-              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-foreground" />
-              <span className="text-xs font-bold text-foreground">LIVE</span>
-            </div>
-          )}
-          {card.status === "resolved" && (
-            <span className="text-lg font-black tabular-nums">
-              {card.score}/{card.total_picks}
-            </span>
-          )}
-        </div>
+        {liveData?.has_live_games && (
+          <div className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-foreground" />
+            <span className="text-xs font-bold text-foreground">LIVE</span>
+          </div>
+        )}
       </CardHeader>
 
       {liveData && liveData.games.length > 0 && (
