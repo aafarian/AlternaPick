@@ -57,7 +57,7 @@ export default function ProfileCard({ profile, email, stats }: ProfileCardProps)
               <div className="text-lg font-bold tabular-nums">
                 {stats.win_rate.toFixed(0)}%
               </div>
-              <div className="text-xs text-muted-foreground">Win Rate</div>
+              <div className="text-xs text-muted-foreground">Hit Rate</div>
             </div>
             <div className="rounded-xl border border-border bg-background/50 p-3 text-center">
               <div className="text-lg font-bold tabular-nums text-neon-green">

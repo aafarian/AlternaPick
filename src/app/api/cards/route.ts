@@ -101,7 +101,15 @@ export async function POST(request: NextRequest) {
       }
 
       // Validate challenge status
-      if (challenge.status !== "accepted" && challenge.status !== "active") {
+      // The challenger can lock in their card while the challenge is still "pending"
+      // (they create the challenge + card in one step).
+      // The opponent can only create a card after accepting (status = "accepted" or "active").
+      const isChallenger = challenge.challenger_id === user.id;
+      const validStatuses = isChallenger
+        ? ["pending", "accepted", "active"]
+        : ["accepted", "active"];
+
+      if (!validStatuses.includes(challenge.status)) {
         return badRequest("Challenge is not in a valid state for card creation");
       }
 

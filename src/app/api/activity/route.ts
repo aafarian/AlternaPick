@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { unauthorized, handleApiError } from "@/lib/api/errors";
 import type { Card, Friendship } from "@/lib/supabase/types";
 
@@ -161,8 +162,10 @@ export async function GET() {
     >();
 
     if (challengeIds.length > 0) {
+      // Use admin client to bypass RLS — user can't see opponent's cards
+      const admin = createAdminClient();
       const { data: challengeCards, error: ccError } = await (
-        supabase.from("cards") as any
+        admin.from("cards") as any
       )
         .select("id, user_id, challenge_id, score")
         .in("challenge_id", challengeIds);

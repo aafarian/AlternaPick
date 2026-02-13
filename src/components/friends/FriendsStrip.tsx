@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Swords, UserMinus } from "lucide-react";
+import { Swords, UserMinus, User } from "lucide-react";
 
 interface FriendsStripProps {
   friends: FriendRequest[];
@@ -74,6 +74,15 @@ export default function FriendsStrip({ friends, onUnfriend }: FriendsStripProps)
                 </p>
               </div>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link
+                  href={`/users/${profile.username}`}
+                  className="gap-2"
+                >
+                  <User className="h-4 w-4" />
+                  View Profile
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link
                   href={`/challenges?opponent=${profile.username}`}

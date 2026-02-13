@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import RankBadge from "./RankBadge";
 import type { LeaderboardEntryWithProfile } from "@/app/api/leaderboard/route";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -36,41 +37,46 @@ export default function LeaderboardRow({
             <RankBadge rank={rank} />
           </div>
 
-          <Avatar className="h-10 w-10">
-            {user.avatar_url && (
-              <Image
-                src={user.avatar_url}
-                alt={user.username}
-                width={40}
-                height={40}
-                className="aspect-square size-full object-cover"
-              />
-            )}
-            <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold">
-              {user.display_name ?? user.username}
-              {isCurrentUser && (
-                <span className="ml-1.5 text-xs text-primary">(you)</span>
+          <Link
+            href={isCurrentUser ? "/profile" : `/users/${user.username}`}
+            className="flex min-w-0 flex-1 items-center gap-3"
+          >
+            <Avatar className="h-10 w-10 shrink-0">
+              {user.avatar_url && (
+                <Image
+                  src={user.avatar_url}
+                  alt={user.username}
+                  width={40}
+                  height={40}
+                  className="aspect-square size-full object-cover"
+                />
               )}
-            </p>
-            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-              <span className="font-bold text-foreground">
-                {stats.win_rate.toFixed(1)}%
-              </span>
-              <span>
-                {stats.current_streak}/{stats.best_streak} streak
-              </span>
-              <span>
-                {stats.h2h_wins}W-{stats.h2h_losses}L
-              </span>
-              <span>{stats.total_cards} cards</span>
+              <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold">
+                {user.display_name ?? user.username}
+                {isCurrentUser && (
+                  <span className="ml-1.5 text-xs text-primary">(you)</span>
+                )}
+              </p>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                <span className="font-bold text-foreground">
+                  {stats.win_rate.toFixed(1)}%
+                </span>
+                <span>
+                  {stats.current_streak}/{stats.best_streak} streak
+                </span>
+                <span>
+                  {stats.h2h_wins}W-{stats.h2h_losses}L
+                </span>
+                <span>{stats.total_cards} cards</span>
+              </div>
             </div>
-          </div>
+          </Link>
         </CardContent>
       </Card>
     );
@@ -88,8 +94,11 @@ export default function LeaderboardRow({
       </TableCell>
 
       <TableCell>
-        <div className="flex items-center gap-3">
-          <Avatar className="h-9 w-9">
+        <Link
+          href={isCurrentUser ? "/profile" : `/users/${user.username}`}
+          className="flex items-center gap-3"
+        >
+          <Avatar className="h-9 w-9 shrink-0">
             {user.avatar_url && (
               <Image
                 src={user.avatar_url}
@@ -112,7 +121,7 @@ export default function LeaderboardRow({
             </p>
             <p className="truncate text-xs text-muted-foreground">@{user.username}</p>
           </div>
-        </div>
+        </Link>
       </TableCell>
 
       <TableCell className="text-sm font-bold">

@@ -90,15 +90,21 @@ export default function CardBuilderPanel() {
       setCreatingChallenge(true);
       setError(null);
       try {
-        const challengeRes = await fetch("/api/challenges", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        const challengePayload: Record<string, unknown> = {
             opponent_id: opponentId,
             game_mode: gameMode,
             card_size: size,
             message: challengeMessage.trim() || undefined,
-          }),
+        };
+        // Mirror mode: pass current prop IDs as the shared props
+        if (gameMode === "mirror") {
+          challengePayload.mirror_props = picks.map((p) => p.prop_id);
+          challengePayload.card_size = picks.length;
+        }
+        const challengeRes = await fetch("/api/challenges", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(challengePayload),
         });
         const challengeData = await challengeRes.json();
         if (!challengeRes.ok) {
@@ -203,7 +209,7 @@ export default function CardBuilderPanel() {
                   activeMode={gameMode}
                   onSelect={handleModeSelect}
                   compact
-                  modes={["classic", "sabotage"]}
+                  modes={["classic", "sabotage", "mirror"]}
                 />
               </div>
 
