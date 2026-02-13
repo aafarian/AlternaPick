@@ -1,8 +1,11 @@
 """
-api-football (RapidAPI) client for fetching EPL fixture data.
+api-football client for fetching EPL fixture data.
+
+Uses the direct api-football.com endpoint (v3.football.api-sports.io).
+Sign up at https://dashboard.api-football.com for a free API key (100 req/day).
 
 Endpoints used:
-  - GET /fixtures?league=39&season=2025&date={today}  — today's EPL fixtures
+  - GET /fixtures?league=39&season=2024&date={today}  — today's EPL fixtures
   - GET /fixtures?id={id}                              — single fixture (score/status)
   - GET /fixtures/players?fixture={id}                 — player stats for a fixture
 
@@ -19,10 +22,9 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-RAPIDAPI_HOST = "api-football-v1.p.rapidapi.com"
-BASE_URL = f"https://{RAPIDAPI_HOST}/v3"
+BASE_URL = "https://v3.football.api-sports.io"
 EPL_LEAGUE_ID = 39
-EPL_SEASON = 2025
+EPL_SEASON = 2024  # EPL 2024-25 season
 
 # In-memory cache with TTL
 _cache: dict[str, tuple[float, object]] = {}
@@ -42,10 +44,9 @@ def _set_cached(key: str, value, ttl: float = CACHE_TTL_SECONDS):
 
 
 def _get_headers() -> dict:
-    api_key = os.getenv("RAPIDAPI_KEY", "")
+    api_key = os.getenv("FOOTBALL_API_KEY", "")
     return {
-        "x-rapidapi-key": api_key,
-        "x-rapidapi-host": RAPIDAPI_HOST,
+        "x-apisports-key": api_key,
     }
 
 
