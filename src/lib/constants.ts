@@ -148,6 +148,21 @@ export function teamTricode(teamName: string): string {
   return TEAM_TRICODES[teamName] ?? teamName.slice(0, 3).toUpperCase();
 }
 
+// Reverse lookup: tricode → lowercase full team names
+const TRICODE_TO_NAMES: Record<string, string[]> = {};
+for (const [name, tricode] of Object.entries(TEAM_TRICODES)) {
+  if (!TRICODE_TO_NAMES[tricode]) TRICODE_TO_NAMES[tricode] = [];
+  TRICODE_TO_NAMES[tricode].push(name.toLowerCase());
+}
+
+/** Check if a player's team tricode matches a search query (by tricode or full team name). */
+export function teamMatchesQuery(tricode: string | null, query: string): boolean {
+  if (!tricode || !query) return false;
+  if (tricode.toLowerCase().includes(query)) return true;
+  const names = TRICODE_TO_NAMES[tricode];
+  return names ? names.some((n) => n.includes(query)) : false;
+}
+
 const TEAM_NBA_IDS: Record<string, number> = {
   ATL: 1610612737, BOS: 1610612738, BKN: 1610612751, CHA: 1610612766,
   CHI: 1610612741, CLE: 1610612739, DAL: 1610612742, DEN: 1610612743,

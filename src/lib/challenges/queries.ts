@@ -51,8 +51,12 @@ type ValidAction = "accept" | "decline" | "cancel";
 export async function getChallenges(
   supabase: SupabaseClient<Database>,
   userId: string,
-  statusFilter?: ChallengeStatus[]
-): Promise<ChallengeWithProfiles[]> {
+  statusFilter?: ChallengeStatus[],
+  options?: { limit?: number; offset?: number }
+): Promise<{ challenges: ChallengeWithProfiles[]; hasMore: boolean }> {
+  const limit = options?.limit;
+  const offset = options?.offset ?? 0;
+
   let query = typedFrom(supabase, "challenges")
     .select(
       "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url)"
@@ -64,13 +68,24 @@ export async function getChallenges(
     query = query.in("status", statusFilter);
   }
 
+  if (limit !== undefined) {
+    // Fetch one extra to check if there are more
+    query = query.range(offset, offset + limit);
+  }
+
   const { data, error } = await query;
 
   if (error) {
     throw new Error(`Failed to fetch challenges: ${error.message}`);
   }
 
-  return (data ?? []) as ChallengeWithProfiles[];
+  const results = (data ?? []) as ChallengeWithProfiles[];
+  const hasMore = limit !== undefined && results.length > limit;
+
+  return {
+    challenges: hasMore ? results.slice(0, limit) : results,
+    hasMore,
+  };
 }
 
 /**
@@ -159,7 +174,7 @@ export interface CreateChallengeOptions {
 }
 
 /**
- * Create a new challenge. Validates friendship and no duplicate pending/accepted/active challenges.
+ * Create a new challenge. Validates friendship.
  * Accepts optional game mode, trash talk message, card size, and mirror props.
  */
 export async function createChallenge(
@@ -199,31 +214,6 @@ export async function createChallenge(
     throw new ChallengeValidationError(
       "Opponent must be an accepted friend",
       403
-    );
-  }
-
-  // Check for existing pending/accepted/active challenge between the two
-  const { data: existing, error: existingError } = await typedFrom(
-    supabase,
-    "challenges"
-  )
-    .select("id")
-    .in("status", ["pending", "accepted", "active"])
-    .or(
-      `and(challenger_id.eq.${challengerId},opponent_id.eq.${opponentId}),and(challenger_id.eq.${opponentId},opponent_id.eq.${challengerId})`
-    )
-    .limit(1);
-
-  if (existingError) {
-    throw new Error(
-      `Failed to check existing challenges: ${existingError.message}`
-    );
-  }
-
-  if (existing && existing.length > 0) {
-    throw new ChallengeValidationError(
-      "An active or pending challenge already exists between you and this opponent",
-      409
     );
   }
 

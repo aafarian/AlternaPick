@@ -231,3 +231,20 @@ body {
     stroke-dashoffset: 0;
   }
 }
+
+/* Winner ring with expanding ripple */
+@keyframes winner-ripple {
+  0% {
+    box-shadow: 0 0 0 2px rgba(0, 210, 106, 0.9), 0 0 0 0 rgba(0, 210, 106, 0.7), 0 0 0 0 rgba(0, 210, 106, 0.45);
+  }
+  80% {
+    box-shadow: 0 0 0 2px rgba(0, 210, 106, 0.9), 0 0 0 10px rgba(0, 210, 106, 0), 0 0 0 18px rgba(0, 210, 106, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 2px rgba(0, 210, 106, 0.9), 0 0 0 10px rgba(0, 210, 106, 0), 0 0 0 18px rgba(0, 210, 106, 0);
+  }
+}
+
+@utility animate-winner-ring {
+  animation: winner-ripple 2.5s ease-out infinite;
+}

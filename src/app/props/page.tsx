@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/helpers";
 import { getCategoryStats, getPlayerStats } from "@/lib/analytics/queries";
 import type { EdgeMap } from "@/lib/analytics/types";
+import { teamMatchesQuery } from "@/lib/constants";
 import PropsHeader from "@/components/props/PropsHeader";
 import CategoryFilter from "@/components/props/CategoryFilter";
 import PlayerSearch from "@/components/props/PlayerSearch";
@@ -78,7 +79,8 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
         .filter(
           (p) =>
             !playerQuery ||
-            p.player_name.toLowerCase().includes(playerQuery)
+            p.player_name.toLowerCase().includes(playerQuery) ||
+            teamMatchesQuery(p.player_team, playerQuery)
         )
         .sort((a, b) => a.player_name.localeCompare(b.player_name)),
     })) ?? [];
