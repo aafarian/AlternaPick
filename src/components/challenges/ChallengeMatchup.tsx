@@ -108,7 +108,11 @@ function PlayerSide({
           {isWinner && <span className="mr-1">👑</span>}
           {name}
         </span>
-        <span className="text-xs text-muted-foreground">{label}</span>
+        {isWinner ? (
+          <span className="text-xs font-semibold text-neon-green">Winner</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">{label}</span>
+        )}
       </div>
 
       {/* Card — shared LivePickCard */}
