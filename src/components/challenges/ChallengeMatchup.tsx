@@ -8,7 +8,6 @@ import type { ChallengeDetail } from "@/lib/challenges/queries";
 import { useLiveChallenge } from "@/lib/challenges/use-live-challenge";
 import type { LivePickData } from "@/lib/cards/live-types";
 import { toLivePickData } from "@/lib/cards/live-types";
-import { CHALLENGE_STATUS_STYLES } from "@/lib/constants";
 import GameScoreBanner from "@/components/live/GameScoreBanner";
 import LivePickCard from "@/components/live/LivePickCard";
 import { Card, CardContent } from "@/components/ui/card";
@@ -86,32 +85,24 @@ function PlayerSide({
     <div className="flex flex-1 flex-col gap-3">
       {/* Player identity */}
       <div className="flex flex-col items-center gap-2">
-        <div className="flex items-center gap-2">
-          {isWinner && (
-            <span className="text-lg text-neon-green animate-pulse">✦</span>
+        <Avatar
+          className={cn(
+            "h-14 w-14",
+            isWinner && "animate-winner-ring"
           )}
-          <Avatar
+        >
+          {avatarUrl && <AvatarImage src={avatarUrl} alt={name} />}
+          <AvatarFallback
             className={cn(
-              "h-14 w-14",
-              isWinner && "ring-2 ring-neon-green"
+              "text-lg font-bold",
+              isWinner
+                ? "bg-neon-green/20 text-neon-green"
+                : "bg-primary/10 text-primary"
             )}
           >
-            {avatarUrl && <AvatarImage src={avatarUrl} alt={name} />}
-            <AvatarFallback
-              className={cn(
-                "text-lg font-bold",
-                isWinner
-                  ? "bg-neon-green/20 text-neon-green"
-                  : "bg-primary/10 text-primary"
-              )}
-            >
-              {initial}
-            </AvatarFallback>
-          </Avatar>
-          {isWinner && (
-            <span className="text-lg text-neon-green animate-pulse">✦</span>
-          )}
-        </div>
+            {initial}
+          </AvatarFallback>
+        </Avatar>
         <span className="text-sm font-semibold">
           {isWinner && <span className="mr-1">👑</span>}
           {name}
@@ -279,20 +270,29 @@ export default function ChallengeMatchup({
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
             Challenge Matchup
           </h1>
-          <Badge
-            variant="secondary"
-            className={CHALLENGE_STATUS_STYLES[challenge.status] ?? ""}
-          >
-            {challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
-          </Badge>
           {challenge.game_mode && (
             <GameModeBadge mode={challenge.game_mode as GameMode} size="lg" showClassic />
           )}
-          {liveData?.has_live_games && (
+          {liveData?.has_live_games ? (
             <div className="flex items-center gap-1">
               <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
               <span className="text-xs font-bold text-primary">LIVE</span>
             </div>
+          ) : (
+            <span className={cn(
+              "text-xs font-bold uppercase tracking-wider",
+              challenge.status === "active" || challenge.status === "accepted"
+                ? "text-neon-green"
+                : challenge.status === "resolved"
+                  ? "text-purple-400"
+                  : challenge.status === "pending"
+                    ? "text-amber-400"
+                    : "text-muted-foreground"
+            )}>
+              {challenge.status === "resolved" ? "Completed"
+                : challenge.status === "accepted" ? "Active"
+                : challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
+            </span>
           )}
           {liveLoading && !liveData && (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -338,36 +338,42 @@ export default function ChallengeMatchup({
         </Alert>
       )}
 
-      {/* Reactions — resolved challenges only */}
+      {/* Resolved: reactions, share, result, quick actions — compact group */}
       {challenge.status === "resolved" && (
-        <div className="flex justify-center">
+        <div className="flex flex-col items-center gap-2">
           <ReactionBar
             targetType="challenge"
             targetId={challenge.id}
             currentUserId={currentUserId}
           />
-        </div>
-      )}
-
-      {/* Share — resolved challenges only */}
-      {challenge.status === "resolved" && (
-        <div className="flex justify-center">
-          <ShareButton
-            url={`${typeof window !== "undefined" ? window.location.origin : ""}/challenges/${challenge.id}/share`}
-            title={`${challengerName} vs ${opponentName} - AlternaPick Challenge`}
-            text={`Check out this challenge on AlternaPick! ${challengerName} vs ${opponentName}`}
+          <div className="mb-1 flex items-center gap-3">
+            <p className="text-sm font-semibold">
+              {isDraw ? (
+                <span className="text-amber-400">It&apos;s a draw!</span>
+              ) : isWinner ? (
+                <span className="text-neon-green">You won!</span>
+              ) : (
+                <span className="text-bold-red">
+                  {isChallenger ? opponentName : challengerName} won!
+                </span>
+              )}
+            </p>
+            <span className="text-muted-foreground/30">|</span>
+            <ShareButton
+              url={`${typeof window !== "undefined" ? window.location.origin : ""}/challenges/${challenge.id}/share`}
+              title={`${challengerName} vs ${opponentName} - AlternaPick Challenge`}
+              text={`Check out this challenge on AlternaPick! ${challengerName} vs ${opponentName}`}
+            />
+          </div>
+          <QuickActions
+            challengeId={challenge.id}
+            opponentId={isChallenger ? challenge.opponent_id : challenge.challenger_id}
+            gameMode={(challenge.game_mode as GameMode) ?? "classic"}
+            isParticipant={true}
+            isResolved={challenge.status === "resolved"}
           />
         </div>
       )}
-
-      {/* Quick Actions — resolved challenges only */}
-      <QuickActions
-        challengeId={challenge.id}
-        opponentId={isChallenger ? challenge.opponent_id : challenge.challenger_id}
-        gameMode={(challenge.game_mode as GameMode) ?? "classic"}
-        isParticipant={true}
-        isResolved={challenge.status === "resolved"}
-      />
 
       {/* Matchup Layout — no wrapper card, just the two sides */}
       <div className="flex flex-col items-stretch gap-6 md:flex-row md:gap-4">
@@ -384,10 +390,20 @@ export default function ChallengeMatchup({
           liveLoading={shouldFetchLive && !liveData}
         />
 
-        {/* VS badge */}
-        <div className="flex shrink-0 items-center justify-center md:self-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-            VS
+        {/* Score + VS column */}
+        <div className="flex shrink-0 flex-col items-center gap-2 md:self-stretch">
+          {/* Score — below avatar row */}
+          {challenge.challenger_card && challenge.opponent_card &&
+            (challenge.status === "active" || challenge.status === "resolved") && (
+            <span className="mt-6 text-lg font-bold tabular-nums tracking-wide md:mt-10">
+              {challenge.challenger_card.score} &ndash; {challenge.opponent_card.score}
+            </span>
+          )}
+          {/* VS centered in remaining space */}
+          <div className="flex flex-1 items-center justify-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+              VS
+            </div>
           </div>
         </div>
 

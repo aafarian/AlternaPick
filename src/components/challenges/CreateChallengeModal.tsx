@@ -18,6 +18,7 @@ import {
   GAME_MODE_LIST,
   CARD_SIZES,
   DEFAULT_CARD_SIZE,
+  isValidGameMode,
 } from "@/lib/modes";
 import type { GameMode, CardSize } from "@/lib/modes";
 import MirrorPropPicker from "./MirrorPropPicker";
@@ -44,6 +45,10 @@ interface CreateChallengeModalProps {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  /** Pre-select an opponent (e.g. from rematch) */
+  initialOpponentId?: string | null;
+  /** Pre-select a game mode (e.g. from rematch) */
+  initialMode?: string | null;
 }
 
 type Step = "opponent" | "settings" | "mirror_props";
@@ -56,6 +61,8 @@ export default function CreateChallengeModal({
   open,
   onClose,
   onCreated,
+  initialOpponentId,
+  initialMode,
 }: CreateChallengeModalProps) {
   // Step state
   const [step, setStep] = useState<Step>("opponent");
@@ -101,16 +108,31 @@ export default function CreateChallengeModal({
   useEffect(() => {
     if (open) {
       fetchFriends();
-      setStep("opponent");
       setSelectedFriend(null);
       setSearch("");
-      setGameMode("classic");
+      setGameMode(
+        initialMode && isValidGameMode(initialMode) ? initialMode : "classic"
+      );
       setCardSize(DEFAULT_CARD_SIZE);
       setMessage("");
       setMirrorProps([]);
       setError(null);
+      // If we have a pre-selected opponent we'll skip to step 2 after friends load
+      setStep(initialOpponentId ? "settings" : "opponent");
     }
-  }, [open, fetchFriends]);
+  }, [open, fetchFriends, initialOpponentId, initialMode]);
+
+  /* ---------- Auto-select initial opponent after friends load ---------- */
+
+  useEffect(() => {
+    if (!open || !initialOpponentId || loadingFriends || friends.length === 0) return;
+    const match = friends.find(
+      (f) => f.friend_profile.id === initialOpponentId
+    );
+    if (match) {
+      setSelectedFriend(match);
+    }
+  }, [open, initialOpponentId, friends, loadingFriends]);
 
   /* ---------- Create challenge ---------- */
 

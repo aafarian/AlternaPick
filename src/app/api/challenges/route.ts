@@ -26,6 +26,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const statusParam = searchParams.get("status");
+    const limitParam = searchParams.get("limit");
+    const offsetParam = searchParams.get("offset");
 
     let statusFilter: ChallengeStatus[] | undefined;
     if (statusParam) {
@@ -45,7 +47,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const challenges = await getChallenges(supabase, user.id, statusFilter);
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    const offset = offsetParam ? parseInt(offsetParam, 10) : undefined;
+
+    const { challenges, hasMore } = await getChallenges(
+      supabase,
+      user.id,
+      statusFilter,
+      limit !== undefined ? { limit, offset } : undefined
+    );
 
     // Also fetch which challenges the user has submitted cards for (avoids client waterfall)
     const challengeIds = challenges
@@ -63,7 +73,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ challenges, userCardChallengeIds });
+    return NextResponse.json({ challenges, userCardChallengeIds, hasMore });
   } catch (error) {
     return handleApiError(error, "Failed to fetch challenges");
   }

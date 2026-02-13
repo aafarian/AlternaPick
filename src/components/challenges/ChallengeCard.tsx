@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
-import { CHALLENGE_STATUS_STYLES } from "@/lib/constants";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import type { GameMode } from "@/lib/modes/types";
+import { cn } from "@/lib/utils";
 
 interface ChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -20,22 +19,6 @@ interface ChallengeCardProps {
   userHasCard?: boolean;
 }
 
-function getOpponentInfo(
-  challenge: ChallengeWithProfiles,
-  currentUserId: string
-) {
-  const isChallenger = challenge.challenger_id === currentUserId;
-  const opponent = isChallenger ? challenge.opponent : challenge.challenger;
-  return {
-    isChallenger,
-    opponent,
-    displayName: opponent.display_name || opponent.username,
-    avatarInitial: (opponent.display_name || opponent.username)
-      .charAt(0)
-      .toUpperCase(),
-  };
-}
-
 export default function ChallengeCard({
   challenge,
   currentUserId,
@@ -45,11 +28,34 @@ export default function ChallengeCard({
   actionLoading,
   userHasCard = false,
 }: ChallengeCardProps) {
-  const { isChallenger, displayName, avatarInitial } = getOpponentInfo(
-    challenge,
-    currentUserId
-  );
+  const isChallenger = challenge.challenger_id === currentUserId;
+  const opponent = isChallenger ? challenge.opponent : challenge.challenger;
+  const displayName = opponent.display_name || opponent.username;
+  const avatarInitial = displayName.charAt(0).toUpperCase();
   const isLoading = actionLoading === challenge.id;
+
+  const isActive =
+    challenge.status === "active" || challenge.status === "accepted";
+  const isResolved = challenge.status === "resolved";
+  const isPending = challenge.status === "pending";
+  const isIncoming = isPending && !isChallenger;
+  const isOutgoing = isPending && isChallenger;
+  const won = isResolved && challenge.winner_id === currentUserId;
+  const lost =
+    isResolved &&
+    challenge.winner_id !== null &&
+    challenge.winner_id !== currentUserId;
+
+  // Left border + card background
+  const borderClass = isIncoming
+    ? "border-l-2 border-l-amber-500"
+    : won
+      ? "border-l-2 border-l-neon-green"
+      : lost
+        ? "border-l-2 border-l-bold-red"
+        : "";
+
+  const bgClass = isIncoming ? "bg-amber-500/[0.03]" : "bg-card";
 
   const date = new Date(challenge.created_at).toLocaleDateString("en-US", {
     month: "short",
@@ -58,71 +64,103 @@ export default function ChallengeCard({
 
   return (
     <Link href={`/challenges/${challenge.id}`}>
-      <Card className="border-border bg-card transition-all hover:border-border hover:bg-secondary/50">
-        <CardContent className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
-                {avatarInitial}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-bold">{displayName}</span>
-                <Badge
-                  variant="secondary"
-                  className={CHALLENGE_STATUS_STYLES[challenge.status] ?? ""}
-                >
-                  {challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
-                </Badge>
-                {challenge.game_mode && (
-                  <GameModeBadge mode={challenge.game_mode as GameMode} size="md" showClassic />
-                )}
-                {challenge.status === "active" && (
-                  <div className="flex items-center gap-1">
-                    <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
-                    <span className="text-[10px] font-bold text-primary">LIVE</span>
-                  </div>
-                )}
-                {challenge.status === "resolved" && (
-                  <Badge
-                    variant="secondary"
-                    className={
-                      !challenge.winner_id
-                        ? "bg-muted/15 text-muted-foreground"
-                        : challenge.winner_id === currentUserId
-                          ? "bg-neon-green/15 text-neon-green border-neon-green/30"
-                          : "bg-bold-red/15 text-bold-red border-bold-red/30"
-                    }
-                  >
-                    {!challenge.winner_id
-                      ? "Draw"
-                      : challenge.winner_id === currentUserId
-                        ? "You Won"
-                        : "You Lost"}
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {isChallenger ? "You challenged" : "Challenged you"} &middot;{" "}
-                {date}
-              </p>
-              {/* Trash talk preview */}
-              {challenge.message && (
-                <p className="mt-1 text-xs italic text-muted-foreground truncate max-w-[250px]">
-                  &ldquo;{challenge.message.length > 50
-                    ? challenge.message.slice(0, 50) + "..."
-                    : challenge.message}&rdquo;
-                </p>
+      <Card
+        className={cn(
+          "border-border transition-all hover:bg-secondary/50",
+          borderClass,
+          bgClass
+        )}
+      >
+        <CardContent className="flex items-center gap-3 px-4 py-2.5">
+          {/* Avatar */}
+          <Avatar className="h-9 w-9 shrink-0">
+            <AvatarFallback
+              className={cn(
+                "text-sm font-bold",
+                isIncoming
+                  ? "bg-amber-500/15 text-amber-400"
+                  : "bg-primary/10 text-primary"
+              )}
+            >
+              {avatarInitial}
+            </AvatarFallback>
+          </Avatar>
+
+          {/* Info — name row has inline status */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-sm font-bold">{displayName}</span>
+
+              {/* Inline status indicator */}
+              {isActive && (
+                <div className="flex items-center gap-1">
+                  <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                  <span className="text-[10px] font-bold text-primary">ACTIVE</span>
+                </div>
+              )}
+              {won && (
+                <span className="text-[10px] font-bold text-neon-green">WIN</span>
+              )}
+              {lost && (
+                <span className="text-[10px] font-bold text-bold-red">LOSS</span>
+              )}
+              {isResolved && !challenge.winner_id && (
+                <span className="text-[10px] font-bold text-muted-foreground">DRAW</span>
+              )}
+              {isOutgoing && (
+                <span className="text-[10px] font-medium text-muted-foreground/60">WAITING</span>
+              )}
+              {(challenge.status === "cancelled" || challenge.status === "declined") && (
+                <span className="text-[10px] font-medium text-muted-foreground/60">
+                  {challenge.status === "cancelled" ? "CANCELLED" : "DECLINED"}
+                </span>
               )}
             </div>
+            <div className="flex items-center gap-1.5">
+              {challenge.game_mode && (
+                <GameModeBadge
+                  mode={challenge.game_mode as GameMode}
+                  size="md"
+                  showClassic
+                />
+              )}
+              <span className="text-xs text-muted-foreground">
+                {isIncoming
+                  ? "Challenged you"
+                  : isOutgoing
+                    ? "You challenged"
+                    : isChallenger
+                      ? "You challenged"
+                      : "Challenged you"}{" "}
+                &middot; {date}
+              </span>
+            </div>
+            {/* Trash talk — more prominent on incoming */}
+            {challenge.message && (
+              <p
+                className={cn(
+                  "mt-0.5 max-w-[280px] truncate text-xs italic",
+                  isIncoming
+                    ? "text-amber-400/70"
+                    : "text-muted-foreground/60"
+                )}
+              >
+                &ldquo;
+                {challenge.message.length > 60
+                  ? challenge.message.slice(0, 60) + "..."
+                  : challenge.message}
+                &rdquo;
+              </p>
+            )}
           </div>
 
+          {/* Right side — actions only */}
           <div
-            className="flex items-center gap-2"
+            className="flex shrink-0 items-center gap-2"
             onClick={(e) => e.preventDefault()}
           >
-            {challenge.status === "pending" && !isChallenger && (
+            {/* Incoming: Accept / Decline */}
+            {isIncoming && (
               <>
                 <Button
                   onClick={() => onAccept?.(challenge.id)}
@@ -142,24 +180,21 @@ export default function ChallengeCard({
               </>
             )}
 
-            {challenge.status === "pending" && isChallenger && (
-              <div className="flex items-center gap-2">
+            {/* Outgoing: Make Picks + Cancel */}
+            {isOutgoing && (
+              <>
                 {!userHasCard && (
                   <Button
                     size="sm"
+                    variant="outline"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       window.location.href = `/props?challenge_id=${challenge.id}`;
                     }}
                   >
-                    Make Your Picks
+                    Make Picks
                   </Button>
-                )}
-                {userHasCard && (
-                  <Badge variant="secondary" className="bg-neon-green/15 text-neon-green border-neon-green/30">
-                    Picks Submitted
-                  </Badge>
                 )}
                 <Button
                   onClick={(e) => {
@@ -168,35 +203,27 @@ export default function ChallengeCard({
                     onCancel?.(challenge.id);
                   }}
                   disabled={isLoading}
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
+                  className="text-muted-foreground"
                 >
                   {isLoading ? "..." : "Cancel"}
                 </Button>
-              </div>
+              </>
             )}
 
-            {(challenge.status === "accepted" ||
-              challenge.status === "active") &&
-              (userHasCard ? (
-                <Badge variant="secondary" className="bg-neon-green/15 text-neon-green border-neon-green/30">
-                  Picks Submitted
-                </Badge>
-              ) : (
-                <Button
-                  size="sm"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    window.location.href = `/props?challenge_id=${challenge.id}`;
-                  }}
-                >
-                  Make Your Picks
-                </Button>
-              ))}
-
-            {challenge.status === "resolved" && (
-              <span className="text-xs text-muted-foreground">View Details</span>
+            {/* Active: Make Picks if needed */}
+            {isActive && !userHasCard && (
+              <Button
+                size="sm"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.location.href = `/props?challenge_id=${challenge.id}`;
+                }}
+              >
+                Make Picks
+              </Button>
             )}
           </div>
         </CardContent>
