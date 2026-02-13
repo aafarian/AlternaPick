@@ -95,16 +95,18 @@ export default function Header() {
                   <span className="sr-only">Toggle menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-72 bg-background/95 backdrop-blur-xl border-border">
-                <SheetTitle className="text-lg font-bold mb-4">
+              <SheetContent side="right" className="w-72 bg-background/95 backdrop-blur-xl border-border px-5 pt-5 pb-8">
+                <SheetTitle className="text-lg font-bold">
                   <span className="text-primary">Alterna</span>Pick
                 </SheetTitle>
-                <Nav
-                  onNavigate={() => setSheetOpen(false)}
-                  user={user}
-                  notificationCounts={notificationCounts}
-                  mobileSecondaryOnly
-                />
+                <div className="mt-2 border-t border-border pt-4">
+                  <Nav
+                    onNavigate={() => setSheetOpen(false)}
+                    user={user}
+                    notificationCounts={notificationCounts}
+                    mobileSecondaryOnly
+                  />
+                </div>
               </SheetContent>
             </Sheet>
           ) : !loading ? (
