@@ -1,9 +1,10 @@
 const STATS_SERVICE_URL =
   process.env.STATS_SERVICE_URL || "http://localhost:8000";
-const TIMEOUT_MS = 5000;
+const TIMEOUT_MS = 3000;
 
-// Module-level TTL cache for live endpoints (30s)
+// Module-level TTL cache for live endpoints (30s) and final boxscores (1hr)
 const CACHE_TTL = 30_000;
+const FINAL_CACHE_TTL = 3_600_000;
 const cache = new Map<string, { data: unknown; expiry: number }>();
 
 function getCached<T>(key: string): T | undefined {
@@ -16,8 +17,8 @@ function getCached<T>(key: string): T | undefined {
   return entry.data as T;
 }
 
-function setCache(key: string, data: unknown): void {
-  cache.set(key, { data, expiry: Date.now() + CACHE_TTL });
+function setCache(key: string, data: unknown, ttl: number = CACHE_TTL): void {
+  cache.set(key, { data, expiry: Date.now() + ttl });
 }
 
 export interface StatsGame {
@@ -79,18 +80,19 @@ class StatsServiceError extends Error {
 
 async function fetchWithRetry(
   url: string,
-  retries = 1
+  retries = 1,
+  timeout = TIMEOUT_MS
 ): Promise<Response> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(
+      const timer = setTimeout(
         () => controller.abort(),
-        TIMEOUT_MS
+        timeout
       );
 
       const response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeout);
+      clearTimeout(timer);
 
       if (response.ok) return response;
 
@@ -129,11 +131,18 @@ export async function fetchTodaysGames(): Promise<StatsGame[]> {
 export async function fetchBoxscore(
   gameId: string
 ): Promise<PlayerBoxScore[]> {
+  const cacheKey = `boxscore:${gameId}`;
+  const cached = getCached<PlayerBoxScore[]>(cacheKey);
+  if (cached) return cached;
+
   const response = await fetchWithRetry(
-    `${STATS_SERVICE_URL}/games/${gameId}/boxscore`
+    `${STATS_SERVICE_URL}/games/${gameId}/boxscore`,
+    0
   );
   const data = await response.json();
-  return data.data ?? [];
+  const result = data.data ?? [];
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  return result;
 }
 
 export async function fetchPlayerStats(
@@ -162,7 +171,8 @@ export async function fetchBoxscoreLive(
   if (cached) return cached;
 
   const response = await fetchWithRetry(
-    `${STATS_SERVICE_URL}/games/${gameId}/boxscore/live`
+    `${STATS_SERVICE_URL}/games/${gameId}/boxscore/live`,
+    0
   );
   const data = await response.json();
   const result = data.data ?? [];

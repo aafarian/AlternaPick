@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, AlertCircle, Loader2 } from "lucide-react";
 import ReactionBar from "@/components/challenges/ReactionBar";
 import TrashTalkBubble from "@/components/challenges/TrashTalkBubble";
@@ -54,9 +55,9 @@ function PlayerSide({
 }) {
   const initial = name.charAt(0).toUpperCase();
 
-  // Build LivePickData[] for the card's picks — only use fallback when live data is loaded
+  // Build LivePickData[] — always render picks immediately using fallback, overlay live data when available
   const picks: LivePickData[] =
-    showPicks && card && !liveLoading
+    showPicks && card
       ? card.picks.map((pick) => livePickMap.get(pick.id) ?? toLivePickData(pick))
       : [];
 
@@ -273,8 +274,13 @@ export default function ChallengeMatchup({
       )}
 
       {/* Live Game Scores */}
-      {liveData && liveData.games.length > 0 && (
+      {liveData && liveData.games.length > 0 ? (
         <GameScoreBanner games={liveData.games} />
+      ) : shouldFetchLive && !liveData && (
+        <div className="flex gap-2">
+          <Skeleton className="h-[50px] w-[100px] shrink-0 rounded-lg" />
+          <Skeleton className="h-[50px] w-[100px] shrink-0 rounded-lg" />
+        </div>
       )}
 
       {/* Error */}

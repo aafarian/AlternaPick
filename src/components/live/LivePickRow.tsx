@@ -6,7 +6,7 @@ import { formatClock, formatGameTime } from "@/lib/format";
 import type { StatCategory } from "@/lib/supabase/types";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
 import { Badge } from "@/components/ui/badge";
-import { ChevronUp, ChevronDown, Check, X, CheckCircle2, XCircle } from "lucide-react";
+import { ChevronUp, ChevronDown, Check, X, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // SVG chevron patterns — fit within h-2 (8px) bar
@@ -27,6 +27,8 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
   const isFinal = pick.game_status?.status === "final";
   const isPreGame =
     !pick.game_status || pick.game_status.status === "scheduled";
+  // Fallback pick = no game_status and no value → live data is still loading
+  const isAwaitingLive = !pick.game_status && !hasValue;
 
   // Progress toward the line
   const rawPct =
@@ -214,7 +216,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
             )}
             {hasValue ? (
-              <span className="flex items-baseline gap-0.5">
+              <span className="flex items-baseline gap-0.5 animate-value-in">
                 <span
                   className={cn(
                     "text-xs font-bold tabular-nums",
@@ -229,19 +231,24 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
                 </span>
               </span>
             ) : (
-              <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-                {pick.line}
+              <span className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                  {pick.line}
+                </span>
+                {isAwaitingLive && (
+                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/50" />
+                )}
               </span>
             )}
           </div>
         </div>
 
-        {/* Right: big current value + game status */}
-        <div className="flex flex-col items-end gap-1">
+        {/* Right: big current value + game status — fixed min-h to avoid layout shift */}
+        <div className="flex min-h-[36px] flex-col items-end justify-center gap-1">
           {hasValue ? (
             <span
               className={cn(
-                "text-xl font-black tabular-nums leading-none",
+                "text-xl font-black tabular-nums leading-none animate-value-in",
                 isWinning ? "text-neon-green" : "text-bold-red"
               )}
             >
@@ -251,6 +258,8 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
             <span className="text-xs font-medium leading-none text-muted-foreground/50">
               Pending
             </span>
+          ) : isAwaitingLive ? (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30" />
           ) : (
             <span className="text-base leading-none text-muted-foreground/30">
               &mdash;
@@ -258,17 +267,17 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
           )}
 
           {isLive && pick.game_status && (
-            <span className="flex items-center gap-1 text-[10px] font-semibold leading-none tabular-nums text-white/70">
+            <span className="flex items-center gap-1 text-[10px] font-semibold leading-none tabular-nums text-white/70 animate-value-in">
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
               {formatClock(pick.game_status.period, pick.game_status.clock)}
             </span>
           )}
           {isFinal && (
-            <span className="text-[10px] font-semibold leading-none text-white/50">
+            <span className="text-[10px] font-semibold leading-none text-white/50 animate-value-in">
               Final
             </span>
           )}
-          {isPreGame && (
+          {isPreGame && !isAwaitingLive && (
             <span className="text-[10px] font-semibold leading-none text-white/70">
               {pick.game_status?.commence_time
                 ? formatGameTime(pick.game_status.commence_time)
@@ -278,65 +287,60 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
         </div>
       </div>
 
-      {/* Progress bar */}
-      {!hasValue && (isPreGame || isFinal) && (
-        <div className="relative h-2 w-full rounded-full bg-secondary/20" />
-      )}
-      {hasValue && (
-        <div className="relative h-2 w-full overflow-visible rounded-full bg-secondary/30">
-          {/* Line marker */}
-          <div
-            className="absolute -top-[3px] z-20 flex flex-col items-center"
-            style={{
-              left: `${linePosition}%`,
-              transform: "translateX(-50%)",
-            }}
-          >
-            <div
-              className={cn(
-                "h-[14px] w-[2px] rounded-full",
-                pastLine ? "bg-foreground/40" : "bg-foreground/80"
-              )}
-            />
-          </div>
-
-          {/* Colored fill */}
+      {/* Progress bar — always rendered so width animates from 0% when data arrives */}
+      <div className="relative h-2 w-full overflow-visible rounded-full bg-secondary/30">
+        {/* Line marker */}
+        <div
+          className="absolute -top-[3px] z-20 flex flex-col items-center transition-[left] duration-700 ease-out"
+          style={{
+            left: `${linePosition}%`,
+            transform: "translateX(-50%)",
+          }}
+        >
           <div
             className={cn(
-              "relative h-full overflow-hidden rounded-full transition-all duration-700 ease-out",
-              barColor
+              "h-[14px] w-[2px] rounded-full",
+              pastLine ? "bg-foreground/40" : "bg-foreground/80"
             )}
-            style={{
-              width: `${barWidth}%`,
-            }}
-          >
-            {/* Chevron pattern — only when in play */}
-            {!isSettled && (
+          />
+        </div>
+
+        {/* Colored fill */}
+        <div
+          className={cn(
+            "relative h-full overflow-hidden rounded-full transition-all duration-700 ease-out",
+            barColor
+          )}
+          style={{
+            width: `${barWidth}%`,
+          }}
+        >
+          {/* Chevron pattern — only when in play */}
+          {!isSettled && (
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: isOver ? CHEVRON_RIGHT : CHEVRON_LEFT,
+                backgroundRepeat: "repeat",
+                backgroundSize: "8px 8px",
+              }}
+            />
+          )}
+
+          {/* Shimmer — only when in play */}
+          {inPlay && (
+            <div className="absolute inset-0 overflow-hidden">
               <div
-                className="absolute inset-0"
+                className="absolute inset-y-0 w-1/3 animate-bar-shimmer"
                 style={{
-                  backgroundImage: isOver ? CHEVRON_RIGHT : CHEVRON_LEFT,
-                  backgroundRepeat: "repeat",
-                  backgroundSize: "8px 8px",
+                  background:
+                    "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",
                 }}
               />
-            )}
-
-            {/* Shimmer — only when in play */}
-            {inPlay && (
-              <div className="absolute inset-0 overflow-hidden">
-                <div
-                  className="absolute inset-y-0 w-1/3 animate-bar-shimmer"
-                  style={{
-                    background:
-                      "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",
-                  }}
-                />
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

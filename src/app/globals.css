@@ -158,6 +158,22 @@ body {
   animation: bar-shimmer 2s ease-in-out infinite;
 }
 
+/* Fade-in for live stat values arriving */
+@keyframes value-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-value-in {
+  animation: value-fade-in 0.4s ease-out forwards;
+}
+
 /* Card success animation — backdrop fade */
 @keyframes success-fade-in {
   from {
