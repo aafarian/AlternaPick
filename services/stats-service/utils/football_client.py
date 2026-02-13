@@ -34,7 +34,7 @@ FINAL_CACHE_TTL_SECONDS = 3600
 
 def _get_cached(key: str):
     entry = _cache.get(key)
-    if entry and (time.monotonic() - entry[0]) < entry[2] if len(entry) > 2 else CACHE_TTL_SECONDS:
+    if entry and (time.monotonic() - entry[0]) < (entry[2] if len(entry) > 2 else CACHE_TTL_SECONDS):
         return entry[1]
     return None
 
