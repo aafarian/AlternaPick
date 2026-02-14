@@ -31,6 +31,8 @@ const EPL_CATEGORIES: CategoryOption[] = [
   { value: "assists", label: "Assists" },
 ];
 
+const DRAG_THRESHOLD = 8;
+
 export default function CategoryFilter({ sport = "nba" }: { sport?: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -38,10 +40,9 @@ export default function CategoryFilter({ sport = "nba" }: { sport?: string }) {
   const dragState = useRef({ dragging: false, startX: 0, scrollLeft: 0 });
 
   const active = searchParams.get("category") ?? "all";
-  const categories = sport === "epl" ? EPL_CATEGORIES : NBA_CATEGORIES; // NCAAB uses same basketball categories as NBA
+  const categories = sport === "epl" ? EPL_CATEGORIES : NBA_CATEGORIES;
 
   function handleChange(value: string) {
-    // Ignore tab change if user was dragging
     if (dragState.current.dragging) return;
     const params = new URLSearchParams(searchParams.toString());
     params.set("category", value);
@@ -59,17 +60,26 @@ export default function CategoryFilter({ sport = "nba" }: { sport?: string }) {
     const el = scrollRef.current;
     if (!el || !el.hasPointerCapture(e.pointerId)) return;
     const dx = e.clientX - dragState.current.startX;
-    // Mark as dragging once moved more than 4px to distinguish from clicks
-    if (Math.abs(dx) > 4) dragState.current.dragging = true;
-    el.scrollLeft = dragState.current.scrollLeft - dx;
+    if (Math.abs(dx) > DRAG_THRESHOLD) dragState.current.dragging = true;
+    if (dragState.current.dragging) {
+      el.scrollLeft = dragState.current.scrollLeft - dx;
+    }
   }, []);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     const el = scrollRef.current;
     if (!el) return;
     el.releasePointerCapture(e.pointerId);
-    // Reset dragging flag after a tick so the click handler can check it
-    setTimeout(() => { dragState.current.dragging = false; }, 0);
+    // Reset after a frame so capture handler below can block the click
+    requestAnimationFrame(() => { dragState.current.dragging = false; });
+  }, []);
+
+  // Block click events during drag — capture phase runs before Radix triggers
+  const onClickCapture = useCallback((e: React.MouseEvent) => {
+    if (dragState.current.dragging) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
   }, []);
 
   return (
@@ -79,7 +89,8 @@ export default function CategoryFilter({ sport = "nba" }: { sport?: string }) {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        className="h-auto max-w-full cursor-grab justify-start gap-1.5 overflow-x-auto bg-transparent p-0 active:cursor-grabbing scrollbar-none"
+        onClickCapture={onClickCapture}
+        className="h-auto max-w-full cursor-grab justify-start gap-1.5 overflow-x-auto overflow-y-hidden bg-transparent p-0 active:cursor-grabbing scrollbar-none"
       >
         {categories.map(({ value, label }) => (
           <TabsTrigger
