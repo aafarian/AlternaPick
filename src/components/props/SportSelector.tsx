@@ -5,13 +5,19 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const SPORTS = [
   { value: "nba", label: "NBA" },
+  { value: "ncaab", label: "NCAAB" },
   { value: "epl", label: "Soccer" },
 ] as const;
 
-export default function SportSelector() {
+interface SportSelectorProps {
+  counts?: Record<string, number>;
+  activeSport?: string;
+}
+
+export default function SportSelector({ counts, activeSport }: SportSelectorProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const active = searchParams.get("sport") ?? "nba";
+  const active = searchParams.get("sport") ?? activeSport ?? "nba";
 
   function handleChange(value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -32,6 +38,9 @@ export default function SportSelector() {
             className="flex-none cursor-pointer rounded-full border border-border bg-secondary px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-all data-[state=active]:border-primary data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-[0_0_10px_rgba(0,210,106,0.15)]"
           >
             {label}
+            {counts?.[value] ? (
+              <span className="ml-1 text-[10px] opacity-60">({counts[value]})</span>
+            ) : null}
           </TabsTrigger>
         ))}
       </TabsList>

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getCachedProps } from "@/lib/odds-api/cache";
+import { getCachedProps, getCachedPropCounts } from "@/lib/odds-api/cache";
 import type { SportKey } from "@/lib/odds-api/constants";
 import type { StatCategory } from "@/lib/supabase/types";
 import { createClient } from "@/lib/supabase/server";
@@ -7,11 +7,13 @@ import { getCurrentUser } from "@/lib/auth/helpers";
 import { getCategoryStats, getPlayerStats } from "@/lib/analytics/queries";
 import type { EdgeMap } from "@/lib/analytics/types";
 import { teamMatchesQuery } from "@/lib/constants";
+import { fetchNcaabTeams } from "@/lib/stats-service/client";
 import PropsHeader from "@/components/props/PropsHeader";
 import SportSelector from "@/components/props/SportSelector";
 import CategoryFilter from "@/components/props/CategoryFilter";
 import PlayerSearch from "@/components/props/PlayerSearch";
 import PropsGameList from "@/components/props/PropsGameList";
+import NcaabTeamRegistrar from "@/components/props/NcaabTeamRegistrar";
 import { Card, CardContent } from "@/components/ui/card";
 
 /** Minimum accuracy threshold (0-1) to qualify as an "edge" */
@@ -26,9 +28,22 @@ interface PropsPageProps {
 export default async function PropsPage({ searchParams }: PropsPageProps) {
   const { category: rawCategory, player, sport: rawSport } = await searchParams;
 
-  // Determine sport (default to NBA)
-  const sport: SportKey = rawSport === "epl" ? "epl" : "nba";
-  const defaultCategory = sport === "epl" ? "shots" : "points";
+  // Fetch prop counts first so we can pick the best default sport
+  let propCounts: Record<string, number> = {};
+  try {
+    propCounts = await getCachedPropCounts().catch(() => ({} as Record<string, number>));
+  } catch {
+    // continue with empty counts
+  }
+
+  // Determine sport: use URL param if set, otherwise pick the first sport with props
+  const SPORT_PRIORITY: SportKey[] = ["nba", "ncaab", "epl"];
+  let sport: SportKey;
+  if (rawSport === "epl" || rawSport === "ncaab" || rawSport === "nba") {
+    sport = rawSport;
+  } else {
+    sport = SPORT_PRIORITY.find((s) => (propCounts[s] ?? 0) > 0) ?? "nba";
+  }
   const emptyEmoji = sport === "epl" ? "\u26BD" : "\uD83C\uDFC0";
 
   // Fetch props with a timeout so the page never hangs
@@ -38,6 +53,17 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
     games = await Promise.race([getCachedProps(sport), timeout]);
   } catch {
     games = null;
+  }
+
+  // Fetch NCAAB team ESPN IDs for client-side logo rendering
+  // (RSC and client components use separate module instances, so we pass via props)
+  let ncaabTeams: Record<string, string> = {};
+  if (sport === "ncaab") {
+    try {
+      ncaabTeams = await fetchNcaabTeams();
+    } catch {
+      // ESPN unavailable — team logos fall back to tricode text
+    }
   }
 
   // Build edge maps for authenticated users
@@ -69,8 +95,8 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
     // If analytics fetch fails, continue without edge data
   }
 
-  // Default category per sport when no category param; "all" shows everything
-  const category = rawCategory ?? defaultCategory;
+  // Default to "all" when no category param
+  const category = rawCategory ?? "all";
   const isAll = category === "all";
 
   const playerQuery = player?.trim().toLowerCase() ?? "";
@@ -87,7 +113,9 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
           (p) =>
             !playerQuery ||
             p.player_name.toLowerCase().includes(playerQuery) ||
-            teamMatchesQuery(p.player_team, playerQuery)
+            teamMatchesQuery(p.player_team, playerQuery) ||
+            game.home_team.toLowerCase().includes(playerQuery) ||
+            game.away_team.toLowerCase().includes(playerQuery)
         )
         .sort((a, b) => a.player_name.localeCompare(b.player_name)),
     })) ?? [];
@@ -138,11 +166,14 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
 
   return (
     <div className="flex flex-col gap-6 py-8">
-      <PropsHeader gameCount={withProps.length} dateLabel={dateGroups.length > 1 ? "Upcoming" : dateGroups[0]?.label} />
+      {sport === "ncaab" && Object.keys(ncaabTeams).length > 0 && (
+        <NcaabTeamRegistrar teams={ncaabTeams} />
+      )}
+      <PropsHeader gameCount={withProps.length} />
 
-      <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-3 bg-background px-4 pb-3 pt-2">
+      <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-3 border-b border-border bg-background px-4 pb-3 pt-2 shadow-sm">
         <Suspense fallback={null}>
-          <SportSelector />
+          <SportSelector counts={propCounts} activeSport={sport} />
         </Suspense>
 
         <Suspense fallback={null}>
@@ -179,7 +210,7 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
         <PropsGameList
           key={category}
           games={dateGroups[0].games}
-          expandFirstOnly={isAll}
+
           categoryEdges={categoryEdges}
           playerEdges={playerEdges}
         />
@@ -193,7 +224,7 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
               <PropsGameList
                 key={`${category}-${group.label}`}
                 games={group.games}
-                expandFirstOnly={isAll || group.label !== "Tonight"}
+
                 categoryEdges={categoryEdges}
                 playerEdges={playerEdges}
               />

@@ -10,8 +10,6 @@ type GameWithProps = Game & { props: Prop[] };
 
 interface PropsGameListProps {
   games: GameWithProps[];
-  /** When true, only the first game starts expanded; rest collapsed. */
-  expandFirstOnly: boolean;
   /** Category-level edge rates (rate >= 0.65, total >= 5) */
   categoryEdges?: EdgeMap;
   /** Player-level edge rates (rate >= 0.65, total >= 5) */
@@ -20,16 +18,12 @@ interface PropsGameListProps {
 
 export default function PropsGameList({
   games,
-  expandFirstOnly,
   categoryEdges = {},
   playerEdges = {},
 }: PropsGameListProps) {
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
-    if (expandFirstOnly && games.length > 0) {
-      return new Set([games[0].id]);
-    }
-    return new Set(games.map((g) => g.id));
-  });
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(
+    () => new Set(games.map((g) => g.id))
+  );
   const [activeChip, setActiveChip] = useState<string | null>(null);
 
   const toggleGame = useCallback((gameId: string) => {
@@ -45,24 +39,16 @@ export default function PropsGameList({
   }, []);
 
   const handleChipSelect = useCallback((gameId: string) => {
-    // If tapping the already-active chip, deselect and reset to initial state
+    // If tapping the already-active chip, deselect and expand all
     if (activeChip === gameId) {
       setActiveChip(null);
-      if (expandFirstOnly && games.length > 0) {
-        setExpandedIds(new Set([games[0].id]));
-      } else {
-        setExpandedIds(new Set(games.map((g) => g.id)));
-      }
+      setExpandedIds(new Set(games.map((g) => g.id)));
       return;
     }
 
-    // Expand the selected game (collapse others if in expandFirstOnly mode)
+    // Expand the selected game
     setActiveChip(gameId);
-    if (expandFirstOnly) {
-      setExpandedIds(new Set([gameId]));
-    } else {
-      setExpandedIds((prev) => new Set([...prev, gameId]));
-    }
+    setExpandedIds((prev) => new Set([...prev, gameId]));
 
     // Scroll to it after a tick so the DOM has expanded
     requestAnimationFrame(() => {
@@ -71,7 +57,7 @@ export default function PropsGameList({
         el.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     });
-  }, [activeChip, expandFirstOnly, games]);
+  }, [activeChip, games]);
 
   return (
     <>

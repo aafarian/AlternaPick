@@ -4,6 +4,7 @@ import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
 import {
   fetchBoxscore,
   fetchSoccerBoxscore,
+  fetchNcaabBoxscore,
   type PlayerBoxScore,
 } from "@/lib/stats-service/client";
 import type {
@@ -246,6 +247,8 @@ async function resolveCard(
         const gameSport = pick.props?.games?.sport;
         if (gameSport === "epl") {
           boxscore = await fetchSoccerBoxscore(nbaGameId);
+        } else if (gameSport === "ncaab") {
+          boxscore = await fetchNcaabBoxscore(nbaGameId);
         } else {
           boxscore = await fetchBoxscore(nbaGameId);
         }

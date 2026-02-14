@@ -6,10 +6,14 @@ import {
   fetchSoccerBoxscore,
   fetchSoccerBoxscoreLive,
   fetchSoccerGamesLive,
+  fetchNcaabBoxscore,
+  fetchNcaabBoxscoreLive,
+  fetchNcaabGamesLive,
   type PlayerBoxScore,
   type StatsGame,
 } from "@/lib/stats-service/client";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
+import { registerNcaabTeamIds } from "@/lib/constants";
 import type {
   LivePickData,
   LiveGameStatus,
@@ -183,12 +187,15 @@ export async function fetchLiveMaps(
   // fetch boxscores for games in today's schedule (skips stale games).
   const nbaCandidateIds = new Set<string>();
   const soccerCandidateIds = new Set<string>();
+  const ncaabCandidateIds = new Set<string>();
   for (const pick of picks) {
     const nbaId = pick.props?.games?.nba_game_id;
     if (nbaId) {
       const sport = pick.props?.games?.sport;
       if (sport === "epl") {
         soccerCandidateIds.add(nbaId);
+      } else if (sport === "ncaab") {
+        ncaabCandidateIds.add(nbaId);
       } else {
         nbaCandidateIds.add(nbaId);
       }
@@ -198,17 +205,20 @@ export async function fetchLiveMaps(
   const gameStatusMap = new Map<string, StatsGame>();
   const boxscoreMap = new Map<string, PlayerBoxScore[]>();
 
-  if (nbaCandidateIds.size === 0 && soccerCandidateIds.size === 0) {
+  if (nbaCandidateIds.size === 0 && soccerCandidateIds.size === 0 && ncaabCandidateIds.size === 0) {
     return { gameStatusMap, boxscoreMap };
   }
 
-  // Step 1: Fetch today's games (fast, cached) for both sports
-  const [nbaGames, soccerGames] = await Promise.all([
+  // Step 1: Fetch today's games (fast, cached) for all sports
+  const [nbaGames, soccerGames, ncaabGames] = await Promise.all([
     nbaCandidateIds.size > 0
       ? fetchTodaysGamesLive().catch(() => [] as StatsGame[])
       : Promise.resolve([] as StatsGame[]),
     soccerCandidateIds.size > 0
       ? fetchSoccerGamesLive().catch(() => [] as StatsGame[])
+      : Promise.resolve([] as StatsGame[]),
+    ncaabCandidateIds.size > 0
+      ? fetchNcaabGamesLive().catch(() => [] as StatsGame[])
       : Promise.resolve([] as StatsGame[]),
   ]);
 
@@ -217,6 +227,19 @@ export async function fetchLiveMaps(
   }
   for (const g of soccerGames) {
     gameStatusMap.set(g.game_id, g);
+  }
+  for (const g of ncaabGames) {
+    gameStatusMap.set(g.game_id, g);
+  }
+
+  // Register NCAAB team IDs for logo rendering
+  if (ncaabGames.length > 0) {
+    registerNcaabTeamIds(
+      ncaabGames.flatMap((g) => [
+        { name: g.home_team, id: g.home_team_id ?? "" },
+        { name: g.away_team, id: g.away_team_id ?? "" },
+      ])
+    );
   }
 
   // Step 2: Only fetch boxscores for games that are in today's schedule
@@ -273,6 +296,34 @@ export async function fetchLiveMaps(
       ).then((results) => {
         for (let i = 0; i < soccerFinalIds.length; i++) {
           boxscoreMap.set(soccerFinalIds[i], results[i]);
+        }
+      })
+    );
+  }
+
+  // NCAAB boxscores
+  const ncaabTodayIds = Array.from(ncaabCandidateIds).filter((id) => gameStatusMap.has(id));
+  const ncaabLiveIds = ncaabTodayIds.filter((id) => gameStatusMap.get(id)?.status === "live");
+  const ncaabFinalIds = ncaabTodayIds.filter((id) => gameStatusMap.get(id)?.status === "final");
+
+  if (ncaabLiveIds.length > 0) {
+    fetches.push(
+      Promise.all(
+        ncaabLiveIds.map((gid) => fetchNcaabBoxscoreLive(gid).catch(() => [] as PlayerBoxScore[]))
+      ).then((results) => {
+        for (let i = 0; i < ncaabLiveIds.length; i++) {
+          boxscoreMap.set(ncaabLiveIds[i], results[i]);
+        }
+      })
+    );
+  }
+  if (ncaabFinalIds.length > 0) {
+    fetches.push(
+      Promise.all(
+        ncaabFinalIds.map((gid) => fetchNcaabBoxscore(gid).catch(() => [] as PlayerBoxScore[]))
+      ).then((results) => {
+        for (let i = 0; i < ncaabFinalIds.length; i++) {
+          boxscoreMap.set(ncaabFinalIds[i], results[i]);
         }
       })
     );
