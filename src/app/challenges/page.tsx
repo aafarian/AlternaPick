@@ -149,6 +149,13 @@ export default function ChallengesPage() {
         const data = await res.json();
         throw new Error(data.error ?? `Failed to ${action} challenge`);
       }
+
+      // After accepting, navigate to props so the user can make picks immediately
+      if (action === "accept") {
+        router.push(`/props?challenge_id=${challengeId}`);
+        return;
+      }
+
       // Refresh both sets
       await Promise.all([fetchCore(), fetchCompleted(0, false)]);
     } catch (err) {
@@ -191,7 +198,7 @@ export default function ChallengesPage() {
   const inboxCount = inboxChallenges.length;
   const sentCount = sentChallenges.length;
 
-  if (authLoading || (!user && !authLoading)) {
+  if (authLoading) {
     return (
       <div className="flex flex-col gap-6 py-8">
         <Skeleton className="h-8 w-44" />
@@ -199,6 +206,18 @@ export default function ChallengesPage() {
         {[1, 2, 3].map((i) => (
           <Skeleton key={i} className="h-16 rounded-xl" />
         ))}
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-24 text-center">
+        <h1 className="text-2xl font-bold">Challenges</h1>
+        <p className="text-sm text-muted-foreground">Sign in to challenge your friends</p>
+        <Button onClick={() => router.push("/auth/login?redirectTo=/challenges")}>
+          Sign In
+        </Button>
       </div>
     );
   }
