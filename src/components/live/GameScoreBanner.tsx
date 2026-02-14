@@ -1,7 +1,41 @@
 "use client";
 
 import type { LiveGameStatus } from "@/lib/cards/live-types";
+import { teamTricode, teamLogoUrl } from "@/lib/constants";
 import { formatClock, formatGameTime } from "@/lib/format";
+
+function TeamBadge({ team, tricode, score, showScore, side }: {
+  team: string;
+  tricode: string;
+  score: number;
+  showScore: boolean;
+  side: "away" | "home";
+}) {
+  const code = tricode || teamTricode(team);
+  const logo = teamLogoUrl(team);
+
+  return (
+    <div className={`flex items-center gap-1.5 ${side === "home" ? "flex-row-reverse" : ""}`}>
+      {logo && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logo} alt={code} width={18} height={18} className="shrink-0 object-contain" />
+      )}
+      <span className="text-[11px] font-bold text-white tabular-nums">
+        {side === "away" ? (
+          <>
+            {code}
+            {showScore && <span className="ml-1">{score}</span>}
+          </>
+        ) : (
+          <>
+            {showScore && <span className="mr-1">{score}</span>}
+            {code}
+          </>
+        )}
+      </span>
+    </div>
+  );
+}
 
 export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) {
   if (games.length === 0) return null;
@@ -19,22 +53,28 @@ export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) 
           >
             {/* Teams + scores */}
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-white tabular-nums">
-                {game.away_tricode}
-                {!isScheduled && <span className="ml-1">{game.away_score}</span>}
-              </span>
+              <TeamBadge
+                team={game.away_team}
+                tricode={game.away_tricode}
+                score={game.away_score}
+                showScore={!isScheduled}
+                side="away"
+              />
 
               <span className="text-[10px] text-white/40">
                 {isScheduled ? "vs" : "—"}
               </span>
 
-              <span className="text-[11px] font-bold text-white tabular-nums">
-                {!isScheduled && <span className="mr-1">{game.home_score}</span>}
-                {game.home_tricode}
-              </span>
+              <TeamBadge
+                team={game.home_team}
+                tricode={game.home_tricode}
+                score={game.home_score}
+                showScore={!isScheduled}
+                side="home"
+              />
             </div>
 
-            {/* Status line — consistent for all states */}
+            {/* Status line */}
             <div className="flex items-center gap-1">
               {isLive && (
                 <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
