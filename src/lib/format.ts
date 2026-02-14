@@ -45,7 +45,7 @@ export function formatClock(period: number, clock: string): string {
   // End of other periods
   if (isZero && period >= 1) return `End Q${period}`;
 
-  const display = match ? `${minutes}:${match[2].padStart(2, "0")}` : clock;
+  const display = match ? `${match[1]}:${match[2].padStart(2, "0")}` : clock;
   return `Q${period} ${display}`;
 }
 

@@ -54,28 +54,69 @@ jobs:
             DOMAIN=${{ secrets.DOMAIN }}
             ENVEOF
 
-            # Stop all containers and kill anything holding port 80/443
-            docker compose down --remove-orphans
-            docker rm -f $(docker ps -aq) 2>/dev/null || true
+            # Tag current locally-built images so we can rollback if the new build fails health checks
+            # (caddy uses a pre-built Docker Hub image, so no need to tag it)
+            for svc in nextjs stats-service; do
+              img=$(docker compose images $svc --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | head -1)
+              if [ -n "$img" ] && [ "$img" != ":" ]; then
+                docker tag "$img" "${img%%:*}:rollback" 2>/dev/null || true
+              fi
+            done
 
-            # Build (uses layer cache — only changed layers rebuild)
+            # Build new images WHILE old containers still serve traffic
             docker compose build
 
-            # Start everything back up
+            # Stop old containers and start new ones
+            docker compose down --remove-orphans
             docker compose up -d
 
-            # Clean up old images
-            docker image prune -f
-
-            # Health check — verify the app responds
+            # Health check
             echo "Waiting for app to start..."
             sleep 5
+            healthy=false
             for i in 1 2 3 4 5; do
               if curl -sf --max-time 5 http://localhost:3000 > /dev/null 2>&1; then
                 echo "Health check passed!"
-                exit 0
+                healthy=true
+                break
               fi
               echo "Health check attempt $i failed, retrying in 5s..."
               sleep 5
             done
-            echo "WARNING: App may not be healthy — check logs with: docker compose logs web"
+
+            if [ "$healthy" = false ]; then
+              echo "ROLLBACK: Health check failed, restoring previous images..."
+              for svc in nextjs stats-service; do
+                img=$(docker compose images $svc --format '{{.Repository}}' 2>/dev/null | head -1)
+                if [ -n "$img" ] && docker image inspect "${img}:rollback" > /dev/null 2>&1; then
+                  docker tag "${img}:rollback" "${img}:latest"
+                fi
+              done
+              docker compose down
+              docker compose up -d
+              sleep 5
+              rollback_ok=false
+              for i in 1 2 3 4 5; do
+                if curl -sf --max-time 5 http://localhost:3000 > /dev/null 2>&1; then
+                  echo "Rollback succeeded — restored previous images"
+                  rollback_ok=true
+                  break
+                fi
+                echo "Rollback health check attempt $i failed, retrying in 5s..."
+                sleep 5
+              done
+              if [ "$rollback_ok" = false ]; then
+                echo "CRITICAL: Rollback failed — manual intervention needed"
+                exit 1
+              fi
+              exit 1  # Deploy failed even though rollback recovered the site
+            fi
+
+            # Clean up rollback tags and old images
+            for svc in nextjs stats-service; do
+              img=$(docker compose images $svc --format '{{.Repository}}' 2>/dev/null | head -1)
+              if [ -n "$img" ]; then
+                docker rmi "${img}:rollback" 2>/dev/null || true
+              fi
+            done
+            docker image prune -f
