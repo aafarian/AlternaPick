@@ -163,7 +163,7 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
       {sport === "ncaab" && Object.keys(ncaabTeams).length > 0 && (
         <NcaabTeamRegistrar teams={ncaabTeams} />
       )}
-      <PropsHeader gameCount={withProps.length} dateLabel={dateGroups.length > 1 ? "Upcoming" : dateGroups[0]?.label} />
+      <PropsHeader gameCount={withProps.length} />
 
       <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-3 bg-background px-4 pb-3 pt-2">
         <Suspense fallback={null}>
