@@ -467,6 +467,7 @@ export interface Database {
           last_played_date: string | null;
           h2h_wins: number;
           h2h_losses: number;
+          h2h_win_pct: number;
           updated_at: string;
         };
         Insert: {

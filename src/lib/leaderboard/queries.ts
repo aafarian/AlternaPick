@@ -14,6 +14,7 @@ export interface LeaderboardRow {
   best_streak: number;
   h2h_wins: number;
   h2h_losses: number;
+  h2h_win_pct: number;
   updated_at: string;
   profile: {
     id: string;
@@ -40,34 +41,26 @@ function toLeaderboardRow(row: Record<string, unknown>): LeaderboardRow {
     best_streak: row.best_streak as number,
     h2h_wins: row.h2h_wins as number,
     h2h_losses: row.h2h_losses as number,
+    h2h_win_pct: row.h2h_win_pct as number,
     updated_at: row.updated_at as string,
     profile: row.profiles as LeaderboardRow["profile"],
   };
 }
 
-/** Apply hit_rate sort ordering to a query builder */
-function applyHitRateSort<T extends { order: (...args: any[]) => T }>(
-  query: T
+/** Apply sort ordering to a query builder */
+function applySortOrder<T extends { order: (...args: any[]) => T }>(
+  query: T,
+  sort: LeaderboardSort
 ): T {
+  if (sort === "h2h") {
+    return query
+      .order("h2h_win_pct", { ascending: false })
+      .order("h2h_wins", { ascending: false });
+  }
   return query
     .order("win_rate", { ascending: false })
     .order("total_correct_picks", { ascending: false })
     .order("best_streak", { ascending: false });
-}
-
-/** Compute H2H win percentage (0 if no games played) */
-function h2hWinPct(row: LeaderboardRow): number {
-  const total = row.h2h_wins + row.h2h_losses;
-  return total === 0 ? 0 : row.h2h_wins / total;
-}
-
-/** Sort rows by H2H win % DESC, then total h2h_wins DESC as tiebreaker */
-function sortByH2h(rows: LeaderboardRow[]): LeaderboardRow[] {
-  return rows.sort((a, b) => {
-    const pctDiff = h2hWinPct(b) - h2hWinPct(a);
-    if (pctDiff !== 0) return pctDiff;
-    return b.h2h_wins - a.h2h_wins;
-  });
 }
 
 /**
@@ -79,19 +72,11 @@ export async function getGlobalLeaderboard(
   offset: number = 0,
   sort: LeaderboardSort = "hit_rate"
 ): Promise<LeaderboardRow[]> {
-  const baseQuery = typedFrom(supabase, "leaderboard_entries").select(
+  const query = typedFrom(supabase, "leaderboard_entries").select(
     "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url)"
   );
 
-  if (sort === "h2h") {
-    // H2H win % is computed, so we fetch all and sort client-side
-    const { data, error } = await baseQuery;
-    if (error) throw new Error(error.message);
-    const rows = ((data ?? []) as Record<string, unknown>[]).map(toLeaderboardRow);
-    return sortByH2h(rows).slice(offset, offset + limit);
-  }
-
-  const { data, error } = await applyHitRateSort(baseQuery).range(
+  const { data, error } = await applySortOrder(query, sort).range(
     offset,
     offset + limit - 1
   );
@@ -148,20 +133,13 @@ export async function getFriendsLeaderboard(
   const userIds = Array.from(friendIds);
 
   // Step 2: Fetch leaderboard entries for these users with profile join
-  const baseQuery = typedFrom(supabase, "leaderboard_entries")
+  const query = typedFrom(supabase, "leaderboard_entries")
     .select(
       "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url)"
     )
     .in("user_id", userIds);
 
-  if (sort === "h2h") {
-    const { data, error } = await baseQuery;
-    if (error) throw new Error(error.message);
-    const rows = ((data ?? []) as Record<string, unknown>[]).map(toLeaderboardRow);
-    return sortByH2h(rows).slice(offset, offset + limit);
-  }
-
-  const { data, error } = await applyHitRateSort(baseQuery).range(
+  const { data, error } = await applySortOrder(query, sort).range(
     offset,
     offset + limit - 1
   );
@@ -200,28 +178,29 @@ export async function getUserRank(
   let rank: number;
 
   if (sort === "h2h") {
-    // Rank by H2H win % DESC, then h2h_wins DESC as tiebreaker.
-    // Since H2H win % is computed, fetch all entries and count in JS.
-    const { data: allData, error: allErr } = await typedFrom(
+    // Rank by h2h_win_pct DESC, then h2h_wins DESC as tiebreaker
+    const userPct = entry.h2h_win_pct;
+
+    const { count: higherPct, error: e1 } = await typedFrom(
       supabase,
       "leaderboard_entries"
-    ).select("h2h_wins, h2h_losses");
+    )
+      .select("id", { count: "exact", head: true })
+      .gt("h2h_win_pct", userPct);
 
-    if (allErr) throw new Error(allErr.message);
+    if (e1) throw new Error(e1.message);
 
-    const userPct = h2hWinPct(entry);
-    let ahead = 0;
-    for (const row of (allData ?? []) as Array<{ h2h_wins: number; h2h_losses: number }>) {
-      const total = row.h2h_wins + row.h2h_losses;
-      const pct = total === 0 ? 0 : row.h2h_wins / total;
-      if (pct > userPct) {
-        ahead++;
-      } else if (pct === userPct && row.h2h_wins > entry.h2h_wins) {
-        ahead++;
-      }
-    }
+    const { count: samePctMoreWins, error: e2 } = await typedFrom(
+      supabase,
+      "leaderboard_entries"
+    )
+      .select("id", { count: "exact", head: true })
+      .eq("h2h_win_pct", userPct)
+      .gt("h2h_wins", entry.h2h_wins);
 
-    rank = ahead + 1;
+    if (e2) throw new Error(e2.message);
+
+    rank = (higherPct ?? 0) + (samePctMoreWins ?? 0) + 1;
   } else {
     // Rank by win_rate DESC, total_correct_picks DESC, best_streak DESC
     const { count: higherWinRate, error: countErr1 } = await typedFrom(
