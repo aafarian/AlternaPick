@@ -54,8 +54,9 @@ jobs:
             DOMAIN=${{ secrets.DOMAIN }}
             ENVEOF
 
-            # Tag current images so we can rollback if the new build fails health checks
-            for svc in nextjs stats-service caddy; do
+            # Tag current locally-built images so we can rollback if the new build fails health checks
+            # (caddy uses a pre-built Docker Hub image, so no need to tag it)
+            for svc in nextjs stats-service; do
               img=$(docker compose images $svc --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | head -1)
               if [ -n "$img" ] && [ "$img" != ":" ]; then
                 docker tag "$img" "${img%%:*}:rollback" 2>/dev/null || true
@@ -85,8 +86,7 @@ jobs:
 
             if [ "$healthy" = false ]; then
               echo "ROLLBACK: Health check failed, restoring previous images..."
-              # Restore rollback-tagged images
-              for svc in nextjs stats-service caddy; do
+              for svc in nextjs stats-service; do
                 img=$(docker compose images $svc --format '{{.Repository}}' 2>/dev/null | head -1)
                 if [ -n "$img" ] && docker image inspect "${img}:rollback" > /dev/null 2>&1; then
                   docker tag "${img}:rollback" "${img}:latest"
@@ -94,16 +94,25 @@ jobs:
               done
               docker compose down
               docker compose up -d
-              sleep 10
-              if ! curl -sf --max-time 5 http://localhost:3000 > /dev/null 2>&1; then
+              sleep 5
+              rollback_ok=false
+              for i in 1 2 3 4 5; do
+                if curl -sf --max-time 5 http://localhost:3000 > /dev/null 2>&1; then
+                  echo "Rollback succeeded — restored previous images"
+                  rollback_ok=true
+                  break
+                fi
+                echo "Rollback health check attempt $i failed, retrying in 5s..."
+                sleep 5
+              done
+              if [ "$rollback_ok" = false ]; then
                 echo "CRITICAL: Rollback failed — manual intervention needed"
                 exit 1
               fi
-              echo "Rollback succeeded — restored previous images"
             fi
 
             # Clean up rollback tags and old images
-            for svc in nextjs stats-service caddy; do
+            for svc in nextjs stats-service; do
               img=$(docker compose images $svc --format '{{.Repository}}' 2>/dev/null | head -1)
               if [ -n "$img" ]; then
                 docker rmi "${img}:rollback" 2>/dev/null || true
