@@ -54,6 +54,14 @@ jobs:
             DOMAIN=${{ secrets.DOMAIN }}
             ENVEOF
 
+            # Tag current images so we can rollback if the new build fails health checks
+            for svc in nextjs stats-service caddy; do
+              img=$(docker compose images $svc --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | head -1)
+              if [ -n "$img" ] && [ "$img" != ":" ]; then
+                docker tag "$img" "${img%%:*}:rollback" 2>/dev/null || true
+              fi
+            done
+
             # Build new images WHILE old containers still serve traffic
             docker compose build
 
@@ -61,7 +69,7 @@ jobs:
             docker compose down --remove-orphans
             docker compose up -d
 
-            # Health check with rollback
+            # Health check
             echo "Waiting for app to start..."
             sleep 5
             healthy=false
@@ -76,7 +84,14 @@ jobs:
             done
 
             if [ "$healthy" = false ]; then
-              echo "ROLLBACK: Health check failed, restarting containers..."
+              echo "ROLLBACK: Health check failed, restoring previous images..."
+              # Restore rollback-tagged images
+              for svc in nextjs stats-service caddy; do
+                img=$(docker compose images $svc --format '{{.Repository}}' 2>/dev/null | head -1)
+                if [ -n "$img" ] && docker image inspect "${img}:rollback" > /dev/null 2>&1; then
+                  docker tag "${img}:rollback" "${img}:latest"
+                fi
+              done
               docker compose down
               docker compose up -d
               sleep 10
@@ -84,8 +99,14 @@ jobs:
                 echo "CRITICAL: Rollback failed — manual intervention needed"
                 exit 1
               fi
-              echo "Rollback succeeded — containers recovered"
+              echo "Rollback succeeded — restored previous images"
             fi
 
-            # Clean up old images
+            # Clean up rollback tags and old images
+            for svc in nextjs stats-service caddy; do
+              img=$(docker compose images $svc --format '{{.Repository}}' 2>/dev/null | head -1)
+              if [ -n "$img" ]; then
+                docker rmi "${img}:rollback" 2>/dev/null || true
+              fi
+            done
             docker image prune -f
