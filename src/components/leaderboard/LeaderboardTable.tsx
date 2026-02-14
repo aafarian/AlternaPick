@@ -11,11 +11,13 @@ import {
 interface LeaderboardTableProps {
   entries: LeaderboardEntryWithProfile[];
   currentUserId: string | null;
+  sort: "hit_rate" | "h2h";
 }
 
 export default function LeaderboardTable({
   entries,
   currentUserId,
+  sort,
 }: LeaderboardTableProps) {
   if (entries.length === 0) {
     return null;
@@ -30,7 +32,7 @@ export default function LeaderboardTable({
             <TableRow className="border-border hover:bg-transparent">
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Rank</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Player</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Win Rate</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Hit Rate</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Correct</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Streak</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">H2H</TableHead>
@@ -44,6 +46,7 @@ export default function LeaderboardTable({
                 entry={entry}
                 isCurrentUser={entry.user.id === currentUserId}
                 variant="desktop"
+                sort={sort}
               />
             ))}
           </TableBody>
@@ -58,6 +61,7 @@ export default function LeaderboardTable({
             entry={entry}
             isCurrentUser={entry.user.id === currentUserId}
             variant="mobile"
+            sort={sort}
           />
         ))}
       </div>

@@ -11,12 +11,14 @@ interface LeaderboardRowProps {
   entry: LeaderboardEntryWithProfile;
   isCurrentUser: boolean;
   variant: "desktop" | "mobile";
+  sort: "hit_rate" | "h2h";
 }
 
 export default function LeaderboardRow({
   entry,
   isCurrentUser,
   variant,
+  sort,
 }: LeaderboardRowProps) {
   const { rank, user, stats } = entry;
   const initials = (user.display_name ?? user.username)
@@ -64,13 +66,13 @@ export default function LeaderboardRow({
                 )}
               </p>
               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                <span className="font-bold text-foreground">
+                <span className={cn(sort === "hit_rate" ? "font-bold text-foreground" : "")}>
                   {stats.win_rate.toFixed(1)}%
                 </span>
                 <span>
                   {stats.current_streak}/{stats.best_streak} streak
                 </span>
-                <span>
+                <span className={cn(sort === "h2h" ? "font-bold text-foreground" : "")}>
                   {stats.h2h_wins}W-{stats.h2h_losses}L
                 </span>
                 <span>{stats.total_cards} cards</span>
@@ -124,7 +126,7 @@ export default function LeaderboardRow({
         </Link>
       </TableCell>
 
-      <TableCell className="text-sm font-bold">
+      <TableCell className={cn("text-sm", sort === "hit_rate" ? "font-bold" : "text-muted-foreground")}>
         {stats.win_rate.toFixed(1)}%
       </TableCell>
 
@@ -137,7 +139,7 @@ export default function LeaderboardRow({
         <span className="text-muted-foreground"> / {stats.best_streak}</span>
       </TableCell>
 
-      <TableCell className="text-sm text-muted-foreground">
+      <TableCell className={cn("text-sm", sort === "h2h" ? "font-bold" : "text-muted-foreground")}>
         {stats.h2h_wins}W - {stats.h2h_losses}L
       </TableCell>
 
