@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import LeaderboardTable from "@/components/leaderboard/LeaderboardTable";
 import type {
@@ -13,11 +14,37 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type TabKey = "global" | "friends";
+type SortKey = "hit_rate" | "h2h";
+
+function isValidTab(v: string | null): v is TabKey {
+  return v === "global" || v === "friends";
+}
+function isValidSort(v: string | null): v is SortKey {
+  return v === "hit_rate" || v === "h2h";
+}
 
 export default function LeaderboardPage() {
   const { user, loading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const tabParam = searchParams.get("tab");
+  const sortParam = searchParams.get("sort");
+  const activeTab: TabKey = isValidTab(tabParam) ? tabParam : "global";
+  const sortBy: SortKey = isValidSort(sortParam) ? sortParam : "hit_rate";
+
+  const updateParams = useCallback(
+    (updates: { tab?: TabKey; sort?: SortKey }) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (updates.tab !== undefined) params.set("tab", updates.tab);
+      if (updates.sort !== undefined) params.set("sort", updates.sort);
+      router.replace(`/leaderboard?${params.toString()}`);
+    },
+    [searchParams, router]
+  );
 
   const [entries, setEntries] = useState<LeaderboardEntryWithProfile[]>([]);
   const [userRank, setUserRank] = useState<LeaderboardResponse["userRank"]>(
@@ -25,50 +52,47 @@ export default function LeaderboardPage() {
   );
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabKey>("global");
   const [error, setError] = useState<string | null>(null);
 
-  const fetchLeaderboard = useCallback(
-    async (scope: TabKey) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch(
-          `/api/leaderboard?scope=${scope}&limit=50&offset=0`
-        );
-        if (!res.ok) {
-          if (res.status === 401) {
-            throw new Error("Sign in to view the friends leaderboard.");
-          }
-          throw new Error("Failed to load leaderboard");
+  async function fetchLeaderboard(scope: TabKey, sort: SortKey) {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/leaderboard?scope=${scope}&limit=50&offset=0&sort=${sort}`
+      );
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("Sign in to view the friends leaderboard.");
         }
-        const data: LeaderboardResponse = await res.json();
-        setEntries(data.entries);
-        setUserRank(data.userRank);
-        setTotal(data.total);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load leaderboard"
-        );
-        setEntries([]);
-        setUserRank(null);
-        setTotal(0);
-      } finally {
-        setLoading(false);
+        throw new Error("Failed to load leaderboard");
       }
-    },
-    []
-  );
+      const data: LeaderboardResponse = await res.json();
+      setEntries(data.entries);
+      setUserRank(data.userRank);
+      setTotal(data.total);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load leaderboard"
+      );
+      setEntries([]);
+      setUserRank(null);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (authLoading) return;
-    fetchLeaderboard(activeTab);
-  }, [activeTab, authLoading, fetchLeaderboard]);
+    fetchLeaderboard(activeTab, sortBy);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, sortBy, authLoading]);
 
   const handleTabChange = (value: string) => {
     const tab = value as TabKey;
     if (tab === "friends" && !user) return;
-    setActiveTab(tab);
+    updateParams({ tab });
   };
 
   if (authLoading) {
@@ -115,6 +139,32 @@ export default function LeaderboardPage() {
         </TabsList>
       </Tabs>
 
+      {/* Sort toggle */}
+      <div className="flex items-center gap-1 rounded-lg bg-secondary p-1 w-fit">
+        <button
+          onClick={() => updateParams({ sort: "hit_rate" })}
+          className={cn(
+            "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+            sortBy === "hit_rate"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Hit Rate
+        </button>
+        <button
+          onClick={() => updateParams({ sort: "h2h" })}
+          className={cn(
+            "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+            sortBy === "h2h"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          H2H
+        </button>
+      </div>
+
       {/* Current User Rank Card */}
       {user && userRank && (
         <Card className="border-primary/20 bg-primary/5">
@@ -129,30 +179,61 @@ export default function LeaderboardPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-4 sm:gap-6 sm:text-right">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Win Rate</p>
-                  <p className="text-sm font-bold">
-                    {userRank.stats.win_rate.toFixed(1)}%
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Streak</p>
-                  <p className="text-sm font-bold">
-                    {userRank.stats.current_streak}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cards</p>
-                  <p className="text-sm font-bold">
-                    {userRank.stats.total_cards}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">H2H</p>
-                  <p className="text-sm font-bold">
-                    {userRank.stats.h2h_wins}W-{userRank.stats.h2h_losses}L
-                  </p>
-                </div>
+                {sortBy === "hit_rate" ? (
+                  <>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Hit Rate</p>
+                      <p className="text-sm font-bold">
+                        {userRank.stats.win_rate.toFixed(1)}%
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Streak</p>
+                      <p className="text-sm font-bold">
+                        {userRank.stats.current_streak}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cards</p>
+                      <p className="text-sm font-bold">
+                        {userRank.stats.total_cards}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">H2H</p>
+                      <p className="text-sm font-bold">
+                        {userRank.stats.h2h_wins}W-{userRank.stats.h2h_losses}L
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">H2H</p>
+                      <p className="text-sm font-bold">
+                        {userRank.stats.h2h_wins}W-{userRank.stats.h2h_losses}L
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Hit Rate</p>
+                      <p className="text-sm font-bold">
+                        {userRank.stats.win_rate.toFixed(1)}%
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Streak</p>
+                      <p className="text-sm font-bold">
+                        {userRank.stats.current_streak}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cards</p>
+                      <p className="text-sm font-bold">
+                        {userRank.stats.total_cards}
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </CardContent>
@@ -168,7 +249,7 @@ export default function LeaderboardPage() {
             <Button
               variant="link"
               size="sm"
-              onClick={() => fetchLeaderboard(activeTab)}
+              onClick={() => fetchLeaderboard(activeTab, sortBy)}
               className="text-destructive underline"
             >
               Retry
@@ -191,6 +272,7 @@ export default function LeaderboardPage() {
         <LeaderboardTable
           entries={entries}
           currentUserId={user?.id ?? null}
+          sort={sortBy}
         />
       )}
 

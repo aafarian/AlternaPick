@@ -6,6 +6,7 @@ import {
   getFriendsLeaderboard,
   getUserRank,
   type LeaderboardRow,
+  type LeaderboardSort,
 } from "@/lib/leaderboard/queries";
 
 export interface LeaderboardEntryWithProfile {
@@ -59,7 +60,7 @@ function rowToEntry(row: LeaderboardRow): LeaderboardEntryWithProfile["stats"] {
  *   scope   - "global" (default) or "friends"
  *   limit   - Number of entries (default: 50, max: 100)
  *   offset  - Pagination offset (default: 0)
- *   sort    - Sort field: "win_rate" (default), "total_cards", "best_streak"
+ *   sort    - Sort field: "hit_rate" (default) or "h2h"
  *
  * scope=global is public (no auth required).
  * scope=friends requires authentication.
@@ -75,10 +76,18 @@ export async function GET(request: NextRequest) {
     const limitParam = parseInt(searchParams.get("limit") ?? String(DEFAULT_LIMIT), 10);
     const offsetParam = parseInt(searchParams.get("offset") ?? "0", 10);
 
+    const sortParam = searchParams.get("sort") ?? "hit_rate";
+
     // Validate scope
     if (scope !== "global" && scope !== "friends") {
       return badRequest("Invalid scope. Must be 'global' or 'friends'.");
     }
+
+    // Validate sort
+    if (sortParam !== "hit_rate" && sortParam !== "h2h") {
+      return badRequest("Invalid sort. Must be 'hit_rate' or 'h2h'.");
+    }
+    const sort: LeaderboardSort = sortParam;
 
     // Clamp limit and offset
     const limit = Math.min(
@@ -100,9 +109,9 @@ export async function GET(request: NextRequest) {
     let rows: LeaderboardRow[];
 
     if (scope === "friends" && user) {
-      rows = await getFriendsLeaderboard(supabase, user.id, limit, offset);
+      rows = await getFriendsLeaderboard(supabase, user.id, limit, offset, sort);
     } else {
-      rows = await getGlobalLeaderboard(supabase, limit, offset);
+      rows = await getGlobalLeaderboard(supabase, limit, offset, sort);
     }
 
     // Map rows to response shape with rank numbers
@@ -135,7 +144,7 @@ export async function GET(request: NextRequest) {
     let userRank: LeaderboardResponse["userRank"] = null;
 
     if (user) {
-      const rankResult = await getUserRank(supabase, user.id);
+      const rankResult = await getUserRank(supabase, user.id, sort);
       if (rankResult) {
         userRank = {
           rank: rankResult.rank,

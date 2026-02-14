@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 
+export type LeaderboardSort = "hit_rate" | "h2h";
+
 export interface LeaderboardRow {
   id: string;
   user_id: string;
@@ -12,6 +14,7 @@ export interface LeaderboardRow {
   best_streak: number;
   h2h_wins: number;
   h2h_losses: number;
+  h2h_win_pct: number;
   updated_at: string;
   profile: {
     id: string;
@@ -38,28 +41,45 @@ function toLeaderboardRow(row: Record<string, unknown>): LeaderboardRow {
     best_streak: row.best_streak as number,
     h2h_wins: row.h2h_wins as number,
     h2h_losses: row.h2h_losses as number,
+    h2h_win_pct: row.h2h_win_pct as number,
     updated_at: row.updated_at as string,
     profile: row.profiles as LeaderboardRow["profile"],
   };
 }
 
+/** Apply sort ordering to a query builder */
+function applySortOrder<T extends { order: (...args: any[]) => T }>(
+  query: T,
+  sort: LeaderboardSort
+): T {
+  if (sort === "h2h") {
+    return query
+      .order("h2h_win_pct", { ascending: false })
+      .order("h2h_wins", { ascending: false });
+  }
+  return query
+    .order("win_rate", { ascending: false })
+    .order("total_correct_picks", { ascending: false })
+    .order("best_streak", { ascending: false });
+}
+
 /**
- * Get the global leaderboard, ordered by win_rate desc with tiebreakers
- * on total_correct_picks desc, then best_streak desc.
+ * Get the global leaderboard, ordered by the given sort criteria.
  */
 export async function getGlobalLeaderboard(
   supabase: SupabaseClient<Database>,
   limit: number = 25,
-  offset: number = 0
+  offset: number = 0,
+  sort: LeaderboardSort = "hit_rate"
 ): Promise<LeaderboardRow[]> {
-  const { data, error } = await typedFrom(supabase, "leaderboard_entries")
-    .select(
-      "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url)"
-    )
-    .order("win_rate", { ascending: false })
-    .order("total_correct_picks", { ascending: false })
-    .order("best_streak", { ascending: false })
-    .range(offset, offset + limit - 1);
+  const query = typedFrom(supabase, "leaderboard_entries").select(
+    "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url)"
+  );
+
+  const { data, error } = await applySortOrder(query, sort).range(
+    offset,
+    offset + limit - 1
+  );
 
   if (error) throw new Error(error.message);
 
@@ -75,7 +95,8 @@ export async function getFriendsLeaderboard(
   supabase: SupabaseClient<Database>,
   userId: string,
   limit: number = 25,
-  offset: number = 0
+  offset: number = 0,
+  sort: LeaderboardSort = "hit_rate"
 ): Promise<LeaderboardRow[]> {
   // Step 1: Get accepted friend IDs (same pattern as activity route)
   const { data: asRequester, error: err1 } = await typedFrom(
@@ -112,15 +133,16 @@ export async function getFriendsLeaderboard(
   const userIds = Array.from(friendIds);
 
   // Step 2: Fetch leaderboard entries for these users with profile join
-  const { data, error } = await typedFrom(supabase, "leaderboard_entries")
+  const query = typedFrom(supabase, "leaderboard_entries")
     .select(
       "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url)"
     )
-    .in("user_id", userIds)
-    .order("win_rate", { ascending: false })
-    .order("total_correct_picks", { ascending: false })
-    .order("best_streak", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .in("user_id", userIds);
+
+  const { data, error } = await applySortOrder(query, sort).range(
+    offset,
+    offset + limit - 1
+  );
 
   if (error) throw new Error(error.message);
 
@@ -129,13 +151,12 @@ export async function getFriendsLeaderboard(
 
 /**
  * Get a user's global rank and stats.
- * Rank is determined by the number of users with a strictly higher win_rate,
- * plus those with the same win_rate but higher total_correct_picks,
- * plus those with the same win_rate and total_correct_picks but higher best_streak.
+ * Rank is computed using the same ordering criteria as the active sort.
  */
 export async function getUserRank(
   supabase: SupabaseClient<Database>,
-  userId: string
+  userId: string,
+  sort: LeaderboardSort = "hit_rate"
 ): Promise<UserRank | null> {
   // Step 1: Get the user's leaderboard entry with profile
   const { data: entryData, error: entryError } = await typedFrom(
@@ -154,42 +175,68 @@ export async function getUserRank(
 
   const entry = toLeaderboardRow(entryData as Record<string, unknown>);
 
-  // Step 2: Count users with strictly higher win_rate
-  const { count: higherWinRate, error: countErr1 } = await typedFrom(
-    supabase,
-    "leaderboard_entries"
-  )
-    .select("id", { count: "exact", head: true })
-    .gt("win_rate", entry.win_rate);
+  let rank: number;
 
-  if (countErr1) throw new Error(countErr1.message);
+  if (sort === "h2h") {
+    // Rank by h2h_win_pct DESC, then h2h_wins DESC as tiebreaker
+    const userPct = entry.h2h_win_pct;
 
-  // Step 3: Count users with same win_rate but more total_correct_picks
-  const { count: samWrHigherPicks, error: countErr2 } = await typedFrom(
-    supabase,
-    "leaderboard_entries"
-  )
-    .select("id", { count: "exact", head: true })
-    .eq("win_rate", entry.win_rate)
-    .gt("total_correct_picks", entry.total_correct_picks);
+    const { count: higherPct, error: e1 } = await typedFrom(
+      supabase,
+      "leaderboard_entries"
+    )
+      .select("id", { count: "exact", head: true })
+      .gt("h2h_win_pct", userPct);
 
-  if (countErr2) throw new Error(countErr2.message);
+    if (e1) throw new Error(e1.message);
 
-  // Step 4: Count users with same win_rate, same total_correct_picks, but higher best_streak
-  const { count: samWrSamePicksHigherStreak, error: countErr3 } =
-    await typedFrom(supabase, "leaderboard_entries")
+    const { count: samePctMoreWins, error: e2 } = await typedFrom(
+      supabase,
+      "leaderboard_entries"
+    )
+      .select("id", { count: "exact", head: true })
+      .eq("h2h_win_pct", userPct)
+      .gt("h2h_wins", entry.h2h_wins);
+
+    if (e2) throw new Error(e2.message);
+
+    rank = (higherPct ?? 0) + (samePctMoreWins ?? 0) + 1;
+  } else {
+    // Rank by win_rate DESC, total_correct_picks DESC, best_streak DESC
+    const { count: higherWinRate, error: countErr1 } = await typedFrom(
+      supabase,
+      "leaderboard_entries"
+    )
+      .select("id", { count: "exact", head: true })
+      .gt("win_rate", entry.win_rate);
+
+    if (countErr1) throw new Error(countErr1.message);
+
+    const { count: samWrHigherPicks, error: countErr2 } = await typedFrom(
+      supabase,
+      "leaderboard_entries"
+    )
       .select("id", { count: "exact", head: true })
       .eq("win_rate", entry.win_rate)
-      .eq("total_correct_picks", entry.total_correct_picks)
-      .gt("best_streak", entry.best_streak);
+      .gt("total_correct_picks", entry.total_correct_picks);
 
-  if (countErr3) throw new Error(countErr3.message);
+    if (countErr2) throw new Error(countErr2.message);
 
-  const rank =
-    (higherWinRate ?? 0) +
-    (samWrHigherPicks ?? 0) +
-    (samWrSamePicksHigherStreak ?? 0) +
-    1;
+    const { count: samWrSamePicksHigherStreak, error: countErr3 } =
+      await typedFrom(supabase, "leaderboard_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("win_rate", entry.win_rate)
+        .eq("total_correct_picks", entry.total_correct_picks)
+        .gt("best_streak", entry.best_streak);
+
+    if (countErr3) throw new Error(countErr3.message);
+
+    rank =
+      (higherWinRate ?? 0) +
+      (samWrHigherPicks ?? 0) +
+      (samWrSamePicksHigherStreak ?? 0) +
+      1;
+  }
 
   return { rank, entry };
 }
