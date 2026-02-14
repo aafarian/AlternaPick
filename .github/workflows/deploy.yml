@@ -109,6 +109,7 @@ jobs:
                 echo "CRITICAL: Rollback failed — manual intervention needed"
                 exit 1
               fi
+              exit 1  # Deploy failed even though rollback recovered the site
             fi
 
             # Clean up rollback tags and old images
