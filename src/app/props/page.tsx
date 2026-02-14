@@ -107,7 +107,9 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
           (p) =>
             !playerQuery ||
             p.player_name.toLowerCase().includes(playerQuery) ||
-            teamMatchesQuery(p.player_team, playerQuery)
+            teamMatchesQuery(p.player_team, playerQuery) ||
+            game.home_team.toLowerCase().includes(playerQuery) ||
+            game.away_team.toLowerCase().includes(playerQuery)
         )
         .sort((a, b) => a.player_name.localeCompare(b.player_name)),
     })) ?? [];

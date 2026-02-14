@@ -46,7 +46,7 @@ export default function CategoryFilter({ sport = "nba" }: { sport?: string }) {
 
   return (
     <Tabs value={active} onValueChange={handleChange}>
-      <TabsList className="h-auto w-fit justify-start gap-1.5 overflow-x-auto bg-transparent p-0 scrollbar-none">
+      <TabsList className="h-auto max-w-full justify-start gap-1.5 overflow-x-auto bg-transparent p-0 scrollbar-none">
         {categories.map(({ value, label }) => (
           <TabsTrigger
             key={value}
