@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth/auth-context";
 import { resolveLoginEmail, claimCardsAfterLogin } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,7 +18,16 @@ import { AlertCircle } from "lucide-react";
 function LoginForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const redirectTo = searchParams.get("redirectTo") ?? "/picks";
+
+  // If the user is already authenticated client-side (stale server cookie
+  // caused the middleware redirect), bounce them back immediately.
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace(redirectTo);
+    }
+  }, [authLoading, user, redirectTo, router]);
   const [error, setError] = useState<string | null>(
     searchParams.get("error") ? "Authentication failed. Please try again." : null
   );
@@ -72,6 +82,11 @@ function LoginForm() {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
       },
     });
+  }
+
+  // Don't flash the form while we check if the user is already signed in
+  if (authLoading || user) {
+    return <Skeleton className="h-96 rounded-xl" />;
   }
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Bell } from "lucide-react";
@@ -15,33 +15,38 @@ import {
 import type { Notification } from "@/lib/supabase/types";
 import { formatTimeAgo } from "@/lib/format";
 import { getNotificationIcon, getNotificationTitle } from "@/lib/constants";
+import { getNavigationPath } from "@/lib/notifications/utils";
 
 interface NotificationBellProps {
   count: number;
   onCountReset: () => void;
+  /** Header registers a callback so it can push realtime notifications into the dropdown. */
+  onRegisterNewNotification?: (cb: (n: Notification) => void) => void;
 }
 
-function getNavigationPath(notification: Notification): string | null {
-  const meta = notification.metadata as Record<string, unknown> | null;
-
-  if (meta?.card_id) return "/picks";
-  if (meta?.challenge_id) return `/challenges/${meta.challenge_id}`;
-  if (
-    notification.type === "friend_request" ||
-    notification.type === "friend_accepted"
-  )
-    return "/friends";
-  return null;
-}
+const MAX_DROPDOWN_ITEMS = 5;
 
 export default function NotificationBell({
   count,
   onCountReset,
+  onRegisterNewNotification,
 }: NotificationBellProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Register a callback so the Header can push realtime notifications into dropdown
+  useEffect(() => {
+    if (!onRegisterNewNotification) return;
+    onRegisterNewNotification((n: Notification) => {
+      setNotifications((prev) => {
+        // Dedup by ID, prepend, cap at MAX_DROPDOWN_ITEMS
+        if (prev.some((existing) => existing.id === n.id)) return prev;
+        return [n, ...prev].slice(0, MAX_DROPDOWN_ITEMS);
+      });
+    });
+  }, [onRegisterNewNotification]);
 
   const handleOpenChange = useCallback(
     async (isOpen: boolean) => {

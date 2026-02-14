@@ -6,6 +6,7 @@ import BottomTabBar from "@/components/layout/BottomTabBar";
 import { AuthProvider } from "@/lib/auth/auth-context";
 import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import ServiceWorkerRegistration from "@/components/pwa/ServiceWorkerRegistration";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -48,6 +49,18 @@ export default function RootLayout({
             </main>
             <Footer />
             <BottomTabBar />
+            <Toaster
+              position="top-right"
+              offset={72}
+              duration={5000}
+              toastOptions={{
+                style: {
+                  background: "hsl(var(--card))",
+                  color: "hsl(var(--foreground))",
+                  border: "1px solid hsl(var(--border))",
+                },
+              }}
+            />
           </OnboardingProvider>
         </AuthProvider>
       </body>
