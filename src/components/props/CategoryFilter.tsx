@@ -45,12 +45,12 @@ export default function CategoryFilter({ sport = "nba" }: { sport?: string }) {
 
   return (
     <Tabs value={active} onValueChange={handleChange}>
-      <TabsList className="h-auto max-w-full justify-start gap-1.5 overflow-x-auto bg-transparent p-0 scrollbar-none">
+      <TabsList className="h-auto flex-wrap justify-start gap-1.5 bg-transparent p-0">
         {categories.map(({ value, label }) => (
           <TabsTrigger
             key={value}
             value={value}
-            className="flex-none cursor-pointer rounded-full border border-border bg-secondary px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-all data-[state=active]:border-primary data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-[0_0_10px_rgba(0,210,106,0.15)]"
+            className="cursor-pointer rounded-full border border-border bg-secondary px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-all data-[state=active]:border-primary data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-[0_0_10px_rgba(0,210,106,0.15)]"
           >
             {label}
           </TabsTrigger>

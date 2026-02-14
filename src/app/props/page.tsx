@@ -171,7 +171,7 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
       )}
       <PropsHeader gameCount={withProps.length} />
 
-      <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-3 bg-background px-4 pb-3 pt-2">
+      <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-3 border-b border-border bg-background px-4 pb-3 pt-2 shadow-sm">
         <Suspense fallback={null}>
           <SportSelector counts={propCounts} activeSport={sport} />
         </Suspense>
