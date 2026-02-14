@@ -56,7 +56,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const admin = createAdminClient();
     const { data: cards } = await (admin.from("cards") as any)
       .select(
-        "id, user_id, status, score, total_picks, picks(id, selection, result, actual_value, props(player_name, player_id, stat_category, line, game_id, games(nba_game_id, status, home_team, away_team, home_score, away_score, commence_time)))"
+        "id, user_id, status, score, total_picks, picks(id, selection, result, actual_value, props(player_name, player_id, stat_category, line, game_id, games(nba_game_id, sport, status, home_team, away_team, home_score, away_score, commence_time)))"
       )
       .eq("challenge_id", id);
 
