@@ -138,7 +138,7 @@ export async function cacheProps(
       .toLowerCase()
       .replace(/\./g, "")     // "P.J." → "PJ"
       .replace(/'/g, "'")     // normalize apostrophes
-      .replace(/\s+(jr|sr|ii|iii|iv|v)$/i, "") // strip suffixes
+      .replace(/\s+(jr|sr|iii|ii|iv)$/i, "") // strip suffixes (skip lone "v"/"i" — too ambiguous)
       .trim();
   }
 
@@ -237,9 +237,33 @@ export async function cacheProps(
     }
   }
 
-  // Lookup helper: tries exact match first, then normalized
+  // Lookup helper: tries exact match, then normalized, then fuzzy last-name
   function lookupPlayer(name: string, map: Map<string, string>): string | null {
-    return map.get(name.toLowerCase()) ?? map.get(normalizeName(name)) ?? null;
+    const lower = name.toLowerCase();
+    const normalized = normalizeName(name);
+    // Exact match
+    const exact = map.get(lower) ?? map.get(normalized);
+    if (exact) return exact;
+
+    // Fuzzy fallback: match by last name (last word of normalized name).
+    // Searches map keys for entries that end with the same last name and
+    // share a first-name initial. Avoids false positives on common surnames.
+    const parts = normalized.split(/\s+/);
+    if (parts.length < 2) return null;
+    const lastName = parts[parts.length - 1];
+    const firstInitial = parts[0][0];
+
+    for (const [key, val] of map) {
+      const keyParts = key.split(/\s+/);
+      if (keyParts.length < 2) continue;
+      const keyLast = keyParts[keyParts.length - 1];
+      const keyFirstInitial = keyParts[0][0];
+      if (keyLast === lastName && keyFirstInitial === firstInitial) {
+        return val;
+      }
+    }
+
+    return null;
   }
 
   // Upsert games
@@ -362,18 +386,22 @@ export async function cacheProps(
         lineHistory = [...lineHistory, { t: now, l: match.line }];
       }
 
+      // Only overwrite enrichment fields if the new value is non-null,
+      // so a failed stats-service sync doesn't clobber existing data.
+      const updatePayload: Record<string, unknown> = {
+        line: match.line,
+        over_odds: match.over_odds,
+        under_odds: match.under_odds,
+        fetched_at: now,
+        line_history: lineHistory.length > 0 ? lineHistory : null,
+      };
+      if (match.player_id !== null) updatePayload.player_id = match.player_id;
+      if (match.player_team !== null) updatePayload.player_team = match.player_team;
+      if (match.player_position !== null) updatePayload.player_position = match.player_position;
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from("props") as any)
-        .update({
-          line: match.line,
-          over_odds: match.over_odds,
-          under_odds: match.under_odds,
-          player_id: match.player_id,
-          player_team: match.player_team,
-          player_position: match.player_position,
-          fetched_at: now,
-          line_history: lineHistory.length > 0 ? lineHistory : null,
-        })
+        .update(updatePayload)
         .eq("id", kept.id);
     }
   }

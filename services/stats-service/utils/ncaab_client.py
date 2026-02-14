@@ -342,10 +342,16 @@ async def get_ncaab_player_mapping(team_ids: list[str] | None = None) -> dict[st
 
     team_ids = [tid for tid in team_ids if tid]
 
-    # Fetch rosters sequentially (rate-limited)
+    # Fetch rosters concurrently (batched to avoid hammering ESPN)
+    sem = asyncio.Semaphore(10)
+
+    async def _fetch(tid: str) -> list[dict]:
+        async with sem:
+            return await get_team_roster(tid)
+
+    rosters = await asyncio.gather(*[_fetch(tid) for tid in team_ids])
     mapping: dict[str, str] = {}
-    for team_id in team_ids:
-        roster = await get_team_roster(team_id)
+    for roster in rosters:
         for player in roster:
             mapping[player["name"].lower()] = player["id"]
 
