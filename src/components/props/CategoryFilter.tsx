@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { StatCategory } from "@/lib/supabase/types";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,24 +34,58 @@ const EPL_CATEGORIES: CategoryOption[] = [
 export default function CategoryFilter({ sport = "nba" }: { sport?: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const dragState = useRef({ dragging: false, startX: 0, scrollLeft: 0 });
 
   const active = searchParams.get("category") ?? "all";
   const categories = sport === "epl" ? EPL_CATEGORIES : NBA_CATEGORIES; // NCAAB uses same basketball categories as NBA
 
   function handleChange(value: string) {
+    // Ignore tab change if user was dragging
+    if (dragState.current.dragging) return;
     const params = new URLSearchParams(searchParams.toString());
     params.set("category", value);
     router.push(`/props?${params.toString()}`);
   }
 
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    dragState.current = { dragging: false, startX: e.clientX, scrollLeft: el.scrollLeft };
+    el.setPointerCapture(e.pointerId);
+  }, []);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    const el = scrollRef.current;
+    if (!el || !el.hasPointerCapture(e.pointerId)) return;
+    const dx = e.clientX - dragState.current.startX;
+    // Mark as dragging once moved more than 4px to distinguish from clicks
+    if (Math.abs(dx) > 4) dragState.current.dragging = true;
+    el.scrollLeft = dragState.current.scrollLeft - dx;
+  }, []);
+
+  const onPointerUp = useCallback((e: React.PointerEvent) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.releasePointerCapture(e.pointerId);
+    // Reset dragging flag after a tick so the click handler can check it
+    setTimeout(() => { dragState.current.dragging = false; }, 0);
+  }, []);
+
   return (
     <Tabs value={active} onValueChange={handleChange}>
-      <TabsList className="h-auto flex-wrap justify-start gap-1.5 bg-transparent p-0">
+      <TabsList
+        ref={scrollRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        className="h-auto max-w-full cursor-grab justify-start gap-1.5 overflow-x-auto bg-transparent p-0 active:cursor-grabbing scrollbar-none"
+      >
         {categories.map(({ value, label }) => (
           <TabsTrigger
             key={value}
             value={value}
-            className="cursor-pointer rounded-full border border-border bg-secondary px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-all data-[state=active]:border-primary data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-[0_0_10px_rgba(0,210,106,0.15)]"
+            className="flex-none cursor-pointer rounded-full border border-border bg-secondary px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-all select-none data-[state=active]:border-primary data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-[0_0_10px_rgba(0,210,106,0.15)]"
           >
             {label}
           </TabsTrigger>
