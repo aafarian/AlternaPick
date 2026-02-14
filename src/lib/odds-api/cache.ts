@@ -202,6 +202,23 @@ export async function cacheProps(
       // Get all D-I teams to find ESPN team IDs for teams in props
       const allTeams = await fetchNcaabTeams();
 
+      // Normalize team names for matching: "St." → "saint", strip periods
+      function normalizeTeamName(name: string): string {
+        return name
+          .toLowerCase()
+          .replace(/\bst\.\s*/g, "saint ")
+          .replace(/\bmt\.\s*/g, "mount ")
+          .replace(/\./g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
+      // Build normalized ESPN lookup: normalized name → team ID
+      const normalizedEspn = new Map<string, string>();
+      for (const [espnName, id] of Object.entries(allTeams)) {
+        normalizedEspn.set(normalizeTeamName(espnName), id);
+      }
+
       // Collect unique team names from events
       const propTeamNames = new Set<string>();
       for (const event of events) {
@@ -212,15 +229,26 @@ export async function cacheProps(
       // Match prop team names to ESPN team IDs
       const teamIds: string[] = [];
       for (const teamName of propTeamNames) {
-        // Exact match
+        // 1. Exact match
         const exactId = allTeams[teamName];
         if (exactId) { teamIds.push(exactId); continue; }
-        // Partial match (includes both ways)
-        for (const [espnName, id] of Object.entries(allTeams)) {
-          if (espnName.includes(teamName) || teamName.includes(espnName)) {
+
+        // 2. Normalized exact match (handles "St." vs "Saint", etc.)
+        const normName = normalizeTeamName(teamName);
+        const normId = normalizedEspn.get(normName);
+        if (normId) { teamIds.push(normId); continue; }
+
+        // 3. Partial match (includes both ways) on normalized names
+        let found = false;
+        for (const [espnNorm, id] of normalizedEspn) {
+          if (espnNorm.includes(normName) || normName.includes(espnNorm)) {
             teamIds.push(id);
+            found = true;
             break;
           }
+        }
+        if (!found) {
+          console.warn(`[NCAAB enrich] No ESPN match for team: "${teamName}"`);
         }
       }
 

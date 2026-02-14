@@ -225,11 +225,20 @@ export function registerNcaabTeamIds(teams: Array<{ name: string; id: string }>)
   }
 }
 
+function normalizeTeamStr(s: string): string {
+  return s.toLowerCase().replace(/\bst\.\s*/g, "saint ").replace(/\bmt\.\s*/g, "mount ").replace(/\./g, "").replace(/\s+/g, " ").trim();
+}
+
 function getNcaabEspnTeamId(teamName: string): string | undefined {
   const lower = teamName.toLowerCase();
   // Exact match
   const exact = ncaabTeamEspnIds.get(lower);
   if (exact) return exact;
+  // Normalized match (handles "St." vs "Saint", etc.)
+  const norm = normalizeTeamStr(teamName);
+  for (const [name, id] of ncaabTeamEspnIds) {
+    if (normalizeTeamStr(name) === norm) return id;
+  }
   // Partial match (includes both ways) for Odds API vs ESPN name differences
   for (const [name, id] of ncaabTeamEspnIds) {
     if (name.includes(lower) || lower.includes(name)) return id;
@@ -238,21 +247,27 @@ function getNcaabEspnTeamId(teamName: string): string | undefined {
 }
 
 export function teamLogoUrl(teamName: string): string {
+  // 1. NCAAB exact match first — avoids tricode collisions (e.g. "Houston Cougars" → "HOU" → Rockets)
+  const ncaabExact = ncaabTeamEspnIds.get(teamName.toLowerCase());
+  if (ncaabExact) {
+    return `https://a.espncdn.com/i/teamlogos/ncaa/500/${ncaabExact}.png`;
+  }
+
+  // 2. NBA / EPL via tricode
   const code = teamTricode(teamName);
-  // NBA logo
   const nbaId = TEAM_NBA_IDS[code];
   if (nbaId) {
     return `https://cdn.nba.com/logos/nba/${nbaId}/global/L/logo.svg`;
   }
-  // EPL logo (api-football CDN)
   const eplId = EPL_TEAM_IDS[code];
   if (eplId) {
     return `https://media.api-sports.io/football/teams/${eplId}.png`;
   }
-  // NCAAB logo (ESPN CDN) — uses dynamically registered team IDs
-  const ncaabId = getNcaabEspnTeamId(teamName);
-  if (ncaabId) {
-    return `https://a.espncdn.com/i/teamlogos/ncaa/500/${ncaabId}.png`;
+
+  // 3. NCAAB partial match as fallback
+  const ncaabPartial = getNcaabEspnTeamId(teamName);
+  if (ncaabPartial) {
+    return `https://a.espncdn.com/i/teamlogos/ncaa/500/${ncaabPartial}.png`;
   }
   return "";
 }
