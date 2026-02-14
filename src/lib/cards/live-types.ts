@@ -20,6 +20,7 @@ export interface LivePickData {
   pick_id: string;
   player_name: string;
   player_id: string | null;
+  sport?: string;
   stat_category: StatCategory;
   line: number;
   selection: PickSelection;
@@ -51,6 +52,7 @@ export function toLivePickData(pick: {
     stat_category: string;
     line: number;
     game_id: string;
+    games?: { sport: string };
   } | null;
 }): LivePickData {
   const hasResult =
@@ -60,6 +62,7 @@ export function toLivePickData(pick: {
     pick_id: pick.id,
     player_name: pick.prop?.player_name ?? "Unknown",
     player_id: pick.prop?.player_id ?? null,
+    sport: pick.prop?.games?.sport,
     stat_category: (pick.prop?.stat_category ?? "points") as StatCategory,
     line: pick.prop?.line ?? 0,
     selection: pick.selection as PickSelection,

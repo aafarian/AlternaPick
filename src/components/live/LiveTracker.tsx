@@ -15,6 +15,7 @@ function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
       pick_id: pick.id,
       player_name: pick.props?.player_name ?? "Unknown",
       player_id: pick.props?.player_id ?? null,
+      sport: pick.props?.games?.sport,
       stat_category: (pick.props?.stat_category ?? "points") as StatCategory,
       line: pick.props?.line ?? 0,
       selection: pick.selection as PickSelection,

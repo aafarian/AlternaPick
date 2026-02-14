@@ -8,6 +8,7 @@ import { getPlayerHeadshotUrl } from "@/lib/constants";
 interface PlayerAvatarProps {
   playerId: string | null;
   playerName: string;
+  sport?: string;
   size?: "sm" | "default" | "lg" | "xl";
   className?: string;
 }
@@ -31,6 +32,7 @@ function getInitials(name: string): string {
 export default function PlayerAvatar({
   playerId,
   playerName,
+  sport,
   size = "default",
   className,
 }: PlayerAvatarProps) {
@@ -60,7 +62,7 @@ export default function PlayerAvatar({
       )}
     >
       <Image
-        src={getPlayerHeadshotUrl(playerId)}
+        src={getPlayerHeadshotUrl(playerId, sport)}
         alt={playerName}
         width={px}
         height={px}

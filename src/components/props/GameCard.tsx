@@ -138,6 +138,7 @@ export default function GameCard({
                   homeTeam={game.home_team}
                   lineHistory={prop.line_history}
                   edgeRate={edgeRate}
+                  sport={game.sport}
                 />
               );
             })}

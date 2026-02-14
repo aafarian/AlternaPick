@@ -104,17 +104,12 @@ export const POLL_INTERVAL_MS = 30_000;
 
 /* ---------- Player headshots ---------- */
 
-export function getPlayerHeadshotUrl(playerId: string): string {
+export function getPlayerHeadshotUrl(playerId: string, sport?: string): string {
   if (!playerId) return "";
-  // NBA player IDs are long numeric strings (10+ digits)
-  if (playerId.length >= 8) {
-    return `https://cdn.nba.com/headshots/nba/latest/260x190/${playerId}.png`;
-  }
-  // ESPN player IDs (NCAAB) are shorter (4-7 digits)
-  if (playerId.length >= 4) {
+  if (sport === "ncaab") {
     return `https://a.espncdn.com/combiner/i?img=/i/headshots/mens-college-basketball/players/full/${playerId}.png&w=260&h=190`;
   }
-  return "";
+  return `https://cdn.nba.com/headshots/nba/latest/260x190/${playerId}.png`;
 }
 
 /* ---------- Team data ---------- */

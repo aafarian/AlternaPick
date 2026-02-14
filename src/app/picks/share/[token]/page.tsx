@@ -28,7 +28,7 @@ async function getSharedCard(token: string): Promise<SharedCardData | null> {
 
   // Fetch card by share_token
   const { data: card, error } = await (admin.from("cards") as any)
-    .select("*, picks(*, props(player_name, player_id, stat_category, line, game_id))")
+    .select("*, picks(*, props(player_name, player_id, stat_category, line, game_id, games(sport)))")
     .eq("share_token", token)
     .single();
 
@@ -202,6 +202,7 @@ export default async function ShareCardPage({ params }: PageProps) {
                   <PlayerAvatar
                     playerId={pick.props?.player_id ?? null}
                     playerName={pick.props?.player_name ?? "Unknown"}
+                    sport={(pick.props as any)?.games?.sport}
                     size="sm"
                   />
                   <div className="flex min-w-0 flex-col">

@@ -141,6 +141,7 @@ export function buildLivePicksForCard(
       pick_id: pick.id,
       player_name: pick.props.player_name,
       player_id: pick.props.player_id,
+      sport: pick.props.games?.sport ?? undefined,
       stat_category: pick.props.stat_category,
       line: pick.props.line,
       selection: pick.selection,
