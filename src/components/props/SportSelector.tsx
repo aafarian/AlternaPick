@@ -11,12 +11,13 @@ const SPORTS = [
 
 interface SportSelectorProps {
   counts?: Record<string, number>;
+  activeSport?: string;
 }
 
-export default function SportSelector({ counts }: SportSelectorProps) {
+export default function SportSelector({ counts, activeSport }: SportSelectorProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const active = searchParams.get("sport") ?? "nba";
+  const active = searchParams.get("sport") ?? activeSport ?? "nba";
 
   function handleChange(value: string) {
     const params = new URLSearchParams(searchParams.toString());

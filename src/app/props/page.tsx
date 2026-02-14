@@ -28,23 +28,29 @@ interface PropsPageProps {
 export default async function PropsPage({ searchParams }: PropsPageProps) {
   const { category: rawCategory, player, sport: rawSport } = await searchParams;
 
-  // Determine sport (default to NBA)
-  const sport: SportKey =
-    rawSport === "epl" ? "epl" : rawSport === "ncaab" ? "ncaab" : "nba";
-  const defaultCategory = sport === "epl" ? "shots" : "points";
-  const emptyEmoji = sport === "epl" ? "\u26BD" : "\uD83C\uDFC0";
-
-  // Fetch props + prop counts in parallel with a timeout so the page never hangs
-  let games: Awaited<ReturnType<typeof getCachedProps>> = null;
+  // Fetch prop counts first so we can pick the best default sport
   let propCounts: Record<string, number> = {};
   try {
+    propCounts = await getCachedPropCounts().catch(() => ({} as Record<string, number>));
+  } catch {
+    // continue with empty counts
+  }
+
+  // Determine sport: use URL param if set, otherwise pick the first sport with props
+  const SPORT_PRIORITY: SportKey[] = ["nba", "ncaab", "epl"];
+  let sport: SportKey;
+  if (rawSport === "epl" || rawSport === "ncaab" || rawSport === "nba") {
+    sport = rawSport;
+  } else {
+    sport = SPORT_PRIORITY.find((s) => (propCounts[s] ?? 0) > 0) ?? "nba";
+  }
+  const emptyEmoji = sport === "epl" ? "\u26BD" : "\uD83C\uDFC0";
+
+  // Fetch props with a timeout so the page never hangs
+  let games: Awaited<ReturnType<typeof getCachedProps>> = null;
+  try {
     const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000));
-    const [gamesResult, countsResult] = await Promise.all([
-      Promise.race([getCachedProps(sport), timeout]),
-      getCachedPropCounts().catch(() => ({} as Record<string, number>)),
-    ]);
-    games = gamesResult;
-    propCounts = countsResult;
+    games = await Promise.race([getCachedProps(sport), timeout]);
   } catch {
     games = null;
   }
@@ -89,8 +95,8 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
     // If analytics fetch fails, continue without edge data
   }
 
-  // Default category per sport when no category param; "all" shows everything
-  const category = rawCategory ?? defaultCategory;
+  // Default to "all" when no category param
+  const category = rawCategory ?? "all";
   const isAll = category === "all";
 
   const playerQuery = player?.trim().toLowerCase() ?? "";
@@ -167,7 +173,7 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
 
       <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-3 bg-background px-4 pb-3 pt-2">
         <Suspense fallback={null}>
-          <SportSelector counts={propCounts} />
+          <SportSelector counts={propCounts} activeSport={sport} />
         </Suspense>
 
         <Suspense fallback={null}>
