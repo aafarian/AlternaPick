@@ -210,7 +210,7 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
         <PropsGameList
           key={category}
           games={dateGroups[0].games}
-          expandFirstOnly={isAll}
+
           categoryEdges={categoryEdges}
           playerEdges={playerEdges}
         />
@@ -224,7 +224,7 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
               <PropsGameList
                 key={`${category}-${group.label}`}
                 games={group.games}
-                expandFirstOnly={isAll || group.label !== "Tonight"}
+
                 categoryEdges={categoryEdges}
                 playerEdges={playerEdges}
               />
