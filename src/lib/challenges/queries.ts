@@ -40,6 +40,7 @@ interface ChallengePick {
     stat_category: string;
     line: number;
     game_id: string;
+    games?: { sport: string };
   } | null;
 }
 
@@ -123,7 +124,7 @@ export async function getChallenge(
   const admin = createAdminClient();
   const { data: cards } = await (admin.from("cards") as any)
     .select(
-      "id, user_id, status, score, total_picks, locked_at, resolved_at, picks(id, selection, result, actual_value, prop:props(id, player_name, player_id, stat_category, line, game_id))"
+      "id, user_id, status, score, total_picks, locked_at, resolved_at, picks(id, selection, result, actual_value, prop:props(id, player_name, player_id, stat_category, line, game_id, games(sport)))"
     )
     .eq("challenge_id", challengeId);
 

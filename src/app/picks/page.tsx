@@ -11,7 +11,7 @@ import { Plus, Target, BarChart3, Trophy } from "lucide-react";
 
 const PAGE_SIZE = 20;
 
-const CARD_SELECT = "id, user_id, status, score, total_picks, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, stat_category, line, game_id))";
+const CARD_SELECT = "id, user_id, status, score, total_picks, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, stat_category, line, game_id, games(sport)))";
 
 async function getCardsByStatus(
   userId: string,

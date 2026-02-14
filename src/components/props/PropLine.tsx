@@ -23,6 +23,7 @@ interface PropLineProps {
   lineHistory: Array<{ t: string; l: number }> | null;
   /** User's historical accuracy rate (0-1) for this prop's player/category */
   edgeRate?: number;
+  sport?: string;
 }
 
 function getInitials(name: string): string {
@@ -36,8 +37,10 @@ function getInitials(name: string): string {
 function PlayerHeadshot({
   playerId,
   playerName,
+  sport,
 }: {
   playerId: string | null;
+  sport?: string;
   playerName: string;
 }) {
   const [imgError, setImgError] = useState(false);
@@ -55,7 +58,7 @@ function PlayerHeadshot({
   return (
     <div className="relative h-[100px] w-[130px]">
       <Image
-        src={getPlayerHeadshotUrl(playerId)}
+        src={getPlayerHeadshotUrl(playerId, sport)}
         alt={playerName}
         width={130}
         height={100}
@@ -79,6 +82,7 @@ export default function PropLine({
   homeTeam,
   lineHistory,
   edgeRate,
+  sport,
 }: PropLineProps) {
   const { addPick, removePick, isPickSelected, getSelection, isFull, state } =
     useCardBuilder();
@@ -164,7 +168,7 @@ export default function PropLine({
           />
         </div>
 
-        <PlayerHeadshot playerId={playerId} playerName={playerName} />
+        <PlayerHeadshot playerId={playerId} playerName={playerName} sport={sport} />
 
         {/* Player name */}
         <span className="relative z-10 mt-1 truncate text-center text-sm font-bold leading-tight">

@@ -41,6 +41,24 @@ const TRICODE_TO_TEAM: Record<string, string> = {
   WAS: "Washington Wizards",
 };
 
+function normalizeTeam(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\bst\.\s*/g, "saint ")
+    .replace(/\bmt\.\s*/g, "mount ")
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function teamsMatch(dbTeam: string, liveTeam: string): boolean {
+  if (dbTeam === liveTeam) return true;
+  const a = normalizeTeam(dbTeam);
+  const b = normalizeTeam(liveTeam);
+  if (a === b) return true;
+  return a.includes(b) || b.includes(a);
+}
+
 function mapNbaStatus(status: string): "scheduled" | "live" | "final" {
   const s = status.toLowerCase();
   if (s.includes("final")) return "final";
@@ -103,6 +121,7 @@ export async function POST(request: NextRequest) {
       const gamesResult = await supabase
         .from("games")
         .select("*")
+        .eq("sport", "nba")
         .gte("commence_time", todayStart.toISOString())
         .lte("commence_time", tomorrowEnd.toISOString());
 
@@ -177,17 +196,10 @@ export async function POST(request: NextRequest) {
         const eplDbGames = (eplGamesResult.data ?? []) as Game[];
 
         for (const soccerGame of soccerGames) {
-          const match = eplDbGames.find((g) => {
-            const homeMatch =
-              g.home_team === soccerGame.home_team ||
-              g.home_team.includes(soccerGame.home_team) ||
-              soccerGame.home_team.includes(g.home_team);
-            const awayMatch =
-              g.away_team === soccerGame.away_team ||
-              g.away_team.includes(soccerGame.away_team) ||
-              soccerGame.away_team.includes(g.away_team);
-            return homeMatch && awayMatch;
-          });
+          const match = eplDbGames.find((g) =>
+            teamsMatch(g.home_team, soccerGame.home_team) &&
+            teamsMatch(g.away_team, soccerGame.away_team)
+          );
 
           if (!match) continue;
 
@@ -247,17 +259,10 @@ export async function POST(request: NextRequest) {
         const ncaabDbGames = (ncaabGamesResult.data ?? []) as Game[];
 
         for (const ncaabGame of ncaabGames) {
-          const match = ncaabDbGames.find((g) => {
-            const homeMatch =
-              g.home_team === ncaabGame.home_team ||
-              g.home_team.includes(ncaabGame.home_team) ||
-              ncaabGame.home_team.includes(g.home_team);
-            const awayMatch =
-              g.away_team === ncaabGame.away_team ||
-              g.away_team.includes(ncaabGame.away_team) ||
-              ncaabGame.away_team.includes(g.away_team);
-            return homeMatch && awayMatch;
-          });
+          const match = ncaabDbGames.find((g) =>
+            teamsMatch(g.home_team, ncaabGame.home_team) &&
+            teamsMatch(g.away_team, ncaabGame.away_team)
+          );
 
           if (!match) continue;
 

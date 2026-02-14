@@ -78,15 +78,17 @@ export function buildLivePicksForCard(
         liveGamesSet.add(nbaGameId);
       }
     } else {
-      // Not in today's stats service → past game or untracked.
-      // Today's games (even scheduled ones) are returned by fetchTodaysGamesLive(),
-      // so anything missing from gameStatusMap is definitively not playing today.
+      // Not in today's stats service or nba_game_id not yet set.
+      // Use DB status/scores when available; only default to "final" for
+      // games that are definitely past (nba_game_id was set but not in today's list).
+      const dbStatus = (dbGameStatus as "scheduled" | "live" | "final") ?? "scheduled";
+      const fallbackStatus = nbaGameId ? "final" : dbStatus;
       gameStatus = {
         game_id: pick.props.game_id,
         nba_game_id: nbaGameId ?? pick.props.game_id,
-        status: "final",
-        period: 4,
-        clock: "0:00",
+        status: fallbackStatus,
+        period: fallbackStatus === "final" ? 4 : 0,
+        clock: fallbackStatus === "final" ? "0:00" : "",
         home_team: pick.props.games?.home_team ?? "",
         away_team: pick.props.games?.away_team ?? "",
         home_tricode: "",
@@ -139,6 +141,7 @@ export function buildLivePicksForCard(
       pick_id: pick.id,
       player_name: pick.props.player_name,
       player_id: pick.props.player_id,
+      sport: pick.props.games?.sport ?? undefined,
       stat_category: pick.props.stat_category,
       line: pick.props.line,
       selection: pick.selection,

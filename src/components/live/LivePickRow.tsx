@@ -189,6 +189,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
         <PlayerAvatar
           playerId={pick.player_id}
           playerName={pick.player_name}
+          sport={pick.sport}
           size="lg"
           className="ring-1 ring-border/60"
         />

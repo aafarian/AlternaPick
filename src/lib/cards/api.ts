@@ -23,6 +23,7 @@ export interface CardWithPicks {
       stat_category: string;
       line: number;
       game_id: string;
+      games?: { sport: string };
     };
   }[];
 }

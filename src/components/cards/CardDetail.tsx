@@ -96,6 +96,7 @@ export default function CardDetail({ card }: { card: CardWithPicks }) {
               stat_category: pick.props.stat_category,
               line: pick.props.line,
               game_id: pick.props.game_id,
+              games: pick.props.games,
             } : null,
           });
 
