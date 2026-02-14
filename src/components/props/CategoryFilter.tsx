@@ -36,7 +36,7 @@ export default function CategoryFilter({ sport = "nba" }: { sport?: string }) {
 
   const defaultCategory = sport === "epl" ? "shots" : "points";
   const active = searchParams.get("category") ?? defaultCategory;
-  const categories = sport === "epl" ? EPL_CATEGORIES : NBA_CATEGORIES;
+  const categories = sport === "epl" ? EPL_CATEGORIES : NBA_CATEGORIES; // NCAAB uses same basketball categories as NBA
 
   function handleChange(value: string) {
     const params = new URLSearchParams(searchParams.toString());

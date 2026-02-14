@@ -16,6 +16,7 @@ from endpoints.games import router as games_router
 from endpoints.boxscores import router as boxscores_router
 from endpoints.players import router as players_router
 from endpoints.soccer import router as soccer_router
+from endpoints.ncaab import router as ncaab_router
 
 load_dotenv()
 
@@ -71,3 +72,4 @@ app.include_router(games_router)
 app.include_router(boxscores_router)
 app.include_router(players_router)
 app.include_router(soccer_router)
+app.include_router(ncaab_router)

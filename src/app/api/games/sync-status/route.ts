@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchTodaysGames, fetchSoccerGames } from "@/lib/stats-service/client";
+import { fetchTodaysGames, fetchSoccerGames, fetchNcaabGames } from "@/lib/stats-service/client";
 import { resolveEligibleCards } from "@/lib/cards/resolution";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import { unauthorized, serverError, handleApiError } from "@/lib/api/errors";
+import { registerNcaabTeamIds } from "@/lib/constants";
 import type { Game } from "@/lib/supabase/types";
 
 // Map NBA.com tricodes to Odds API full team names
@@ -221,6 +222,76 @@ export async function POST(request: NextRequest) {
       }
     } catch (soccerError) {
       console.error("Failed to sync soccer games:", soccerError);
+    }
+
+    // --- NCAAB game sync ---
+    try {
+      const ncaabGames = await fetchNcaabGames();
+
+      // Register ESPN team IDs for logo rendering
+      registerNcaabTeamIds(
+        ncaabGames.flatMap((g) => [
+          { name: g.home_team, id: g.home_team_id ?? "" },
+          { name: g.away_team, id: g.away_team_id ?? "" },
+        ])
+      );
+
+      if (ncaabGames.length > 0) {
+        const ncaabGamesResult = await supabase
+          .from("games")
+          .select("*")
+          .eq("sport", "ncaab")
+          .gte("commence_time", todayStart.toISOString())
+          .lte("commence_time", tomorrowEnd.toISOString());
+
+        const ncaabDbGames = (ncaabGamesResult.data ?? []) as Game[];
+
+        for (const ncaabGame of ncaabGames) {
+          const match = ncaabDbGames.find((g) => {
+            const homeMatch =
+              g.home_team === ncaabGame.home_team ||
+              g.home_team.includes(ncaabGame.home_team) ||
+              ncaabGame.home_team.includes(g.home_team);
+            const awayMatch =
+              g.away_team === ncaabGame.away_team ||
+              g.away_team.includes(ncaabGame.away_team) ||
+              ncaabGame.away_team.includes(g.away_team);
+            return homeMatch && awayMatch;
+          });
+
+          if (!match) continue;
+
+          const newStatus = ncaabGame.status as "scheduled" | "live" | "final";
+          const previousStatus = match.status;
+
+          const { error: updateError } = await (supabase.from("games") as any)
+            .update({
+              status: newStatus,
+              home_score: ncaabGame.home_score,
+              away_score: ncaabGame.away_score,
+              nba_game_id: ncaabGame.game_id,
+            })
+            .eq("id", match.id);
+
+          if (!updateError) {
+            updated.push({
+              odds_team: `${match.away_team} @ ${match.home_team}`,
+              nba_team: `${ncaabGame.away_team} @ ${ncaabGame.home_team}`,
+              status: newStatus,
+              nba_game_id: ncaabGame.game_id,
+            });
+
+            if (newStatus === "final" && previousStatus !== "final") {
+              anyBecameFinal = true;
+            }
+            if (newStatus === "live" && previousStatus === "scheduled") {
+              gamesBecameLive.push(match.id);
+            }
+          }
+        }
+      }
+    } catch (ncaabError) {
+      console.error("Failed to sync NCAAB games:", ncaabError);
     }
 
     // Auto-cancel accepted challenges where only one side locked a card

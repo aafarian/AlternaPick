@@ -58,7 +58,17 @@ function PlayerSide({
   // Build LivePickData[] — always render picks immediately using fallback, overlay live data when available
   const picks: LivePickData[] =
     showPicks && card
-      ? card.picks.map((pick) => livePickMap.get(pick.id) ?? toLivePickData(pick))
+      ? card.picks.map((pick) => {
+          const live = livePickMap.get(pick.id);
+          if (!live) return toLivePickData(pick);
+          const fallback = toLivePickData(pick);
+          // Prefer live data, but don't overwrite resolved values with nulls
+          return {
+            ...live,
+            current_value: live.current_value ?? fallback.current_value,
+            trending: live.trending ?? fallback.trending,
+          };
+        })
       : [];
 
   const statusBadge = card ? (
