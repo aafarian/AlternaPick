@@ -196,7 +196,7 @@ export async function fetchAllProps(sportKey: SportKey = "nba"): Promise<FetchPr
 
 export async function fetchAllPropsMultiSport(): Promise<Map<SportKey, FetchPropsResult>> {
   const results = new Map<SportKey, FetchPropsResult>();
-  const sports: SportKey[] = ["nba", "epl"];
+  const sports: SportKey[] = ["nba", "epl", "ncaab"];
 
   for (const sport of sports) {
     try {

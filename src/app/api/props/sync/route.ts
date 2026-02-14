@@ -33,14 +33,22 @@ export async function POST(request: NextRequest) {
     let totalGames = 0;
     let totalProps = 0;
     let latestCreditsRemaining: number | null = null;
+    const enrichment: Record<string, { enriched: number; total: number; playerMapSize: number }> = {};
 
     for (const [sport, { events, props: propsMap, credits }] of multiResults) {
-      await cacheProps(events, propsMap, sport);
+      const result = await cacheProps(events, propsMap, sport);
 
       totalGames += events.length;
+      let sportProps = 0;
       for (const props of propsMap.values()) {
-        totalProps += props.length;
+        sportProps += props.length;
       }
+      totalProps += sportProps;
+      enrichment[sport] = {
+        enriched: result.propsEnriched,
+        total: sportProps,
+        playerMapSize: result.playerMapSize,
+      };
       if (credits.remaining !== null) {
         latestCreditsRemaining = credits.remaining;
       }
@@ -55,6 +63,7 @@ export async function POST(request: NextRequest) {
       propsCount: totalProps,
       creditsRemaining: latestCreditsRemaining,
       sports: Array.from(multiResults.keys()),
+      enrichment,
     });
   } catch (error) {
     const message =

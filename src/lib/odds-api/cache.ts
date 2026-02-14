@@ -4,7 +4,7 @@ import { CACHE_TTL_MS } from "./constants";
 import type { SportKey } from "./constants";
 import type { OddsApiEvent, ParsedPlayerProp } from "./types";
 import type { Game, Prop } from "@/lib/supabase/types";
-import { fetchAllPlayers } from "@/lib/stats-service/client";
+import { fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams } from "@/lib/stats-service/client";
 
 export async function isCacheStale(): Promise<boolean> {
   const supabase = createAdminClient();
@@ -84,11 +84,49 @@ export const getCachedProps = unstable_cache(
   { revalidate: 120, tags: [PROPS_CACHE_TAG] }
 );
 
+async function getPropCountsBySportInternal(): Promise<Record<string, number>> {
+  const supabase = createAdminClient();
+
+  const now = new Date();
+  const bufferMs = 5 * 60 * 1000;
+  const rangeStart = new Date(now.getTime() + bufferMs);
+  const rangeEnd = new Date(
+    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 7, 23, 59, 59, 999)
+  );
+
+  const result = await supabase
+    .from("games")
+    .select("sport, props(id)")
+    .gte("commence_time", rangeStart.toISOString())
+    .lte("commence_time", rangeEnd.toISOString());
+
+  const games = (result.data ?? []) as { sport: string; props: { id: string }[] }[];
+
+  const counts: Record<string, number> = {};
+  for (const game of games) {
+    const sport = game.sport ?? "nba";
+    counts[sport] = (counts[sport] ?? 0) + game.props.length;
+  }
+  return counts;
+}
+
+export const getCachedPropCounts = unstable_cache(
+  getPropCountsBySportInternal,
+  [PROPS_CACHE_TAG, "prop-counts"],
+  { revalidate: 120, tags: [PROPS_CACHE_TAG] }
+);
+
+export interface CachePropsResult {
+  propsInserted: number;
+  propsEnriched: number;
+  playerMapSize: number;
+}
+
 export async function cacheProps(
   events: OddsApiEvent[],
   propsMap: Map<string, ParsedPlayerProp[]>,
   sport: SportKey = "nba"
-) {
+): Promise<CachePropsResult> {
   const supabase = createAdminClient();
   const now = new Date().toISOString();
 
@@ -159,6 +197,46 @@ export async function cacheProps(
     }
   }
 
+  if (sport === "ncaab") {
+    try {
+      // Get all D-I teams to find ESPN team IDs for teams in props
+      const allTeams = await fetchNcaabTeams();
+
+      // Collect unique team names from events
+      const propTeamNames = new Set<string>();
+      for (const event of events) {
+        propTeamNames.add(event.home_team.toLowerCase());
+        propTeamNames.add(event.away_team.toLowerCase());
+      }
+
+      // Match prop team names to ESPN team IDs
+      const teamIds: string[] = [];
+      for (const teamName of propTeamNames) {
+        // Exact match
+        const exactId = allTeams[teamName];
+        if (exactId) { teamIds.push(exactId); continue; }
+        // Partial match (includes both ways)
+        for (const [espnName, id] of Object.entries(allTeams)) {
+          if (espnName.includes(teamName) || teamName.includes(espnName)) {
+            teamIds.push(id);
+            break;
+          }
+        }
+      }
+
+      // Fetch rosters for those specific teams
+      if (teamIds.length > 0) {
+        const ncaabMapping = await fetchNcaabPlayers(teamIds);
+        for (const [name, id] of Object.entries(ncaabMapping)) {
+          playerIdMap.set(name, id);
+          playerIdMap.set(normalizeName(name), id);
+        }
+      }
+    } catch (err) {
+      console.error("[NCAAB enrich] Failed:", err);
+    }
+  }
+
   // Lookup helper: tries exact match first, then normalized
   function lookupPlayer(name: string, map: Map<string, string>): string | null {
     return map.get(name.toLowerCase()) ?? map.get(normalizeName(name)) ?? null;
@@ -175,7 +253,7 @@ export async function cacheProps(
       sport,
     }));
 
-  if (gameRows.length === 0) return;
+  if (gameRows.length === 0) return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: upsertedGames } = await (supabase.from("games") as any)
@@ -184,7 +262,7 @@ export async function cacheProps(
     data: { id: string; odds_api_event_id: string }[] | null;
   };
 
-  if (!upsertedGames) return;
+  if (!upsertedGames) return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
 
   const eventToGameId = new Map(
     upsertedGames.map((g) => [g.odds_api_event_id, g.id])
@@ -316,4 +394,7 @@ export async function cacheProps(
       await (supabase.from("props") as any).insert(batch);
     }
   }
+
+  const enrichedCount = propRows.filter((r) => r.player_id !== null).length;
+  return { propsInserted: newPropRows.length, propsEnriched: enrichedCount, playerMapSize: playerIdMap.size };
 }

@@ -33,6 +33,9 @@ export interface StatsGame {
   period: number;
   clock: string;
   start_time: string;
+  // ESPN-specific fields (NCAAB)
+  home_team_id?: string;
+  away_team_id?: string;
 }
 
 export interface NbaPlayer {
@@ -241,6 +244,96 @@ export async function fetchSoccerBoxscore(
   );
   const data = await response.json();
   const result = data.data ?? [];
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  return result;
+}
+
+// --- NCAAB (ESPN) endpoints ---
+
+export async function fetchNcaabGames(): Promise<StatsGame[]> {
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/ncaab/games/today`
+  );
+  const data = await response.json();
+  return data.data ?? [];
+}
+
+export async function fetchNcaabGamesLive(): Promise<StatsGame[]> {
+  const cacheKey = "ncaabGamesLive";
+  const cached = getCached<StatsGame[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/ncaab/games/today/live`
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result);
+  return result;
+}
+
+export async function fetchNcaabBoxscore(
+  eventId: string
+): Promise<PlayerBoxScore[]> {
+  const cacheKey = `ncaabBoxscore:${eventId}`;
+  const cached = getCached<PlayerBoxScore[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/ncaab/games/${eventId}/boxscore`,
+    0
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  return result;
+}
+
+export async function fetchNcaabBoxscoreLive(
+  eventId: string
+): Promise<PlayerBoxScore[]> {
+  const cacheKey = `ncaabBoxscoreLive:${eventId}`;
+  const cached = getCached<PlayerBoxScore[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/ncaab/games/${eventId}/boxscore/live`,
+    0
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result);
+  return result;
+}
+
+export async function fetchNcaabTeams(): Promise<Record<string, string>> {
+  const cacheKey = "ncaabTeams";
+  const cached = getCached<Record<string, string>>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/ncaab/teams`
+  );
+  const data = await response.json();
+  const result = (data.data ?? {}) as Record<string, string>;
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  return result;
+}
+
+export async function fetchNcaabPlayers(
+  teamIds?: string[]
+): Promise<Record<string, string>> {
+  const idsParam = teamIds?.join(",") ?? "";
+  const cacheKey = `ncaabPlayers:${idsParam}`;
+  const cached = getCached<Record<string, string>>(cacheKey);
+  if (cached) return cached;
+
+  const url = idsParam
+    ? `${STATS_SERVICE_URL}/ncaab/players?team_ids=${encodeURIComponent(idsParam)}`
+    : `${STATS_SERVICE_URL}/ncaab/players`;
+  const response = await fetchWithRetry(url, 0, 30_000);
+  const data = await response.json();
+  const result = (data.data ?? {}) as Record<string, string>;
   setCache(cacheKey, result, FINAL_CACHE_TTL);
   return result;
 }

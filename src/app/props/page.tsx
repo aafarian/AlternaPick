@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getCachedProps } from "@/lib/odds-api/cache";
+import { getCachedProps, getCachedPropCounts } from "@/lib/odds-api/cache";
 import type { SportKey } from "@/lib/odds-api/constants";
 import type { StatCategory } from "@/lib/supabase/types";
 import { createClient } from "@/lib/supabase/server";
@@ -7,11 +7,13 @@ import { getCurrentUser } from "@/lib/auth/helpers";
 import { getCategoryStats, getPlayerStats } from "@/lib/analytics/queries";
 import type { EdgeMap } from "@/lib/analytics/types";
 import { teamMatchesQuery } from "@/lib/constants";
+import { fetchNcaabTeams } from "@/lib/stats-service/client";
 import PropsHeader from "@/components/props/PropsHeader";
 import SportSelector from "@/components/props/SportSelector";
 import CategoryFilter from "@/components/props/CategoryFilter";
 import PlayerSearch from "@/components/props/PlayerSearch";
 import PropsGameList from "@/components/props/PropsGameList";
+import NcaabTeamRegistrar from "@/components/props/NcaabTeamRegistrar";
 import { Card, CardContent } from "@/components/ui/card";
 
 /** Minimum accuracy threshold (0-1) to qualify as an "edge" */
@@ -27,17 +29,35 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
   const { category: rawCategory, player, sport: rawSport } = await searchParams;
 
   // Determine sport (default to NBA)
-  const sport: SportKey = rawSport === "epl" ? "epl" : "nba";
+  const sport: SportKey =
+    rawSport === "epl" ? "epl" : rawSport === "ncaab" ? "ncaab" : "nba";
   const defaultCategory = sport === "epl" ? "shots" : "points";
   const emptyEmoji = sport === "epl" ? "\u26BD" : "\uD83C\uDFC0";
 
-  // Fetch props with a timeout so the page never hangs
+  // Fetch props + prop counts in parallel with a timeout so the page never hangs
   let games: Awaited<ReturnType<typeof getCachedProps>> = null;
+  let propCounts: Record<string, number> = {};
   try {
     const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000));
-    games = await Promise.race([getCachedProps(sport), timeout]);
+    const [gamesResult, countsResult] = await Promise.all([
+      Promise.race([getCachedProps(sport), timeout]),
+      getCachedPropCounts().catch(() => ({} as Record<string, number>)),
+    ]);
+    games = gamesResult;
+    propCounts = countsResult;
   } catch {
     games = null;
+  }
+
+  // Fetch NCAAB team ESPN IDs for client-side logo rendering
+  // (RSC and client components use separate module instances, so we pass via props)
+  let ncaabTeams: Record<string, string> = {};
+  if (sport === "ncaab") {
+    try {
+      ncaabTeams = await fetchNcaabTeams();
+    } catch {
+      // ESPN unavailable — team logos fall back to tricode text
+    }
   }
 
   // Build edge maps for authenticated users
@@ -138,11 +158,14 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
 
   return (
     <div className="flex flex-col gap-6 py-8">
+      {sport === "ncaab" && Object.keys(ncaabTeams).length > 0 && (
+        <NcaabTeamRegistrar teams={ncaabTeams} />
+      )}
       <PropsHeader gameCount={withProps.length} dateLabel={dateGroups.length > 1 ? "Upcoming" : dateGroups[0]?.label} />
 
       <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-3 bg-background px-4 pb-3 pt-2">
         <Suspense fallback={null}>
-          <SportSelector />
+          <SportSelector counts={propCounts} />
         </Suspense>
 
         <Suspense fallback={null}>

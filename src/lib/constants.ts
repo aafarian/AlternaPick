@@ -105,10 +105,16 @@ export const POLL_INTERVAL_MS = 30_000;
 /* ---------- Player headshots ---------- */
 
 export function getPlayerHeadshotUrl(playerId: string): string {
+  if (!playerId) return "";
   // NBA player IDs are long numeric strings (10+ digits)
-  // Soccer player IDs from api-football are shorter — no CDN available
-  if (!playerId || playerId.length < 8) return "";
-  return `https://cdn.nba.com/headshots/nba/latest/260x190/${playerId}.png`;
+  if (playerId.length >= 8) {
+    return `https://cdn.nba.com/headshots/nba/latest/260x190/${playerId}.png`;
+  }
+  // ESPN player IDs (NCAAB) are shorter (4-7 digits)
+  if (playerId.length >= 4) {
+    return `https://a.espncdn.com/combiner/i?img=/i/headshots/mens-college-basketball/players/full/${playerId}.png&w=260&h=190`;
+  }
+  return "";
 }
 
 /* ---------- Team data ---------- */
@@ -207,6 +213,30 @@ const EPL_TEAM_IDS: Record<string, number> = {
   NEW: 34, NFO: 65, SOU: 41, TOT: 47, WHU: 48, WOL: 39,
 };
 
+// NCAAB team ESPN IDs — populated dynamically from ESPN scoreboard data
+const ncaabTeamEspnIds = new Map<string, string>();
+
+/** Register ESPN team IDs for NCAAB teams (called from server-side data fetching). */
+export function registerNcaabTeamIds(teams: Array<{ name: string; id: string }>) {
+  for (const t of teams) {
+    if (t.name && t.id) {
+      ncaabTeamEspnIds.set(t.name.toLowerCase(), t.id);
+    }
+  }
+}
+
+function getNcaabEspnTeamId(teamName: string): string | undefined {
+  const lower = teamName.toLowerCase();
+  // Exact match
+  const exact = ncaabTeamEspnIds.get(lower);
+  if (exact) return exact;
+  // Partial match (includes both ways) for Odds API vs ESPN name differences
+  for (const [name, id] of ncaabTeamEspnIds) {
+    if (name.includes(lower) || lower.includes(name)) return id;
+  }
+  return undefined;
+}
+
 export function teamLogoUrl(teamName: string): string {
   const code = teamTricode(teamName);
   // NBA logo
@@ -218,6 +248,11 @@ export function teamLogoUrl(teamName: string): string {
   const eplId = EPL_TEAM_IDS[code];
   if (eplId) {
     return `https://media.api-sports.io/football/teams/${eplId}.png`;
+  }
+  // NCAAB logo (ESPN CDN) — uses dynamically registered team IDs
+  const ncaabId = getNcaabEspnTeamId(teamName);
+  if (ncaabId) {
+    return `https://a.espncdn.com/i/teamlogos/ncaa/500/${ncaabId}.png`;
   }
   return "";
 }
