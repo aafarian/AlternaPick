@@ -54,42 +54,40 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchLeaderboard = useCallback(
-    async (scope: TabKey, sort: SortKey) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch(
-          `/api/leaderboard?scope=${scope}&limit=50&offset=0&sort=${sort}`
-        );
-        if (!res.ok) {
-          if (res.status === 401) {
-            throw new Error("Sign in to view the friends leaderboard.");
-          }
-          throw new Error("Failed to load leaderboard");
+  async function fetchLeaderboard(scope: TabKey, sort: SortKey) {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/leaderboard?scope=${scope}&limit=50&offset=0&sort=${sort}`
+      );
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("Sign in to view the friends leaderboard.");
         }
-        const data: LeaderboardResponse = await res.json();
-        setEntries(data.entries);
-        setUserRank(data.userRank);
-        setTotal(data.total);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load leaderboard"
-        );
-        setEntries([]);
-        setUserRank(null);
-        setTotal(0);
-      } finally {
-        setLoading(false);
+        throw new Error("Failed to load leaderboard");
       }
-    },
-    []
-  );
+      const data: LeaderboardResponse = await res.json();
+      setEntries(data.entries);
+      setUserRank(data.userRank);
+      setTotal(data.total);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load leaderboard"
+      );
+      setEntries([]);
+      setUserRank(null);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (authLoading) return;
     fetchLeaderboard(activeTab, sortBy);
-  }, [activeTab, sortBy, authLoading, fetchLeaderboard]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, sortBy, authLoading]);
 
   const handleTabChange = (value: string) => {
     const tab = value as TabKey;
