@@ -75,7 +75,7 @@ jobs:
             sleep 5
             healthy=false
             for i in 1 2 3 4 5; do
-              if curl -sf --max-time 5 http://localhost:3000 > /dev/null 2>&1; then
+              if curl -sf --max-time 5 http://localhost > /dev/null 2>&1; then
                 echo "Health check passed!"
                 healthy=true
                 break
@@ -97,7 +97,7 @@ jobs:
               sleep 5
               rollback_ok=false
               for i in 1 2 3 4 5; do
-                if curl -sf --max-time 5 http://localhost:3000 > /dev/null 2>&1; then
+                if curl -sf --max-time 5 http://localhost > /dev/null 2>&1; then
                   echo "Rollback succeeded — restored previous images"
                   rollback_ok=true
                   break
