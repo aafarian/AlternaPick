@@ -90,8 +90,12 @@ export function logError(
  * Catch-all error handler for route catch blocks.
  * Checks for domain errors with a `.status` property first,
  * then falls back to a generic 500.
+ * Always logs to stderr so errors are visible in the terminal.
  */
 export function handleApiError(error: unknown, fallbackMessage: string) {
+  // Always log the full error to the terminal
+  console.error(`[API Error] ${fallbackMessage}:`, error);
+
   // Domain errors (ValidationError, NotFoundError, ConflictError, etc.)
   if (
     error instanceof Error &&
