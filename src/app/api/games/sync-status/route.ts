@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchTodaysGames, fetchSoccerGames, fetchNcaabGames } from "@/lib/stats-service/client";
-import { resolveEligibleCards } from "@/lib/cards/resolution";
+import { fetchTodaysGames, fetchSoccerGames, fetchNcaabGames, fetchNcaabGamesByDate } from "@/lib/stats-service/client";
+import { resolveEligibleCards, reResolveStaleCards } from "@/lib/cards/resolution";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import { unauthorized, serverError, handleApiError } from "@/lib/api/errors";
 import { registerNcaabTeamIds } from "@/lib/constants";
@@ -44,7 +44,8 @@ const TRICODE_TO_TEAM: Record<string, string> = {
 function normalizeTeam(name: string): string {
   return name
     .toLowerCase()
-    .replace(/\bst\.\s*/g, "saint ")
+    .replace(/\bst\.\s*/g, "state ")   // "St." → "State"
+    .replace(/\bst\b/g, "state")       // "St" (no period, word boundary) → "State"
     .replace(/\bmt\.\s*/g, "mount ")
     .replace(/\./g, "")
     .replace(/\s+/g, " ")
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
     const staleResult = await (supabase.from("games") as any)
       .select("id")
       .neq("status", "final")
+      .not("external_event_id", "is", null)  // Only finalize games with external event ID
       .lt("commence_time", staleThreshold.toISOString());
 
     const staleGames = ((staleResult.data ?? []) as { id: string }[]);
@@ -113,7 +115,7 @@ export async function POST(request: NextRequest) {
     tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
     tomorrowEnd.setHours(23, 59, 59, 999);
 
-    const updated: { odds_team: string; nba_team: string; status: string; nba_game_id: string }[] = [];
+    const updated: { odds_team: string; nba_team: string; status: string; external_event_id: string }[] = [];
     let anyBecameFinal = false;
     const gamesBecameLive: string[] = [];
 
@@ -158,7 +160,7 @@ export async function POST(request: NextRequest) {
             status: newStatus,
             home_score: nbaGame.home_score,
             away_score: nbaGame.away_score,
-            nba_game_id: nbaGame.game_id,
+            external_event_id: nbaGame.game_id,
           })
           .eq("id", match.id);
 
@@ -167,7 +169,7 @@ export async function POST(request: NextRequest) {
             odds_team: `${match.away_team} @ ${match.home_team}`,
             nba_team: `${nbaGame.away_team} @ ${nbaGame.home_team}`,
             status: newStatus,
-            nba_game_id: nbaGame.game_id,
+            external_event_id: nbaGame.game_id,
           });
 
           if (newStatus === "final" && previousStatus !== "final") {
@@ -211,7 +213,7 @@ export async function POST(request: NextRequest) {
               status: newStatus,
               home_score: soccerGame.home_score,
               away_score: soccerGame.away_score,
-              nba_game_id: soccerGame.game_id,
+              external_event_id: soccerGame.game_id,
             })
             .eq("id", match.id);
 
@@ -220,7 +222,7 @@ export async function POST(request: NextRequest) {
               odds_team: `${match.away_team} @ ${match.home_team}`,
               nba_team: `${soccerGame.away_team} @ ${soccerGame.home_team}`,
               status: newStatus,
-              nba_game_id: soccerGame.game_id,
+              external_event_id: soccerGame.game_id,
             });
 
             if (newStatus === "final" && previousStatus !== "final") {
@@ -274,7 +276,7 @@ export async function POST(request: NextRequest) {
               status: newStatus,
               home_score: ncaabGame.home_score,
               away_score: ncaabGame.away_score,
-              nba_game_id: ncaabGame.game_id,
+              external_event_id: ncaabGame.game_id,
             })
             .eq("id", match.id);
 
@@ -283,7 +285,86 @@ export async function POST(request: NextRequest) {
               odds_team: `${match.away_team} @ ${match.home_team}`,
               nba_team: `${ncaabGame.away_team} @ ${ncaabGame.home_team}`,
               status: newStatus,
-              nba_game_id: ncaabGame.game_id,
+              external_event_id: ncaabGame.game_id,
+            });
+
+            if (newStatus === "final" && previousStatus !== "final") {
+              anyBecameFinal = true;
+            }
+            if (newStatus === "live" && previousStatus === "scheduled") {
+              gamesBecameLive.push(match.id);
+            }
+          }
+        }
+      }
+
+      // Check for unmatched NCAAB games in the last 7 days.
+      // This catches games that were missed due to team name mismatches,
+      // UTC date boundary issues, or sync downtime.
+      const lookbackStart = new Date(now);
+      lookbackStart.setDate(lookbackStart.getDate() - 7);
+
+      const unmatchedResult = await supabase
+        .from("games")
+        .select("*")
+        .eq("sport", "ncaab")
+        .is("external_event_id", null)
+        .gte("commence_time", lookbackStart.toISOString());
+
+      const unmatchedGames = (unmatchedResult.data ?? []) as Game[];
+
+      if (unmatchedGames.length > 0) {
+        // Collect unique ESPN dates to fetch (game date + day before for UTC boundary)
+        const datesToFetch = new Set<string>();
+        for (const g of unmatchedGames) {
+          if (g.commence_time) {
+            const d = new Date(g.commence_time);
+            datesToFetch.add(d.toISOString().slice(0, 10).replace(/-/g, ""));
+            const dayBefore = new Date(d);
+            dayBefore.setDate(dayBefore.getDate() - 1);
+            datesToFetch.add(dayBefore.toISOString().slice(0, 10).replace(/-/g, ""));
+          }
+        }
+
+        // Fetch ESPN games for all needed dates in parallel
+        const allEspnGames = (
+          await Promise.all(
+            Array.from(datesToFetch).map((dateStr) =>
+              fetchNcaabGamesByDate(dateStr).catch(() => [])
+            )
+          )
+        ).flat();
+
+        for (const ncaabGame of allEspnGames) {
+          const match = unmatchedGames.find((g) =>
+            !g.external_event_id &&
+            teamsMatch(g.home_team, ncaabGame.home_team) &&
+            teamsMatch(g.away_team, ncaabGame.away_team)
+          );
+
+          if (!match) continue;
+
+          const newStatus = ncaabGame.status as "scheduled" | "live" | "final";
+          const previousStatus = match.status;
+
+          const { error: updateError } = await (supabase.from("games") as any)
+            .update({
+              status: newStatus,
+              home_score: ncaabGame.home_score,
+              away_score: ncaabGame.away_score,
+              external_event_id: ncaabGame.game_id,
+            })
+            .eq("id", match.id);
+
+          if (!updateError) {
+            // Mark the game as matched so it's not re-matched
+            (match as any).external_event_id = ncaabGame.game_id;
+
+            updated.push({
+              odds_team: `${match.away_team} @ ${match.home_team}`,
+              nba_team: `${ncaabGame.away_team} @ ${ncaabGame.home_team}`,
+              status: newStatus,
+              external_event_id: ncaabGame.game_id,
             });
 
             if (newStatus === "final" && previousStatus !== "final") {
@@ -344,10 +425,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Auto-resolve cards and challenges when any games become final
+    // or when new ESPN IDs were matched (makes previously-unresolvable cards eligible)
     let cardsResolved = 0;
     let challengesResolved = 0;
+    let reResolved = { picksUpdated: 0, cardsRescored: 0 };
 
-    if (anyBecameFinal || staleFinalizedCount > 0) {
+    const shouldResolve = anyBecameFinal || staleFinalizedCount > 0 || updated.length > 0;
+
+    if (shouldResolve) {
       try {
         const cardResults = await resolveEligibleCards();
         cardsResolved = cardResults.length;
@@ -356,6 +441,14 @@ export async function POST(request: NextRequest) {
         challengesResolved = challengeResults.length;
       } catch (resolveError) {
         console.error("Auto-resolution error:", resolveError);
+      }
+
+      // Re-resolve stale picks (null actual_value on already-resolved cards).
+      // This fixes cards that were resolved before boxscore/ESPN ID was available.
+      try {
+        reResolved = await reResolveStaleCards();
+      } catch (reResolveError) {
+        console.error("Re-resolution of stale picks failed:", reResolveError);
       }
     }
 
@@ -366,6 +459,8 @@ export async function POST(request: NextRequest) {
       challenges_cancelled: challengesCancelled,
       cards_resolved: cardsResolved,
       challenges_resolved: challengesResolved,
+      picks_re_resolved: reResolved.picksUpdated,
+      cards_rescored: reResolved.cardsRescored,
     });
   } catch (error) {
     return handleApiError(error, "Failed to sync game statuses");

@@ -15,6 +15,8 @@ function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
       pick_id: pick.id,
       player_name: pick.props?.player_name ?? "Unknown",
       player_id: pick.props?.player_id ?? null,
+      player_team: pick.props?.player_team ?? null,
+      player_position: pick.props?.player_position ?? null,
       sport: pick.props?.games?.sport,
       stat_category: (pick.props?.stat_category ?? "points") as StatCategory,
       line: pick.props?.line ?? 0,
@@ -24,7 +26,7 @@ function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
       game_status: hasResult
         ? {
             game_id: pick.props?.game_id ?? "",
-            nba_game_id: pick.props?.game_id ?? "",
+            external_event_id: pick.props?.game_id ?? "",
             status: "final" as const,
             period: 4,
             clock: "0:00",

@@ -56,7 +56,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const admin = createAdminClient();
     const { data: cards } = await (admin.from("cards") as any)
       .select(
-        "id, user_id, status, score, total_picks, picks(id, selection, result, actual_value, props(player_name, player_id, stat_category, line, game_id, games(nba_game_id, sport, status, home_team, away_team, home_score, away_score, commence_time)))"
+        "id, user_id, status, score, total_picks, picks(id, selection, result, actual_value, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(external_event_id, sport, status, home_team, away_team, home_score, away_score, commence_time)))"
       )
       .eq("challenge_id", id);
 
@@ -82,8 +82,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     for (const result of [challengerLive, opponentLive]) {
       if (!result) continue;
       for (const g of result.games) {
-        if (!seenGames.has(g.nba_game_id)) {
-          seenGames.add(g.nba_game_id);
+        if (!seenGames.has(g.external_event_id)) {
+          seenGames.add(g.external_event_id);
           games.push(g);
         }
       }

@@ -13,10 +13,14 @@ router = APIRouter(prefix="/ncaab", tags=["ncaab"])
 
 
 @router.get("/games/today")
-async def today_ncaab_games():
-    """Get today's NCAAB games with scores and status."""
+async def today_ncaab_games(date: str = Query(default="")):
+    """Get NCAAB games with scores and status.
+
+    Pass ?date=YYYYMMDD to fetch games for a specific date. Defaults to today.
+    """
     try:
-        games = await get_todays_ncaab_games()
+        target_date = date.strip() if date.strip() else None
+        games = await get_todays_ncaab_games(target_date)
         return {"data": games, "count": len(games)}
     except Exception as e:
         raise HTTPException(

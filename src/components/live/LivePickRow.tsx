@@ -1,7 +1,8 @@
 "use client";
 
 import type { LivePickData } from "@/lib/cards/live-types";
-import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
+import { computePickDisplay } from "@/lib/cards/pick-display";
+import { CATEGORY_LABELS, CATEGORY_COLORS, formatPlayerSubtitle } from "@/lib/constants";
 import { formatClock, formatGameTime } from "@/lib/format";
 import type { StatCategory } from "@/lib/supabase/types";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
@@ -20,54 +21,8 @@ interface LivePickRowProps {
 
 export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps) {
   const statCat = pick.stat_category as StatCategory;
-
-  const hasValue = pick.current_value !== null;
-  const isOver = pick.selection === "over";
-  const isLive = pick.game_status?.status === "live";
-  const isFinal = pick.game_status?.status === "final";
-  const isPreGame =
-    !pick.game_status || pick.game_status.status === "scheduled";
-  // Fallback pick = no game_status and no value → live data is still loading
-  const isAwaitingLive = !pick.game_status && !hasValue;
-
-  // Progress toward the line
-  const rawPct =
-    hasValue && pick.line > 0 ? (pick.current_value! / pick.line) * 100 : 0;
-  const pastLine = rawPct >= 100;
-
-  // Line marker fixed at 90%; bar scales within that range or fills 100% when over
-  const linePosition = 90;
-  const barWidth = pastLine ? 100 : (rawPct / 100) * 90;
-
-  // Settled: line is decided and won't change
-  // - Stats only go up, so once over the line -> settled
-  // - Game final -> settled
-  // - No game_status + non-null trending -> resolved challenge pick
-  const isSettled =
-    hasValue &&
-    (isFinal || pastLine || (!pick.game_status && pick.trending !== null));
-  const settledWon = isSettled
-    ? pastLine === isOver // over + went over = won, under + stayed under = won
-    : null;
-
-  // Still in play: has live data but not settled yet
-  const inPlay = isLive && !isSettled;
-
-  // Bar color — green when winning, red when losing
-  const isWinning = hasValue && (isOver ? pastLine : !pastLine);
-  const barColor = !hasValue
-    ? "bg-foreground/12"
-    : isWinning
-      ? "bg-neon-green/30"
-      : "bg-bold-red/25";
-
-  // Left accent border — only when settled
-  const accentClass = isSettled
-    ? settledWon
-      ? "border-l-neon-green/60"
-      : "border-l-bold-red/60"
-    : "border-l-transparent";
-
+  const d = computePickDisplay(pick);
+  const subtitle = formatPlayerSubtitle(pick.player_team, pick.player_position, pick.sport);
   const statPillClass = CATEGORY_COLORS[statCat] ?? "";
 
   if (variant === "compact") {
@@ -75,22 +30,29 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
       <div
         className={cn(
           "flex items-center gap-2 rounded-lg bg-background/50 px-3 py-2",
-          isSettled && "opacity-75"
+          d.isSettled && "opacity-75"
         )}
       >
         {/* Settled icon */}
-        {isSettled && (
-          settledWon ? (
+        {d.isSettled && (
+          d.settledWon ? (
             <CheckCircle2 className="h-4 w-4 shrink-0 text-neon-green" />
           ) : (
             <XCircle className="h-4 w-4 shrink-0 text-bold-red" />
           )
         )}
 
-        {/* Player name */}
-        <span className="truncate text-sm font-medium">
-          {pick.player_name}
-        </span>
+        {/* Player name + subtitle */}
+        <div className="flex min-w-0 flex-col">
+          <span className="truncate text-sm font-medium">
+            {pick.player_name}
+          </span>
+          {subtitle && (
+            <span className="truncate text-[10px] font-medium text-muted-foreground">
+              {subtitle}
+            </span>
+          )}
+        </div>
 
         {/* Stat pill */}
         <Badge
@@ -104,11 +66,11 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
         <div className="flex-1" />
 
         {/* Current value */}
-        {hasValue && (
+        {d.hasValue && (
           <span
             className={cn(
               "text-sm font-black tabular-nums",
-              isWinning ? "text-neon-green" : "text-bold-red"
+              d.isWinning ? "text-neon-green" : "text-bold-red"
             )}
           >
             {pick.current_value}
@@ -125,27 +87,27 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
           variant="secondary"
           className={cn(
             "shrink-0 text-xs",
-            isOver
+            d.isOver
               ? "bg-neon-green/15 text-neon-green"
               : "bg-bold-red/15 text-bold-red"
           )}
         >
-          {isOver ? "Over" : "Under"}
+          {d.isOver ? "Over" : "Under"}
         </Badge>
 
         {/* Game clock */}
-        {isLive && pick.game_status && (
+        {d.isLive && pick.game_status && (
           <span className="flex shrink-0 items-center gap-1 text-[10px] font-semibold text-white/70">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
             {formatClock(pick.game_status.period, pick.game_status.clock)}
           </span>
         )}
-        {isFinal && (
+        {d.isFinal && (
           <span className="shrink-0 text-[10px] font-semibold text-white/50">
             Final
           </span>
         )}
-        {isPreGame && !isSettled && (
+        {d.isPreGame && !d.isSettled && (
           <span className="shrink-0 text-[10px] font-semibold text-white/70">
             {pick.game_status?.commence_time
               ? formatGameTime(pick.game_status.commence_time)
@@ -161,23 +123,23 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
     <div
       className={cn(
         "flex flex-col gap-2 border-l-2 px-4 py-3 transition-colors",
-        accentClass,
-        isSettled && "opacity-75"
+        d.accentClass,
+        d.isSettled && "opacity-75"
       )}
     >
       {/* Main row */}
       <div className="flex items-center gap-3">
         {/* Settled icon */}
-        {isSettled && (
+        {d.isSettled && (
           <div
             className={cn(
               "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
-              settledWon
+              d.settledWon
                 ? "bg-neon-green/15 text-neon-green"
                 : "bg-bold-red/15 text-bold-red"
             )}
           >
-            {settledWon ? (
+            {d.settledWon ? (
               <Check className="h-3 w-3" strokeWidth={3} />
             ) : (
               <X className="h-3 w-3" strokeWidth={3} />
@@ -195,10 +157,15 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
         />
 
         {/* Player info */}
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="truncate text-sm font-semibold leading-tight">
             {pick.player_name}
           </span>
+          {subtitle && (
+            <span className="truncate text-[10px] font-medium text-muted-foreground">
+              {subtitle}
+            </span>
+          )}
           <div className="flex items-center gap-1.5">
             <Badge
               variant="secondary"
@@ -209,17 +176,17 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
             >
               {CATEGORY_LABELS[statCat] ?? statCat}
             </Badge>
-            {isOver ? (
+            {d.isOver ? (
               <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
             ) : (
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
             )}
-            {hasValue ? (
+            {d.hasValue ? (
               <span className="flex items-baseline gap-0.5 animate-value-in">
                 <span
                   className={cn(
                     "text-xs font-bold tabular-nums",
-                    isWinning ? "text-neon-green" : "text-bold-red"
+                    d.isWinning ? "text-neon-green" : "text-bold-red"
                   )}
                 >
                   {pick.current_value}
@@ -234,7 +201,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
                 <span className="text-xs font-semibold tabular-nums text-muted-foreground">
                   {pick.line}
                 </span>
-                {isAwaitingLive && (
+                {d.isAwaitingLive && (
                   <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/50" />
                 )}
               </span>
@@ -244,20 +211,29 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
 
         {/* Right: big current value + game status — fixed min-h to avoid layout shift */}
         <div className="flex min-h-[36px] flex-col items-end justify-center gap-1">
-          {hasValue ? (
+          {d.hasValue ? (
             <span
               className={cn(
                 "text-xl font-black tabular-nums leading-none animate-value-in",
-                isWinning ? "text-neon-green" : "text-bold-red"
+                d.isWinning ? "text-neon-green" : "text-bold-red"
               )}
             >
               {pick.current_value}
             </span>
-          ) : isFinal ? (
+          ) : d.isSettled ? (
+            <span
+              className={cn(
+                "text-xs font-semibold leading-none",
+                d.settledWon ? "text-neon-green" : "text-bold-red"
+              )}
+            >
+              {d.settledWon ? "Hit" : "Miss"}
+            </span>
+          ) : d.isFinal ? (
             <span className="text-xs font-medium leading-none text-muted-foreground/50">
               Pending
             </span>
-          ) : isAwaitingLive ? (
+          ) : d.isAwaitingLive ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30" />
           ) : (
             <span className="text-base leading-none text-muted-foreground/30">
@@ -265,18 +241,18 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
             </span>
           )}
 
-          {isLive && pick.game_status && (
+          {d.isLive && pick.game_status && (
             <span className="flex items-center gap-1 text-[10px] font-semibold leading-none tabular-nums text-white/70 animate-value-in">
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
               {formatClock(pick.game_status.period, pick.game_status.clock)}
             </span>
           )}
-          {isFinal && (
+          {d.isFinal && (
             <span className="text-[10px] font-semibold leading-none text-white/50 animate-value-in">
               Final
             </span>
           )}
-          {isPreGame && !isAwaitingLive && (
+          {d.isPreGame && !d.isAwaitingLive && (
             <span className="text-[10px] font-semibold leading-none text-white/70">
               {pick.game_status?.commence_time
                 ? formatGameTime(pick.game_status.commence_time)
@@ -292,7 +268,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
         <div
           className="absolute -top-[3px] z-20 transition-[left] duration-700 ease-out"
           style={{
-            left: `${linePosition}%`,
+            left: `${d.linePosition}%`,
             transform: "translateX(-50%)",
           }}
         >
@@ -301,7 +277,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
             height="14"
             viewBox="0 0 8 14"
           >
-            {isOver ? (
+            {d.isOver ? (
               <polygon points="0,0 8,7 0,14" fill="currentColor" className="text-foreground" />
             ) : (
               <polygon points="8,0 0,7 8,14" fill="currentColor" className="text-foreground" />
@@ -313,18 +289,18 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
         <div
           className={cn(
             "relative h-full overflow-hidden rounded-full transition-all duration-700 ease-out",
-            barColor
+            d.barColor
           )}
           style={{
-            width: `${barWidth}%`,
+            width: `${d.barWidth}%`,
           }}
         >
           {/* Chevron pattern — only when in play */}
-          {!isSettled && (
+          {!d.isSettled && (
             <div
               className="absolute inset-0"
               style={{
-                backgroundImage: isOver ? CHEVRON_RIGHT : CHEVRON_LEFT,
+                backgroundImage: d.isOver ? CHEVRON_RIGHT : CHEVRON_LEFT,
                 backgroundRepeat: "repeat",
                 backgroundSize: "8px 8px",
               }}
@@ -332,7 +308,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
           )}
 
           {/* Shimmer — only when in play */}
-          {inPlay && (
+          {d.inPlay && (
             <div className="absolute inset-0 overflow-hidden">
               <div
                 className="absolute inset-y-0 w-1/3 animate-bar-shimmer"

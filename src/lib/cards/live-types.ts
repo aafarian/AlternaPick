@@ -2,7 +2,7 @@ import type { StatCategory, PickSelection } from "@/lib/supabase/types";
 
 export interface LiveGameStatus {
   game_id: string;
-  nba_game_id: string;
+  external_event_id: string;
   status: "scheduled" | "live" | "final";
   period: number;
   clock: string;
@@ -20,6 +20,8 @@ export interface LivePickData {
   pick_id: string;
   player_name: string;
   player_id: string | null;
+  player_team: string | null;
+  player_position: string | null;
   sport?: string;
   stat_category: StatCategory;
   line: number;
@@ -49,6 +51,8 @@ export function toLivePickData(pick: {
     id: string;
     player_name: string;
     player_id: string | null;
+    player_team?: string | null;
+    player_position?: string | null;
     stat_category: string;
     line: number;
     game_id: string;
@@ -62,6 +66,8 @@ export function toLivePickData(pick: {
     pick_id: pick.id,
     player_name: pick.prop?.player_name ?? "Unknown",
     player_id: pick.prop?.player_id ?? null,
+    player_team: pick.prop?.player_team ?? null,
+    player_position: pick.prop?.player_position ?? null,
     sport: pick.prop?.games?.sport,
     stat_category: (pick.prop?.stat_category ?? "points") as StatCategory,
     line: pick.prop?.line ?? 0,
@@ -72,7 +78,7 @@ export function toLivePickData(pick: {
     game_status: hasResult
       ? {
           game_id: pick.prop?.game_id ?? "",
-          nba_game_id: pick.prop?.game_id ?? "",
+          external_event_id: pick.prop?.game_id ?? "",
           status: "final" as const,
           period: 4,
           clock: "0:00",

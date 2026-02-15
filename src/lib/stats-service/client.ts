@@ -258,6 +258,20 @@ export async function fetchNcaabGames(): Promise<StatsGame[]> {
   return data.data ?? [];
 }
 
+export async function fetchNcaabGamesByDate(date: string): Promise<StatsGame[]> {
+  const cacheKey = `ncaabGamesByDate:${date}`;
+  const cached = getCached<StatsGame[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/ncaab/games/today?date=${encodeURIComponent(date)}`
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  return result;
+}
+
 export async function fetchNcaabGamesLive(): Promise<StatsGame[]> {
   const cacheKey = "ncaabGamesLive";
   const cached = getCached<StatsGame[]>(cacheKey);

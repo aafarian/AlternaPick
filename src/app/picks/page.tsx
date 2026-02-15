@@ -1,17 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import CardListWithLoadMore from "@/components/cards/CardListWithLoadMore";
 import LiveTracker from "@/components/live/LiveTracker";
+import PicksTabs from "@/components/picks/PicksTabs";
 import type { CardWithPicks } from "@/lib/cards/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Target, BarChart3, Trophy } from "lucide-react";
 
 const PAGE_SIZE = 20;
 
-const CARD_SELECT = "id, user_id, status, score, total_picks, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, stat_category, line, game_id, games(sport)))";
+const CARD_SELECT = "id, user_id, status, score, total_picks, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport)))";
 
 async function getCardsByStatus(
   userId: string,
@@ -31,7 +32,11 @@ async function getCardsByStatus(
   return (result.data ?? []) as CardWithPicks[];
 }
 
-export default async function CardsPage() {
+export default async function CardsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -40,6 +45,9 @@ export default async function CardsPage() {
   if (!user) {
     redirect("/auth/login?redirectTo=/picks");
   }
+
+  const { tab } = await searchParams;
+  const defaultTab = tab === "finished" ? "finished" : "live";
 
   // Fetch locked and resolved cards separately for proper pagination
   const [activeCards, completedCards] = await Promise.all([
@@ -101,38 +109,31 @@ export default async function CardsPage() {
       )}
 
       {/* Tabs for Live / Finished */}
-      <Tabs defaultValue="live">
-        <TabsList className="bg-secondary">
-          <TabsTrigger value="live" className="data-[state=active]:bg-primary/15 data-[state=active]:text-primary">
-            Live ({activeCards.length})
-          </TabsTrigger>
-          <TabsTrigger value="finished" className="data-[state=active]:bg-primary/15 data-[state=active]:text-primary">
-            Finished ({completedCards.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="live" className="mt-4">
-          <LiveTracker initialCards={activeCards} />
-        </TabsContent>
-
-        <TabsContent value="finished" className="mt-4">
-          {completedCards.length === 0 ? (
-            <Card className="border-border bg-card">
-              <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-                <span className="text-3xl">📊</span>
-                <p className="text-muted-foreground">No finished cards yet</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <CardListWithLoadMore
-              initialCards={completedCards}
-              statusFilter="resolved"
-              pageSize={PAGE_SIZE}
-              hasMoreInitially={completedCards.length >= PAGE_SIZE}
-            />
-          )}
-        </TabsContent>
-      </Tabs>
+      <Suspense>
+        <PicksTabs
+          defaultTab={defaultTab}
+          liveCount={activeCards.length}
+          finishedCount={completedCards.length}
+          liveContent={<LiveTracker initialCards={activeCards} />}
+          finishedContent={
+            completedCards.length === 0 ? (
+              <Card className="border-border bg-card">
+                <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+                  <span className="text-3xl">&#x1F4CA;</span>
+                  <p className="text-muted-foreground">No finished cards yet</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <CardListWithLoadMore
+                initialCards={completedCards}
+                statusFilter="resolved"
+                pageSize={PAGE_SIZE}
+                hasMoreInitially={completedCards.length >= PAGE_SIZE}
+              />
+            )
+          }
+        />
+      </Suspense>
     </div>
   );
 }

@@ -138,15 +138,19 @@ export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
   const cards = cardsResult.data as (Card & { picks: PickWithProp[] })[];
   const results: ResolutionResult[] = [];
 
-  // Cache boxscores per nba_game_id to minimize API calls
+  // Cache boxscores per ESPN event ID to minimize API calls
   const boxscoreCache = new Map<string, PlayerBoxScore[]>();
 
   for (const card of cards) {
-    // Check if all games are final
-    const allFinal = card.picks.every(
-      (pick) => pick.props?.games?.status === "final"
+    // Check if all games are final AND have an external event ID.
+    // Without it we can't fetch boxscore data, so skip the card
+    // and let sync-status set the ID on a future run (e.g. via yesterday check).
+    const allResolvable = card.picks.every(
+      (pick) =>
+        pick.props?.games?.status === "final" &&
+        pick.props?.games?.external_event_id
     );
-    if (!allFinal) continue;
+    if (!allResolvable) continue;
 
     const result = await resolveCard(card, boxscoreCache);
     if (result) {
@@ -217,6 +221,116 @@ export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
   return results;
 }
 
+/**
+ * Re-resolve picks on already-resolved cards that have null actual_value.
+ * This handles cases where resolution ran before boxscore data was available
+ * on ESPN (common with NCAAB games that just ended).
+ */
+export async function reResolveStaleCards(): Promise<{
+  picksUpdated: number;
+  cardsRescored: number;
+}> {
+  const supabase = createAdminClient();
+
+  // Find resolved cards that have picks with null actual_value
+  const { data: stalePicks, error } = await (supabase.from("picks") as any)
+    .select("id, card_id, selection, result, prop_id, props(player_name, stat_category, line, game_id, games(external_event_id, sport, status))")
+    .is("actual_value", null)
+    .in("result", ["hit", "miss"]);
+
+  if (error || !stalePicks || stalePicks.length === 0) {
+    return { picksUpdated: 0, cardsRescored: 0 };
+  }
+
+  type StalePick = {
+    id: string;
+    card_id: string;
+    selection: "over" | "under";
+    result: string;
+    prop_id: string;
+    props: {
+      player_name: string;
+      stat_category: StatCategory;
+      line: number;
+      game_id: string;
+      games: { external_event_id: string | null; sport: string | null; status: string | null };
+    };
+  };
+
+  const picks = stalePicks as StalePick[];
+
+  // Cache boxscores per game to minimize API calls
+  const boxscoreCache = new Map<string, PlayerBoxScore[]>();
+  let picksUpdated = 0;
+  const affectedCardIds = new Set<string>();
+
+  for (const pick of picks) {
+    const eventId = pick.props?.games?.external_event_id;
+    if (!eventId) continue;
+    if (pick.props?.games?.status !== "final") continue;
+
+    let boxscore = boxscoreCache.get(eventId);
+    if (!boxscore) {
+      try {
+        const sport = pick.props?.games?.sport;
+        if (sport === "epl") {
+          boxscore = await fetchSoccerBoxscore(eventId);
+        } else if (sport === "ncaab") {
+          boxscore = await fetchNcaabBoxscore(eventId);
+        } else {
+          boxscore = await fetchBoxscore(eventId);
+        }
+        boxscoreCache.set(eventId, boxscore);
+      } catch {
+        continue;
+      }
+    }
+
+    const playerStats = fuzzyMatchPlayer(boxscore, pick.props.player_name);
+    if (!playerStats) continue;
+
+    const actualValue = extractStatValue(playerStats, pick.props.stat_category);
+
+    // Determine correct result
+    let correctResult: PickResult;
+    if (
+      (pick.selection === "over" && actualValue > pick.props.line) ||
+      (pick.selection === "under" && actualValue < pick.props.line)
+    ) {
+      correctResult = "hit";
+    } else {
+      correctResult = "miss";
+    }
+
+    await (supabase.from("picks") as any)
+      .update({ actual_value: actualValue, result: correctResult })
+      .eq("id", pick.id);
+
+    picksUpdated++;
+    affectedCardIds.add(pick.card_id);
+  }
+
+  // Re-score affected cards
+  let cardsRescored = 0;
+  for (const cardId of affectedCardIds) {
+    const { data: cardPicks } = await (supabase.from("picks") as any)
+      .select("result")
+      .eq("card_id", cardId);
+
+    if (!cardPicks) continue;
+    const allPicks = cardPicks as { result: string }[];
+    const newScore = allPicks.filter((p) => p.result === "hit").length;
+
+    await (supabase.from("cards") as any)
+      .update({ score: newScore })
+      .eq("id", cardId);
+
+    cardsRescored++;
+  }
+
+  return { picksUpdated, cardsRescored };
+}
+
 async function resolveCard(
   card: Card & { picks: PickWithProp[] },
   boxscoreCache: Map<string, PlayerBoxScore[]>
@@ -224,9 +338,9 @@ async function resolveCard(
   const pickResolutions: PickResolution[] = [];
 
   for (const pick of card.picks) {
-    const nbaGameId = pick.props?.games?.nba_game_id;
-    if (!nbaGameId) {
-      // Can't resolve without nba_game_id - mark as miss
+    const eventId = pick.props?.games?.external_event_id;
+    if (!eventId) {
+      // Can't resolve without external event ID - mark as miss
       pickResolutions.push({
         pick_id: pick.id,
         prop_id: pick.prop_id,
@@ -241,18 +355,18 @@ async function resolveCard(
     }
 
     // Fetch boxscore (with cache) — use sport-aware endpoint
-    let boxscore = boxscoreCache.get(nbaGameId);
+    let boxscore = boxscoreCache.get(eventId);
     if (!boxscore) {
       try {
         const gameSport = pick.props?.games?.sport;
         if (gameSport === "epl") {
-          boxscore = await fetchSoccerBoxscore(nbaGameId);
+          boxscore = await fetchSoccerBoxscore(eventId);
         } else if (gameSport === "ncaab") {
-          boxscore = await fetchNcaabBoxscore(nbaGameId);
+          boxscore = await fetchNcaabBoxscore(eventId);
         } else {
-          boxscore = await fetchBoxscore(nbaGameId);
+          boxscore = await fetchBoxscore(eventId);
         }
-        boxscoreCache.set(nbaGameId, boxscore);
+        boxscoreCache.set(eventId, boxscore);
       } catch {
         boxscore = [];
       }

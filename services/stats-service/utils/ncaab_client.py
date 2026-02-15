@@ -89,9 +89,13 @@ def _parse_clock(status_detail: dict) -> str:
     return clock if clock else "0:00"
 
 
-async def get_todays_ncaab_games() -> list[dict]:
-    """Fetch today's NCAAB games with scores and status from ESPN."""
-    today = date.today().strftime("%Y%m%d")
+async def get_todays_ncaab_games(target_date: str | None = None) -> list[dict]:
+    """Fetch NCAAB games with scores and status from ESPN.
+
+    Args:
+        target_date: Date in YYYYMMDD format. Defaults to today.
+    """
+    today = target_date or date.today().strftime("%Y%m%d")
     cache_key = f"ncaab_games:{today}"
     cached = _get_cached(cache_key)
     if cached is not None:
@@ -117,7 +121,7 @@ async def get_todays_ncaab_games() -> list[dict]:
             away = next((c for c in competitors if c.get("homeAway") == "away"), competitors[1])
 
             status = competition.get("status", event.get("status", {}))
-            status_type = status.get("type", {}).get("name", "STATUS_SCHEDULED")
+            status_type = status.get("type", {}).get("state", "pre")
             status_detail = status.get("type", {}).get("detail", "")
 
             home_team_data = home.get("team", {})
@@ -241,7 +245,7 @@ async def get_ncaab_boxscore(event_id: str) -> list[dict]:
         # Determine TTL: long for final games
         ttl = CACHE_TTL_SECONDS
         game_status = data.get("header", {}).get("competitions", [{}])[0].get("status", {})
-        status_type = game_status.get("type", {}).get("name", "")
+        status_type = game_status.get("type", {}).get("state", "")
         if _parse_espn_status(status_type, "") == "final":
             ttl = FINAL_CACHE_TTL_SECONDS
 

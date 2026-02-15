@@ -48,7 +48,7 @@ async function fetchCard(cardId: string): Promise<CardData | null> {
 
   const { data, error } = await (admin.from("cards") as any)
     .select(
-      "id, user_id, status, score, total_picks, game_mode, picks(id, selection, result, actual_value, props(player_name, stat_category, line))"
+      "id, user_id, status, score, total_picks, game_mode, picks(id, selection, result, actual_value, props(player_name, player_team, player_position, stat_category, line))"
     )
     .eq("id", cardId)
     .single();

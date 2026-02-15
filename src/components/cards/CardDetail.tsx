@@ -42,7 +42,15 @@ function StatusBadge({ status, score, total }: { status: string; score: number; 
 
 export default function CardDetail({ card }: { card: CardWithPicks }) {
   const isLocked = card.status === "locked";
-  const { data: liveData } = useLiveStats(card.id, isLocked);
+  // Also fetch live data for resolved cards with missing actual_value —
+  // resolution may have run before boxscore data was available on ESPN.
+  // The hook auto-stops polling once has_live_games is false (one-shot fetch).
+  const hasMissingValues =
+    card.status === "resolved" &&
+    card.picks.some(
+      (p) => p.actual_value === null && (p.result === "hit" || p.result === "miss")
+    );
+  const { data: liveData } = useLiveStats(card.id, isLocked || hasMissingValues);
 
   const livePickMap = new Map<string, LivePickData>();
   if (liveData) {
@@ -93,6 +101,8 @@ export default function CardDetail({ card }: { card: CardWithPicks }) {
               id: pick.prop_id,
               player_name: pick.props.player_name,
               player_id: pick.props.player_id,
+              player_team: pick.props.player_team,
+              player_position: pick.props.player_position,
               stat_category: pick.props.stat_category,
               line: pick.props.line,
               game_id: pick.props.game_id,
