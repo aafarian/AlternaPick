@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { CardWithPicks } from "@/lib/cards/api";
 import { toLivePickData } from "@/lib/cards/live-types";
 import type { LivePickData } from "@/lib/cards/live-types";
@@ -66,11 +67,33 @@ export default function CardDetail({ card }: { card: CardWithPicks }) {
     minute: "2-digit",
   });
 
+  const Wrapper = card.challenge_id
+    ? ({ children }: { children: React.ReactNode }) => (
+        <Link href={`/challenges/${card.challenge_id}`} className="block">
+          {children}
+        </Link>
+      )
+    : ({ children }: { children: React.ReactNode }) => (
+        <Link href={`/cards/${card.id}`} className="block">
+          {children}
+        </Link>
+      );
+
   return (
+    <Wrapper>
     <Card className="border-border bg-card">
       <CardHeader className="flex-row items-center justify-between space-y-0 px-4 py-3">
         <div className="flex items-center gap-3">
           <StatusBadge status={card.status} score={card.score} total={card.total_picks} />
+          {card.challenge_id ? (
+            <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
+              H2H
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-muted-foreground text-[10px] px-1.5 py-0">
+              Solo
+            </Badge>
+          )}
           <span className="text-xs text-muted-foreground">{date}</span>
         </div>
         {liveData?.has_live_games && (
@@ -120,5 +143,6 @@ export default function CardDetail({ card }: { card: CardWithPicks }) {
         </CardFooter>
       )}
     </Card>
+    </Wrapper>
   );
 }

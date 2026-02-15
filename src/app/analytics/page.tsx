@@ -18,10 +18,12 @@ import TeamHitRate from "@/components/analytics/TeamHitRate";
 import ScoreDistribution from "@/components/analytics/ScoreDistribution";
 import GameModeStats from "@/components/analytics/GameModeStats";
 import ModeFilter from "@/components/analytics/ModeFilter";
+import SportFilter from "@/components/analytics/SportFilter";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { isValidGameMode } from "@/lib/modes/definitions";
+import { isValidSport, SPORTS } from "@/lib/constants";
 import type { GameMode } from "@/lib/supabase/types";
 
 export const metadata = {
@@ -30,13 +32,14 @@ export const metadata = {
 };
 
 interface AnalyticsPageProps {
-  searchParams: Promise<{ mode?: string }>;
+  searchParams: Promise<{ mode?: string; sport?: string }>;
 }
 
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
-  const { mode: modeParam } = await searchParams;
+  const { mode: modeParam, sport: sportParam } = await searchParams;
   const mode: GameMode | "all" =
     modeParam === "all" || !modeParam ? "all" : isValidGameMode(modeParam) ? modeParam : "all";
+  const sport = sportParam && isValidSport(sportParam) ? sportParam : "all";
   const supabase = await createClient();
   const {
     data: { user },
@@ -68,14 +71,14 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     scoreDistributionData,
     gameModes,
   ] = await Promise.all([
-    getCategoryStats(supabase, user.id, mode),
-    getPlayerStats(supabase, user.id, 10, mode),
-    getDirectionStats(supabase, user.id, mode),
-    getTrendData(supabase, user.id, 30, mode),
-    getCardSizeStats(supabase, user.id, mode),
-    getTeamStats(supabase, user.id, 10, mode),
-    getScoreDistribution(supabase, user.id, mode),
-    getGameModeStats(supabase, user.id),
+    getCategoryStats(supabase, user.id, mode, sport),
+    getPlayerStats(supabase, user.id, 10, mode, sport),
+    getDirectionStats(supabase, user.id, mode, sport),
+    getTrendData(supabase, user.id, 30, mode, sport),
+    getCardSizeStats(supabase, user.id, mode, sport),
+    getTeamStats(supabase, user.id, 10, mode, sport),
+    getScoreDistribution(supabase, user.id, mode, sport),
+    getGameModeStats(supabase, user.id, sport),
   ]);
 
   // Determine which modes the user actually has data for
@@ -108,6 +111,9 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
   const isEmpty = totalPicks === 0;
 
+  const sportLabel = sport !== "all" ? SPORTS[sport].displayName : null;
+  const hasFilters = mode !== "all" || sport !== "all";
+
   if (isEmpty) {
     return (
       <div className="flex flex-col gap-6 py-8">
@@ -117,17 +123,18 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             Your prop pick performance breakdown
           </p>
         </div>
-        <ModeFilter activeMode={mode} availableModes={availableModes} />
+        <ModeFilter activeMode={mode} availableModes={availableModes} currentSport={sport} />
+        <SportFilter activeSport={sport} currentMode={mode} />
         <Card className="border-border bg-card">
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <span className="text-4xl">📊</span>
             <p className="text-lg font-semibold text-foreground">
-              No data for this mode
+              No data{hasFilters ? " for this filter combo" : ""}
             </p>
             <p className="max-w-sm text-sm text-muted-foreground">
-              {mode === "all"
+              {!hasFilters
                 ? "Play some games to see your analytics! Once your cards are resolved, your hit rates and trends will appear here."
-                : "No resolved cards for this game mode yet. Try a different filter or play more games!"}
+                : "No resolved cards for these filters yet. Try a different combination or play more games!"}
             </p>
             <Link href="/props">
               <Button variant="default" size="sm" className="mt-2">
@@ -146,13 +153,15 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
         <p className="text-sm text-muted-foreground">
-          {totalPicks} resolved pick{totalPicks !== 1 ? "s" : ""} &middot;{" "}
+          {totalPicks} resolved pick{totalPicks !== 1 ? "s" : ""}
+          {sportLabel ? ` in ${sportLabel}` : ""} &middot;{" "}
           {overallRate}% overall hit rate
         </p>
       </div>
 
       {/* Mode Filter Tabs */}
-      <ModeFilter activeMode={mode} availableModes={availableModes} />
+      <ModeFilter activeMode={mode} availableModes={availableModes} currentSport={sport} />
+      <SportFilter activeSport={sport} currentMode={mode} />
 
       {/* Overview Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

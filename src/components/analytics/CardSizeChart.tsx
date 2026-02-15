@@ -12,7 +12,7 @@ interface CardSizeChartProps {
   data: CardSizeStats[];
 }
 
-const MARGIN = { top: 4, right: 8, bottom: 4, left: 64 };
+const MARGIN = { top: 4, right: 90, bottom: 4, left: 64 };
 const ROW_HEIGHT = 28;
 const GRID_TICKS = [0, 25, 50, 75, 100];
 

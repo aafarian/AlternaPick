@@ -6,13 +6,15 @@ import { POLL_INTERVAL_MS } from "@/lib/constants";
 
 export function useBatchLiveStats(
   cardIds: string[],
-  enabled: boolean
+  enabled: boolean,
+  onAllSettled?: () => void,
 ): { dataMap: Map<string, LiveCardData>; isLoading: boolean; error: string | null } {
   const [dataMap, setDataMap] = useState<Map<string, LiveCardData>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stoppedRef = useRef(false);
+  const hadLiveRef = useRef(false);
 
   // Stable stringified key to prevent re-renders when array reference changes
   const idsKey = useMemo(() => cardIds.slice().sort().join(","), [cardIds]);
@@ -41,12 +43,16 @@ export function useBatchLiveStats(
       setDataMap(newMap);
       setError(null);
 
-      // Stop polling when no cards have live games
+      // Track and detect transition from "had live games" to "no live games"
       const anyLive = Object.values(cardsObj).some((c) => c.has_live_games);
+      if (anyLive) hadLiveRef.current = true;
       if (!anyLive && intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
         stoppedRef.current = true;
+        if (hadLiveRef.current) {
+          onAllSettled?.();
+        }
       }
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
@@ -55,7 +61,7 @@ export function useBatchLiveStats(
     } finally {
       setIsLoading(false);
     }
-  }, [idsKey]);
+  }, [idsKey, onAllSettled]);
 
   useEffect(() => {
     if (!enabled || !idsKey) return;

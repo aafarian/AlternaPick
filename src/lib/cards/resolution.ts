@@ -6,7 +6,10 @@ import {
   fetchSoccerBoxscore,
   fetchNcaabBoxscore,
   type PlayerBoxScore,
+  type StatsGame,
 } from "@/lib/stats-service/client";
+import type { PickWithPropAndGame } from "@/lib/cards/live-computation";
+import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import type {
   Card,
   Pick,
@@ -331,7 +334,7 @@ export async function reResolveStaleCards(): Promise<{
   return { picksUpdated, cardsRescored };
 }
 
-async function resolveCard(
+export async function resolveCard(
   card: Card & { picks: PickWithProp[] },
   boxscoreCache: Map<string, PlayerBoxScore[]>
 ): Promise<ResolutionResult | null> {
@@ -579,4 +582,158 @@ async function updateLeaderboardStats(
       h2h_losses: 0,
     });
   }
+}
+
+/**
+ * Resolve cards instantly using data already fetched by the live endpoint.
+ * No extra ESPN API calls — reuses the pre-fetched boxscores.
+ *
+ * Called from the live polling endpoints so cards resolve within ~30s
+ * of the last game ending (the next poll cycle).
+ */
+export async function tryResolveFromLiveData(
+  cards: Array<{ id: string; status: string; picks: PickWithPropAndGame[] }>,
+  gameStatusMap: Map<string, StatsGame>,
+  boxscoreMap: Map<string, PlayerBoxScore[]>,
+): Promise<ResolutionResult[]> {
+  // Step 1: Find locked cards where ALL picks' games are final in live data
+  const eligibleCardIds: string[] = [];
+  const gameUpdates = new Map<string, StatsGame>();
+
+  for (const card of cards) {
+    if (card.status !== "locked") continue;
+
+    const allFinal = card.picks.every((pick) => {
+      const eventId = pick.props?.games?.external_event_id;
+      if (!eventId) return false;
+      const liveGame = gameStatusMap.get(eventId);
+      if (liveGame) return liveGame.status === "final";
+      // Not in today's games — treat as final (same as buildLivePicksForCard fallback)
+      return true;
+    });
+
+    if (!allFinal) continue;
+    eligibleCardIds.push(card.id);
+
+    // Collect game rows to update (deduped by DB game_id)
+    for (const pick of card.picks) {
+      const eventId = pick.props?.games?.external_event_id;
+      if (!eventId) continue;
+      const liveGame = gameStatusMap.get(eventId);
+      if (liveGame && !gameUpdates.has(pick.props.game_id)) {
+        gameUpdates.set(pick.props.game_id, liveGame);
+      }
+    }
+  }
+
+  if (eligibleCardIds.length === 0) return [];
+
+  const supabase = createAdminClient();
+
+  // Step 2: Update DB game rows with final status and scores
+  for (const [dbGameId, liveGame] of gameUpdates) {
+    await (supabase.from("games") as any)
+      .update({
+        status: "final",
+        external_event_id: liveGame.game_id,
+        home_score: liveGame.home_score,
+        away_score: liveGame.away_score,
+      })
+      .eq("id", dbGameId);
+  }
+
+  // Step 3: Fetch full card data from DB (need user_id, prop_id, etc.)
+  const cardsResult = await (supabase.from("cards") as any)
+    .select("*, picks(*, props(*, games(*)))")
+    .in("id", eligibleCardIds)
+    .eq("status", "locked");
+
+  if (cardsResult.error || !cardsResult.data) return [];
+
+  const fullCards = cardsResult.data as (Card & { picks: PickWithProp[] })[];
+  const results: ResolutionResult[] = [];
+
+  // Step 4: Resolve each card, reusing pre-fetched boxscore data
+  for (const card of fullCards) {
+    const result = await resolveCard(card, boxscoreMap);
+    if (!result) continue;
+
+    await persistResolution(supabase, result);
+
+    if (result.user_id) {
+      try {
+        const { title, body } = getCardNotificationMessage(
+          result.score,
+          result.total
+        );
+        await createNotification(supabase, {
+          user_id: result.user_id,
+          type: "card_resolved",
+          title,
+          body,
+          metadata: { card_id: result.card_id },
+        });
+      } catch (notifError) {
+        console.error(
+          "Failed to create card_resolved notification:",
+          notifError
+        );
+      }
+
+      try {
+        const lbResult = await (supabase.from("leaderboard_entries") as any)
+          .select(
+            "total_cards, current_streak, best_streak, win_rate, h2h_wins, h2h_losses"
+          )
+          .eq("user_id", result.user_id)
+          .single();
+
+        const lb = (lbResult.data ?? {
+          total_cards: 0,
+          current_streak: 0,
+          best_streak: 0,
+          win_rate: 0,
+          h2h_wins: 0,
+          h2h_losses: 0,
+        }) as {
+          total_cards: number;
+          current_streak: number;
+          best_streak: number;
+          win_rate: number;
+          h2h_wins: number;
+          h2h_losses: number;
+        };
+
+        await checkAndUnlockAchievements(supabase, result.user_id, {
+          cardResolved: { score: result.score, total: result.total },
+          leaderboardStats: lb,
+        });
+      } catch (achievementError) {
+        console.error(
+          "Failed to check achievements after card resolution:",
+          achievementError
+        );
+      }
+    }
+
+    results.push(result);
+  }
+
+  // Step 5: Resolve eligible challenges if any cards were resolved
+  if (results.length > 0) {
+    try {
+      await resolveEligibleChallenges();
+    } catch (err) {
+      console.error("Failed to resolve challenges:", err);
+    }
+  }
+
+  // Step 6: Re-resolve stale cards as cleanup
+  try {
+    await reResolveStaleCards();
+  } catch (err) {
+    console.error("Failed to re-resolve stale cards:", err);
+  }
+
+  return results;
 }

@@ -11,6 +11,7 @@ import type {
   LiveGameStatus,
   LiveChallengeData,
 } from "@/lib/cards/live-types";
+import { tryResolveFromLiveData } from "@/lib/cards/resolution";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -75,6 +76,13 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const opponentLive = opponentCardRaw
       ? buildLivePicksForCard(opponentCardRaw.picks, gameStatusMap, boxscoreMap)
       : null;
+
+    // Auto-resolve cards whose games are all final (reuses pre-fetched data)
+    try {
+      await tryResolveFromLiveData(cardsList, gameStatusMap, boxscoreMap);
+    } catch (err) {
+      console.error("Auto-resolution from challenge live endpoint failed:", err);
+    }
 
     // Merge unique games from both cards
     const seenGames = new Set<string>();

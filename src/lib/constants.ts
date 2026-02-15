@@ -299,6 +299,20 @@ export function formatPlayerSubtitle(
   return parts.join(" \u00B7 ");
 }
 
+/* ---------- Sport definitions ---------- */
+
+export type Sport = "nba" | "ncaab" | "epl";
+
+export const SPORTS: Record<Sport, { key: Sport; displayName: string; icon: string }> = {
+  nba:   { key: "nba",   displayName: "NBA",            icon: "\uD83C\uDFC0" },
+  ncaab: { key: "ncaab", displayName: "NCAAB",          icon: "\uD83C\uDF93" },
+  epl:   { key: "epl",   displayName: "Premier League", icon: "\u26BD" },
+};
+
+export function isValidSport(v: string): v is Sport {
+  return v === "nba" || v === "ncaab" || v === "epl";
+}
+
 export const CATEGORY_LABELS: Record<StatCategory, string> = {
   points: "Points",
   rebounds: "Rebounds",
