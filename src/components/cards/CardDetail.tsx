@@ -41,7 +41,7 @@ function StatusBadge({ status, score, total }: { status: string; score: number; 
   );
 }
 
-export default function CardDetail({ card }: { card: CardWithPicks }) {
+export default function CardDetail({ card, linked = true }: { card: CardWithPicks; linked?: boolean }) {
   const isLocked = card.status === "locked";
   // Also fetch live data for resolved cards with missing actual_value —
   // resolution may have run before boxscore data was available on ESPN.
@@ -67,17 +67,17 @@ export default function CardDetail({ card }: { card: CardWithPicks }) {
     minute: "2-digit",
   });
 
-  const Wrapper = card.challenge_id
+  const href = card.challenge_id
+    ? `/challenges/${card.challenge_id}`
+    : `/cards/${card.id}`;
+
+  const Wrapper = linked
     ? ({ children }: { children: React.ReactNode }) => (
-        <Link href={`/challenges/${card.challenge_id}`} className="block">
+        <Link href={href} className="block">
           {children}
         </Link>
       )
-    : ({ children }: { children: React.ReactNode }) => (
-        <Link href={`/cards/${card.id}`} className="block">
-          {children}
-        </Link>
-      );
+    : ({ children }: { children: React.ReactNode }) => <>{children}</>;
 
   return (
     <Wrapper>

@@ -35,7 +35,7 @@ export default async function CardDetailPage({
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-8 py-8">
-      <CardDetail card={card} />
+      <CardDetail card={card} linked={false} />
     </div>
   );
 }
