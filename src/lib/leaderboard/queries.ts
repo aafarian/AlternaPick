@@ -152,7 +152,7 @@ export async function getFriendsLeaderboard(
 
 /**
  * Get a user's global rank and stats.
- * Rank is computed using the same ordering criteria as the active sort.
+ * Rank is computed via a single Postgres function using ROW_NUMBER().
  */
 export async function getUserRank(
   supabase: SupabaseClient<Database>,
@@ -176,83 +176,16 @@ export async function getUserRank(
 
   const entry = toLeaderboardRow(entryData as Record<string, unknown>);
 
-  let rank: number;
+  // Step 2: Get rank via single Postgres function (replaces 3 COUNT queries)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rankData, error: rankError } = await (supabase.rpc as any)(
+    "get_user_rank",
+    { p_user_id: userId, p_sort: sort }
+  );
 
-  if (sort === "h2h") {
-    // Rank by h2h_win_pct DESC, then h2h_wins DESC as tiebreaker
-    const userPct = entry.h2h_win_pct;
+  if (rankError) throw new Error(rankError.message);
 
-    const { count: higherPct, error: e1 } = await typedFrom(
-      supabase,
-      "leaderboard_entries"
-    )
-      .select("id", { count: "exact", head: true })
-      .gt("h2h_win_pct", userPct);
-
-    if (e1) throw new Error(e1.message);
-
-    const { count: samePctMoreWins, error: e2 } = await typedFrom(
-      supabase,
-      "leaderboard_entries"
-    )
-      .select("id", { count: "exact", head: true })
-      .eq("h2h_win_pct", userPct)
-      .gt("h2h_wins", entry.h2h_wins);
-
-    if (e2) throw new Error(e2.message);
-
-    const { count: samePctSameWinsHigherWr, error: e3 } = await typedFrom(
-      supabase,
-      "leaderboard_entries"
-    )
-      .select("id", { count: "exact", head: true })
-      .eq("h2h_win_pct", userPct)
-      .eq("h2h_wins", entry.h2h_wins)
-      .gt("win_rate", entry.win_rate);
-
-    if (e3) throw new Error(e3.message);
-
-    rank =
-      (higherPct ?? 0) +
-      (samePctMoreWins ?? 0) +
-      (samePctSameWinsHigherWr ?? 0) +
-      1;
-  } else {
-    // Rank by win_rate DESC, total_correct_picks DESC, best_streak DESC
-    const { count: higherWinRate, error: countErr1 } = await typedFrom(
-      supabase,
-      "leaderboard_entries"
-    )
-      .select("id", { count: "exact", head: true })
-      .gt("win_rate", entry.win_rate);
-
-    if (countErr1) throw new Error(countErr1.message);
-
-    const { count: samWrHigherPicks, error: countErr2 } = await typedFrom(
-      supabase,
-      "leaderboard_entries"
-    )
-      .select("id", { count: "exact", head: true })
-      .eq("win_rate", entry.win_rate)
-      .gt("total_correct_picks", entry.total_correct_picks);
-
-    if (countErr2) throw new Error(countErr2.message);
-
-    const { count: samWrSamePicksMoreCards, error: countErr3 } =
-      await typedFrom(supabase, "leaderboard_entries")
-        .select("id", { count: "exact", head: true })
-        .eq("win_rate", entry.win_rate)
-        .eq("total_correct_picks", entry.total_correct_picks)
-        .gt("total_cards", entry.total_cards);
-
-    if (countErr3) throw new Error(countErr3.message);
-
-    rank =
-      (higherWinRate ?? 0) +
-      (samWrHigherPicks ?? 0) +
-      (samWrSamePicksMoreCards ?? 0) +
-      1;
-  }
+  const rank = (rankData as unknown as { rank: number }[] | null)?.[0]?.rank ?? 1;
 
   return { rank, entry };
 }

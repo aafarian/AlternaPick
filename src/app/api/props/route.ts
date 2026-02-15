@@ -3,26 +3,34 @@ import { createClient } from "@/lib/supabase/server";
 import { handleApiError } from "@/lib/api/errors";
 import type { Game, Prop, StatCategory } from "@/lib/supabase/types";
 
+const LOCK_BUFFER_MS = 5 * 60 * 1000;
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
     const category = searchParams.get("category") as StatCategory | null;
+    const sport = searchParams.get("sport");
 
-    const now = new Date();
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-    const tomorrowEnd = new Date(now);
+    // Only return games that haven't locked yet (5-minute buffer before tip-off)
+    const lockCutoff = new Date(Date.now() + LOCK_BUFFER_MS).toISOString();
+    const tomorrowEnd = new Date();
     tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
     tomorrowEnd.setHours(11, 59, 59, 999);
 
-    // Fetch games with their props
-    const result = await supabase
+    // Fetch games with their props — only upcoming (not started)
+    let query = supabase
       .from("games")
       .select("*, props(*)")
-      .gte("commence_time", todayStart.toISOString())
+      .gte("commence_time", lockCutoff)
       .lte("commence_time", tomorrowEnd.toISOString())
       .order("commence_time", { ascending: true });
+
+    if (sport) {
+      query = query.eq("sport", sport);
+    }
+
+    const result = await query;
 
     const games = (result.data ?? []) as (Game & { props: Prop[] })[];
 

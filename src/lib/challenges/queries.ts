@@ -259,12 +259,15 @@ export async function createChallenge(
 
 /**
  * Respond to a challenge: accept, decline, or cancel.
+ * Cancel supports `pending` and `accepted` statuses.
+ * When cancelling, optionally convert the challenger's card to solo.
  */
 export async function respondToChallenge(
   supabase: SupabaseClient<Database>,
   challengeId: string,
   userId: string,
-  action: ValidAction
+  action: ValidAction,
+  convertToSolo?: boolean
 ): Promise<Challenge> {
   // Fetch current challenge
   const { data: challenge, error: fetchError } = await typedFrom(
@@ -297,16 +300,16 @@ export async function respondToChallenge(
       );
     }
   } else if (action === "cancel") {
-    // Only the challenger can cancel, and only while pending
+    // Challenger can cancel while pending or accepted
     if (ch.challenger_id !== userId) {
       throw new ChallengeValidationError(
         "Only the challenger can cancel",
         403
       );
     }
-    if (ch.status !== "pending") {
+    if (ch.status !== "pending" && ch.status !== "accepted") {
       throw new ChallengeValidationError(
-        "Can only cancel a pending challenge",
+        "Can only cancel a pending or accepted challenge",
         400
       );
     }
@@ -319,6 +322,15 @@ export async function respondToChallenge(
   };
 
   const newStatus = statusMap[action];
+
+  // Solo card conversion on cancel (detach challenger's card)
+  if (action === "cancel" && convertToSolo && ch.game_mode !== "sabotage") {
+    const admin = createAdminClient();
+    await (admin.from("cards") as any)
+      .update({ challenge_id: null })
+      .eq("challenge_id", challengeId)
+      .eq("user_id", ch.challenger_id);
+  }
 
   const { data: updated, error: updateError } = await typedFrom(
     supabase,
@@ -338,6 +350,116 @@ export async function respondToChallenge(
   }
 
   return updated as Challenge;
+}
+
+/**
+ * Expire stale challenges. Called by cron.
+ * - Pending/accepted challenges older than 24h → cancelled
+ * - Challenges where all mirror_props games have started → cancelled
+ * Converts challenger's card to solo when appropriate.
+ */
+export async function expireStaleChallenges(
+  admin: SupabaseClient<Database>
+): Promise<{ expired: number; converted: number }> {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  let expired = 0;
+  let converted = 0;
+
+  // Find stale challenges: pending/accepted and older than 24h
+  const { data: stale } = await (admin.from("challenges") as any)
+    .select("id, challenger_id, game_mode, status, mirror_props")
+    .in("status", ["pending", "accepted"])
+    .lt("created_at", cutoff);
+
+  const staleChallenges = (stale ?? []) as Array<{
+    id: string;
+    challenger_id: string;
+    game_mode: string;
+    status: string;
+    mirror_props: string[] | null;
+  }>;
+
+  for (const ch of staleChallenges) {
+    // Convert challenger's card to solo (unless sabotage)
+    if (ch.game_mode !== "sabotage") {
+      const { data: cards } = await (admin.from("cards") as any)
+        .select("id")
+        .eq("challenge_id", ch.id)
+        .eq("user_id", ch.challenger_id);
+
+      if (cards && cards.length > 0) {
+        await (admin.from("cards") as any)
+          .update({ challenge_id: null })
+          .eq("challenge_id", ch.id)
+          .eq("user_id", ch.challenger_id);
+        converted++;
+      }
+    }
+
+    // Cancel the challenge
+    await (admin.from("challenges") as any)
+      .update({ status: "cancelled" })
+      .eq("id", ch.id);
+    expired++;
+  }
+
+  // Also find mirror/random challenges where all props' games have started
+  const { data: mirrorChallenges } = await (admin.from("challenges") as any)
+    .select("id, challenger_id, game_mode, mirror_props")
+    .in("status", ["pending", "accepted"])
+    .not("mirror_props", "is", null);
+
+  const mirrorList = (mirrorChallenges ?? []) as Array<{
+    id: string;
+    challenger_id: string;
+    game_mode: string;
+    mirror_props: string[];
+  }>;
+
+  const now = new Date();
+
+  for (const ch of mirrorList) {
+    if (!ch.mirror_props || ch.mirror_props.length === 0) continue;
+
+    // Check if all referenced games have started
+    const { data: propGames } = await (admin.from("props") as any)
+      .select("id, games(commence_time)")
+      .in("id", ch.mirror_props);
+
+    const props = (propGames ?? []) as Array<{
+      id: string;
+      games: { commence_time: string } | null;
+    }>;
+
+    const allStarted = props.length > 0 && props.every(
+      (p) => p.games && new Date(p.games.commence_time) <= now
+    );
+
+    if (!allStarted) continue;
+
+    // Convert challenger's card to solo (unless sabotage)
+    if (ch.game_mode !== "sabotage") {
+      const { data: cards } = await (admin.from("cards") as any)
+        .select("id")
+        .eq("challenge_id", ch.id)
+        .eq("user_id", ch.challenger_id);
+
+      if (cards && cards.length > 0) {
+        await (admin.from("cards") as any)
+          .update({ challenge_id: null })
+          .eq("challenge_id", ch.id)
+          .eq("user_id", ch.challenger_id);
+        converted++;
+      }
+    }
+
+    await (admin.from("challenges") as any)
+      .update({ status: "cancelled" })
+      .eq("id", ch.id);
+    expired++;
+  }
+
+  return { expired, converted };
 }
 
 export class ChallengeValidationError extends Error {

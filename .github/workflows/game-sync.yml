@@ -10,11 +10,28 @@ jobs:
     steps:
       - name: Sync props (respects 2h cache TTL)
         run: |
-          curl -sf -X POST "${{ secrets.APP_URL }}/api/props/sync" \
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.APP_URL }}/api/props/sync" \
             -H "Authorization: Bearer ${{ secrets.SYNC_SECRET }}" \
-            -H "Content-Type: application/json" || true
+            -H "Content-Type: application/json") || true
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "Props sync response (HTTP $HTTP_CODE): $BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::warning::Props sync returned HTTP $HTTP_CODE: $BODY"
+          fi
       - name: Sync game statuses & resolve cards
         run: |
           curl -sf -X POST "${{ secrets.APP_URL }}/api/games/sync-status" \
             -H "Authorization: Bearer ${{ secrets.SYNC_SECRET }}" \
             -H "Content-Type: application/json"
+      - name: Expire stale challenges
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.APP_URL }}/api/challenges/expire" \
+            -H "Authorization: Bearer ${{ secrets.SYNC_SECRET }}" \
+            -H "Content-Type: application/json") || true
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "Challenge expiry response (HTTP $HTTP_CODE): $BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::warning::Challenge expiry returned HTTP $HTTP_CODE: $BODY"
+          fi

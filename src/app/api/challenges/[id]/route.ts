@@ -57,7 +57,10 @@ export async function PATCH(
 
     const { id } = await context.params;
 
-    const body = (await request.json()) as { action?: string };
+    const body = (await request.json()) as {
+      action?: string;
+      convert_to_solo?: boolean;
+    };
 
     if (!body.action) {
       return badRequest("action is required (accept, decline, or cancel)");
@@ -68,11 +71,71 @@ export async function PATCH(
       return badRequest(`Invalid action: ${body.action}. Must be accept, decline, or cancel`);
     }
 
+    // For mirror/random accept: validate that mirror_props haven't expired
+    let mirrorWarning: string | null = null;
+    if (body.action === "accept") {
+      const { data: rawChallenge } = await supabase
+        .from("challenges")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      const ch = rawChallenge as Challenge | null;
+      if (ch?.mirror_props && ch.mirror_props.length > 0) {
+        const LOCK_BUFFER_MS = 5 * 60 * 1000;
+        const lockCutoff = new Date(Date.now() + LOCK_BUFFER_MS);
+
+        // Fetch the games for these props to check commence times
+        const { data: propGames } = await supabase
+          .from("props")
+          .select("id, game_id, games(commence_time)")
+          .in("id", ch.mirror_props);
+
+        const props = (propGames ?? []) as Array<{
+          id: string;
+          game_id: string;
+          games: { commence_time: string } | null;
+        }>;
+
+        const validProps = props.filter(
+          (p) =>
+            p.games && new Date(p.games.commence_time) > lockCutoff
+        );
+        const expiredCount = ch.mirror_props.length - validProps.length;
+
+        if (expiredCount > 0 && validProps.length === 0) {
+          // ALL props expired — auto-cancel the challenge
+          await respondToChallenge(supabase, id, ch.challenger_id, "cancel");
+          return NextResponse.json(
+            {
+              error: "All props on this challenge have expired. Challenge has been cancelled.",
+              cancelled: true,
+            },
+            { status: 409 }
+          );
+        }
+
+        if (expiredCount > 0) {
+          // Some props expired — filter them out and warn
+          const validPropIds = validProps.map((p) => p.id);
+          const adminClient = createAdminClient();
+          await (adminClient.from("challenges") as any)
+            .update({
+              mirror_props: validPropIds,
+              card_size: validPropIds.length,
+            })
+            .eq("id", id);
+          mirrorWarning = `${expiredCount} prop(s) expired and were removed from the challenge.`;
+        }
+      }
+    }
+
     const challenge = await respondToChallenge(
       supabase,
       id,
       user.id,
-      body.action as "accept" | "decline" | "cancel"
+      body.action as "accept" | "decline" | "cancel",
+      body.action === "cancel" ? body.convert_to_solo : undefined
     );
 
     // Fire-and-forget: notify challenger when opponent accepts
@@ -100,7 +163,9 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({ challenge });
+    const response: Record<string, unknown> = { challenge };
+    if (mirrorWarning) response.warning = mirrorWarning;
+    return NextResponse.json(response);
   } catch (error) {
     return handleApiError(error, "Failed to update challenge");
   }

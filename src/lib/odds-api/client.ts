@@ -198,12 +198,15 @@ export async function fetchAllPropsMultiSport(): Promise<Map<SportKey, FetchProp
   const results = new Map<SportKey, FetchPropsResult>();
   const sports: SportKey[] = ["nba", "epl", "ncaab"];
 
-  for (const sport of sports) {
-    try {
-      const result = await fetchAllProps(sport);
-      results.set(sport, result);
-    } catch (error) {
-      console.error(`[Odds API] Failed to fetch props for ${sport}:`, error);
+  const settled = await Promise.allSettled(
+    sports.map((sport) => fetchAllProps(sport).then((result) => ({ sport, result })))
+  );
+
+  for (const outcome of settled) {
+    if (outcome.status === "fulfilled") {
+      results.set(outcome.value.sport, outcome.value.result);
+    } else {
+      console.error(`[Odds API] Failed to fetch props for a sport:`, outcome.reason);
     }
   }
 

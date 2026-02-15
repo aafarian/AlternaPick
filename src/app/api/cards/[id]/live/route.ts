@@ -67,7 +67,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     };
 
     return NextResponse.json(response, {
-      headers: { "Cache-Control": "no-store" },
+      headers: { "Cache-Control": "no-cache, max-age=0, stale-while-revalidate=15" },
     });
   } catch (error) {
     return handleApiError(error, "Failed to fetch live stats");

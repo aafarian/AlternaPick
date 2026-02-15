@@ -89,10 +89,3 @@ export const SPORT_CONFIGS: Record<SportKey, {
     },
   },
 };
-
-// Backward-compatible aliases (default to NBA)
-export const SPORT_KEY = SPORT_CONFIGS.nba.oddsApiKey;
-export const MARKETS = SPORT_CONFIGS.nba.markets;
-export const MARKET_TO_STAT_CATEGORY = SPORT_CONFIGS.nba.marketToCategory;
-
-export type MarketKey = (typeof MARKETS)[number];

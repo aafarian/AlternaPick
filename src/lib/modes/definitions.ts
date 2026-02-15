@@ -41,6 +41,16 @@ export const GAME_MODES: Record<GameMode, GameModeDefinition> = {
     constraints: { sharedProps: true },
   },
 
+  random: {
+    key: "random",
+    displayName: "Random",
+    description: "System picks your props. Just call over or under.",
+    icon: "\uD83C\uDFB2", // dice
+    rules:
+      "The system randomly selects props for you. You just pick over or under on each line.",
+    constraints: { sharedProps: true },
+  },
+
   one_player: {
     key: "one_player",
     displayName: "One Player",
@@ -69,6 +79,7 @@ export const GAME_MODE_LIST: GameModeDefinition[] = [
   GAME_MODES.classic,
   GAME_MODES.sabotage,
   GAME_MODES.mirror,
+  GAME_MODES.random,
   GAME_MODES.one_player,
   GAME_MODES.one_team,
 ];

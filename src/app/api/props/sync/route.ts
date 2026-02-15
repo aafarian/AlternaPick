@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { isCacheStale, cacheProps, PROPS_CACHE_TAG } from "@/lib/odds-api/cache";
 import { fetchAllPropsMultiSport } from "@/lib/odds-api/client";
+import type { SportKey } from "@/lib/odds-api/constants";
 import { unauthorized, tooManyRequests, serverError, handleApiError } from "@/lib/api/errors";
 
 export async function POST(request: NextRequest) {
@@ -57,6 +58,20 @@ export async function POST(request: NextRequest) {
     // Invalidate the props page cache so next load gets fresh data
     revalidateTag(PROPS_CACHE_TAG, "max");
 
+    // Build diagnostic warnings
+    const warnings: string[] = [];
+    if (totalProps === 0) {
+      warnings.push("No props fetched — games may have already started, be off-season, or API credits may be exhausted");
+    }
+    if (latestCreditsRemaining !== null && latestCreditsRemaining < 50) {
+      warnings.push(`Low API credits: ${latestCreditsRemaining} remaining`);
+    }
+    if (multiResults.size < 3) {
+      const fetched = Array.from(multiResults.keys());
+      const missing = ["nba", "epl", "ncaab"].filter((s) => !fetched.includes(s as SportKey));
+      warnings.push(`Failed to fetch props for: ${missing.join(", ")}`);
+    }
+
     return NextResponse.json({
       synced: true,
       gamesCount: totalGames,
@@ -64,6 +79,7 @@ export async function POST(request: NextRequest) {
       creditsRemaining: latestCreditsRemaining,
       sports: Array.from(multiResults.keys()),
       enrichment,
+      warnings,
     });
   } catch (error) {
     const message =
