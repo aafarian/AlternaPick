@@ -8,6 +8,7 @@ export interface CardWithPicks {
   total_picks: number;
   locked_at: string | null;
   resolved_at: string | null;
+  challenge_id: string | null;
   created_at: string;
   picks: {
     id: string;

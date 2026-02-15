@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { CardWithPicks } from "@/lib/cards/api";
 import type { LiveCardData, LivePickData } from "@/lib/cards/live-types";
 import { useBatchLiveStats } from "@/lib/cards/use-batch-live-stats";
 import LivePickCard from "./LivePickCard";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
 
 function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
@@ -43,6 +46,21 @@ function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
   });
 }
 
+function CardTypeBadge({ challengeId }: { challengeId: string | null }) {
+  if (challengeId) {
+    return (
+      <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
+        H2H
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-muted-foreground text-[10px] px-1.5 py-0">
+      Solo
+    </Badge>
+  );
+}
+
 function LiveCard({
   card,
   liveData,
@@ -54,13 +72,14 @@ function LiveCard({
   isLoading: boolean;
   hasError: boolean;
 }) {
-  return (
+  const content = (
     <LivePickCard
       picks={liveData?.picks ?? buildFallbackPicks(card.picks)}
       hasLiveGames={liveData?.has_live_games ?? false}
       games={liveData?.games}
       statusLabel={
-        <span className="text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <CardTypeBadge challengeId={card.challenge_id} />
           {card.picks.length} picks
         </span>
       }
@@ -69,6 +88,20 @@ function LiveCard({
       error={hasError}
     />
   );
+
+  if (card.challenge_id) {
+    return (
+      <Link href={`/challenges/${card.challenge_id}`} className="block">
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <Link href={`/cards/${card.id}`} className="block">
+      {content}
+    </Link>
+  );
 }
 
 export default function LiveTracker({
@@ -76,6 +109,12 @@ export default function LiveTracker({
 }: {
   initialCards: CardWithPicks[];
 }) {
+  const router = useRouter();
+
+  const handleAllSettled = useCallback(() => {
+    setTimeout(() => router.refresh(), 2000);
+  }, [router]);
+
   const cardIds = useMemo(
     () => initialCards.map((c) => c.id),
     [initialCards]
@@ -84,6 +123,7 @@ export default function LiveTracker({
   const { dataMap, isLoading, error } = useBatchLiveStats(
     cardIds,
     initialCards.length > 0,
+    handleAllSettled,
   );
 
   if (initialCards.length === 0) {

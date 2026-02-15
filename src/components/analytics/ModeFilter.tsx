@@ -7,16 +7,20 @@ import type { GameMode } from "@/lib/supabase/types";
 interface ModeFilterProps {
   activeMode: string;
   availableModes: GameMode[];
+  currentSport: string;
 }
 
 export default function ModeFilter({
   activeMode,
   availableModes,
+  currentSport,
 }: ModeFilterProps) {
+  const sportParam = currentSport && currentSport !== "all" ? `&sport=${currentSport}` : "";
+
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
       {/* "All" tab — always shown */}
-      <TabLink href="/analytics?mode=all" active={activeMode === "all"}>
+      <TabLink href={`/analytics?mode=all${sportParam}`} active={activeMode === "all"}>
         All
       </TabLink>
 
@@ -25,7 +29,7 @@ export default function ModeFilter({
         return (
           <TabLink
             key={mode}
-            href={`/analytics?mode=${mode}`}
+            href={`/analytics?mode=${mode}${sportParam}`}
             active={activeMode === mode}
           >
             {def.icon} {def.displayName}

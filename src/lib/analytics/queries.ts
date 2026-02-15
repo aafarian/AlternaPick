@@ -13,6 +13,9 @@ import type { Database, GameMode, StatCategory } from "@/lib/supabase/types";
 
 /** Resolved mode filter: undefined or "all" means no filtering. */
 type ModeFilter = GameMode | "all" | undefined;
+
+/** Resolved sport filter: undefined or "all" means no filtering. */
+type SportFilter = string | undefined;
 import type {
   CategoryStats,
   PlayerStats,
@@ -35,6 +38,7 @@ interface ResolvedPickRow {
     stat_category: StatCategory;
     player_name: string;
     player_team: string | null;
+    games: { sport: string } | null;
   } | null;
 }
 
@@ -56,7 +60,8 @@ interface ResolvedCardRow {
 async function fetchResolvedPicks(
   supabase: SupabaseClient<Database>,
   userId: string,
-  mode?: ModeFilter
+  mode?: ModeFilter,
+  sport?: SportFilter
 ): Promise<ResolvedPickRow[]> {
   // Step 1 – get card IDs belonging to this user that are resolved
   let cardsQuery = (supabase.from("cards") as any)
@@ -75,17 +80,24 @@ async function fetchResolvedPicks(
   const cardIds = (cardsResult.data as { id: string }[]).map((c) => c.id);
   if (cardIds.length === 0) return [];
 
-  // Step 2 – get resolved picks for those cards with prop join
+  // Step 2 – get resolved picks for those cards with prop + game join
   const picksResult = await (supabase.from("picks") as any)
     .select(
-      "selection, result, cards:card_id(user_id, resolved_at), props:prop_id(stat_category, player_name, player_team)"
+      "selection, result, cards:card_id(user_id, resolved_at), props:prop_id(stat_category, player_name, player_team, games:game_id(sport))"
     )
     .in("card_id", cardIds)
     .in("result", ["hit", "miss"]);
 
   if (picksResult.error || !picksResult.data) return [];
 
-  return picksResult.data as ResolvedPickRow[];
+  let picks = picksResult.data as ResolvedPickRow[];
+
+  // Client-side sport filter
+  if (sport && sport !== "all") {
+    picks = picks.filter((p) => p.props?.games?.sport === sport);
+  }
+
+  return picks;
 }
 
 /**
@@ -95,7 +107,8 @@ async function fetchResolvedPicks(
 async function fetchResolvedCards(
   supabase: SupabaseClient<Database>,
   userId: string,
-  mode?: ModeFilter
+  mode?: ModeFilter,
+  sport?: SportFilter
 ): Promise<ResolvedCardRow[]> {
   let query = (supabase.from("cards") as any)
     .select("id, card_size, game_mode, score, total_picks, resolved_at")
@@ -110,7 +123,32 @@ async function fetchResolvedCards(
 
   if (result.error || !result.data) return [];
 
-  return result.data as ResolvedCardRow[];
+  let cards = result.data as ResolvedCardRow[];
+
+  // When sport filter is active, keep only cards that have at least one pick
+  // matching the sport (cards don't have a sport column directly).
+  if (sport && sport !== "all") {
+    const cardIds = cards.map((c) => c.id);
+    if (cardIds.length === 0) return [];
+
+    const picksResult = await (supabase.from("picks") as any)
+      .select("card_id, props:prop_id(games:game_id(sport))")
+      .in("card_id", cardIds)
+      .in("result", ["hit", "miss"]);
+
+    if (picksResult.error || !picksResult.data) return [];
+
+    const matchingCardIds = new Set<string>();
+    for (const pick of picksResult.data as { card_id: string; props: { games: { sport: string } | null } | null }[]) {
+      if (pick.props?.games?.sport === sport) {
+        matchingCardIds.add(pick.card_id);
+      }
+    }
+
+    cards = cards.filter((c) => matchingCardIds.has(c.id));
+  }
+
+  return cards;
 }
 
 // ---------- Public query functions ----------
@@ -121,9 +159,10 @@ async function fetchResolvedCards(
 export async function getCategoryStats(
   supabase: SupabaseClient<Database>,
   userId: string,
-  mode?: ModeFilter
+  mode?: ModeFilter,
+  sport?: SportFilter
 ): Promise<CategoryStats[]> {
-  const picks = await fetchResolvedPicks(supabase, userId, mode);
+  const picks = await fetchResolvedPicks(supabase, userId, mode, sport);
 
   const map = new Map<StatCategory, { hits: number; total: number }>();
 
@@ -159,9 +198,10 @@ export async function getPlayerStats(
   supabase: SupabaseClient<Database>,
   userId: string,
   limit: number = 10,
-  mode?: ModeFilter
+  mode?: ModeFilter,
+  sport?: SportFilter
 ): Promise<PlayerStats[]> {
-  const picks = await fetchResolvedPicks(supabase, userId, mode);
+  const picks = await fetchResolvedPicks(supabase, userId, mode, sport);
 
   const map = new Map<string, { hits: number; total: number }>();
 
@@ -196,9 +236,10 @@ export async function getPlayerStats(
 export async function getDirectionStats(
   supabase: SupabaseClient<Database>,
   userId: string,
-  mode?: ModeFilter
+  mode?: ModeFilter,
+  sport?: SportFilter
 ): Promise<DirectionStats> {
-  const picks = await fetchResolvedPicks(supabase, userId, mode);
+  const picks = await fetchResolvedPicks(supabase, userId, mode, sport);
 
   const stats: DirectionStats = {
     over: { hits: 0, total: 0, rate: 0 },
@@ -233,7 +274,8 @@ export async function getTrendData(
   supabase: SupabaseClient<Database>,
   userId: string,
   days: number = 30,
-  mode?: ModeFilter
+  mode?: ModeFilter,
+  sport?: SportFilter
 ): Promise<TrendPoint[]> {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
@@ -271,18 +313,24 @@ export async function getTrendData(
   const cardIds = [...cardDateMap.keys()];
   if (cardIds.length === 0) return [];
 
-  // Step 2 – get resolved picks for those cards
+  // Step 2 – get resolved picks for those cards (with game join for sport filter)
   const picksResult = await (supabase.from("picks") as any)
-    .select("card_id, result")
+    .select("card_id, result, props:prop_id(games:game_id(sport))")
     .in("card_id", cardIds)
     .in("result", ["hit", "miss"]);
 
   if (picksResult.error || !picksResult.data) return [];
 
-  const picks = picksResult.data as {
+  let picks = picksResult.data as {
     card_id: string;
     result: "hit" | "miss";
+    props: { games: { sport: string } | null } | null;
   }[];
+
+  // Client-side sport filter
+  if (sport && sport !== "all") {
+    picks = picks.filter((p) => p.props?.games?.sport === sport);
+  }
 
   // Group by date
   const dayMap = new Map<string, { hits: number; total: number }>();
@@ -320,9 +368,10 @@ export async function getTrendData(
 export async function getCardSizeStats(
   supabase: SupabaseClient<Database>,
   userId: string,
-  mode?: ModeFilter
+  mode?: ModeFilter,
+  sport?: SportFilter
 ): Promise<CardSizeStats[]> {
-  const cards = await fetchResolvedCards(supabase, userId, mode);
+  const cards = await fetchResolvedCards(supabase, userId, mode, sport);
 
   const map = new Map<
     number,
@@ -359,9 +408,10 @@ export async function getTeamStats(
   supabase: SupabaseClient<Database>,
   userId: string,
   limit: number = 10,
-  mode?: ModeFilter
+  mode?: ModeFilter,
+  sport?: SportFilter
 ): Promise<TeamStats[]> {
-  const picks = await fetchResolvedPicks(supabase, userId, mode);
+  const picks = await fetchResolvedPicks(supabase, userId, mode, sport);
 
   const map = new Map<string, { hits: number; total: number }>();
 
@@ -396,9 +446,10 @@ export async function getTeamStats(
 export async function getScoreDistribution(
   supabase: SupabaseClient<Database>,
   userId: string,
-  mode?: ModeFilter
+  mode?: ModeFilter,
+  sport?: SportFilter
 ): Promise<ScoreDistributionEntry[]> {
-  const cards = await fetchResolvedCards(supabase, userId, mode);
+  const cards = await fetchResolvedCards(supabase, userId, mode, sport);
 
   // Group by (cardSize, score) -> count
   const map = new Map<string, number>();
@@ -431,9 +482,10 @@ export async function getScoreDistribution(
  */
 export async function getGameModeStats(
   supabase: SupabaseClient<Database>,
-  userId: string
+  userId: string,
+  sport?: SportFilter
 ): Promise<GameModeStats[]> {
-  const cards = await fetchResolvedCards(supabase, userId);
+  const cards = await fetchResolvedCards(supabase, userId, undefined, sport);
 
   const map = new Map<
     GameMode,

@@ -15,7 +15,7 @@ interface TrendChartProps {
   data: TrendPoint[];
 }
 
-const MARGIN = { top: 12, right: 12, bottom: 24, left: 36 };
+const MARGIN = { top: 12, right: 48, bottom: 24, left: 36 };
 const HEIGHT = 180;
 const formatShort = timeFormat("%-m/%-d");
 
@@ -216,43 +216,49 @@ export default function TrendChart({ data }: TrendChartProps) {
               ))}
 
               {/* Hover crosshair + tooltip */}
-              {hoveredPoint && (
-                <>
-                  <line
-                    x1={xScale(hoveredPoint.dateObj)}
-                    x2={xScale(hoveredPoint.dateObj)}
-                    y1={0}
-                    y2={innerH}
-                    stroke={CHART_COLORS.muted}
-                    strokeOpacity={0.3}
-                    strokeDasharray="3 3"
-                  />
-                  <g
-                    transform={`translate(${xScale(hoveredPoint.dateObj)},${yScale(hoveredPoint.pct) - 14})`}
-                  >
-                    <rect
-                      x={-36}
-                      y={-12}
-                      width={72}
-                      height={16}
-                      rx={4}
-                      fill={CHART_COLORS.surface}
-                      fillOpacity={0.9}
+              {hoveredPoint && (() => {
+                const tooltipW = 80;
+                const halfW = tooltipW / 2;
+                const rawX = xScale(hoveredPoint.dateObj);
+                const clampedX = Math.max(halfW, Math.min(innerW - halfW, rawX));
+                return (
+                  <>
+                    <line
+                      x1={rawX}
+                      x2={rawX}
+                      y1={0}
+                      y2={innerH}
                       stroke={CHART_COLORS.muted}
-                      strokeOpacity={0.2}
+                      strokeOpacity={0.3}
+                      strokeDasharray="3 3"
                     />
-                    <text
-                      textAnchor="middle"
-                      dy="0em"
-                      fill="#e5e5e5"
-                      fontSize={10}
-                      fontFamily="monospace"
+                    <g
+                      transform={`translate(${clampedX},${yScale(hoveredPoint.pct) - 14})`}
                     >
-                      {formatShort(hoveredPoint.dateObj)} {hoveredPoint.pct}%
-                    </text>
-                  </g>
-                </>
-              )}
+                      <rect
+                        x={-halfW}
+                        y={-12}
+                        width={tooltipW}
+                        height={16}
+                        rx={4}
+                        fill={CHART_COLORS.surface}
+                        fillOpacity={0.9}
+                        stroke={CHART_COLORS.muted}
+                        strokeOpacity={0.2}
+                      />
+                      <text
+                        textAnchor="middle"
+                        dy="0em"
+                        fill="#e5e5e5"
+                        fontSize={10}
+                        fontFamily="monospace"
+                      >
+                        {formatShort(hoveredPoint.dateObj)} {hoveredPoint.pct}%
+                      </text>
+                    </g>
+                  </>
+                );
+              })()}
 
               {/* X-axis labels: first and last */}
               <text

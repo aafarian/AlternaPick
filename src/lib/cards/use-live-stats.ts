@@ -4,12 +4,13 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import type { LiveCardData } from "./live-types";
 import { POLL_INTERVAL_MS } from "@/lib/constants";
 
-export function useLiveStats(cardId: string, enabled: boolean) {
+export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: () => void) {
   const [data, setData] = useState<LiveCardData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stoppedRef = useRef(false);
+  const hadLiveRef = useRef(false);
 
   const fetchLive = useCallback(async () => {
     if (stoppedRef.current) return;
@@ -24,18 +25,22 @@ export function useLiveStats(cardId: string, enabled: boolean) {
       setData(result);
       setError(null);
 
-      // Stop polling when no games are live
+      // Track and detect transition from "had live games" to "no live games"
+      if (result.has_live_games) hadLiveRef.current = true;
       if (!result.has_live_games && intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
         stoppedRef.current = true;
+        if (hadLiveRef.current) {
+          onAllSettled?.();
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch live stats");
     } finally {
       setIsLoading(false);
     }
-  }, [cardId]);
+  }, [cardId, onAllSettled]);
 
   useEffect(() => {
     if (!enabled) return;

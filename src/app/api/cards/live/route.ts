@@ -7,6 +7,7 @@ import {
   type PickWithPropAndGame,
 } from "@/lib/cards/live-computation";
 import type { LiveCardData } from "@/lib/cards/live-types";
+import { tryResolveFromLiveData } from "@/lib/cards/resolution";
 
 interface CardWithPicks {
   id: string;
@@ -75,6 +76,13 @@ export async function GET(request: NextRequest) {
         has_live_games: hasLiveGames,
         games,
       };
+    }
+
+    // Auto-resolve cards whose games are all final (reuses pre-fetched data)
+    try {
+      await tryResolveFromLiveData(cards, gameStatusMap, boxscoreMap);
+    } catch (err) {
+      console.error("Auto-resolution from live endpoint failed:", err);
     }
 
     return NextResponse.json(
