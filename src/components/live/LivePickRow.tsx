@@ -21,11 +21,11 @@ interface LivePickRowProps {
 }
 
 export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps) {
-  // Mount at 0% width, then animate to target after a frame
+  // Mount at 0% width, then animate to target after browser paints the initial frame
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    const id = requestAnimationFrame(() => setMounted(true));
-    return () => cancelAnimationFrame(id);
+    const id = setTimeout(() => setMounted(true), 50);
+    return () => clearTimeout(id);
   }, []);
 
   const statCat = pick.stat_category as StatCategory;
