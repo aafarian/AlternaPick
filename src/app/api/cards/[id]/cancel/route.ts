@@ -70,8 +70,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       return badRequest("Cannot cancel — games already in progress");
     }
 
-    // Delete picks then card
-    await (supabase.from("picks") as any).delete().eq("card_id", id);
+    // Delete card — picks cascade via ON DELETE CASCADE FK
     await (supabase.from("cards") as any).delete().eq("id", id);
 
     // If challenge-linked and no opponent card, cancel the challenge too

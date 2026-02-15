@@ -114,7 +114,12 @@ export default function BallotPage() {
     if (!authLoading && user) fetchData();
   }, [authLoading, user, fetchData]);
 
-  const now = Date.now();
+  // Keep `now` fresh so expired props are disabled in real-time
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Separate valid vs expired props
   const validProps = props.filter(

@@ -743,11 +743,13 @@ export async function tryResolveFromLiveData(
     }
   }
 
-  // Step 6: Re-resolve stale cards as cleanup
-  try {
-    await reResolveStaleCards();
-  } catch (err) {
-    console.error("Failed to re-resolve stale cards:", err);
+  // Step 6: Re-resolve stale cards as cleanup (only if we just resolved something)
+  if (results.length > 0) {
+    try {
+      await reResolveStaleCards();
+    } catch (err) {
+      console.error("Failed to re-resolve stale cards:", err);
+    }
   }
 
   return results;

@@ -379,6 +379,8 @@ export async function expireStaleChallenges(
     mirror_props: string[] | null;
   }>;
 
+  const processedIds = new Set<string>();
+
   for (const ch of staleChallenges) {
     // Convert challenger's card to solo (unless sabotage)
     if (ch.game_mode !== "sabotage") {
@@ -401,6 +403,7 @@ export async function expireStaleChallenges(
       .update({ status: "cancelled" })
       .eq("id", ch.id);
     expired++;
+    processedIds.add(ch.id);
   }
 
   // Also find mirror/random challenges where all props' games have started
@@ -419,6 +422,7 @@ export async function expireStaleChallenges(
   const now = new Date();
 
   for (const ch of mirrorList) {
+    if (processedIds.has(ch.id)) continue;
     if (!ch.mirror_props || ch.mirror_props.length === 0) continue;
 
     // Check if all referenced games have started
