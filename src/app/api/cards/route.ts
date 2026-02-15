@@ -290,7 +290,7 @@ export async function GET(request: NextRequest) {
 
     // Scope by authenticated user (defense-in-depth with RLS)
     let query = (supabase.from("cards") as any)
-      .select("id, user_id, status, score, total_picks, card_size, game_mode, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, stat_category, line, game_id, games(sport)))")
+      .select("id, user_id, status, score, total_picks, card_size, game_mode, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport)))")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(limit);

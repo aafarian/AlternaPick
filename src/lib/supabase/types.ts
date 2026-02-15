@@ -130,7 +130,7 @@ export interface Database {
           status: GameStatus;
           home_score: number;
           away_score: number;
-          nba_game_id: string | null;
+          external_event_id: string | null;
           sport: string;
           created_at: string;
           updated_at: string;
@@ -144,7 +144,7 @@ export interface Database {
           status?: GameStatus;
           home_score?: number;
           away_score?: number;
-          nba_game_id?: string | null;
+          external_event_id?: string | null;
           sport?: string;
           created_at?: string;
           updated_at?: string;
@@ -157,7 +157,7 @@ export interface Database {
           status?: GameStatus;
           home_score?: number;
           away_score?: number;
-          nba_game_id?: string | null;
+          external_event_id?: string | null;
           sport?: string;
           updated_at?: string;
         };

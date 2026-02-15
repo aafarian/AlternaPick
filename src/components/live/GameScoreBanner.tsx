@@ -48,7 +48,7 @@ export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) 
 
         return (
           <div
-            key={game.nba_game_id}
+            key={game.external_event_id}
             className="flex shrink-0 flex-col items-center gap-1 rounded-lg bg-secondary/40 px-4 py-2"
           >
             {/* Teams + scores */}

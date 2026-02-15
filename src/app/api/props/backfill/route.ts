@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Group props by sport
-    const nbaProps = props.filter((p) => !p.games?.sport || p.games.sport === "nba");
+    const nbaProps = props.filter((p) => p.games?.sport === "nba");
     const ncaabProps = props.filter((p) => p.games?.sport === "ncaab");
 
     let nbaUpdated = 0;
@@ -160,48 +160,53 @@ export async function POST(request: NextRequest) {
           normalizedEspn.set(normalizeTeamName(name), id);
         }
 
-        const teamIds: string[] = [];
+        // Match team names to ESPN IDs, preserving original team name
+        const matchedTeams: Array<[string, string]> = []; // [teamName, teamId]
         for (const teamName of propTeamNames) {
           const exactId = allTeams[teamName];
-          if (exactId) { teamIds.push(exactId); continue; }
+          if (exactId) { matchedTeams.push([teamName, exactId]); continue; }
 
           const normName = normalizeTeamName(teamName);
           const normId = normalizedEspn.get(normName);
-          if (normId) { teamIds.push(normId); continue; }
+          if (normId) { matchedTeams.push([teamName, normId]); continue; }
 
           // Partial match
           for (const [espnNorm, id] of normalizedEspn) {
             if (espnNorm.includes(normName) || normName.includes(espnNorm)) {
-              teamIds.push(id);
+              matchedTeams.push([teamName, id]);
               break;
             }
           }
         }
 
-        const uniqueTeamIds = [...new Set(teamIds)];
-
-        // Fetch rosters in batches to avoid timeout
-        const BATCH_SIZE = 20;
+        // Fetch rosters per-team to build both playerMap and playerTeamMap
         const playerMap = new Map<string, string>();
-        for (let i = 0; i < uniqueTeamIds.length; i += BATCH_SIZE) {
-          const batch = uniqueTeamIds.slice(i, i + BATCH_SIZE);
+        const ncaabTeamMap = new Map<string, string>();
+        for (const [teamName, teamId] of matchedTeams) {
           try {
-            const ncaabMapping = await fetchNcaabPlayers(batch);
-            for (const [name, id] of Object.entries(ncaabMapping)) {
+            const roster = await fetchNcaabPlayers([teamId]);
+            for (const [name, id] of Object.entries(roster)) {
               playerMap.set(name, id);
               playerMap.set(normalizeName(name), id);
+              ncaabTeamMap.set(name.toLowerCase(), teamName);
+              ncaabTeamMap.set(normalizeName(name), teamName);
             }
           } catch (err) {
-            console.error(`[Backfill] NCAAB batch ${i / BATCH_SIZE + 1} failed:`, err);
+            console.error(`[Backfill] NCAAB roster fetch failed for "${teamName}" (${teamId}):`, err);
           }
         }
         ncaabPlayerMapSize = playerMap.size / 2; // each player has 2 entries
 
         for (const prop of ncaabProps) {
           const playerId = lookupPlayer(prop.player_name, playerMap);
-          if (playerId) {
+          const playerTeam = lookupPlayer(prop.player_name, ncaabTeamMap);
+          if (playerId || playerTeam) {
+            const updatePayload: Record<string, unknown> = {};
+            if (playerId) updatePayload.player_id = playerId;
+            if (playerTeam) updatePayload.player_team = playerTeam;
+
             const { error } = await (supabase.from("props") as any)
-              .update({ player_id: playerId })
+              .update(updatePayload)
               .eq("id", prop.id);
             if (!error) ncaabUpdated++;
           } else {
@@ -214,6 +219,74 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // --- Second pass: NCAAB props with player_id but missing player_team ---
+    const { data: teamNullProps } = await supabase
+      .from("props")
+      .select("id, player_name, game_id, games(sport, home_team, away_team)")
+      .not("player_id", "is", null)
+      .is("player_team", null);
+
+    const ncaabTeamNullProps = ((teamNullProps ?? []) as typeof props).filter(
+      (p) => p.games?.sport === "ncaab"
+    );
+
+    let ncaabTeamBackfilled = 0;
+    if (ncaabTeamNullProps.length > 0) {
+      try {
+        const teamNames = new Set<string>();
+        for (const p of ncaabTeamNullProps) {
+          if (p.games?.home_team) teamNames.add(p.games.home_team);
+          if (p.games?.away_team) teamNames.add(p.games.away_team);
+        }
+
+        const allTeams = await fetchNcaabTeams();
+        const normalizedEspn2 = new Map<string, string>();
+        for (const [name, id] of Object.entries(allTeams)) {
+          normalizedEspn2.set(normalizeTeamName(name), id);
+        }
+
+        const ncaabTeamMap2 = new Map<string, string>();
+        for (const teamName of teamNames) {
+          const normName = normalizeTeamName(teamName);
+          const teamId = allTeams[teamName] ?? normalizedEspn2.get(normName);
+          if (!teamId) {
+            for (const [espnNorm, id] of normalizedEspn2) {
+              if (espnNorm.includes(normName) || normName.includes(espnNorm)) {
+                try {
+                  const roster = await fetchNcaabPlayers([id]);
+                  for (const [name] of Object.entries(roster)) {
+                    ncaabTeamMap2.set(name.toLowerCase(), teamName);
+                    ncaabTeamMap2.set(normalizeName(name), teamName);
+                  }
+                } catch { /* skip */ }
+                break;
+              }
+            }
+            continue;
+          }
+          try {
+            const roster = await fetchNcaabPlayers([teamId]);
+            for (const [name] of Object.entries(roster)) {
+              ncaabTeamMap2.set(name.toLowerCase(), teamName);
+              ncaabTeamMap2.set(normalizeName(name), teamName);
+            }
+          } catch { /* skip */ }
+        }
+
+        for (const prop of ncaabTeamNullProps) {
+          const playerTeam = lookupPlayer(prop.player_name, ncaabTeamMap2);
+          if (playerTeam) {
+            const { error } = await (supabase.from("props") as any)
+              .update({ player_team: playerTeam })
+              .eq("id", prop.id);
+            if (!error) ncaabTeamBackfilled++;
+          }
+        }
+      } catch (err) {
+        console.error("[Backfill] NCAAB team backfill failed:", err);
+      }
+    }
+
     return NextResponse.json({
       total_null: props.length,
       nba_null: nbaProps.length,
@@ -221,6 +294,7 @@ export async function POST(request: NextRequest) {
       nba_updated: nbaUpdated,
       ncaab_updated: ncaabUpdated,
       updated: nbaUpdated + ncaabUpdated,
+      ncaab_team_backfilled: ncaabTeamBackfilled,
       nba_player_map_size: nbaPlayerMapSize,
       ncaab_player_map_size: ncaabPlayerMapSize,
       unmatched_nba: unmatchedNba.slice(0, 30),

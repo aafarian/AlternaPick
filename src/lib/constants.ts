@@ -267,6 +267,38 @@ export function teamLogoUrl(teamName: string): string {
   return "";
 }
 
+/* ---------- Player subtitle ---------- */
+
+export const SPORT_LABELS: Record<string, string> = {
+  nba: "NBA",
+  ncaab: "NCAAB",
+  epl: "EPL",
+};
+
+/** Strip common mascot suffixes from team names ("Duke Blue Devils" → "Duke"). */
+export function shortenTeamName(team: string): string {
+  // NBA teams already have abbreviations (e.g. "LAL"), return as-is
+  if (team.length <= 4) return team;
+  // For longer names, strip the last word(s) that are likely mascot names
+  // Common NCAAB patterns: "Duke Blue Devils", "Kansas Jayhawks", "Houston Cougars"
+  const suffixes =
+    /\s+(blue devils|crimson tide|fighting irish|yellow jackets|golden eagles|red raiders|red storm|scarlet knights|orange(men)?|hoyas|huskies|wildcats|bulldogs|bears|tigers|hawks|eagles|cougars|panthers|wolverines|spartans|badgers|buckeyes|longhorns|jayhawks|razorbacks|gators|seminoles|cavaliers|hokies|terrapins|tar heels|wolfpack|demon deacons|cardinals|cyclones|mountaineers|boilermakers|hoosiers|illini|hawkeyes|cornhuskers|sooners|cowboys|beavers|ducks|utes|buffaloes|sun devils|bruins|trojans|knights|owls|rams|aggies|rebels|commodores|volunteers|gamecocks|tigers|blazers|falcons|flyers|billikens|braves|friars|pirates|musketeers|bearcats|shockers|salukis|redbirds|blue jays|peacocks|gaels|toreros|zags|bulldogs|explorers|dukes|bonnies|colonials|spiders)$/i;
+  const shortened = team.replace(suffixes, "").trim();
+  return shortened || team;
+}
+
+export function formatPlayerSubtitle(
+  team: string | null | undefined,
+  position: string | null | undefined,
+  sport: string | null | undefined,
+): string {
+  const parts: string[] = [];
+  if (team) parts.push(shortenTeamName(team));
+  if (position) parts.push(position);
+  if (sport) parts.push(SPORT_LABELS[sport] ?? sport.toUpperCase());
+  return parts.join(" \u00B7 ");
+}
+
 export const CATEGORY_LABELS: Record<StatCategory, string> = {
   points: "Points",
   rebounds: "Rebounds",

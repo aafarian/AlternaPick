@@ -55,12 +55,13 @@ function applySortOrder<T extends { order: (...args: any[]) => T }>(
   if (sort === "h2h") {
     return query
       .order("h2h_win_pct", { ascending: false })
-      .order("h2h_wins", { ascending: false });
+      .order("h2h_wins", { ascending: false })
+      .order("win_rate", { ascending: false });
   }
   return query
     .order("win_rate", { ascending: false })
     .order("total_correct_picks", { ascending: false })
-    .order("best_streak", { ascending: false });
+    .order("total_cards", { ascending: false });
 }
 
 /**
@@ -200,7 +201,22 @@ export async function getUserRank(
 
     if (e2) throw new Error(e2.message);
 
-    rank = (higherPct ?? 0) + (samePctMoreWins ?? 0) + 1;
+    const { count: samePctSameWinsHigherWr, error: e3 } = await typedFrom(
+      supabase,
+      "leaderboard_entries"
+    )
+      .select("id", { count: "exact", head: true })
+      .eq("h2h_win_pct", userPct)
+      .eq("h2h_wins", entry.h2h_wins)
+      .gt("win_rate", entry.win_rate);
+
+    if (e3) throw new Error(e3.message);
+
+    rank =
+      (higherPct ?? 0) +
+      (samePctMoreWins ?? 0) +
+      (samePctSameWinsHigherWr ?? 0) +
+      1;
   } else {
     // Rank by win_rate DESC, total_correct_picks DESC, best_streak DESC
     const { count: higherWinRate, error: countErr1 } = await typedFrom(
@@ -222,19 +238,19 @@ export async function getUserRank(
 
     if (countErr2) throw new Error(countErr2.message);
 
-    const { count: samWrSamePicksHigherStreak, error: countErr3 } =
+    const { count: samWrSamePicksMoreCards, error: countErr3 } =
       await typedFrom(supabase, "leaderboard_entries")
         .select("id", { count: "exact", head: true })
         .eq("win_rate", entry.win_rate)
         .eq("total_correct_picks", entry.total_correct_picks)
-        .gt("best_streak", entry.best_streak);
+        .gt("total_cards", entry.total_cards);
 
     if (countErr3) throw new Error(countErr3.message);
 
     rank =
       (higherWinRate ?? 0) +
       (samWrHigherPicks ?? 0) +
-      (samWrSamePicksHigherStreak ?? 0) +
+      (samWrSamePicksMoreCards ?? 0) +
       1;
   }
 

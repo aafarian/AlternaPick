@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveEligibleCards } from "@/lib/cards/resolution";
+import { resolveEligibleCards, reResolveStaleCards } from "@/lib/cards/resolution";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import { resetWeeklyFreezes } from "@/lib/streaks/engine";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -27,6 +27,15 @@ export async function POST(request: NextRequest) {
     // Phase 1: Resolve eligible cards
     const results = await resolveEligibleCards();
 
+    // Phase 1.5: Re-resolve stale picks (null actual_value on resolved cards)
+    // Handles cases where boxscore data wasn't available at initial resolution.
+    let reResolved = { picksUpdated: 0, cardsRescored: 0 };
+    try {
+      reResolved = await reResolveStaleCards();
+    } catch (reResolveError) {
+      console.error("Re-resolution failed:", reResolveError);
+    }
+
     // Phase 2: Resolve eligible challenges (post-processing)
     const challengeResults = await resolveEligibleChallenges();
 
@@ -45,6 +54,7 @@ export async function POST(request: NextRequest) {
           result: p.result,
         })),
       })),
+      re_resolved: reResolved,
       challenges_resolved: challengeResults.length,
       challenge_results: challengeResults.map((cr) => ({
         challenge_id: cr.challenge_id,

@@ -104,7 +104,7 @@ async function getPropCountsBySportInternal(): Promise<Record<string, number>> {
 
   const counts: Record<string, number> = {};
   for (const game of games) {
-    const sport = game.sport ?? "nba";
+    const sport = game.sport || "nba";
     counts[sport] = (counts[sport] ?? 0) + game.props.length;
   }
   return counts;
@@ -219,30 +219,31 @@ export async function cacheProps(
         normalizedEspn.set(normalizeTeamName(espnName), id);
       }
 
-      // Collect unique team names from events
+      // Collect unique team names from events and match to ESPN team IDs
       const propTeamNames = new Set<string>();
       for (const event of events) {
-        propTeamNames.add(event.home_team.toLowerCase());
-        propTeamNames.add(event.away_team.toLowerCase());
+        propTeamNames.add(event.home_team);
+        propTeamNames.add(event.away_team);
       }
 
-      // Match prop team names to ESPN team IDs
-      const teamIds: string[] = [];
+      // Match prop team names to ESPN team IDs, preserving the original team name
+      const matchedTeams: Array<[string, string]> = []; // [teamName, teamId]
       for (const teamName of propTeamNames) {
+        const lower = teamName.toLowerCase();
         // 1. Exact match
-        const exactId = allTeams[teamName];
-        if (exactId) { teamIds.push(exactId); continue; }
+        const exactId = allTeams[lower];
+        if (exactId) { matchedTeams.push([teamName, exactId]); continue; }
 
         // 2. Normalized exact match (handles "St." vs "Saint", etc.)
         const normName = normalizeTeamName(teamName);
         const normId = normalizedEspn.get(normName);
-        if (normId) { teamIds.push(normId); continue; }
+        if (normId) { matchedTeams.push([teamName, normId]); continue; }
 
         // 3. Partial match (includes both ways) on normalized names
         let found = false;
         for (const [espnNorm, id] of normalizedEspn) {
           if (espnNorm.includes(normName) || normName.includes(espnNorm)) {
-            teamIds.push(id);
+            matchedTeams.push([teamName, id]);
             found = true;
             break;
           }
@@ -252,12 +253,18 @@ export async function cacheProps(
         }
       }
 
-      // Fetch rosters for those specific teams
-      if (teamIds.length > 0) {
-        const ncaabMapping = await fetchNcaabPlayers(teamIds);
-        for (const [name, id] of Object.entries(ncaabMapping)) {
-          playerIdMap.set(name, id);
-          playerIdMap.set(normalizeName(name), id);
+      // Fetch rosters per-team to build playerTeamMap alongside playerIdMap
+      for (const [teamName, teamId] of matchedTeams) {
+        try {
+          const roster = await fetchNcaabPlayers([teamId]);
+          for (const [name, id] of Object.entries(roster)) {
+            playerIdMap.set(name, id);
+            playerIdMap.set(normalizeName(name), id);
+            playerTeamMap.set(name.toLowerCase(), teamName);
+            playerTeamMap.set(normalizeName(name), teamName);
+          }
+        } catch {
+          console.warn(`[NCAAB enrich] Failed to fetch roster for team: "${teamName}" (${teamId})`);
         }
       }
     } catch (err) {

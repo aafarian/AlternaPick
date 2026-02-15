@@ -27,11 +27,13 @@ export interface PickWithPropAndGame {
   props: {
     player_name: string;
     player_id: string | null;
+    player_team?: string | null;
+    player_position?: string | null;
     stat_category: StatCategory;
     line: number;
     game_id: string;
     games: {
-      nba_game_id: string | null;
+      external_event_id: string | null;
       sport?: string | null;
       status?: string | null;
       home_team?: string | null;
@@ -52,16 +54,16 @@ export function buildLivePicksForCard(
   const livePicks: LivePickData[] = [];
 
   for (const pick of picks) {
-    const nbaGameId = pick.props?.games?.nba_game_id;
-    const gameInfo = nbaGameId ? gameStatusMap.get(nbaGameId) : null;
+    const eventId = pick.props?.games?.external_event_id;
+    const gameInfo = eventId ? gameStatusMap.get(eventId) : null;
     const dbGameStatus = pick.props?.games?.status;
 
     let gameStatus: LiveGameStatus | null = null;
-    if (gameInfo && nbaGameId) {
+    if (gameInfo && eventId) {
       // Stats service has this game (today's game) — use live data
       gameStatus = {
         game_id: pick.props.game_id,
-        nba_game_id: nbaGameId,
+        external_event_id: eventId,
         status: gameInfo.status as "scheduled" | "live" | "final",
         period: gameInfo.period,
         clock: gameInfo.clock,
@@ -75,17 +77,17 @@ export function buildLivePicksForCard(
       };
 
       if (gameInfo.status === "live") {
-        liveGamesSet.add(nbaGameId);
+        liveGamesSet.add(eventId);
       }
     } else {
-      // Not in today's stats service or nba_game_id not yet set.
+      // Not in today's stats service or external event ID not yet set.
       // Use DB status/scores when available; only default to "final" for
-      // games that are definitely past (nba_game_id was set but not in today's list).
+      // games that are definitely past (external_event_id was set but not in today's list).
       const dbStatus = (dbGameStatus as "scheduled" | "live" | "final") ?? "scheduled";
-      const fallbackStatus = nbaGameId ? "final" : dbStatus;
+      const fallbackStatus = eventId ? "final" : dbStatus;
       gameStatus = {
         game_id: pick.props.game_id,
-        nba_game_id: nbaGameId ?? pick.props.game_id,
+        external_event_id: eventId ?? pick.props.game_id,
         status: fallbackStatus,
         period: fallbackStatus === "final" ? 4 : 0,
         clock: fallbackStatus === "final" ? "0:00" : "",
@@ -106,9 +108,9 @@ export function buildLivePicksForCard(
     const effectiveStatus = gameInfo?.status ?? gameStatus?.status ?? dbGameStatus;
 
     if (effectiveStatus === "live" || effectiveStatus === "final") {
-      // Try boxscore first (only for today's games with nba_game_id)
-      if (nbaGameId) {
-        const boxscore = boxscoreMap.get(nbaGameId) ?? [];
+      // Try boxscore first (only for today's games with external event ID)
+      if (eventId) {
+        const boxscore = boxscoreMap.get(eventId) ?? [];
         const playerStats = fuzzyMatchPlayer(boxscore, pick.props.player_name);
 
         if (playerStats) {
@@ -135,12 +137,23 @@ export function buildLivePicksForCard(
             ? (pick.result as "hit" | "miss" | "push")
             : null;
       }
+
+      // Second fallback: use resolved result for trending even without actual_value.
+      // This prevents the UI from showing "Pending" when resolution ran but
+      // couldn't fetch boxscore data (e.g. external event ID was missing at resolution time).
+      if (trending === null && pick.result) {
+        if (pick.result === "hit" || pick.result === "miss" || pick.result === "push") {
+          trending = pick.result as "hit" | "miss" | "push";
+        }
+      }
     }
 
     livePicks.push({
       pick_id: pick.id,
       player_name: pick.props.player_name,
       player_id: pick.props.player_id,
+      player_team: pick.props.player_team ?? null,
+      player_position: pick.props.player_position ?? null,
       sport: pick.props.games?.sport ?? undefined,
       stat_category: pick.props.stat_category,
       line: pick.props.line,
@@ -155,8 +168,8 @@ export function buildLivePicksForCard(
   const seenGames = new Set<string>();
   const games: LiveGameStatus[] = [];
   for (const pick of livePicks) {
-    if (pick.game_status && !seenGames.has(pick.game_status.nba_game_id)) {
-      seenGames.add(pick.game_status.nba_game_id);
+    if (pick.game_status && !seenGames.has(pick.game_status.external_event_id)) {
+      seenGames.add(pick.game_status.external_event_id);
       games.push(pick.game_status);
     }
   }
@@ -168,15 +181,49 @@ export function buildLivePicksForCard(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Sport-agnostic fetcher config — adding a new sport = one entry here
+// ---------------------------------------------------------------------------
+interface SportFetchers {
+  fetchGames: () => Promise<StatsGame[]>;
+  fetchBoxscore: (id: string) => Promise<PlayerBoxScore[]>;
+  fetchBoxscoreLive: (id: string) => Promise<PlayerBoxScore[]>;
+  onGames?: (games: StatsGame[]) => void;
+}
+
+const SPORT_FETCHERS: Record<string, SportFetchers> = {
+  nba: {
+    fetchGames: fetchTodaysGamesLive,
+    fetchBoxscore: fetchBoxscore,
+    fetchBoxscoreLive: fetchBoxscoreLive,
+  },
+  epl: {
+    fetchGames: fetchSoccerGamesLive,
+    fetchBoxscore: fetchSoccerBoxscore,
+    fetchBoxscoreLive: fetchSoccerBoxscoreLive,
+  },
+  ncaab: {
+    fetchGames: fetchNcaabGamesLive,
+    fetchBoxscore: fetchNcaabBoxscore,
+    fetchBoxscoreLive: fetchNcaabBoxscoreLive,
+    onGames: (games) =>
+      registerNcaabTeamIds(
+        games.flatMap((g) => [
+          { name: g.home_team, id: g.home_team_id ?? "" },
+          { name: g.away_team, id: g.away_team_id ?? "" },
+        ]),
+      ),
+  },
+};
+
 /**
  * Fetches live game statuses and boxscores for today's games.
  * Returns gameStatusMap and boxscoreMap ready for buildLivePicksForCard().
  *
  * Strategy:
- * 1. Collect all nba_game_ids from picks
+ * 1. Collect all external event IDs from picks, grouped by sport
  * 2. Fetch today's games first (fast, 30s cached)
- * 3. Only fetch boxscores for games that are in today's schedule
- *    (skips yesterday's stale games that would timeout)
+ * 3. Fetch boxscores for live, final, and non-today games
  */
 export async function fetchLiveMaps(
   picks: PickWithPropAndGame[],
@@ -184,152 +231,89 @@ export async function fetchLiveMaps(
   gameStatusMap: Map<string, StatsGame>;
   boxscoreMap: Map<string, PlayerBoxScore[]>;
 }> {
-  // Collect game IDs that need live data, grouped by sport.
-  // Include "final" games — they may have ended today and still have
-  // boxscores available. The todayIds filter below ensures we only
-  // fetch boxscores for games in today's schedule (skips stale games).
-  const nbaCandidateIds = new Set<string>();
-  const soccerCandidateIds = new Set<string>();
-  const ncaabCandidateIds = new Set<string>();
+  // Step 1: Group candidate IDs by sport
+  const candidatesBySport = new Map<string, Set<string>>();
   for (const pick of picks) {
-    const nbaId = pick.props?.games?.nba_game_id;
-    if (nbaId) {
-      const sport = pick.props?.games?.sport;
-      if (sport === "epl") {
-        soccerCandidateIds.add(nbaId);
-      } else if (sport === "ncaab") {
-        ncaabCandidateIds.add(nbaId);
-      } else {
-        nbaCandidateIds.add(nbaId);
-      }
+    const eventId = pick.props?.games?.external_event_id;
+    if (!eventId) continue;
+    const sport = pick.props?.games?.sport ?? "nba";
+    let set = candidatesBySport.get(sport);
+    if (!set) {
+      set = new Set<string>();
+      candidatesBySport.set(sport, set);
     }
+    set.add(eventId);
   }
 
   const gameStatusMap = new Map<string, StatsGame>();
   const boxscoreMap = new Map<string, PlayerBoxScore[]>();
 
-  if (nbaCandidateIds.size === 0 && soccerCandidateIds.size === 0 && ncaabCandidateIds.size === 0) {
+  if (candidatesBySport.size === 0) {
     return { gameStatusMap, boxscoreMap };
   }
 
-  // Step 1: Fetch today's games (fast, cached) for all sports
-  const [nbaGames, soccerGames, ncaabGames] = await Promise.all([
-    nbaCandidateIds.size > 0
-      ? fetchTodaysGamesLive().catch(() => [] as StatsGame[])
-      : Promise.resolve([] as StatsGame[]),
-    soccerCandidateIds.size > 0
-      ? fetchSoccerGamesLive().catch(() => [] as StatsGame[])
-      : Promise.resolve([] as StatsGame[]),
-    ncaabCandidateIds.size > 0
-      ? fetchNcaabGamesLive().catch(() => [] as StatsGame[])
-      : Promise.resolve([] as StatsGame[]),
-  ]);
+  // Step 2: Fetch today's games in parallel (one call per sport with candidates)
+  const sportEntries = Array.from(candidatesBySport.entries())
+    .filter(([sport]) => SPORT_FETCHERS[sport]);
 
-  for (const g of nbaGames) {
-    gameStatusMap.set(g.game_id, g);
-  }
-  for (const g of soccerGames) {
-    gameStatusMap.set(g.game_id, g);
-  }
-  for (const g of ncaabGames) {
-    gameStatusMap.set(g.game_id, g);
-  }
+  const gamesPerSport = await Promise.all(
+    sportEntries.map(([sport]) =>
+      SPORT_FETCHERS[sport].fetchGames().catch(() => [] as StatsGame[]),
+    ),
+  );
 
-  // Register NCAAB team IDs for logo rendering
-  if (ncaabGames.length > 0) {
-    registerNcaabTeamIds(
-      ncaabGames.flatMap((g) => [
-        { name: g.home_team, id: g.home_team_id ?? "" },
-        { name: g.away_team, id: g.away_team_id ?? "" },
-      ])
-    );
+  for (let i = 0; i < sportEntries.length; i++) {
+    const [sport] = sportEntries[i];
+    const games = gamesPerSport[i];
+
+    for (const g of games) {
+      gameStatusMap.set(g.game_id, g);
+    }
+
+    // Sport-specific post-processing (e.g. NCAAB team ID registration)
+    if (games.length > 0) {
+      SPORT_FETCHERS[sport].onGames?.(games);
+    }
   }
 
-  // Step 2: Only fetch boxscores for games that are in today's schedule
+  // Step 3: Fetch boxscores for live, final, and non-today games
   const fetches: Promise<void>[] = [];
 
-  // NBA boxscores
-  const nbaTodayIds = Array.from(nbaCandidateIds).filter((id) => gameStatusMap.has(id));
-  const nbaLiveIds = nbaTodayIds.filter((id) => gameStatusMap.get(id)?.status === "live");
-  const nbaFinalIds = nbaTodayIds.filter((id) => gameStatusMap.get(id)?.status === "final");
+  for (const [sport, candidateIds] of sportEntries) {
+    const fetcher = SPORT_FETCHERS[sport];
+    const ids = candidatesBySport.get(sport)!;
 
-  if (nbaLiveIds.length > 0) {
-    fetches.push(
-      Promise.all(
-        nbaLiveIds.map((gid) => fetchBoxscoreLive(gid).catch(() => [] as PlayerBoxScore[]))
-      ).then((results) => {
-        for (let i = 0; i < nbaLiveIds.length; i++) {
-          boxscoreMap.set(nbaLiveIds[i], results[i]);
-        }
-      })
-    );
-  }
-  if (nbaFinalIds.length > 0) {
-    fetches.push(
-      Promise.all(
-        nbaFinalIds.map((gid) => fetchBoxscore(gid).catch(() => [] as PlayerBoxScore[]))
-      ).then((results) => {
-        for (let i = 0; i < nbaFinalIds.length; i++) {
-          boxscoreMap.set(nbaFinalIds[i], results[i]);
-        }
-      })
-    );
-  }
+    const todayIds = Array.from(ids).filter((id) => gameStatusMap.has(id));
+    const liveIds = todayIds.filter((id) => gameStatusMap.get(id)?.status === "live");
+    const finalIds = todayIds.filter((id) => gameStatusMap.get(id)?.status === "final");
+    const nonTodayIds = Array.from(ids).filter((id) => !gameStatusMap.has(id));
 
-  // Soccer boxscores
-  const soccerTodayIds = Array.from(soccerCandidateIds).filter((id) => gameStatusMap.has(id));
-  const soccerLiveIds = soccerTodayIds.filter((id) => gameStatusMap.get(id)?.status === "live");
-  const soccerFinalIds = soccerTodayIds.filter((id) => gameStatusMap.get(id)?.status === "final");
+    // Live games — use the live boxscore endpoint (shorter cache)
+    if (liveIds.length > 0) {
+      fetches.push(
+        Promise.all(
+          liveIds.map((gid) => fetcher.fetchBoxscoreLive(gid).catch(() => [] as PlayerBoxScore[])),
+        ).then((results) => {
+          for (let i = 0; i < liveIds.length; i++) {
+            boxscoreMap.set(liveIds[i], results[i]);
+          }
+        }),
+      );
+    }
 
-  if (soccerLiveIds.length > 0) {
-    fetches.push(
-      Promise.all(
-        soccerLiveIds.map((gid) => fetchSoccerBoxscoreLive(gid).catch(() => [] as PlayerBoxScore[]))
-      ).then((results) => {
-        for (let i = 0; i < soccerLiveIds.length; i++) {
-          boxscoreMap.set(soccerLiveIds[i], results[i]);
-        }
-      })
-    );
-  }
-  if (soccerFinalIds.length > 0) {
-    fetches.push(
-      Promise.all(
-        soccerFinalIds.map((gid) => fetchSoccerBoxscore(gid).catch(() => [] as PlayerBoxScore[]))
-      ).then((results) => {
-        for (let i = 0; i < soccerFinalIds.length; i++) {
-          boxscoreMap.set(soccerFinalIds[i], results[i]);
-        }
-      })
-    );
-  }
-
-  // NCAAB boxscores
-  const ncaabTodayIds = Array.from(ncaabCandidateIds).filter((id) => gameStatusMap.has(id));
-  const ncaabLiveIds = ncaabTodayIds.filter((id) => gameStatusMap.get(id)?.status === "live");
-  const ncaabFinalIds = ncaabTodayIds.filter((id) => gameStatusMap.get(id)?.status === "final");
-
-  if (ncaabLiveIds.length > 0) {
-    fetches.push(
-      Promise.all(
-        ncaabLiveIds.map((gid) => fetchNcaabBoxscoreLive(gid).catch(() => [] as PlayerBoxScore[]))
-      ).then((results) => {
-        for (let i = 0; i < ncaabLiveIds.length; i++) {
-          boxscoreMap.set(ncaabLiveIds[i], results[i]);
-        }
-      })
-    );
-  }
-  if (ncaabFinalIds.length > 0) {
-    fetches.push(
-      Promise.all(
-        ncaabFinalIds.map((gid) => fetchNcaabBoxscore(gid).catch(() => [] as PlayerBoxScore[]))
-      ).then((results) => {
-        for (let i = 0; i < ncaabFinalIds.length; i++) {
-          boxscoreMap.set(ncaabFinalIds[i], results[i]);
-        }
-      })
-    );
+    // Final + non-today games — use the standard boxscore endpoint (longer cache)
+    const staticIds = [...finalIds, ...nonTodayIds];
+    if (staticIds.length > 0) {
+      fetches.push(
+        Promise.all(
+          staticIds.map((gid) => fetcher.fetchBoxscore(gid).catch(() => [] as PlayerBoxScore[])),
+        ).then((results) => {
+          for (let i = 0; i < staticIds.length; i++) {
+            boxscoreMap.set(staticIds[i], results[i]);
+          }
+        }),
+      );
+    }
   }
 
   await Promise.all(fetches);
