@@ -54,11 +54,48 @@ export function serverError(error: string, message?: string) {
 }
 
 /**
+ * Structured error logger for API routes.
+ * Logs error with context for debugging/tracing.
+ * Placeholder for future Sentry/logging service integration.
+ */
+export function logError(
+  error: unknown,
+  context: {
+    route: string;
+    userId?: string;
+    metadata?: Record<string, unknown>;
+  }
+) {
+  const timestamp = new Date().toISOString();
+  const message = error instanceof Error ? error.message : String(error);
+  const stack = error instanceof Error ? error.stack : undefined;
+
+  console.error(
+    JSON.stringify({
+      level: "error",
+      timestamp,
+      route: context.route,
+      userId: context.userId ?? null,
+      message,
+      ...(context.metadata ? { metadata: context.metadata } : {}),
+    })
+  );
+
+  if (stack) {
+    console.error(stack);
+  }
+}
+
+/**
  * Catch-all error handler for route catch blocks.
  * Checks for domain errors with a `.status` property first,
  * then falls back to a generic 500.
+ * Always logs to stderr so errors are visible in the terminal.
  */
 export function handleApiError(error: unknown, fallbackMessage: string) {
+  // Always log the full error to the terminal
+  console.error(`[API Error] ${fallbackMessage}:`, error);
+
   // Domain errors (ValidationError, NotFoundError, ConflictError, etc.)
   if (
     error instanceof Error &&

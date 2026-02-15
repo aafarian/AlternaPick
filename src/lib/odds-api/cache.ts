@@ -253,18 +253,24 @@ export async function cacheProps(
         }
       }
 
-      // Fetch rosters per-team to build playerTeamMap alongside playerIdMap
-      for (const [teamName, teamId] of matchedTeams) {
-        try {
-          const roster = await fetchNcaabPlayers([teamId]);
+      // Fetch rosters concurrently to build playerTeamMap alongside playerIdMap
+      const rosterResults = await Promise.allSettled(
+        matchedTeams.map(([teamName, teamId]) =>
+          fetchNcaabPlayers([teamId]).then((roster) => ({ teamName, teamId, roster }))
+        )
+      );
+
+      for (const outcome of rosterResults) {
+        if (outcome.status === "fulfilled") {
+          const { teamName, roster } = outcome.value;
           for (const [name, id] of Object.entries(roster)) {
             playerIdMap.set(name, id);
             playerIdMap.set(normalizeName(name), id);
             playerTeamMap.set(name.toLowerCase(), teamName);
             playerTeamMap.set(normalizeName(name), teamName);
           }
-        } catch {
-          console.warn(`[NCAAB enrich] Failed to fetch roster for team: "${teamName}" (${teamId})`);
+        } else {
+          console.warn(`[NCAAB enrich] Failed to fetch roster for a team:`, outcome.reason);
         }
       }
     } catch (err) {

@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       { cards: result },
-      { headers: { "Cache-Control": "no-store" } },
+      { headers: { "Cache-Control": "no-cache, max-age=0, stale-while-revalidate=15" } },
     );
   } catch (error) {
     return handleApiError(error, "Failed to fetch batch live stats");

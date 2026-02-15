@@ -157,7 +157,8 @@ export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
 
     const result = await resolveCard(card, boxscoreCache);
     if (result) {
-      await persistResolution(supabase, result);
+      const resolved = await persistResolution(supabase, result);
+      if (!resolved) continue; // Already resolved by another caller
 
       // Fire-and-forget: notify card owner about resolution
       if (result.user_id) {
@@ -294,7 +295,8 @@ export async function reResolveStaleCards(): Promise<{
 
     const actualValue = extractStatValue(playerStats, pick.props.stat_category);
 
-    // Determine correct result
+    // Determine correct result — push (actualValue === line) is treated as miss
+    // (see resolveCard comment for rationale on half-point lines)
     let correctResult: PickResult;
     if (
       (pick.selection === "over" && actualValue > pick.props.line) ||
@@ -403,6 +405,9 @@ export async function resolveCard(
     ) {
       result = "hit";
     } else {
+      // Push (actualValue === line) falls through to "miss". This is intentional:
+      // consensus lines are forced to half-point values (e.g. 18.0 → 18.5) making
+      // pushes against integer stat values impossible in practice.
       result = "miss";
     }
 
@@ -432,25 +437,32 @@ export async function resolveCard(
 async function persistResolution(
   supabase: ReturnType<typeof createAdminClient>,
   result: ResolutionResult
-): Promise<void> {
-  // Update each pick
-  for (const pick of result.picks) {
-    await (supabase.from("picks") as any)
-      .update({
-        result: pick.result,
-        actual_value: pick.actual_value,
-      })
-      .eq("id", pick.pick_id);
+): Promise<boolean> {
+  // Atomic resolution: updates all picks + card status in a single transaction.
+  // Returns false if the card was already resolved (race condition).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: success, error } = await (supabase.rpc as any)("resolve_card", {
+    p_card_id: result.card_id,
+    p_score: result.score,
+    p_picks: result.picks.map((p) => ({
+      pick_id: p.pick_id,
+      result: p.result,
+      actual_value: p.actual_value,
+    })),
+  });
+
+  if (error) {
+    // Card not in 'locked' status — already resolved by another caller
+    if (error.message?.includes("not found") || error.message?.includes("locked")) {
+      return false;
+    }
+    throw error;
   }
 
-  // Update card
-  await (supabase.from("cards") as any)
-    .update({
-      status: "resolved",
-      score: result.score,
-      resolved_at: new Date().toISOString(),
-    })
-    .eq("id", result.card_id);
+  if (!success) {
+    // Card was already resolved (race condition) — skip leaderboard update
+    return false;
+  }
 
   // Update leaderboard stats for authenticated users
   if (result.user_id) {
@@ -461,6 +473,8 @@ async function persistResolution(
       result.total
     );
   }
+
+  return true;
 }
 
 function getCardNotificationMessage(
@@ -658,7 +672,8 @@ export async function tryResolveFromLiveData(
     const result = await resolveCard(card, boxscoreMap);
     if (!result) continue;
 
-    await persistResolution(supabase, result);
+    const resolved = await persistResolution(supabase, result);
+    if (!resolved) continue; // Already resolved by another caller
 
     if (result.user_id) {
       try {
@@ -728,11 +743,13 @@ export async function tryResolveFromLiveData(
     }
   }
 
-  // Step 6: Re-resolve stale cards as cleanup
-  try {
-    await reResolveStaleCards();
-  } catch (err) {
-    console.error("Failed to re-resolve stale cards:", err);
+  // Step 6: Re-resolve stale cards as cleanup (only if we just resolved something)
+  if (results.length > 0) {
+    try {
+      await reResolveStaleCards();
+    } catch (err) {
+      console.error("Failed to re-resolve stale cards:", err);
+    }
   }
 
   return results;

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import type { LivePickData } from "@/lib/cards/live-types";
 import { computePickDisplay } from "@/lib/cards/pick-display";
 import { CATEGORY_LABELS, CATEGORY_COLORS, formatPlayerSubtitle } from "@/lib/constants";
@@ -20,6 +21,13 @@ interface LivePickRowProps {
 }
 
 export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps) {
+  // Mount at 0% width, then animate to target after browser paints the initial frame
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setMounted(true), 50);
+    return () => clearTimeout(id);
+  }, []);
+
   const statCat = pick.stat_category as StatCategory;
   const d = computePickDisplay(pick);
   const subtitle = formatPlayerSubtitle(pick.player_team, pick.player_position, pick.sport);
@@ -262,11 +270,11 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
         </div>
       </div>
 
-      {/* Progress bar — always rendered so width animates from 0% when data arrives */}
+      {/* Progress bar — mounts at 0% then animates to target width */}
       <div className="relative h-2 w-full overflow-visible rounded-full bg-secondary/30">
         {/* Line marker — triangle pointing toward the pick direction */}
         <div
-          className="absolute -top-[3px] z-20 transition-[left] duration-700 ease-out"
+          className="absolute -top-[3px] z-20"
           style={{
             left: `${d.linePosition}%`,
             transform: "translateX(-50%)",
@@ -292,7 +300,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
             d.barColor
           )}
           style={{
-            width: `${d.barWidth}%`,
+            width: mounted ? `${d.barWidth}%` : "0%",
           }}
         >
           {/* Chevron pattern — only when in play */}

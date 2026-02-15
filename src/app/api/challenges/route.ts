@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     const gameMode = body.game_mode ?? "classic";
     if (!isValidGameMode(gameMode)) {
       return badRequest(
-        `Invalid game_mode: "${body.game_mode}". Must be one of: classic, sabotage, mirror, one_player, one_team`
+        `Invalid game_mode: "${body.game_mode}". Must be one of: classic, sabotage, mirror, random, one_player, one_team`
       );
     }
 
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ---- Validate mirror_props for mirror mode ----
+    // ---- Validate mirror_props for mirror mode / auto-select for random ----
     let mirrorProps: string[] | null = null;
     if (gameMode === "mirror") {
       if (!body.mirror_props || !Array.isArray(body.mirror_props) || body.mirror_props.length === 0) {
@@ -168,6 +168,38 @@ export async function POST(request: NextRequest) {
       mirrorProps = body.mirror_props;
       // Mirror mode: card_size is always the number of mirror props
       cardSize = mirrorProps.length;
+    } else if (gameMode === "random") {
+      // Auto-select random props from upcoming games
+      const LOCK_BUFFER_MS = 5 * 60 * 1000;
+      const lockCutoff = new Date(Date.now() + LOCK_BUFFER_MS).toISOString();
+      const tomorrowEnd = new Date();
+      tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
+      tomorrowEnd.setHours(11, 59, 59, 999);
+
+      const { data: availableProps, error: propsError } = await supabase
+        .from("props")
+        .select("id, games!inner(commence_time)")
+        .gte("games.commence_time", lockCutoff)
+        .lte("games.commence_time", tomorrowEnd.toISOString());
+
+      if (propsError) {
+        return badRequest("Failed to fetch available props for random mode");
+      }
+
+      const propIds = ((availableProps ?? []) as Array<{ id: string }>).map((p) => p.id);
+
+      if (propIds.length < cardSize) {
+        return badRequest(
+          `Not enough available props for random mode (need ${cardSize}, found ${propIds.length})`
+        );
+      }
+
+      // Fisher-Yates shuffle and take cardSize
+      for (let i = propIds.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [propIds[i], propIds[j]] = [propIds[j], propIds[i]];
+      }
+      mirrorProps = propIds.slice(0, cardSize);
     } else if (body.mirror_props && body.mirror_props.length > 0) {
       // mirror_props provided for non-mirror mode -- ignore it
       mirrorProps = null;

@@ -11,6 +11,7 @@ export type GameMode =
   | "classic"
   | "sabotage"
   | "mirror"
+  | "random"
   | "one_player"
   | "one_team";
 

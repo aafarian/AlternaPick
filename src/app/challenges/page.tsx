@@ -150,9 +150,15 @@ export default function ChallengesPage() {
         throw new Error(data.error ?? `Failed to ${action} challenge`);
       }
 
-      // After accepting, navigate to props so the user can make picks immediately
+      // After accepting, navigate to the right page based on game mode
       if (action === "accept") {
-        router.push(`/props?challenge_id=${challengeId}`);
+        const accepted = coreChallenges.find((c) => c.id === challengeId);
+        const mode = accepted?.game_mode;
+        if (mode === "mirror" || mode === "random") {
+          router.push(`/challenges/${challengeId}/ballot`);
+        } else {
+          router.push(`/props?challenge_id=${challengeId}`);
+        }
         return;
       }
 

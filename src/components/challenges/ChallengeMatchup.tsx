@@ -253,6 +253,11 @@ export default function ChallengeMatchup({
           data.error ?? `Failed to ${action} challenge`
         );
       }
+      // After accepting mirror/random, redirect to ballot page
+      if (action === "accept" && (challenge.game_mode === "mirror" || challenge.game_mode === "random")) {
+        router.push(`/challenges/${challenge.id}/ballot`);
+        return;
+      }
       router.refresh();
     } catch (err) {
       setError(
@@ -442,7 +447,13 @@ export default function ChallengeMatchup({
                     <p className="text-sm text-muted-foreground">
                       Make your picks while waiting for <span className="font-semibold text-foreground">{opponentName}</span> to accept
                     </p>
-                    <Link href={`/props?challenge_id=${challenge.id}`}>
+                    <Link
+                      href={
+                        challenge.game_mode === "mirror" || challenge.game_mode === "random"
+                          ? `/challenges/${challenge.id}/ballot`
+                          : `/props?challenge_id=${challenge.id}`
+                      }
+                    >
                       <Button size="sm">Make Your Picks</Button>
                     </Link>
                   </>
@@ -497,7 +508,13 @@ export default function ChallengeMatchup({
                   <p className="text-sm text-muted-foreground">
                     Time to make your picks for this challenge!
                   </p>
-                  <Link href={`/props?challenge_id=${challenge.id}`}>
+                  <Link
+                    href={
+                      challenge.game_mode === "mirror" || challenge.game_mode === "random"
+                        ? `/challenges/${challenge.id}/ballot`
+                        : `/props?challenge_id=${challenge.id}`
+                    }
+                  >
                     <Button size="sm">Make Your Picks</Button>
                   </Link>
                 </>

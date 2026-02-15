@@ -19,17 +19,18 @@ export default function PicksTabs({
   liveContent,
   finishedContent,
 }: PicksTabsProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   function handleTabChange(value: string) {
+    // Update URL for bookmarking without triggering a Next.js server re-render
     const params = new URLSearchParams(searchParams.toString());
     if (value === "live") {
       params.delete("tab");
     } else {
       params.set("tab", value);
     }
-    router.replace(`/picks${params.size ? `?${params}` : ""}`, { scroll: false });
+    const url = `/picks${params.size ? `?${params}` : ""}`;
+    window.history.replaceState(null, "", url);
   }
 
   return (

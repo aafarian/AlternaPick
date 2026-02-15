@@ -5,14 +5,12 @@ import { createClient } from "@/lib/supabase/server";
 import CardListWithLoadMore from "@/components/cards/CardListWithLoadMore";
 import LiveTracker from "@/components/live/LiveTracker";
 import PicksTabs from "@/components/picks/PicksTabs";
-import type { CardWithPicks } from "@/lib/cards/api";
+import { CARD_SELECT, type CardWithPicks } from "@/lib/cards/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Target, BarChart3, Trophy } from "lucide-react";
 
 const PAGE_SIZE = 20;
-
-const CARD_SELECT = "id, user_id, status, score, total_picks, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport)))";
 
 async function getCardsByStatus(
   userId: string,

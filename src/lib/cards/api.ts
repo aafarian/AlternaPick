@@ -1,5 +1,9 @@
 import type { PickSelection, CardStatus } from "@/lib/supabase/types";
 
+/** Supabase select string for cards with picks, props, and game data.
+ *  Superset of all card queries — includes card_size and game_mode. */
+export const CARD_SELECT = "id, user_id, status, score, total_picks, card_size, game_mode, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport)))" as const;
+
 export interface CardWithPicks {
   id: string;
   user_id: string | null;
