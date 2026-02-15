@@ -274,9 +274,9 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
       <div className="relative h-2 w-full overflow-visible rounded-full bg-secondary/30">
         {/* Line marker — triangle pointing toward the pick direction */}
         <div
-          className="absolute -top-[3px] z-20 transition-[left] duration-700 ease-out"
+          className="absolute -top-[3px] z-20"
           style={{
-            left: mounted ? `${d.linePosition}%` : "0%",
+            left: `${d.linePosition}%`,
             transform: "translateX(-50%)",
           }}
         >
