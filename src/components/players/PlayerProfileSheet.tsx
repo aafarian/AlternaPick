@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import {
   Sheet,
   SheetContent,
@@ -229,7 +230,8 @@ export default function PlayerProfileSheet() {
     return () => {
       cancelled = true;
     };
-  }, [target, isOpen]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target?.playerId, target?.sport, isOpen]);
 
   function retry() {
     if (!target) return;
@@ -481,32 +483,28 @@ export default function PlayerProfileSheet() {
     </>
   );
 
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+
   return (
-    <>
-      {/* Mobile: bottom sheet */}
-      <Sheet open={isOpen} onOpenChange={(open) => !open && closeProfile()}>
-        <SheetContent
-          side="bottom"
-          className="flex max-h-[85vh] flex-col rounded-t-2xl md:hidden"
-          showCloseButton={false}
-        >
-          {/* Drag handle */}
+    <Sheet open={isOpen} onOpenChange={(open) => !open && closeProfile()}>
+      <SheetContent
+        side={isDesktop ? "right" : "bottom"}
+        className={cn(
+          "flex flex-col",
+          isDesktop
+            ? "w-[420px] sm:max-w-[420px]"
+            : "max-h-[85vh] rounded-t-2xl"
+        )}
+        showCloseButton={isDesktop}
+      >
+        {/* Drag handle — mobile only */}
+        {!isDesktop && (
           <div className="flex justify-center pt-2 pb-1">
             <div className="h-1 w-8 rounded-full bg-muted-foreground/30" />
           </div>
-          {content}
-        </SheetContent>
-      </Sheet>
-
-      {/* Desktop: right panel */}
-      <Sheet open={isOpen} onOpenChange={(open) => !open && closeProfile()}>
-        <SheetContent
-          side="right"
-          className="hidden w-[420px] flex-col sm:max-w-[420px] md:flex"
-        >
-          {content}
-        </SheetContent>
-      </Sheet>
-    </>
+        )}
+        {content}
+      </SheetContent>
+    </Sheet>
   );
 }

@@ -12,19 +12,26 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/players", tags=["gamelog"])
 
-# In-memory cache with 1-hour TTL (game logs are historical)
+# In-memory cache with 1-hour TTL and max 500 entries (LRU eviction)
 _cache: dict[str, tuple[float, object]] = {}
 _CACHE_TTL = 3600  # 1 hour
+_CACHE_MAX_SIZE = 500
 
 
 def _get_cached(key: str):
     entry = _cache.get(key)
     if entry and (time.monotonic() - entry[0]) < _CACHE_TTL:
         return entry[1]
+    if entry:
+        del _cache[key]
     return None
 
 
 def _set_cached(key: str, value):
+    # Evict oldest entries when cache is full
+    if len(_cache) >= _CACHE_MAX_SIZE:
+        oldest_key = min(_cache, key=lambda k: _cache[k][0])
+        del _cache[oldest_key]
     _cache[key] = (time.monotonic(), value)
 
 
