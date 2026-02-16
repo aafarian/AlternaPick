@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchTodaysGames, fetchSoccerGames, fetchNcaabGames, fetchNcaabGamesByDate } from "@/lib/stats-service/client";
+import { fetchTodaysGames, fetchSoccerGames, fetchLaLigaGames, fetchNcaabGames, fetchNcaabGamesByDate } from "@/lib/stats-service/client";
 import { resolveEligibleCards, reResolveStaleCards } from "@/lib/cards/resolution";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import { unauthorized, serverError, handleApiError } from "@/lib/api/errors";
@@ -235,7 +235,62 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (soccerError) {
-      console.error("Failed to sync soccer games:", soccerError);
+      console.error("Failed to sync EPL games:", soccerError);
+    }
+
+    // --- La Liga game sync ---
+    try {
+      const laLigaGames = await fetchLaLigaGames();
+
+      if (laLigaGames.length > 0) {
+        const laLigaGamesResult = await supabase
+          .from("games")
+          .select("*")
+          .eq("sport", "la_liga")
+          .gte("commence_time", todayStart.toISOString())
+          .lte("commence_time", tomorrowEnd.toISOString());
+
+        const laLigaDbGames = (laLigaGamesResult.data ?? []) as Game[];
+
+        for (const laLigaGame of laLigaGames) {
+          const match = laLigaDbGames.find((g) =>
+            teamsMatch(g.home_team, laLigaGame.home_team) &&
+            teamsMatch(g.away_team, laLigaGame.away_team)
+          );
+
+          if (!match) continue;
+
+          const newStatus = laLigaGame.status as "scheduled" | "live" | "final";
+          const previousStatus = match.status;
+
+          const { error: updateError } = await (supabase.from("games") as any)
+            .update({
+              status: newStatus,
+              home_score: laLigaGame.home_score,
+              away_score: laLigaGame.away_score,
+              external_event_id: laLigaGame.game_id,
+            })
+            .eq("id", match.id);
+
+          if (!updateError) {
+            updated.push({
+              odds_team: `${match.away_team} @ ${match.home_team}`,
+              nba_team: `${laLigaGame.away_team} @ ${laLigaGame.home_team}`,
+              status: newStatus,
+              external_event_id: laLigaGame.game_id,
+            });
+
+            if (newStatus === "final" && previousStatus !== "final") {
+              anyBecameFinal = true;
+            }
+            if (newStatus === "live" && previousStatus === "scheduled") {
+              gamesBecameLive.push(match.id);
+            }
+          }
+        }
+      }
+    } catch (laLigaError) {
+      console.error("Failed to sync La Liga games:", laLigaError);
     }
 
     // --- NCAAB game sync ---

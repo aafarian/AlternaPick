@@ -106,6 +106,9 @@ export const POLL_INTERVAL_MS = 30_000;
 
 export function getPlayerHeadshotUrl(playerId: string, sport?: string): string {
   if (!playerId) return "";
+  if (sport === "epl" || sport === "la_liga") {
+    return `/api/players/${playerId}/photo`;
+  }
   if (sport === "ncaab") {
     return `https://a.espncdn.com/combiner/i?img=/i/headshots/mens-college-basketball/players/full/${playerId}.png&w=260&h=190`;
   }
@@ -170,6 +173,32 @@ const TEAM_TRICODES: Record<string, string> = {
   "West Ham United": "WHU",
   "Wolverhampton Wanderers": "WOL",
   "Wolves": "WOL",
+  // La Liga
+  "Alavés": "ALA",
+  "Athletic Bilbao": "ATH",
+  "Athletic Club": "ATH",
+  "Atlético Madrid": "ATM",
+  "Barcelona": "FCB",
+  "CA Osasuna": "OSA",
+  "Celta Vigo": "CEL",
+  "Elche CF": "ELC",
+  "Espanyol": "ESP",
+  "Getafe": "GET",
+  "Girona": "GIR",
+  "Las Palmas": "LPA",
+  "Leganés": "LEG",
+  "Levante": "LEV",
+  "Mallorca": "MLL",
+  "Oviedo": "OVI",
+  "Racing Santander": "RAC",
+  "Rayo Vallecano": "RAY",
+  "Real Betis": "BET",
+  "Real Madrid": "RMA",
+  "Real Sociedad": "RSO",
+  "Real Valladolid": "VLL",
+  "Sevilla": "SEV",
+  "Valencia": "VCF",
+  "Villarreal": "VIL",
 };
 
 export function teamTricode(teamName: string): string {
@@ -202,10 +231,18 @@ const TEAM_NBA_IDS: Record<string, number> = {
   UTA: 1610612762, WAS: 1610612764,
 };
 
-const EPL_TEAM_IDS: Record<string, number> = {
-  ARS: 42, AVL: 66, BOU: 35, BRE: 55, BHA: 51, CHE: 49, CRY: 52,
-  EVE: 45, FUL: 36, IPS: 57, LEI: 46, LIV: 40, MCI: 50, MUN: 33,
-  NEW: 34, NFO: 65, SOU: 41, TOT: 47, WHU: 48, WOL: 39,
+const EPL_ESPN_IDS: Record<string, number> = {
+  ARS: 359, AVL: 362, BOU: 349, BRE: 337, BHA: 331, CHE: 363, CRY: 384,
+  EVE: 368, FUL: 370, IPS: 373, LEI: 375, LIV: 364, MCI: 382, MUN: 360,
+  NEW: 361, NFO: 393, SOU: 376, TOT: 367, WHU: 371, WOL: 380,
+};
+
+// La Liga teams — ESPN soccer team IDs for logo URLs
+const LA_LIGA_ESPN_IDS: Record<string, number> = {
+  ALA: 96, ATH: 93, ATM: 1068, FCB: 83, OSA: 97, CEL: 85, ELC: 3751,
+  ESP: 88, GET: 2922, GIR: 9812, LPA: 98, LEG: 17534, LEV: 1538, MLL: 84,
+  OVI: 92, RAC: 87, RAY: 101, BET: 244, RMA: 86, RSO: 89, VLL: 95,
+  SEV: 243, VCF: 94, VIL: 102,
 };
 
 // NCAAB team ESPN IDs — populated dynamically from ESPN scoreboard data
@@ -248,18 +285,24 @@ export function teamLogoUrl(teamName: string): string {
     return `https://a.espncdn.com/i/teamlogos/ncaa/500/${ncaabExact}.png`;
   }
 
-  // 2. NBA / EPL via tricode
+  // 2. Soccer (La Liga / EPL) via tricode — check before NBA to avoid collisions (e.g. "ATM" vs "ATL")
   const code = teamTricode(teamName);
+  const laLigaId = LA_LIGA_ESPN_IDS[code];
+  if (laLigaId) {
+    return `https://a.espncdn.com/i/teamlogos/soccer/500/${laLigaId}.png`;
+  }
+  const eplId = EPL_ESPN_IDS[code];
+  if (eplId) {
+    return `https://a.espncdn.com/i/teamlogos/soccer/500/${eplId}.png`;
+  }
+
+  // 3. NBA via tricode
   const nbaId = TEAM_NBA_IDS[code];
   if (nbaId) {
     return `https://cdn.nba.com/logos/nba/${nbaId}/global/L/logo.svg`;
   }
-  const eplId = EPL_TEAM_IDS[code];
-  if (eplId) {
-    return `https://media.api-sports.io/football/teams/${eplId}.png`;
-  }
 
-  // 3. NCAAB partial match as fallback
+  // 4. NCAAB partial match as fallback
   const ncaabPartial = getNcaabEspnTeamId(teamName);
   if (ncaabPartial) {
     return `https://a.espncdn.com/i/teamlogos/ncaa/500/${ncaabPartial}.png`;
@@ -273,6 +316,8 @@ export const SPORT_LABELS: Record<string, string> = {
   nba: "NBA",
   ncaab: "NCAAB",
   epl: "EPL",
+  nhl: "NHL",
+  la_liga: "La Liga",
 };
 
 /** Strip common mascot suffixes from team names ("Duke Blue Devils" → "Duke"). */

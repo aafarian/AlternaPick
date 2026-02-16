@@ -6,6 +6,7 @@ import {
   fetchSoccerBoxscore,
   fetchSoccerBoxscoreLive,
   fetchSoccerGamesLive,
+  fetchLaLigaGamesLive,
   fetchNcaabBoxscore,
   fetchNcaabBoxscoreLive,
   fetchNcaabGamesLive,
@@ -199,6 +200,11 @@ const SPORT_FETCHERS: Record<string, SportFetchers> = {
   },
   epl: {
     fetchGames: fetchSoccerGamesLive,
+    fetchBoxscore: fetchSoccerBoxscore,
+    fetchBoxscoreLive: fetchSoccerBoxscoreLive,
+  },
+  la_liga: {
+    fetchGames: fetchLaLigaGamesLive,
     fetchBoxscore: fetchSoccerBoxscore,
     fetchBoxscoreLive: fetchSoccerBoxscoreLive,
   },

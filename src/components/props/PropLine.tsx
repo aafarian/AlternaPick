@@ -55,14 +55,20 @@ function PlayerHeadshot({
     );
   }
 
+  const isSoccer = sport === "epl" || sport === "la_liga";
+
   return (
     <div className="relative h-[100px] w-[130px]">
       <Image
         src={getPlayerHeadshotUrl(playerId, sport)}
         alt={playerName}
-        width={130}
-        height={100}
-        className="relative z-10 object-contain object-bottom drop-shadow-lg"
+        width={isSoccer ? 90 : 130}
+        height={isSoccer ? 90 : 100}
+        unoptimized={isSoccer}
+        className={cn(
+          "relative z-10 object-contain drop-shadow-lg",
+          isSoccer ? "mx-auto object-bottom" : "object-bottom"
+        )}
         onError={() => setImgError(true)}
       />
     </div>

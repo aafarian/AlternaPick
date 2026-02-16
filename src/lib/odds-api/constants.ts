@@ -4,7 +4,7 @@ export const ODDS_API_BASE_URL = "https://api.the-odds-api.com";
 export const DEFAULT_REGION = "us";
 export const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 
-export type SportKey = "nba" | "epl" | "ncaab";
+export type SportKey = "nba" | "epl" | "ncaab" | "nhl" | "la_liga";
 
 export const SPORT_CONFIGS: Record<SportKey, {
   oddsApiKey: string;
@@ -86,6 +86,36 @@ export const SPORT_CONFIGS: Record<SportKey, {
       player_points_assists: "pts_ast",
       player_rebounds_assists: "reb_ast",
       player_blocks_steals: "blk_stl",
+    },
+  },
+  nhl: {
+    oddsApiKey: "icehockey_nhl",
+    markets: [
+      "player_points",
+      "player_goals",
+      "player_assists",
+      "player_shots_on_goal",
+    ],
+    marketToCategory: {
+      player_points: "points",
+      player_goals: "goals",
+      player_assists: "assists",
+      player_shots_on_goal: "shots",
+    },
+  },
+  la_liga: {
+    oddsApiKey: "soccer_spain_la_liga",
+    markets: [
+      "player_shots",
+      "player_shots_on_target",
+      "player_assists",
+      "player_goal_scorer_anytime",
+    ],
+    marketToCategory: {
+      player_shots: "shots",
+      player_shots_on_target: "shots_on_target",
+      player_assists: "assists",
+      player_goal_scorer_anytime: "goals",
     },
   },
 };

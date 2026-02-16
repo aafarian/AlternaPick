@@ -277,7 +277,7 @@ export async function reResolveStaleCards(): Promise<{
     if (!boxscore) {
       try {
         const sport = pick.props?.games?.sport;
-        if (sport === "epl") {
+        if (sport === "epl" || sport === "la_liga") {
           boxscore = await fetchSoccerBoxscore(eventId);
         } else if (sport === "ncaab") {
           boxscore = await fetchNcaabBoxscore(eventId);
@@ -364,7 +364,7 @@ export async function resolveCard(
     if (!boxscore) {
       try {
         const gameSport = pick.props?.games?.sport;
-        if (gameSport === "epl") {
+        if (gameSport === "epl" || gameSport === "la_liga") {
           boxscore = await fetchSoccerBoxscore(eventId);
         } else if (gameSport === "ncaab") {
           boxscore = await fetchNcaabBoxscore(eventId);

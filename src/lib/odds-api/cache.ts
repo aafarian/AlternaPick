@@ -4,7 +4,7 @@ import { CACHE_TTL_MS } from "./constants";
 import type { SportKey } from "./constants";
 import type { OddsApiEvent, ParsedPlayerProp } from "./types";
 import type { Game, Prop } from "@/lib/supabase/types";
-import { fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams } from "@/lib/stats-service/client";
+import { fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams, fetchSoccerPlayers } from "@/lib/stats-service/client";
 
 export async function isCacheStale(): Promise<boolean> {
   const supabase = createAdminClient();
@@ -278,7 +278,31 @@ export async function cacheProps(
     }
   }
 
-  // Lookup helper: tries exact match, then normalized, then fuzzy last-name
+  if (sport === "epl" || sport === "la_liga") {
+    try {
+      // Collect unique team names from events
+      const teamNames = new Set<string>();
+      for (const event of events) {
+        teamNames.add(event.home_team);
+        teamNames.add(event.away_team);
+      }
+
+      const soccerPlayerMap = await fetchSoccerPlayers(
+        Array.from(teamNames),
+        sport
+      );
+
+      for (const [name, id] of Object.entries(soccerPlayerMap)) {
+        playerIdMap.set(name.toLowerCase(), id);
+        playerIdMap.set(normalizeName(name), id);
+      }
+    } catch (err) {
+      console.error(`[${sport} enrich] Failed:`, err);
+    }
+  }
+
+  // Lookup helper: tries exact match, then normalized, then fuzzy last-name,
+  // then prefix matching for soccer compound names
   function lookupPlayer(name: string, map: Map<string, string>): string | null {
     const lower = name.toLowerCase();
     const normalized = normalizeName(name);
@@ -286,20 +310,38 @@ export async function cacheProps(
     const exact = map.get(lower) ?? map.get(normalized);
     if (exact) return exact;
 
-    // Fuzzy fallback: match by last name (last word of normalized name).
-    // Searches map keys for entries that end with the same last name and
-    // share a first-name initial. Avoids false positives on common surnames.
     const parts = normalized.split(/\s+/);
     if (parts.length < 2) return null;
     const lastName = parts[parts.length - 1];
     const firstInitial = parts[0][0];
 
+    // Fuzzy: last name + first initial
     for (const [key, val] of map) {
       const keyParts = key.split(/\s+/);
       if (keyParts.length < 2) continue;
       const keyLast = keyParts[keyParts.length - 1];
       const keyFirstInitial = keyParts[0][0];
       if (keyLast === lastName && keyFirstInitial === firstInitial) {
+        return val;
+      }
+    }
+
+    // For 3+ word names, try dropping the last word (handles second surnames:
+    // "Abel Ruiz Ortega" → try "abel ruiz" against map)
+    if (parts.length >= 3) {
+      const shortened = parts.slice(0, -1).join(" ");
+      const match = map.get(shortened);
+      if (match) return match;
+    }
+
+    // Prefix matching: check if a map key is a prefix of the name or vice versa.
+    // Handles "Abel Ruiz" (api-sports) matching "Abel Ruiz Ortega" (odds API).
+    // Requires at least 2 words and same first initial to avoid false positives.
+    for (const [key, val] of map) {
+      const keyNorm = normalizeName(key);
+      const keyParts = keyNorm.split(/\s+/);
+      if (keyParts.length < 2 || keyParts[0][0] !== firstInitial) continue;
+      if (normalized.startsWith(keyNorm + " ") || keyNorm.startsWith(normalized + " ")) {
         return val;
       }
     }
