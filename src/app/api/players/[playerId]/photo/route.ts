@@ -34,7 +34,7 @@ export async function GET(
       .toBuffer({ resolveWithObject: true });
 
     const pixels = new Uint8Array(data.buffer);
-    const threshold = 235; // pixels with R,G,B all above this become transparent
+    const threshold = 215; // pixels with R,G,B all above this become transparent
 
     for (let i = 0; i < pixels.length; i += 4) {
       const r = pixels[i];

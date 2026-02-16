@@ -7,6 +7,7 @@ import type { ChallengeStatus } from "@/lib/supabase/types";
 import { isValidGameMode } from "@/lib/modes/definitions";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE } from "@/lib/modes/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
+import { getCachedProps } from "@/lib/odds-api/cache";
 import {
   getChallenges,
   createChallenge,
@@ -169,24 +170,23 @@ export async function POST(request: NextRequest) {
       // Mirror mode: card_size is always the number of mirror props
       cardSize = mirrorProps.length;
     } else if (gameMode === "random") {
-      // Auto-select random props from upcoming games
+      // Use the same data source as the props page so random mode
+      // sees the exact same props the user sees.
       const LOCK_BUFFER_MS = 5 * 60 * 1000;
-      const lockCutoff = new Date(Date.now() + LOCK_BUFFER_MS).toISOString();
-      const tomorrowEnd = new Date();
-      tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
-      tomorrowEnd.setHours(11, 59, 59, 999);
+      const now = Date.now();
 
-      const { data: availableProps, error: propsError } = await supabase
-        .from("props")
-        .select("id, games!inner(commence_time)")
-        .gte("games.commence_time", lockCutoff)
-        .lte("games.commence_time", tomorrowEnd.toISOString());
+      const allSportGames = await Promise.all([
+        getCachedProps("nba").catch(() => null),
+        getCachedProps("ncaab").catch(() => null),
+        getCachedProps("epl").catch(() => null),
+        getCachedProps("la_liga").catch(() => null),
+      ]);
 
-      if (propsError) {
-        return badRequest("Failed to fetch available props for random mode");
-      }
-
-      const propIds = ((availableProps ?? []) as Array<{ id: string }>).map((p) => p.id);
+      const propIds = allSportGames
+        .filter((games): games is NonNullable<typeof games> => games !== null)
+        .flat()
+        .filter((g) => new Date(g.commence_time).getTime() - now > LOCK_BUFFER_MS)
+        .flatMap((g) => g.props.map((p) => p.id));
 
       if (propIds.length < cardSize) {
         return badRequest(

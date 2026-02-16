@@ -165,8 +165,13 @@ export default function CreateChallengeModal({
       }
       onCreated();
       onClose();
-      // Redirect challenger to props page to make their picks
-      router.push(`/props?challenge_id=${data.challenge.id}`);
+      if (gameMode === "random" || gameMode === "mirror") {
+        // Props are pre-selected — go straight to ballot to call over/under
+        router.push(`/challenges/${data.challenge.id}/ballot`);
+      } else {
+        // Redirect challenger to props page to make their picks
+        router.push(`/props?challenge_id=${data.challenge.id}`);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to create challenge"
@@ -242,6 +247,8 @@ export default function CreateChallengeModal({
         return "You'll select the shared props in the next step. Both players pick over/under on the same lines.";
       case "one_player":
         return "Both players must build their card using a single NBA player's props.";
+      case "random":
+        return "The system randomly selects props for both players. Just call over or under!";
       case "one_team":
         return "Both players must build their card using props from a single NBA team.";
       default:
