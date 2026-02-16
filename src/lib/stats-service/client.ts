@@ -79,6 +79,40 @@ export interface PlayerBoxScore {
   saves?: number;
 }
 
+export interface GameLogEntry {
+  game_date: string;
+  matchup: string;
+  result: string;
+  minutes: number;
+  points: number;
+  rebounds: number;
+  assists: number;
+  steals: number;
+  blocks: number;
+  turnovers: number;
+  threes_made: number;
+  field_goals: string;
+  free_throws: string;
+  plus_minus: number;
+}
+
+export interface SeasonAverages {
+  games_played: number;
+  minutes: number;
+  points: number;
+  rebounds: number;
+  assists: number;
+  steals: number;
+  blocks: number;
+  turnovers: number;
+  threes_made: number;
+}
+
+export interface PlayerGamelogData {
+  games: GameLogEntry[];
+  season_averages: SeasonAverages;
+}
+
 class StatsServiceError extends Error {
   constructor(
     message: string,
@@ -409,5 +443,27 @@ export async function fetchSoccerBoxscoreLive(
   const data = await response.json();
   const result = data.data ?? [];
   setCache(cacheKey, result);
+  return result;
+}
+
+// --- Player gamelog ---
+
+export async function fetchPlayerGamelog(
+  playerId: string,
+  sport: string = "nba",
+  lastN: number = 5
+): Promise<PlayerGamelogData> {
+  const cacheKey = `gamelog:${sport}:${playerId}:${lastN}`;
+  const cached = getCached<PlayerGamelogData>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/players/${encodeURIComponent(playerId)}/gamelog?sport=${encodeURIComponent(sport)}&last_n=${lastN}`,
+    0,
+    10_000
+  );
+  const data = await response.json();
+  const result = data.data ?? { games: [], season_averages: { games_played: 0 } };
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
   return result;
 }
