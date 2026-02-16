@@ -174,13 +174,29 @@ export async function POST(request: NextRequest) {
       const lockCutoff = new Date(Date.now() + LOCK_BUFFER_MS).toISOString();
       const tomorrowEnd = new Date();
       tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
-      tomorrowEnd.setHours(11, 59, 59, 999);
+      tomorrowEnd.setHours(23, 59, 59, 999);
 
-      const { data: availableProps, error: propsError } = await supabase
-        .from("props")
-        .select("id, games!inner(commence_time)")
-        .gte("games.commence_time", lockCutoff)
-        .lte("games.commence_time", tomorrowEnd.toISOString());
+      // Two-step query: get upcoming game IDs, then fetch their props
+      const { data: upcomingGames, error: gamesError } = await typedFrom(supabase, "games")
+        .select("id")
+        .gte("commence_time", lockCutoff)
+        .lte("commence_time", tomorrowEnd.toISOString());
+
+      if (gamesError) {
+        return badRequest("Failed to fetch upcoming games for random mode");
+      }
+
+      const gameIds = ((upcomingGames ?? []) as Array<{ id: string }>).map((g) => g.id);
+
+      if (gameIds.length === 0) {
+        return badRequest(
+          `Not enough available props for random mode (need ${cardSize}, found 0)`
+        );
+      }
+
+      const { data: availableProps, error: propsError } = await typedFrom(supabase, "props")
+        .select("id")
+        .in("game_id", gameIds);
 
       if (propsError) {
         return badRequest("Failed to fetch available props for random mode");
