@@ -208,7 +208,7 @@ export default function BallotPage() {
     challenge.challenger.display_name || challenge.challenger.username;
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-col gap-6 py-8">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 py-8">
       {/* Back link */}
       <Link
         href={`/challenges/${challengeId}`}
@@ -296,7 +296,7 @@ export default function BallotPage() {
       )}
 
       {/* Ballot cards */}
-      <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {props.map((prop) => {
           const isExpired =
             new Date(prop.games.commence_time).getTime() - now <=
@@ -425,7 +425,7 @@ export default function BallotPage() {
 
       {/* Lock Card button */}
       {!allExpired && (
-        <div className="sticky bottom-4 z-30">
+        <div className="sticky bottom-4 z-30 mx-auto w-full max-w-md">
           <Button
             onClick={handleLock}
             disabled={!allPicked || submitting}
