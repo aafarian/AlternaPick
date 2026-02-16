@@ -35,6 +35,7 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
+/** Matches PropLine's PlayerHeadshot exactly */
 function PlayerHeadshot({
   playerId,
   playerName,
@@ -48,20 +49,28 @@ function PlayerHeadshot({
 
   if (!playerId || imgError) {
     return (
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
-        {getInitials(playerName)}
+      <div className="flex h-[100px] w-[130px] items-end justify-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
+          {getInitials(playerName)}
+        </div>
       </div>
     );
   }
 
+  const isSoccer = sport === "epl" || sport === "la_liga";
+
   return (
-    <div className="relative h-[80px] w-[100px]">
+    <div className="relative h-[100px] w-[130px]">
       <Image
         src={getPlayerHeadshotUrl(playerId, sport)}
         alt={playerName}
-        width={100}
-        height={80}
-        className="object-contain object-bottom drop-shadow-lg"
+        width={isSoccer ? 90 : 130}
+        height={isSoccer ? 90 : 100}
+        unoptimized={isSoccer}
+        className={cn(
+          "relative z-10 object-contain drop-shadow-lg",
+          isSoccer ? "mx-auto object-bottom" : "object-bottom"
+        )}
         onError={() => setImgError(true)}
       />
     </div>
@@ -242,7 +251,7 @@ export default function BallotPage() {
       {/* Progress */}
       <div className="flex items-center gap-3">
         <div className="flex gap-1">
-          {validProps.map((p, i) => (
+          {validProps.map((p) => (
             <div
               key={p.id}
               className={cn(
@@ -295,25 +304,21 @@ export default function BallotPage() {
         </Alert>
       )}
 
-      {/* Ballot cards */}
+      {/* Ballot cards — matches PropLine rendering */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {props.map((prop) => {
           const isExpired =
             new Date(prop.games.commence_time).getTime() - now <=
             LOCK_BUFFER_MS;
           const selection = picks.get(prop.id);
-          const catLabel =
-            CATEGORY_LABELS[prop.stat_category as StatCategory] ??
-            prop.stat_category;
-          const catColor =
-            CATEGORY_COLORS[prop.stat_category as StatCategory] ?? "";
+          const statCategory = prop.stat_category as StatCategory;
           const bgLogoUrl = teamLogoUrl(prop.player_team ?? prop.games.home_team);
 
           return (
             <div
               key={prop.id}
               className={cn(
-                "relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all",
+                "group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all",
                 isExpired
                   ? "opacity-50"
                   : selection
@@ -330,24 +335,25 @@ export default function BallotPage() {
                 </div>
               )}
 
-              {/* Player section */}
+              {/* Center: player headshot with team logo background */}
               <div className="relative flex flex-col items-center px-4 pt-4 pb-2">
-                {/* Team logo watermark */}
+                {/* Team logo watermark behind player */}
                 {bgLogoUrl && (
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={bgLogoUrl}
                       alt=""
-                      className="h-32 w-32 object-contain opacity-[0.14]"
+                      className="h-40 w-40 object-contain opacity-[0.14]"
                     />
                   </div>
                 )}
 
+                {/* Radial glow behind player */}
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                   <div
                     className={cn(
-                      "h-20 w-20 rounded-full opacity-30 blur-2xl",
+                      "h-24 w-24 rounded-full opacity-30 blur-2xl",
                       selection ? "bg-primary" : "bg-muted-foreground/30"
                     )}
                   />
@@ -359,41 +365,44 @@ export default function BallotPage() {
                   sport={prop.games.sport}
                 />
 
-                <span className="relative z-10 mt-1 text-center text-sm font-bold leading-tight">
+                {/* Player name */}
+                <span className="relative z-10 mt-1 truncate text-center text-sm font-bold leading-tight">
                   {prop.player_name}
                 </span>
 
+                {/* Team abbreviation + position */}
                 {prop.player_team && (
                   <span className="relative z-10 mt-0.5 text-[11px] font-medium text-muted-foreground">
                     {prop.player_team}
                     {prop.player_position ? ` - ${prop.player_position}` : ""}
                   </span>
                 )}
-
-                <span className="relative z-10 mt-1 text-[10px] text-muted-foreground">
-                  {prop.games.away_team} @ {prop.games.home_team}
-                </span>
               </div>
 
-              {/* Line + stat */}
+              {/* Line number + stat category */}
               <div className="flex flex-col items-center gap-0.5 pb-2">
                 <div className="flex items-baseline justify-center gap-1.5">
                   <span className="text-3xl font-black tabular-nums tracking-tight">
                     {prop.line}
                   </span>
-                  <Badge variant="secondary" className={cn("text-[10px]", catColor)}>
-                    {catLabel}
-                  </Badge>
+                  <span
+                    className={cn(
+                      "text-xs font-bold uppercase",
+                      CATEGORY_COLORS[statCategory]?.replace(/bg-\S+\s*/, "")
+                    )}
+                  >
+                    {CATEGORY_LABELS[statCategory]}
+                  </span>
                 </div>
               </div>
 
-              {/* Over / Under */}
+              {/* Over / Under buttons */}
               <div className="mt-auto grid grid-cols-2 gap-px border-t border-border">
                 <button
                   onClick={() => !isExpired && togglePick(prop.id, "over")}
                   disabled={isExpired}
                   className={cn(
-                    "py-3.5 text-sm font-bold uppercase tracking-wider transition-all",
+                    "cursor-pointer py-3 text-xs font-bold uppercase tracking-wider transition-all",
                     isExpired
                       ? "cursor-not-allowed text-muted-foreground/30"
                       : selection === "over"
@@ -407,7 +416,7 @@ export default function BallotPage() {
                   onClick={() => !isExpired && togglePick(prop.id, "under")}
                   disabled={isExpired}
                   className={cn(
-                    "border-l border-border py-3.5 text-sm font-bold uppercase tracking-wider transition-all",
+                    "cursor-pointer border-l border-border py-3 text-xs font-bold uppercase tracking-wider transition-all",
                     isExpired
                       ? "cursor-not-allowed text-muted-foreground/30"
                       : selection === "under"
