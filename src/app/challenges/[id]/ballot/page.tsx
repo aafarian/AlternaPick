@@ -208,7 +208,7 @@ export default function BallotPage() {
     challenge.challenger.display_name || challenge.challenger.username;
 
   return (
-    <div className="flex flex-col gap-6 py-8">
+    <div className="mx-auto flex w-full max-w-lg flex-col gap-6 py-8">
       {/* Back link */}
       <Link
         href={`/challenges/${challengeId}`}
