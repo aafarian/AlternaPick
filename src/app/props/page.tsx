@@ -37,14 +37,14 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
   }
 
   // Determine sport: use URL param if set, otherwise pick the first sport with props
-  const SPORT_PRIORITY: SportKey[] = ["nba", "ncaab", "epl"];
+  const SPORT_PRIORITY: SportKey[] = ["nba", "ncaab", "nhl", "epl", "la_liga"];
   let sport: SportKey;
-  if (rawSport === "epl" || rawSport === "ncaab" || rawSport === "nba") {
+  if (rawSport === "epl" || rawSport === "ncaab" || rawSport === "nba" || rawSport === "nhl" || rawSport === "la_liga") {
     sport = rawSport;
   } else {
     sport = SPORT_PRIORITY.find((s) => (propCounts[s] ?? 0) > 0) ?? "nba";
   }
-  const emptyEmoji = sport === "epl" ? "\u26BD" : "\uD83C\uDFC0";
+  const emptyEmoji = sport === "epl" || sport === "la_liga" ? "\u26BD" : sport === "nhl" ? "\uD83C\uDFD2" : "\uD83C\uDFC0";
 
   // Fetch props with a timeout so the page never hangs
   let games: Awaited<ReturnType<typeof getCachedProps>> = null;
@@ -130,40 +130,6 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
       (g) => new Date(g.commence_time).getTime() - now > LOCK_BUFFER_MS
     );
 
-  // Group games by date for section headers
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const dayAfter = new Date(tomorrow);
-  dayAfter.setDate(dayAfter.getDate() + 1);
-
-  type DateGroup = { label: string; games: typeof withProps };
-  const dateGroups: DateGroup[] = [];
-
-  const todayGames = withProps.filter((g) => {
-    const t = new Date(g.commence_time).getTime();
-    return t >= today.getTime() && t < tomorrow.getTime();
-  });
-  const tomorrowGames = withProps.filter((g) => {
-    const t = new Date(g.commence_time).getTime();
-    return t >= tomorrow.getTime() && t < dayAfter.getTime();
-  });
-  const laterGames = withProps.filter((g) => {
-    const t = new Date(g.commence_time).getTime();
-    return t >= dayAfter.getTime();
-  });
-
-  if (todayGames.length > 0) dateGroups.push({ label: "Tonight", games: todayGames });
-  if (tomorrowGames.length > 0) {
-    const label = `Tomorrow, ${tomorrow.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
-    dateGroups.push({ label, games: tomorrowGames });
-  }
-  if (laterGames.length > 0) {
-    const label = dayAfter.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
-    dateGroups.push({ label, games: laterGames });
-  }
-
   return (
     <div className="flex flex-col gap-6 py-8">
       {sport === "ncaab" && Object.keys(ncaabTeams).length > 0 && (
@@ -206,31 +172,13 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
             )}
           </CardContent>
         </Card>
-      ) : dateGroups.length === 1 ? (
+      ) : (
         <PropsGameList
           key={category}
-          games={dateGroups[0].games}
-
+          games={withProps}
           categoryEdges={categoryEdges}
           playerEdges={playerEdges}
         />
-      ) : (
-        <div className="flex flex-col gap-6">
-          {dateGroups.map((group) => (
-            <div key={group.label}>
-              <h2 className="mb-3 text-lg font-bold text-muted-foreground">
-                {group.label}
-              </h2>
-              <PropsGameList
-                key={`${category}-${group.label}`}
-                games={group.games}
-
-                categoryEdges={categoryEdges}
-                playerEdges={playerEdges}
-              />
-            </div>
-          ))}
-        </div>
       )}
     </div>
   );

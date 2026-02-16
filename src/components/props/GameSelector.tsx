@@ -29,6 +29,7 @@ function TeamLogo({ team, size = 20 }: { team: string; size?: number }) {
       width={size}
       height={size}
       className="shrink-0 object-contain"
+      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
     />
   );
 }

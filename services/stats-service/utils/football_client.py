@@ -66,7 +66,7 @@ class FootballRateLimiter:
             self._last_call = time.monotonic()
 
 
-football_rate_limiter = FootballRateLimiter(min_interval=6.0)
+football_rate_limiter = FootballRateLimiter(min_interval=2.0)
 
 
 async def _api_get(endpoint: str, params: dict) -> dict:
@@ -279,6 +279,98 @@ async def _get_fixture_status(fixture_id: str) -> dict | None:
         return result
     except Exception:
         return None
+
+
+LEAGUE_IDS = {
+    "epl": 39,
+    "la_liga": 140,
+}
+
+
+async def get_soccer_squad(team_id: int) -> list[dict]:
+    """Fetch a team's squad from api-football. Cached 24 hours."""
+    cache_key = f"soccer_squad:{team_id}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        data = await _api_get("/players/squads", {"team": team_id})
+        players = []
+        for team_data in data.get("response", []):
+            for p in team_data.get("players", []):
+                players.append({
+                    "id": str(p.get("id", "")),
+                    "name": p.get("name", ""),
+                    "number": p.get("number"),
+                    "position": p.get("position", ""),
+                })
+        _set_cached(cache_key, players, 86400)  # 24h cache
+        return players
+    except Exception as e:
+        logger.error(f"Failed to fetch squad for team {team_id}: {e}")
+        raise
+
+
+async def get_soccer_teams(league: str) -> list[dict]:
+    """Fetch all teams for a league. Cached 24 hours."""
+    league_id = LEAGUE_IDS.get(league)
+    if not league_id:
+        return []
+
+    cache_key = f"soccer_teams:{league}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        data = await _api_get("/teams", {"league": league_id, "season": EPL_SEASON})
+        teams = []
+        for t in data.get("response", []):
+            team = t.get("team", {})
+            teams.append({
+                "id": str(team.get("id", "")),
+                "name": team.get("name", ""),
+            })
+        _set_cached(cache_key, teams, 86400)  # 24h cache
+        return teams
+    except Exception as e:
+        logger.error(f"Failed to fetch teams for {league}: {e}")
+        raise
+
+
+async def get_soccer_players_by_team_names(
+    team_names: list[str], league: str
+) -> dict[str, str]:
+    """
+    Given team names (from Odds API), find matching api-football teams,
+    fetch their squads, and return {player_name: player_id} mapping.
+    """
+    all_teams = await get_soccer_teams(league)
+
+    def normalize(s: str) -> str:
+        return s.lower().replace(".", "").replace("fc ", "").replace(" fc", "").strip()
+
+    # Match Odds API team names to api-football team IDs
+    matched_ids: list[int] = []
+    for odds_name in team_names:
+        norm = normalize(odds_name)
+        for t in all_teams:
+            if normalize(t["name"]) == norm or norm in normalize(t["name"]) or normalize(t["name"]) in norm:
+                matched_ids.append(int(t["id"]))
+                break
+
+    # Fetch squads for matched teams
+    player_map: dict[str, str] = {}
+    for team_id in matched_ids:
+        try:
+            squad = await get_soccer_squad(team_id)
+            for p in squad:
+                player_map[p["name"]] = p["id"]
+        except Exception:
+            pass
+
+    return player_map
 
 
 async def get_todays_epl_fixtures_cached() -> list[dict]:

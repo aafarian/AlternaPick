@@ -6,7 +6,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const SPORTS = [
   { value: "nba", label: "NBA" },
   { value: "ncaab", label: "NCAAB" },
-  { value: "epl", label: "Soccer" },
+  { value: "nhl", label: "NHL" },
+  { value: "epl", label: "EPL" },
+  { value: "la_liga", label: "La Liga" },
 ] as const;
 
 interface SportSelectorProps {

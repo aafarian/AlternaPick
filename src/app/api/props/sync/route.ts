@@ -66,9 +66,9 @@ export async function POST(request: NextRequest) {
     if (latestCreditsRemaining !== null && latestCreditsRemaining < 50) {
       warnings.push(`Low API credits: ${latestCreditsRemaining} remaining`);
     }
-    if (multiResults.size < 3) {
+    if (multiResults.size < 5) {
       const fetched = Array.from(multiResults.keys());
-      const missing = ["nba", "epl", "ncaab"].filter((s) => !fetched.includes(s as SportKey));
+      const missing = ["nba", "epl", "ncaab", "nhl", "la_liga"].filter((s) => !fetched.includes(s as SportKey));
       warnings.push(`Failed to fetch props for: ${missing.join(", ")}`);
     }
 

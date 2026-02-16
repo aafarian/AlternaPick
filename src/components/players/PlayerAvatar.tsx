@@ -11,6 +11,7 @@ interface PlayerAvatarProps {
   sport?: string;
   size?: "sm" | "default" | "lg" | "xl";
   className?: string;
+  onClick?: () => void;
 }
 
 const SIZE_PX = { sm: 24, default: 32, lg: 40, xl: 56 } as const;
@@ -35,29 +36,35 @@ export default function PlayerAvatar({
   sport,
   size = "default",
   className,
+  onClick,
 }: PlayerAvatarProps) {
   const [imgError, setImgError] = useState(false);
   const px = SIZE_PX[size];
+  const Wrapper = onClick ? "button" : "div";
 
   if (!playerId || imgError) {
     return (
-      <div
+      <Wrapper
+        onClick={onClick}
         className={cn(
           "flex shrink-0 items-center justify-center rounded-full bg-primary/10 font-bold text-primary",
           SIZE_CLASSES[size],
+          onClick && "cursor-pointer transition-opacity hover:opacity-80",
           className
         )}
       >
         {getInitials(playerName)}
-      </div>
+      </Wrapper>
     );
   }
 
   return (
-    <div
+    <Wrapper
+      onClick={onClick}
       className={cn(
         "relative shrink-0 overflow-hidden rounded-full bg-secondary",
         SIZE_CLASSES[size],
+        onClick && "cursor-pointer transition-opacity hover:opacity-80",
         className
       )}
     >
@@ -69,6 +76,6 @@ export default function PlayerAvatar({
         className="absolute inset-0 h-full w-full object-cover"
         onError={() => setImgError(true)}
       />
-    </div>
+    </Wrapper>
   );
 }

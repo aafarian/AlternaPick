@@ -5,6 +5,8 @@ import Footer from "@/components/layout/Footer";
 import BottomTabBar from "@/components/layout/BottomTabBar";
 import { AuthProvider } from "@/lib/auth/auth-context";
 import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
+import { PlayerProfileProvider } from "@/lib/players/player-profile-context";
+import PlayerProfileSheet from "@/components/players/PlayerProfileSheet";
 import ServiceWorkerRegistration from "@/components/pwa/ServiceWorkerRegistration";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -43,24 +45,27 @@ export default function RootLayout({
         <ServiceWorkerRegistration />
         <AuthProvider>
           <OnboardingProvider>
-            <Header />
-            <main className="mx-auto min-h-screen max-w-6xl px-4 pt-20 pb-20 md:pb-12">
-              {children}
-            </main>
-            <Footer />
-            <BottomTabBar />
-            <Toaster
-              position="top-right"
-              offset={72}
-              duration={5000}
-              toastOptions={{
-                style: {
-                  background: "hsl(var(--card))",
-                  color: "hsl(var(--foreground))",
-                  border: "1px solid hsl(var(--border))",
-                },
-              }}
-            />
+            <PlayerProfileProvider>
+              <Header />
+              <main className="mx-auto min-h-screen max-w-6xl px-4 pt-20 pb-20 md:pb-12">
+                {children}
+              </main>
+              <Footer />
+              <BottomTabBar />
+              <PlayerProfileSheet />
+              <Toaster
+                position="top-right"
+                offset={72}
+                duration={5000}
+                toastOptions={{
+                  style: {
+                    background: "hsl(var(--card))",
+                    color: "hsl(var(--foreground))",
+                    border: "1px solid hsl(var(--border))",
+                  },
+                }}
+              />
+            </PlayerProfileProvider>
           </OnboardingProvider>
         </AuthProvider>
       </body>

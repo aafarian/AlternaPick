@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const lockCutoff = new Date(Date.now() + LOCK_BUFFER_MS).toISOString();
     const tomorrowEnd = new Date();
     tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
-    tomorrowEnd.setHours(11, 59, 59, 999);
+    tomorrowEnd.setHours(23, 59, 59, 999);
 
     // Fetch games with their props — only upcoming (not started)
     let query = supabase

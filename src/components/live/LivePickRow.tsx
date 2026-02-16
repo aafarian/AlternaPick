@@ -7,6 +7,7 @@ import { CATEGORY_LABELS, CATEGORY_COLORS, formatPlayerSubtitle } from "@/lib/co
 import { formatClock, formatGameTime } from "@/lib/format";
 import type { StatCategory } from "@/lib/supabase/types";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
+import { usePlayerProfile } from "@/lib/players/player-profile-context";
 import { Badge } from "@/components/ui/badge";
 import { ChevronUp, ChevronDown, Check, X, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -28,10 +29,22 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
     return () => clearTimeout(id);
   }, []);
 
+  const { openProfile } = usePlayerProfile();
   const statCat = pick.stat_category as StatCategory;
   const d = computePickDisplay(pick);
   const subtitle = formatPlayerSubtitle(pick.player_team, pick.player_position, pick.sport);
   const statPillClass = CATEGORY_COLORS[statCat] ?? "";
+
+  const handlePlayerClick = () => {
+    openProfile({
+      playerId: pick.player_id ?? "",
+      playerName: pick.player_name,
+      playerTeam: pick.player_team,
+      playerPosition: pick.player_position,
+      sport: pick.sport,
+      propContext: pick.line ? { line: pick.line, statCategory: statCat } : undefined,
+    });
+  };
 
   if (variant === "compact") {
     return (
@@ -51,7 +64,11 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
         )}
 
         {/* Player name + subtitle */}
-        <div className="flex min-w-0 flex-col">
+        <button
+          type="button"
+          className="flex min-w-0 cursor-pointer flex-col text-left transition-opacity hover:opacity-80"
+          onClick={handlePlayerClick}
+        >
           <span className="truncate text-sm font-medium">
             {pick.player_name}
           </span>
@@ -60,7 +77,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
               {subtitle}
             </span>
           )}
-        </div>
+        </button>
 
         {/* Stat pill */}
         <Badge
@@ -155,25 +172,30 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
           </div>
         )}
 
-        {/* Avatar — always shown */}
-        <PlayerAvatar
-          playerId={pick.player_id}
-          playerName={pick.player_name}
-          sport={pick.sport}
-          size="lg"
-          className="ring-1 ring-border/60"
-        />
+        {/* Avatar + player info — clickable */}
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left transition-opacity hover:opacity-80"
+          onClick={handlePlayerClick}
+        >
+          <PlayerAvatar
+            playerId={pick.player_id}
+            playerName={pick.player_name}
+            sport={pick.sport}
+            size="lg"
+            className="ring-1 ring-border/60"
+          />
 
-        {/* Player info */}
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="truncate text-sm font-semibold leading-tight">
-            {pick.player_name}
-          </span>
-          {subtitle && (
-            <span className="truncate text-[10px] font-medium text-muted-foreground">
-              {subtitle}
+          {/* Player info */}
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="truncate text-sm font-semibold leading-tight">
+              {pick.player_name}
             </span>
-          )}
+            {subtitle && (
+              <span className="truncate text-[10px] font-medium text-muted-foreground">
+                {subtitle}
+              </span>
+            )}
           <div className="flex items-center gap-1.5">
             <Badge
               variant="secondary"
@@ -216,6 +238,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
             )}
           </div>
         </div>
+        </button>
 
         {/* Right: big current value + game status — fixed min-h to avoid layout shift */}
         <div className="flex min-h-[36px] flex-col items-end justify-center gap-1">

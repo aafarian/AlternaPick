@@ -17,7 +17,9 @@ export type StatCategory =
   | "passes"
   | "goals"
   | "fouls_committed"
-  | "saves";
+  | "saves"
+  // NHL
+  | "shots_on_goal";
 
 export type GameStatus =
   | "scheduled"

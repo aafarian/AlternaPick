@@ -31,6 +31,8 @@ const STAT_SORT_ORDER: Record<StatCategory, number> = {
   passes: 16,
   fouls_committed: 17,
   saves: 18,
+  // NHL
+  shots_on_goal: 19,
 };
 
 function TeamLogo({ team }: { team: string }) {
@@ -44,6 +46,7 @@ function TeamLogo({ team }: { team: string }) {
       width={24}
       height={24}
       className="shrink-0 object-contain"
+      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
     />
   );
 }

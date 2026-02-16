@@ -6,6 +6,7 @@ import { Target } from "lucide-react";
 import type { StatCategory } from "@/lib/supabase/types";
 import { CATEGORY_LABELS, CATEGORY_COLORS, teamLogoUrl, getPlayerHeadshotUrl } from "@/lib/constants";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
+import { usePlayerProfile } from "@/lib/players/player-profile-context";
 import { getModeConfig } from "@/lib/modes/definitions";
 import { cn } from "@/lib/utils";
 
@@ -86,6 +87,7 @@ export default function PropLine({
 }: PropLineProps) {
   const { addPick, removePick, isPickSelected, getSelection, isFull, state } =
     useCardBuilder();
+  const { openProfile } = usePlayerProfile();
 
   // For existing challenges with constrained modes, hide non-matching props
   const selected = isPickSelected(propId);
@@ -154,6 +156,7 @@ export default function PropLine({
               src={bgLogoUrl}
               alt=""
               className="h-40 w-40 object-contain opacity-[0.14]"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
           </div>
         )}
@@ -168,19 +171,34 @@ export default function PropLine({
           />
         </div>
 
-        <PlayerHeadshot playerId={playerId} playerName={playerName} sport={sport} />
+        <button
+          type="button"
+          className="relative z-10 flex cursor-pointer flex-col items-center transition-opacity hover:opacity-80"
+          onClick={() =>
+            openProfile({
+              playerId: playerId ?? "",
+              playerName,
+              playerTeam,
+              playerPosition,
+              sport,
+              propContext: { line, statCategory },
+            })
+          }
+        >
+          <PlayerHeadshot playerId={playerId} playerName={playerName} sport={sport} />
 
-        {/* Player name */}
-        <span className="relative z-10 mt-1 truncate text-center text-sm font-bold leading-tight">
-          {playerName}
-        </span>
-
-        {/* Team abbreviation + position */}
-        {playerTeam && (
-          <span className="relative z-10 mt-0.5 text-[11px] font-medium text-muted-foreground">
-            {playerTeam}{playerPosition ? ` - ${playerPosition}` : ""}
+          {/* Player name */}
+          <span className="mt-1 truncate text-center text-sm font-bold leading-tight">
+            {playerName}
           </span>
-        )}
+
+          {/* Team abbreviation + position */}
+          {playerTeam && (
+            <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">
+              {playerTeam}{playerPosition ? ` - ${playerPosition}` : ""}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Line number + stat category */}

@@ -26,13 +26,31 @@ const NBA_CATEGORIES: CategoryOption[] = [
 
 const EPL_CATEGORIES: CategoryOption[] = [
   { value: "all", label: "All" },
+  { value: "goals", label: "Goals" },
   { value: "shots", label: "Shots" },
   { value: "shots_on_target", label: "On Target" },
-  { value: "goals", label: "Goals" },
   { value: "assists", label: "Assists" },
 ];
 
+const NHL_CATEGORIES: CategoryOption[] = [
+  { value: "all", label: "All" },
+  { value: "points", label: "Points" },
+  { value: "goals", label: "Goals" },
+  { value: "assists", label: "Assists" },
+  { value: "shots_on_goal", label: "SOG" },
+];
+
 const SCROLL_SPEED = 3; // px per frame
+
+function getCategoriesForSport(sport: string): CategoryOption[] {
+  switch (sport) {
+    case "epl":
+    case "la_liga":
+      return EPL_CATEGORIES;
+    case "nhl": return NHL_CATEGORIES;
+    default: return NBA_CATEGORIES;
+  }
+}
 
 export default function CategoryFilter({ sport = "nba" }: { sport?: string }) {
   const router = useRouter();
@@ -44,7 +62,7 @@ export default function CategoryFilter({ sport = "nba" }: { sport?: string }) {
   const [canScrollRight, setCanScrollRight] = useState(false);
 
   const active = searchParams.get("category") ?? "all";
-  const categories = sport === "epl" ? EPL_CATEGORIES : NBA_CATEGORIES;
+  const categories = getCategoriesForSport(sport);
 
   function handleChange(value: string) {
     const params = new URLSearchParams(searchParams.toString());

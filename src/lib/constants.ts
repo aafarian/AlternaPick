@@ -109,6 +109,9 @@ export function getPlayerHeadshotUrl(playerId: string, sport?: string): string {
   if (sport === "ncaab") {
     return `https://a.espncdn.com/combiner/i?img=/i/headshots/mens-college-basketball/players/full/${playerId}.png&w=260&h=190`;
   }
+  if (sport === "epl" || sport === "la_liga") {
+    return `/api/players/${playerId}/photo`;
+  }
   return `https://cdn.nba.com/headshots/nba/latest/260x190/${playerId}.png`;
 }
 
@@ -170,6 +173,67 @@ const TEAM_TRICODES: Record<string, string> = {
   "West Ham United": "WHU",
   "Wolverhampton Wanderers": "WOL",
   "Wolves": "WOL",
+  // La Liga
+  "Alavés": "ALA",
+  "Athletic Bilbao": "ATH",
+  "Athletic Club": "ATH",
+  "Atlético Madrid": "ATM",
+  "Barcelona": "FCB",
+  "CA Osasuna": "OSA",
+  "Celta Vigo": "CEL",
+  "Elche CF": "ELC",
+  "Espanyol": "ESP",
+  "Getafe": "GET",
+  "Girona": "GIR",
+  "Las Palmas": "LPA",
+  "Leganés": "LEG",
+  "Levante": "LEV",
+  "Mallorca": "MLL",
+  "Oviedo": "OVI",
+  "Racing Santander": "RAC",
+  "Rayo Vallecano": "RAY",
+  "Real Betis": "BET",
+  "Real Madrid": "RMA",
+  "Real Sociedad": "RSO",
+  "Real Valladolid": "VLL",
+  "Sevilla": "SEV",
+  "Valencia": "VCF",
+  "Villarreal": "VIL",
+  // NHL
+  "Anaheim Ducks": "ANA",
+  "Arizona Coyotes": "ARI",
+  "Boston Bruins": "BOS",
+  "Buffalo Sabres": "BUF",
+  "Calgary Flames": "CGY",
+  "Carolina Hurricanes": "CAR",
+  "Chicago Blackhawks": "CHI",
+  "Colorado Avalanche": "COL",
+  "Columbus Blue Jackets": "CBJ",
+  "Dallas Stars": "DAL",
+  "Detroit Red Wings": "DET",
+  "Edmonton Oilers": "EDM",
+  "Florida Panthers": "FLA",
+  "Los Angeles Kings": "LAK",
+  "Minnesota Wild": "MIN",
+  "Montreal Canadiens": "MTL",
+  "Nashville Predators": "NSH",
+  "New Jersey Devils": "NJD",
+  "New York Islanders": "NYI",
+  "New York Rangers": "NYR",
+  "Ottawa Senators": "OTT",
+  "Philadelphia Flyers": "PHI",
+  "Pittsburgh Penguins": "PIT",
+  "San Jose Sharks": "SJS",
+  "Seattle Kraken": "SEA",
+  "St Louis Blues": "STL",
+  "St. Louis Blues": "STL",
+  "Tampa Bay Lightning": "TBL",
+  "Toronto Maple Leafs": "TOR",
+  "Utah Hockey Club": "UTA",
+  "Vancouver Canucks": "VAN",
+  "Vegas Golden Knights": "VGK",
+  "Washington Capitals": "WSH",
+  "Winnipeg Jets": "WPG",
 };
 
 export function teamTricode(teamName: string): string {
@@ -202,11 +266,27 @@ const TEAM_NBA_IDS: Record<string, number> = {
   UTA: 1610612762, WAS: 1610612764,
 };
 
-const EPL_TEAM_IDS: Record<string, number> = {
-  ARS: 42, AVL: 66, BOU: 35, BRE: 55, BHA: 51, CHE: 49, CRY: 52,
-  EVE: 45, FUL: 36, IPS: 57, LEI: 46, LIV: 40, MCI: 50, MUN: 33,
-  NEW: 34, NFO: 65, SOU: 41, TOT: 47, WHU: 48, WOL: 39,
+const EPL_ESPN_IDS: Record<string, number> = {
+  ARS: 359, AVL: 362, BOU: 349, BRE: 337, BHA: 331, CHE: 363, CRY: 384,
+  EVE: 368, FUL: 370, IPS: 373, LEI: 375, LIV: 364, MCI: 382, MUN: 360,
+  NEW: 361, NFO: 393, SOU: 376, TOT: 367, WHU: 371, WOL: 380,
 };
+
+// La Liga teams — ESPN soccer team IDs for logo URLs
+const LA_LIGA_ESPN_IDS: Record<string, number> = {
+  ALA: 96, ATH: 93, ATM: 1068, FCB: 83, OSA: 97, CEL: 85, ELC: 3751,
+  ESP: 88, GET: 2922, GIR: 9812, LPA: 98, LEG: 17534, LEV: 1538, MLL: 84,
+  OVI: 92, RAC: 87, RAY: 101, BET: 244, RMA: 86, RSO: 89, VLL: 95,
+  SEV: 243, VCF: 94, VIL: 102,
+};
+
+// NHL teams — tricode used for ESPN logo URLs
+const NHL_TEAM_TRICODES = new Set([
+  "ANA", "ARI", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL",
+  "DET", "EDM", "FLA", "LAK", "MIN", "MTL", "NSH", "NJD", "NYI", "NYR",
+  "OTT", "PHI", "PIT", "SJS", "SEA", "STL", "TBL", "TOR", "UTA", "VAN",
+  "VGK", "WSH", "WPG",
+]);
 
 // NCAAB team ESPN IDs — populated dynamically from ESPN scoreboard data
 const ncaabTeamEspnIds = new Map<string, string>();
@@ -248,15 +328,25 @@ export function teamLogoUrl(teamName: string): string {
     return `https://a.espncdn.com/i/teamlogos/ncaa/500/${ncaabExact}.png`;
   }
 
-  // 2. NBA / EPL via tricode
+  // 2. Soccer (La Liga / EPL) via tricode — check before NBA to avoid collisions (e.g. "ATM" vs "ATL")
   const code = teamTricode(teamName);
+  const laLigaId = LA_LIGA_ESPN_IDS[code];
+  if (laLigaId) {
+    return `https://a.espncdn.com/i/teamlogos/soccer/500/${laLigaId}.png`;
+  }
+  const eplId = EPL_ESPN_IDS[code];
+  if (eplId) {
+    return `https://a.espncdn.com/i/teamlogos/soccer/500/${eplId}.png`;
+  }
+
+  // 3. NBA via tricode
   const nbaId = TEAM_NBA_IDS[code];
   if (nbaId) {
     return `https://cdn.nba.com/logos/nba/${nbaId}/global/L/logo.svg`;
   }
-  const eplId = EPL_TEAM_IDS[code];
-  if (eplId) {
-    return `https://media.api-sports.io/football/teams/${eplId}.png`;
+  // 4. NHL via ESPN CDN
+  if (NHL_TEAM_TRICODES.has(code)) {
+    return `https://a.espncdn.com/i/teamlogos/nhl/500/${code.toLowerCase()}.png`;
   }
 
   // 3. NCAAB partial match as fallback
@@ -273,6 +363,8 @@ export const SPORT_LABELS: Record<string, string> = {
   nba: "NBA",
   ncaab: "NCAAB",
   epl: "EPL",
+  nhl: "NHL",
+  la_liga: "La Liga",
 };
 
 /** Strip common mascot suffixes from team names ("Duke Blue Devils" → "Duke"). */
@@ -301,16 +393,18 @@ export function formatPlayerSubtitle(
 
 /* ---------- Sport definitions ---------- */
 
-export type Sport = "nba" | "ncaab" | "epl";
+export type Sport = "nba" | "ncaab" | "epl" | "nhl" | "la_liga";
 
 export const SPORTS: Record<Sport, { key: Sport; displayName: string; icon: string }> = {
-  nba:   { key: "nba",   displayName: "NBA",            icon: "\uD83C\uDFC0" },
-  ncaab: { key: "ncaab", displayName: "NCAAB",          icon: "\uD83C\uDF93" },
-  epl:   { key: "epl",   displayName: "Premier League", icon: "\u26BD" },
+  nba:     { key: "nba",     displayName: "NBA",            icon: "\uD83C\uDFC0" },
+  ncaab:   { key: "ncaab",   displayName: "NCAAB",          icon: "\uD83C\uDF93" },
+  epl:     { key: "epl",     displayName: "Premier League", icon: "\u26BD" },
+  nhl:     { key: "nhl",     displayName: "NHL",            icon: "\uD83C\uDFD2" },
+  la_liga: { key: "la_liga", displayName: "La Liga",        icon: "\u26BD" },
 };
 
 export function isValidSport(v: string): v is Sport {
-  return v === "nba" || v === "ncaab" || v === "epl";
+  return v === "nba" || v === "ncaab" || v === "epl" || v === "nhl" || v === "la_liga";
 }
 
 export const CATEGORY_LABELS: Record<StatCategory, string> = {
@@ -334,6 +428,8 @@ export const CATEGORY_LABELS: Record<StatCategory, string> = {
   goals: "Goals",
   fouls_committed: "Fouls",
   saves: "Saves",
+  // NHL
+  shots_on_goal: "SOG",
 };
 
 export const CATEGORY_COLORS: Record<StatCategory, string> = {
@@ -357,4 +453,6 @@ export const CATEGORY_COLORS: Record<StatCategory, string> = {
   goals: "bg-green-500/20 text-green-400",
   fouls_committed: "bg-gray-500/20 text-gray-400",
   saves: "bg-purple-500/20 text-purple-400",
+  // NHL
+  shots_on_goal: "bg-sky-500/20 text-sky-400",
 };

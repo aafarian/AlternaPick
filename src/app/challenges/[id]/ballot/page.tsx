@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePlayerProfile } from "@/lib/players/player-profile-context";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, AlertCircle, Lock, Clock } from "lucide-react";
 
@@ -72,6 +73,7 @@ export default function BallotPage() {
   const params = useParams();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { openProfile } = usePlayerProfile();
   const challengeId = params.id as string;
 
   const [challenge, setChallenge] = useState<ChallengeDetail | null>(null);
@@ -340,6 +342,7 @@ export default function BallotPage() {
                       src={bgLogoUrl}
                       alt=""
                       className="h-32 w-32 object-contain opacity-[0.14]"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />
                   </div>
                 )}
@@ -353,22 +356,40 @@ export default function BallotPage() {
                   />
                 </div>
 
-                <PlayerHeadshot
-                  playerId={prop.player_id}
-                  playerName={prop.player_name}
-                  sport={prop.games.sport}
-                />
+                <button
+                  type="button"
+                  className="relative z-10 flex cursor-pointer flex-col items-center transition-opacity hover:opacity-80"
+                  onClick={() =>
+                    openProfile({
+                      playerId: prop.player_id ?? "",
+                      playerName: prop.player_name,
+                      playerTeam: prop.player_team,
+                      playerPosition: prop.player_position,
+                      sport: prop.games.sport,
+                      propContext: {
+                        line: prop.line,
+                        statCategory: prop.stat_category as StatCategory,
+                      },
+                    })
+                  }
+                >
+                  <PlayerHeadshot
+                    playerId={prop.player_id}
+                    playerName={prop.player_name}
+                    sport={prop.games.sport}
+                  />
 
-                <span className="relative z-10 mt-1 text-center text-sm font-bold leading-tight">
-                  {prop.player_name}
-                </span>
-
-                {prop.player_team && (
-                  <span className="relative z-10 mt-0.5 text-[11px] font-medium text-muted-foreground">
-                    {prop.player_team}
-                    {prop.player_position ? ` - ${prop.player_position}` : ""}
+                  <span className="mt-1 text-center text-sm font-bold leading-tight">
+                    {prop.player_name}
                   </span>
-                )}
+
+                  {prop.player_team && (
+                    <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">
+                      {prop.player_team}
+                      {prop.player_position ? ` - ${prop.player_position}` : ""}
+                    </span>
+                  )}
+                </button>
 
                 <span className="relative z-10 mt-1 text-[10px] text-muted-foreground">
                   {prop.games.away_team} @ {prop.games.home_team}

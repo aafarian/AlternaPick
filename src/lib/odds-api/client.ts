@@ -87,18 +87,20 @@ function parseOddsResponse(
 
       for (const outcome of market.outcomes) {
         // Odds API: name = "Over"/"Under", description = player name
+        // Binary markets (e.g. anytime goal scorer): name = "Yes", no point → treat as Over 0.5
         const playerName = outcome.description;
         const side = outcome.name;
-        const key = `${playerName}_${outcome.point}`;
+        const line = outcome.point ?? 0.5;
+        const key = `${playerName}_${line}`;
         const existing = playerOutcomes.get(key) || {
           over_odds: null,
           under_odds: null,
-          line: outcome.point,
+          line,
         };
 
-        if (side === "Over") {
+        if (side === "Over" || side === "Yes") {
           existing.over_odds = outcome.price;
-        } else if (side === "Under") {
+        } else if (side === "Under" || side === "No") {
           existing.under_odds = outcome.price;
         }
 
@@ -168,7 +170,12 @@ export async function fetchAllProps(sportKey: SportKey = "nba"): Promise<FetchPr
     `[Odds API] [${sportKey}] ${events.length} total events, ${upcomingEvents.length} upcoming — fetching odds for upcoming only`
   );
 
-  for (const event of upcomingEvents) {
+  for (let i = 0; i < upcomingEvents.length; i++) {
+    const event = upcomingEvents[i];
+    // Throttle: wait 1s between requests to avoid 429 rate limits
+    if (i > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
     try {
       const { props, credits } = await fetchEventOdds(event.id, sportKey);
       propsMap.set(event.id, props);
@@ -188,6 +195,11 @@ export async function fetchAllProps(sportKey: SportKey = "nba"): Promise<FetchPr
         `[Odds API] Failed to fetch odds for event ${event.id}:`,
         error
       );
+      // Back off on rate limit errors
+      if (error instanceof Error && error.message.includes("429")) {
+        console.warn(`[Odds API] Rate limited, waiting 5s before continuing...`);
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      }
     }
   }
 
@@ -196,7 +208,7 @@ export async function fetchAllProps(sportKey: SportKey = "nba"): Promise<FetchPr
 
 export async function fetchAllPropsMultiSport(): Promise<Map<SportKey, FetchPropsResult>> {
   const results = new Map<SportKey, FetchPropsResult>();
-  const sports: SportKey[] = ["nba", "epl", "ncaab"];
+  const sports: SportKey[] = ["nba", "epl", "ncaab", "nhl", "la_liga"];
 
   const settled = await Promise.allSettled(
     sports.map((sport) => fetchAllProps(sport).then((result) => ({ sport, result })))

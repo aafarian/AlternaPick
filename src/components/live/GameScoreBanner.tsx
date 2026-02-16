@@ -18,7 +18,7 @@ function TeamBadge({ team, tricode, score, showScore, side }: {
     <div className={`flex items-center gap-1.5 ${side === "home" ? "flex-row-reverse" : ""}`}>
       {logo && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={logo} alt={code} width={18} height={18} className="shrink-0 object-contain" />
+        <img src={logo} alt={code} width={18} height={18} className="shrink-0 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
       )}
       <span className="text-[11px] font-bold text-white tabular-nums">
         {side === "away" ? (

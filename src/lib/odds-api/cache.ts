@@ -4,7 +4,7 @@ import { CACHE_TTL_MS } from "./constants";
 import type { SportKey } from "./constants";
 import type { OddsApiEvent, ParsedPlayerProp } from "./types";
 import type { Game, Prop } from "@/lib/supabase/types";
-import { fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams } from "@/lib/stats-service/client";
+import { fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams, fetchSoccerPlayers } from "@/lib/stats-service/client";
 
 export async function isCacheStale(): Promise<boolean> {
   const supabase = createAdminClient();
@@ -278,6 +278,29 @@ export async function cacheProps(
     }
   }
 
+  if (sport === "epl" || sport === "la_liga") {
+    try {
+      // Collect unique team names from events
+      const teamNames = new Set<string>();
+      for (const event of events) {
+        teamNames.add(event.home_team);
+        teamNames.add(event.away_team);
+      }
+
+      const soccerPlayerMap = await fetchSoccerPlayers(
+        Array.from(teamNames),
+        sport
+      );
+
+      for (const [name, id] of Object.entries(soccerPlayerMap)) {
+        playerIdMap.set(name.toLowerCase(), id);
+        playerIdMap.set(normalizeName(name), id);
+      }
+    } catch (err) {
+      console.error(`[${sport} enrich] Failed:`, err);
+    }
+  }
+
   // Lookup helper: tries exact match, then normalized, then fuzzy last-name
   function lookupPlayer(name: string, map: Map<string, string>): string | null {
     const lower = name.toLowerCase();
@@ -456,14 +479,17 @@ export async function cacheProps(
     (r) => !keptKeys.has(`${r.game_id}|${r.player_name.toLowerCase()}|${r.stat_category}`)
   );
 
-  if (newPropRows.length > 0) {
-    for (let i = 0; i < newPropRows.length; i += 500) {
-      const batch = newPropRows.slice(i, i + 500);
+  // Filter out props with invalid lines (e.g. binary markets like anytime goal scorer)
+  const validNewProps = newPropRows.filter((r) => Number.isFinite(r.line));
+
+  if (validNewProps.length > 0) {
+    for (let i = 0; i < validNewProps.length; i += 500) {
+      const batch = validNewProps.slice(i, i + 500);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from("props") as any).insert(batch);
     }
   }
 
   const enrichedCount = propRows.filter((r) => r.player_id !== null).length;
-  return { propsInserted: newPropRows.length, propsEnriched: enrichedCount, playerMapSize: playerIdMap.size };
+  return { propsInserted: validNewProps.length, propsEnriched: enrichedCount, playerMapSize: playerIdMap.size };
 }
