@@ -132,40 +132,6 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
       (g) => new Date(g.commence_time).getTime() - now > LOCK_BUFFER_MS
     );
 
-  // Group games by date for section headers
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const dayAfter = new Date(tomorrow);
-  dayAfter.setDate(dayAfter.getDate() + 1);
-
-  type DateGroup = { label: string; games: typeof withProps };
-  const dateGroups: DateGroup[] = [];
-
-  const todayGames = withProps.filter((g) => {
-    const t = new Date(g.commence_time).getTime();
-    return t >= today.getTime() && t < tomorrow.getTime();
-  });
-  const tomorrowGames = withProps.filter((g) => {
-    const t = new Date(g.commence_time).getTime();
-    return t >= tomorrow.getTime() && t < dayAfter.getTime();
-  });
-  const laterGames = withProps.filter((g) => {
-    const t = new Date(g.commence_time).getTime();
-    return t >= dayAfter.getTime();
-  });
-
-  if (todayGames.length > 0) dateGroups.push({ label: "Tonight", games: todayGames });
-  if (tomorrowGames.length > 0) {
-    const label = `Tomorrow, ${tomorrow.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
-    dateGroups.push({ label, games: tomorrowGames });
-  }
-  if (laterGames.length > 0) {
-    const label = dayAfter.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
-    dateGroups.push({ label, games: laterGames });
-  }
-
   return (
     <div className="flex flex-col gap-6 py-8">
       {sport === "ncaab" && Object.keys(ncaabTeams).length > 0 && (
@@ -208,31 +174,13 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
             )}
           </CardContent>
         </Card>
-      ) : dateGroups.length === 1 ? (
+      ) : (
         <PropsGameList
           key={`${sport}-${category}`}
-          games={dateGroups[0].games}
-
+          games={withProps}
           categoryEdges={categoryEdges}
           playerEdges={playerEdges}
         />
-      ) : (
-        <div className="flex flex-col gap-6">
-          {dateGroups.map((group) => (
-            <div key={group.label}>
-              <h2 className="mb-3 text-lg font-bold text-muted-foreground">
-                {group.label}
-              </h2>
-              <PropsGameList
-                key={`${sport}-${category}-${group.label}`}
-                games={group.games}
-
-                categoryEdges={categoryEdges}
-                playerEdges={playerEdges}
-              />
-            </div>
-          ))}
-        </div>
       )}
     </div>
   );

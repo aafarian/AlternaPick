@@ -106,6 +106,9 @@ export const POLL_INTERVAL_MS = 30_000;
 
 export function getPlayerHeadshotUrl(playerId: string, sport?: string): string {
   if (!playerId) return "";
+  if (sport === "epl" || sport === "la_liga") {
+    return `/api/players/${playerId}/photo`;
+  }
   if (sport === "ncaab") {
     return `https://a.espncdn.com/combiner/i?img=/i/headshots/mens-college-basketball/players/full/${playerId}.png&w=260&h=190`;
   }
