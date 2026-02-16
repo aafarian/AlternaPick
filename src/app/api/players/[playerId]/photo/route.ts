@@ -57,7 +57,8 @@ export async function GET(
         "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
       },
     });
-  } catch {
+  } catch (err) {
+    console.error(`Failed to process player photo for ${playerId}:`, err);
     return new NextResponse(null, { status: 502 });
   }
 }

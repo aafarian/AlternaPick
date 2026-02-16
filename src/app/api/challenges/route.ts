@@ -176,10 +176,10 @@ export async function POST(request: NextRequest) {
       const now = Date.now();
 
       const allSportGames = await Promise.all([
-        getCachedProps("nba").catch(() => null),
-        getCachedProps("ncaab").catch(() => null),
-        getCachedProps("epl").catch(() => null),
-        getCachedProps("la_liga").catch(() => null),
+        getCachedProps("nba").catch((err) => { console.error("Random mode: failed to fetch nba props:", err); return null; }),
+        getCachedProps("ncaab").catch((err) => { console.error("Random mode: failed to fetch ncaab props:", err); return null; }),
+        getCachedProps("epl").catch((err) => { console.error("Random mode: failed to fetch epl props:", err); return null; }),
+        getCachedProps("la_liga").catch((err) => { console.error("Random mode: failed to fetch la_liga props:", err); return null; }),
       ]);
 
       const propIds = allSportGames

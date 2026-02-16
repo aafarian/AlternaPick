@@ -68,7 +68,9 @@ function LoginForm() {
     }
 
     // Step 3: Claim anonymous cards (server action reads cookies)
-    await claimCardsAfterLogin().catch(() => {});
+    await claimCardsAfterLogin().catch((err) => {
+      console.error("Failed to claim anonymous cards after login:", err);
+    });
 
     // Step 4: Navigate — auth context will have the user by now
     router.push(redirectTo);

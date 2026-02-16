@@ -61,8 +61,8 @@ export default function NotificationBell({
           const data = await res.json();
           setNotifications(data.notifications ?? []);
         }
-      } catch {
-        // Silently ignore
+      } catch (err) {
+        console.error("Failed to fetch notifications:", err);
       } finally {
         setLoading(false);
       }
@@ -74,7 +74,9 @@ export default function NotificationBell({
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "mark_all_read" }),
-        }).catch(() => {});
+        }).catch((err) => {
+          console.error("Failed to mark notifications as read:", err);
+        });
       }
     },
     [count, onCountReset]
