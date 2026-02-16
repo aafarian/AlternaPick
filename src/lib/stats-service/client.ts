@@ -248,6 +248,30 @@ export async function fetchSoccerBoxscore(
   return result;
 }
 
+// --- La Liga endpoints ---
+
+export async function fetchLaLigaGames(): Promise<StatsGame[]> {
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/soccer/games/today?league=la_liga`
+  );
+  const data = await response.json();
+  return data.data ?? [];
+}
+
+export async function fetchLaLigaGamesLive(): Promise<StatsGame[]> {
+  const cacheKey = "laLigaGamesLive";
+  const cached = getCached<StatsGame[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/soccer/games/today/live?league=la_liga`
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result);
+  return result;
+}
+
 // --- NCAAB (ESPN) endpoints ---
 
 export async function fetchNcaabGames(): Promise<StatsGame[]> {
@@ -346,6 +370,25 @@ export async function fetchNcaabPlayers(
     ? `${STATS_SERVICE_URL}/ncaab/players?team_ids=${encodeURIComponent(idsParam)}`
     : `${STATS_SERVICE_URL}/ncaab/players`;
   const response = await fetchWithRetry(url, 0, 30_000);
+  const data = await response.json();
+  const result = (data.data ?? {}) as Record<string, string>;
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  return result;
+}
+
+export async function fetchSoccerPlayers(
+  teamNames: string[],
+  league: string
+): Promise<Record<string, string>> {
+  const cacheKey = `soccerPlayers:${league}:${teamNames.sort().join(",")}`;
+  const cached = getCached<Record<string, string>>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/soccer/players?team_names=${encodeURIComponent(teamNames.join(","))}&league=${encodeURIComponent(league)}`,
+    0,
+    120_000
+  );
   const data = await response.json();
   const result = (data.data ?? {}) as Record<string, string>;
   setCache(cacheKey, result, FINAL_CACHE_TTL);

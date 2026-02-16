@@ -37,14 +37,16 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
   }
 
   // Determine sport: use URL param if set, otherwise pick the first sport with props
-  const SPORT_PRIORITY: SportKey[] = ["nba", "ncaab", "epl"];
+  const SPORT_PRIORITY: SportKey[] = ["nba", "ncaab", "epl", "la_liga"];
+  const validSports: SportKey[] = ["nba", "ncaab", "epl", "la_liga", "nhl"];
   let sport: SportKey;
-  if (rawSport === "epl" || rawSport === "ncaab" || rawSport === "nba") {
-    sport = rawSport;
+  if (validSports.includes(rawSport as SportKey)) {
+    sport = rawSport as SportKey;
   } else {
     sport = SPORT_PRIORITY.find((s) => (propCounts[s] ?? 0) > 0) ?? "nba";
   }
-  const emptyEmoji = sport === "epl" ? "\u26BD" : "\uD83C\uDFC0";
+  const isSoccer = sport === "epl" || sport === "la_liga";
+  const emptyEmoji = isSoccer ? "\u26BD" : "\uD83C\uDFC0";
 
   // Fetch props with a timeout so the page never hangs
   let games: Awaited<ReturnType<typeof getCachedProps>> = null;
@@ -208,7 +210,7 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
         </Card>
       ) : dateGroups.length === 1 ? (
         <PropsGameList
-          key={category}
+          key={`${sport}-${category}`}
           games={dateGroups[0].games}
 
           categoryEdges={categoryEdges}
@@ -222,7 +224,7 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
                 {group.label}
               </h2>
               <PropsGameList
-                key={`${category}-${group.label}`}
+                key={`${sport}-${category}-${group.label}`}
                 games={group.games}
 
                 categoryEdges={categoryEdges}

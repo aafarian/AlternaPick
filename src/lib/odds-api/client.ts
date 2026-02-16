@@ -144,10 +144,9 @@ function parseOddsResponse(
       lines.length % 2 === 0
         ? (lines[mid - 1] + lines[mid]) / 2
         : lines[mid];
-    // Ensure half-point line to avoid pushes (e.g. 18.0 → 18.5)
-    if (median % 1 === 0) {
-      median += 0.5;
-    }
+    // Snap to nearest half-point line to avoid pushes and quarter lines
+    // e.g. 1.75 → 1.5, 2.25 → 2.5, 18.0 → 18.5
+    median = Math.floor(median) + 0.5;
     return { ...base, line: median, bookmaker: "consensus" };
   });
 }
@@ -196,7 +195,7 @@ export async function fetchAllProps(sportKey: SportKey = "nba"): Promise<FetchPr
 
 export async function fetchAllPropsMultiSport(): Promise<Map<SportKey, FetchPropsResult>> {
   const results = new Map<SportKey, FetchPropsResult>();
-  const sports: SportKey[] = ["nba", "epl", "ncaab"];
+  const sports: SportKey[] = ["nba", "epl", "ncaab", "nhl", "la_liga"];
 
   const settled = await Promise.allSettled(
     sports.map((sport) => fetchAllProps(sport).then((result) => ({ sport, result })))

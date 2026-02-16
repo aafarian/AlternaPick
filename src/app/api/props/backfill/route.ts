@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams } from "@/lib/stats-service/client";
+import { fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams, fetchSoccerPlayers } from "@/lib/stats-service/client";
 import { unauthorized, handleApiError } from "@/lib/api/errors";
 
 function normalizeName(name: string): string {
@@ -22,15 +22,36 @@ function lookupPlayer(name: string, map: Map<string, string>): string | null {
   const exact = map.get(lower) ?? map.get(normalized);
   if (exact) return exact;
 
-  // Fuzzy: last name + first initial
   const parts = normalized.split(/\s+/);
   if (parts.length < 2) return null;
   const lastName = parts[parts.length - 1];
   const firstInitial = parts[0][0];
+
+  // Fuzzy: last name + first initial
   for (const [key, val] of map) {
     const keyParts = key.split(/\s+/);
     if (keyParts.length < 2) continue;
     if (keyParts[keyParts.length - 1] === lastName && keyParts[0][0] === firstInitial) {
+      return val;
+    }
+  }
+
+  // For 3+ word names, try dropping the last word (handles second surnames:
+  // "Abel Ruiz Ortega" → try "abel ruiz" against map)
+  if (parts.length >= 3) {
+    const shortened = parts.slice(0, -1).join(" ");
+    const match = map.get(shortened);
+    if (match) return match;
+  }
+
+  // Prefix matching: check if a map key is a prefix of the name or vice versa.
+  // Handles "Abel Ruiz" (api-sports) matching "Abel Ruiz Ortega" (odds API).
+  // Requires at least 2 words and same first initial to avoid false positives.
+  for (const [key, val] of map) {
+    const keyNorm = normalizeName(key);
+    const keyParts = keyNorm.split(/\s+/);
+    if (keyParts.length < 2 || keyParts[0][0] !== firstInitial) continue;
+    if (normalized.startsWith(keyNorm + " ") || keyNorm.startsWith(normalized + " ")) {
       return val;
     }
   }
@@ -42,7 +63,6 @@ function lookupPlayer(name: string, map: Map<string, string>): string | null {
     if (keyNorm.endsWith(lastName) && keyNorm[0] === firstInitial) {
       return val;
     }
-    // Also try if the prop name's last word is contained in the key's last words
     const keyParts2 = keyNorm.split(/\s+/);
     if (keyParts2.length >= 2) {
       const keyLast = keyParts2[keyParts2.length - 1];
@@ -107,13 +127,17 @@ export async function POST(request: NextRequest) {
     // Group props by sport
     const nbaProps = props.filter((p) => p.games?.sport === "nba");
     const ncaabProps = props.filter((p) => p.games?.sport === "ncaab");
+    const soccerProps = props.filter((p) => p.games?.sport === "epl" || p.games?.sport === "la_liga");
 
     let nbaUpdated = 0;
     let ncaabUpdated = 0;
+    let soccerUpdated = 0;
     const unmatchedNba: string[] = [];
     const unmatchedNcaab: string[] = [];
+    const unmatchedSoccer: string[] = [];
     let nbaPlayerMapSize = 0;
     let ncaabPlayerMapSize = 0;
+    let soccerPlayerMapSize = 0;
 
     // --- NBA enrichment ---
     if (nbaProps.length > 0) {
@@ -219,6 +243,53 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // --- Soccer (EPL / La Liga) enrichment ---
+    if (soccerProps.length > 0) {
+      // Group by league since fetchSoccerPlayers needs the league param
+      const byLeague = new Map<string, typeof props>();
+      for (const p of soccerProps) {
+        const sport = p.games!.sport;
+        if (!byLeague.has(sport)) byLeague.set(sport, []);
+        byLeague.get(sport)!.push(p);
+      }
+
+      for (const [league, leagueProps] of byLeague) {
+        try {
+          const teamNames = new Set<string>();
+          for (const p of leagueProps) {
+            if (p.games?.home_team) teamNames.add(p.games.home_team);
+            if (p.games?.away_team) teamNames.add(p.games.away_team);
+          }
+
+          const soccerPlayerMap = await fetchSoccerPlayers(
+            Array.from(teamNames),
+            league
+          );
+          const playerMap = new Map<string, string>();
+          for (const [name, id] of Object.entries(soccerPlayerMap)) {
+            playerMap.set(name.toLowerCase(), id);
+            playerMap.set(normalizeName(name), id);
+          }
+          soccerPlayerMapSize += Object.keys(soccerPlayerMap).length;
+
+          for (const prop of leagueProps) {
+            const playerId = lookupPlayer(prop.player_name, playerMap);
+            if (playerId) {
+              const { error } = await (supabase.from("props") as any)
+                .update({ player_id: playerId })
+                .eq("id", prop.id);
+              if (!error) soccerUpdated++;
+            } else {
+              unmatchedSoccer.push(prop.player_name);
+            }
+          }
+        } catch (err) {
+          console.error(`[Backfill] ${league} enrichment failed:`, err);
+          unmatchedSoccer.push(`ERROR (${league}): ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+    }
+
     // --- Second pass: NCAAB props with player_id but missing player_team ---
     const { data: teamNullProps } = await supabase
       .from("props")
@@ -291,14 +362,18 @@ export async function POST(request: NextRequest) {
       total_null: props.length,
       nba_null: nbaProps.length,
       ncaab_null: ncaabProps.length,
+      soccer_null: soccerProps.length,
       nba_updated: nbaUpdated,
       ncaab_updated: ncaabUpdated,
-      updated: nbaUpdated + ncaabUpdated,
+      soccer_updated: soccerUpdated,
+      updated: nbaUpdated + ncaabUpdated + soccerUpdated,
       ncaab_team_backfilled: ncaabTeamBackfilled,
       nba_player_map_size: nbaPlayerMapSize,
       ncaab_player_map_size: ncaabPlayerMapSize,
+      soccer_player_map_size: soccerPlayerMapSize,
       unmatched_nba: unmatchedNba.slice(0, 30),
       unmatched_ncaab: unmatchedNcaab.slice(0, 30),
+      unmatched_soccer: unmatchedSoccer.slice(0, 30),
     });
   } catch (error) {
     return handleApiError(error, "Failed to backfill player IDs");

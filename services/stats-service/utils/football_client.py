@@ -16,6 +16,7 @@ import asyncio
 import logging
 import os
 import time
+import unicodedata
 from datetime import date
 
 import httpx
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://v3.football.api-sports.io"
 EPL_LEAGUE_ID = 39
+LA_LIGA_LEAGUE_ID = 140
 EPL_SEASON = 2024  # EPL 2024-25 season
 
 # In-memory cache with TTL
@@ -93,17 +95,17 @@ def _parse_fixture_status(status_short: str) -> str:
     return "scheduled"
 
 
-async def get_todays_epl_fixtures() -> list[dict]:
-    """Fetch today's EPL fixtures with scores and status."""
+async def get_todays_fixtures(league_id: int = EPL_LEAGUE_ID) -> list[dict]:
+    """Fetch today's fixtures for a given league with scores and status."""
     today = date.today().isoformat()
-    cache_key = f"epl_fixtures:{today}"
+    cache_key = f"fixtures:{league_id}:{today}"
     cached = _get_cached(cache_key)
     if cached is not None:
         return cached
 
     try:
         data = await _api_get("/fixtures", {
-            "league": EPL_LEAGUE_ID,
+            "league": league_id,
             "season": EPL_SEASON,
             "date": today,
         })
@@ -281,9 +283,143 @@ async def _get_fixture_status(fixture_id: str) -> dict | None:
         return None
 
 
+LEAGUE_IDS = {
+    "epl": 39,
+    "la_liga": 140,
+}
+
+
+async def get_soccer_squad(team_id: int) -> list[dict]:
+    """Fetch a team's squad from api-football. Cached 24 hours."""
+    cache_key = f"soccer_squad:{team_id}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        data = await _api_get("/players/squads", {"team": team_id})
+        players = []
+        for team_data in data.get("response", []):
+            for p in team_data.get("players", []):
+                players.append({
+                    "id": str(p.get("id", "")),
+                    "name": p.get("name", ""),
+                    "number": p.get("number"),
+                    "position": p.get("position", ""),
+                })
+        _set_cached(cache_key, players, 86400)  # 24h cache
+        return players
+    except Exception as e:
+        logger.error(f"Failed to fetch squad for team {team_id}: {e}")
+        raise
+
+
+async def get_soccer_teams(league: str) -> list[dict]:
+    """Fetch all teams for a league. Cached 24 hours."""
+    league_id = LEAGUE_IDS.get(league)
+    if not league_id:
+        return []
+
+    cache_key = f"soccer_teams:{league}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        data = await _api_get("/teams", {"league": league_id, "season": EPL_SEASON})
+        teams = []
+        for t in data.get("response", []):
+            team = t.get("team", {})
+            teams.append({
+                "id": str(team.get("id", "")),
+                "name": team.get("name", ""),
+            })
+        _set_cached(cache_key, teams, 86400)  # 24h cache
+        return teams
+    except Exception as e:
+        logger.error(f"Failed to fetch teams for {league}: {e}")
+        raise
+
+
+async def get_soccer_players_by_team_names(
+    team_names: list[str], league: str
+) -> dict[str, str]:
+    """
+    Given team names (from Odds API), find matching api-football teams,
+    fetch their squads, and return {player_name: player_id} mapping.
+    """
+    all_teams = await get_soccer_teams(league)
+
+    def normalize(s: str) -> str:
+        # Strip diacritics: Atlético → Atletico, Almería → Almeria
+        s = unicodedata.normalize("NFD", s)
+        s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+        s = s.lower().replace(".", "").strip()
+        # Strip common prefixes/suffixes: "Athletic Club" → "athletic",
+        # "Real Sociedad de Futbol" → "real sociedad"
+        for token in [
+            "fc", "cf", "ud", "sd", "cd", "club", "sc", "rc",
+            "de futbol", "de football",
+        ]:
+            s = s.replace(f" {token} ", " ").replace(f" {token}", "").replace(f"{token} ", "")
+        # Normalize "de" as a separator: "Real de Madrid" → "Real Madrid"
+        s = s.replace(" de ", " ")
+        return " ".join(s.split())  # collapse whitespace
+
+    # Match Odds API team names to api-football team IDs
+    matched_ids: list[int] = []
+    unmatched_teams: list[str] = []
+    for odds_name in team_names:
+        norm = normalize(odds_name)
+        found = False
+        for t in all_teams:
+            t_norm = normalize(t["name"])
+            if t_norm == norm or norm in t_norm or t_norm in norm:
+                matched_ids.append(int(t["id"]))
+                found = True
+                break
+        if not found:
+            unmatched_teams.append(odds_name)
+
+    if unmatched_teams:
+        api_names = [t["name"] for t in all_teams]
+        logger.warning(
+            f"[{league}] Unmatched teams: {unmatched_teams}. "
+            f"API team names: {api_names}"
+        )
+
+    # Fetch squads for matched teams
+    player_map: dict[str, str] = {}
+    for team_id in matched_ids:
+        try:
+            squad = await get_soccer_squad(team_id)
+            for p in squad:
+                player_map[p["name"]] = p["id"]
+        except Exception:
+            pass
+
+    return player_map
+
+
+async def get_todays_epl_fixtures() -> list[dict]:
+    """Fetch today's EPL fixtures (convenience wrapper)."""
+    return await get_todays_fixtures(EPL_LEAGUE_ID)
+
+
+async def get_todays_la_liga_fixtures() -> list[dict]:
+    """Fetch today's La Liga fixtures."""
+    return await get_todays_fixtures(LA_LIGA_LEAGUE_ID)
+
+
+
 async def get_todays_epl_fixtures_cached() -> list[dict]:
     """Cached version of get_todays_epl_fixtures (30s TTL)."""
     return await get_todays_epl_fixtures()
+
+
+async def get_todays_la_liga_fixtures_cached() -> list[dict]:
+    """Cached version of get_todays_la_liga_fixtures (30s TTL)."""
+    return await get_todays_la_liga_fixtures()
 
 
 async def get_fixture_player_stats_cached(fixture_id: str) -> list[dict]:

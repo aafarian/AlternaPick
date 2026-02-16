@@ -44,7 +44,7 @@ export default function CategoryFilter({ sport = "nba" }: { sport?: string }) {
   const [canScrollRight, setCanScrollRight] = useState(false);
 
   const active = searchParams.get("category") ?? "all";
-  const categories = sport === "epl" ? EPL_CATEGORIES : NBA_CATEGORIES;
+  const categories = sport === "epl" || sport === "la_liga" ? EPL_CATEGORIES : NBA_CATEGORIES;
 
   function handleChange(value: string) {
     const params = new URLSearchParams(searchParams.toString());
