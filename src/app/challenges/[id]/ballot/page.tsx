@@ -313,7 +313,7 @@ export default function BallotPage() {
             <div
               key={prop.id}
               className={cn(
-                "relative overflow-hidden rounded-2xl border border-border bg-card transition-all",
+                "relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all",
                 isExpired
                   ? "opacity-50"
                   : selection
@@ -388,7 +388,7 @@ export default function BallotPage() {
               </div>
 
               {/* Over / Under */}
-              <div className="grid grid-cols-2 gap-px border-t border-border">
+              <div className="mt-auto grid grid-cols-2 gap-px border-t border-border">
                 <button
                   onClick={() => !isExpired && togglePick(prop.id, "over")}
                   disabled={isExpired}
