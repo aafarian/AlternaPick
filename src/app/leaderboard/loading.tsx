@@ -1,32 +1,28 @@
+import { AnimatedSkeleton } from "@/components/ui/animated-skeleton";
+
 export default function LeaderboardLoading() {
   return (
     <div className="flex flex-col gap-8 py-8">
-      {/* Title skeleton */}
+      {/* Header */}
       <div>
-        <div className="h-8 w-44 animate-pulse rounded-lg bg-card" />
-        <div className="mt-2 h-4 w-28 animate-pulse rounded bg-card" />
-      </div>
-
-      {/* Tab skeleton */}
-      <div className="flex gap-2">
-        {[1, 2].map((i) => (
-          <div
-            key={i}
-            className="h-9 w-24 animate-pulse rounded-lg bg-card"
-          />
-        ))}
-      </div>
-
-      {/* Rank card skeleton */}
-      <div className="h-20 animate-pulse rounded-xl border border-border bg-card" />
-
-      {/* Row skeletons */}
-      {[1, 2, 3, 4, 5, 6].map((i) => (
-        <div
-          key={i}
-          className="h-14 animate-pulse rounded-xl border border-border bg-card"
+        <AnimatedSkeleton variant="row" count={1} className="h-8 w-44" />
+        <AnimatedSkeleton
+          variant="text"
+          count={1}
+          className="mt-2 h-4 w-28"
         />
-      ))}
+      </div>
+
+      {/* Tabs */}
+      <AnimatedSkeleton
+        variant="row"
+        count={2}
+        containerClassName="flex-row gap-2"
+        className="h-9 w-24 rounded-lg"
+      />
+
+      {/* Row list */}
+      <AnimatedSkeleton variant="row" count={5} className="h-14 rounded-xl" />
     </div>
   );
 }
