@@ -12,6 +12,7 @@ import type {
   LiveChallengeData,
 } from "@/lib/cards/live-types";
 import { tryResolveFromLiveData } from "@/lib/cards/resolution";
+import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -53,7 +54,6 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     }
 
     // Fetch both players' cards using admin client (bypass RLS for opponent's card)
-    // Include result, actual_value, and DB game status for fallback
     const admin = createAdminClient();
     const { data: cards } = await (admin.from("cards") as any)
       .select(
@@ -77,14 +77,33 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       ? buildLivePicksForCard(opponentCardRaw.picks, gameStatusMap, boxscoreMap)
       : null;
 
-    // Auto-resolve cards whose games are all final (reuses pre-fetched data)
-    try {
-      await tryResolveFromLiveData(cardsList, gameStatusMap, boxscoreMap);
-    } catch (err) {
-      console.error("Auto-resolution from challenge live endpoint failed:", err);
+    // --- Resolution ---
+    // tryResolveFromLiveData handles the full pipeline: persist picks, update
+    // leaderboard, send notifications, check achievements, and internally calls
+    // resolveEligibleChallenges when cards are resolved.
+    let challengeResolved = false;
+
+    if (cardsList.some((c) => c.status === "locked")) {
+      try {
+        await tryResolveFromLiveData(cardsList, gameStatusMap, boxscoreMap);
+      } catch (err) {
+        console.error("tryResolveFromLiveData failed:", err);
+      }
     }
 
-    // Merge unique games from both cards
+    // Safety net: resolve the challenge even if cards were already resolved
+    // by cron (tryResolveFromLiveData only calls resolveEligibleChallenges
+    // when it resolves cards itself — this covers the gap).
+    if (challenge.status === "active") {
+      try {
+        const results = await resolveEligibleChallenges();
+        challengeResolved = results.some((r) => r.challenge_id === id);
+      } catch (err) {
+        console.error("resolveEligibleChallenges failed:", err);
+      }
+    }
+
+    // --- Build response ---
     const seenGames = new Set<string>();
     const games: LiveGameStatus[] = [];
     for (const result of [challengerLive, opponentLive]) {
@@ -115,6 +134,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         : null,
       games,
       has_live_games: (challengerLive?.hasLiveGames || opponentLive?.hasLiveGames) ?? false,
+      challenge_resolved: challengeResolved || undefined,
     };
 
     return NextResponse.json(response, {

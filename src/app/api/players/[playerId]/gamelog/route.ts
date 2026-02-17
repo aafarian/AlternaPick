@@ -16,10 +16,7 @@ export async function GET(
   );
 
   if (!VALID_SPORTS.has(sport)) {
-    return NextResponse.json(
-      { error: `Invalid sport: ${sport}. Must be one of: nba, ncaab` },
-      { status: 400 }
-    );
+    return NextResponse.json({ data: { games: [], season_averages: null } });
   }
 
   try {

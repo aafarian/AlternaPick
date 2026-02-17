@@ -62,5 +62,5 @@ export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: ()
     };
   }, [enabled, fetchLive]);
 
-  return { data, isLoading, error };
+  return { data, isLoading, error, cardResolved: data?.card_resolved ?? false };
 }

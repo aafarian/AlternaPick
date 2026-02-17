@@ -53,5 +53,5 @@ export function useLiveChallenge(challengeId: string, enabled: boolean) {
     };
   }, [enabled, fetchLive]);
 
-  return { data, isLoading, error };
+  return { data, isLoading, error, challengeResolved: data?.challenge_resolved ?? false };
 }

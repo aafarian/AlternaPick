@@ -37,6 +37,8 @@ export interface LiveCardData {
   picks: LivePickData[];
   has_live_games: boolean;
   games: LiveGameStatus[];
+  /** True when the card was resolved during this request */
+  card_resolved?: boolean;
 }
 
 /**
@@ -109,4 +111,6 @@ export interface LiveChallengeData {
   } | null;
   games: LiveGameStatus[];
   has_live_games: boolean;
+  /** True when cards/challenge were resolved during this request */
+  challenge_resolved?: boolean;
 }

@@ -157,10 +157,17 @@ export default function ChallengeMatchup({
     challenge.opponent_card?.status === "locked" ||
     challenge.status === "resolved";
 
-  const { data: liveData, isLoading: liveLoading } = useLiveChallenge(
+  const { data: liveData, isLoading: liveLoading, challengeResolved } = useLiveChallenge(
     challenge.id,
     shouldFetchLive
   );
+
+  // Refresh page data when the backend resolves cards/challenge during live polling
+  useEffect(() => {
+    if (challengeResolved) {
+      router.refresh();
+    }
+  }, [challengeResolved, router]);
 
   // Build live pick maps
   const challengerLivePickMap = new Map<string, LivePickData>();

@@ -52,11 +52,19 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       boxscoreMap,
     );
 
-    // Auto-resolve if all games are final (reuses pre-fetched data)
-    try {
-      await tryResolveFromLiveData([card], gameStatusMap, boxscoreMap);
-    } catch (err) {
-      console.error("Auto-resolution from single card live endpoint failed:", err);
+    // --- Resolution ---
+    // tryResolveFromLiveData handles the full pipeline: persist picks, update
+    // leaderboard, send notifications, check achievements, and resolve challenges.
+    // persistResolution has a direct-write fallback if the RPC fails.
+    let cardResolved = false;
+
+    if (card.status === "locked") {
+      try {
+        const results = await tryResolveFromLiveData([card], gameStatusMap, boxscoreMap);
+        cardResolved = results.some((r) => r.card_id === card.id);
+      } catch (err) {
+        console.error("Auto-resolution from live endpoint failed:", err);
+      }
     }
 
     const response: LiveCardData = {
@@ -64,6 +72,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       picks: livePicks,
       has_live_games: hasLiveGames,
       games,
+      card_resolved: cardResolved || undefined,
     };
 
     return NextResponse.json(response, {

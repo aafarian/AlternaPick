@@ -160,64 +160,7 @@ export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
       const resolved = await persistResolution(supabase, result);
       if (!resolved) continue; // Already resolved by another caller
 
-      // Fire-and-forget: notify card owner about resolution
-      if (result.user_id) {
-        try {
-          const { title, body } = getCardNotificationMessage(
-            result.score,
-            result.total
-          );
-          await createNotification(supabase, {
-            user_id: result.user_id,
-            type: "card_resolved",
-            title,
-            body,
-            metadata: { card_id: result.card_id },
-          });
-        } catch (notifError) {
-          console.error(
-            "Failed to create card_resolved notification:",
-            notifError
-          );
-        }
-
-        // Fire-and-forget: check achievements after card resolution
-        try {
-          const lbResult = await (supabase.from("leaderboard_entries") as any)
-            .select(
-              "total_cards, current_streak, best_streak, win_rate, h2h_wins, h2h_losses"
-            )
-            .eq("user_id", result.user_id)
-            .single();
-
-          const lb = (lbResult.data ?? {
-            total_cards: 0,
-            current_streak: 0,
-            best_streak: 0,
-            win_rate: 0,
-            h2h_wins: 0,
-            h2h_losses: 0,
-          }) as {
-            total_cards: number;
-            current_streak: number;
-            best_streak: number;
-            win_rate: number;
-            h2h_wins: number;
-            h2h_losses: number;
-          };
-
-          await checkAndUnlockAchievements(supabase, result.user_id, {
-            cardResolved: { score: result.score, total: result.total },
-            leaderboardStats: lb,
-          });
-        } catch (achievementError) {
-          console.error(
-            "Failed to check achievements after card resolution:",
-            achievementError
-          );
-        }
-      }
-
+      await handlePostResolution(supabase, result);
       results.push(result);
     }
   }
@@ -438,8 +381,7 @@ async function persistResolution(
   supabase: ReturnType<typeof createAdminClient>,
   result: ResolutionResult
 ): Promise<boolean> {
-  // Atomic resolution: updates all picks + card status in a single transaction.
-  // Returns false if the card was already resolved (race condition).
+  // Try atomic RPC first (single transaction for all picks + card status)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: success, error } = await (supabase.rpc as any)("resolve_card", {
     p_card_id: result.card_id,
@@ -451,30 +393,106 @@ async function persistResolution(
     })),
   });
 
-  if (error) {
-    // Card not in 'locked' status — already resolved by another caller
-    if (error.message?.includes("not found") || error.message?.includes("locked")) {
-      return false;
+  if (!error && success) {
+    // RPC succeeded — update leaderboard
+    if (result.user_id) {
+      await updateLeaderboardStats(supabase, result.user_id, result.score, result.total);
     }
-    throw error;
+    return true;
   }
 
-  if (!success) {
-    // Card was already resolved (race condition) — skip leaderboard update
+  // Already resolved by another caller — no-op
+  if (!error && !success) return false;
+  if (error?.message?.includes("not found") || error?.message?.includes("locked")) {
     return false;
   }
 
-  // Update leaderboard stats for authenticated users
+  // RPC failed for another reason — fall back to direct writes
+  console.error("resolve_card RPC failed, falling back to direct writes:", error?.message);
+
+  // Verify card is still locked
+  const { data: check } = await (supabase.from("cards") as any)
+    .select("status")
+    .eq("id", result.card_id)
+    .single();
+  if (check?.status !== "locked") return false;
+
+  // Write pick results
+  for (const p of result.picks) {
+    await (supabase.from("picks") as any)
+      .update({ result: p.result, actual_value: p.actual_value })
+      .eq("id", p.pick_id);
+  }
+
+  // Mark card resolved (only if still locked — race protection)
+  const { data: updated } = await (supabase.from("cards") as any)
+    .update({ status: "resolved", score: result.score, resolved_at: new Date().toISOString() })
+    .eq("id", result.card_id)
+    .eq("status", "locked")
+    .select("id");
+
+  if (!updated?.length) return false;
+
+  // Update leaderboard stats
   if (result.user_id) {
-    await updateLeaderboardStats(
-      supabase,
-      result.user_id,
-      result.score,
-      result.total
-    );
+    await updateLeaderboardStats(supabase, result.user_id, result.score, result.total);
   }
 
   return true;
+}
+
+/**
+ * Post-resolution side effects: notification + achievement check.
+ * Shared by resolveEligibleCards and tryResolveFromLiveData.
+ */
+async function handlePostResolution(
+  supabase: ReturnType<typeof createAdminClient>,
+  result: ResolutionResult,
+): Promise<void> {
+  if (!result.user_id) return;
+
+  try {
+    const { title, body } = getCardNotificationMessage(result.score, result.total);
+    await createNotification(supabase, {
+      user_id: result.user_id,
+      type: "card_resolved",
+      title,
+      body,
+      metadata: { card_id: result.card_id },
+    });
+  } catch (notifError) {
+    console.error("Failed to create card_resolved notification:", notifError);
+  }
+
+  try {
+    const lbResult = await (supabase.from("leaderboard_entries") as any)
+      .select("total_cards, current_streak, best_streak, win_rate, h2h_wins, h2h_losses")
+      .eq("user_id", result.user_id)
+      .single();
+
+    const lb = (lbResult.data ?? {
+      total_cards: 0,
+      current_streak: 0,
+      best_streak: 0,
+      win_rate: 0,
+      h2h_wins: 0,
+      h2h_losses: 0,
+    }) as {
+      total_cards: number;
+      current_streak: number;
+      best_streak: number;
+      win_rate: number;
+      h2h_wins: number;
+      h2h_losses: number;
+    };
+
+    await checkAndUnlockAchievements(supabase, result.user_id, {
+      cardResolved: { score: result.score, total: result.total },
+      leaderboardStats: lb,
+    });
+  } catch (achievementError) {
+    console.error("Failed to check achievements after card resolution:", achievementError);
+  }
 }
 
 function getCardNotificationMessage(
@@ -621,11 +639,11 @@ export async function tryResolveFromLiveData(
       const eventId = pick.props?.games?.external_event_id;
       if (!eventId) return false;
       const liveGame = gameStatusMap.get(eventId);
-      // Only treat as final if the stats service explicitly confirms it.
-      // Games missing from the list may still be in progress (timezone
-      // mismatch or transient stats service failure).
-      if (!liveGame) return false;
-      return liveGame.status === "final";
+      if (liveGame) return liveGame.status === "final";
+      // Game not in today's live data (yesterday's game) — trust DB status.
+      // If the DB already has it as "final" with scores, it was confirmed
+      // in a previous sync cycle.
+      return pick.props?.games?.status === "final";
     });
 
     if (!allFinal) continue;
@@ -677,62 +695,7 @@ export async function tryResolveFromLiveData(
     const resolved = await persistResolution(supabase, result);
     if (!resolved) continue; // Already resolved by another caller
 
-    if (result.user_id) {
-      try {
-        const { title, body } = getCardNotificationMessage(
-          result.score,
-          result.total
-        );
-        await createNotification(supabase, {
-          user_id: result.user_id,
-          type: "card_resolved",
-          title,
-          body,
-          metadata: { card_id: result.card_id },
-        });
-      } catch (notifError) {
-        console.error(
-          "Failed to create card_resolved notification:",
-          notifError
-        );
-      }
-
-      try {
-        const lbResult = await (supabase.from("leaderboard_entries") as any)
-          .select(
-            "total_cards, current_streak, best_streak, win_rate, h2h_wins, h2h_losses"
-          )
-          .eq("user_id", result.user_id)
-          .single();
-
-        const lb = (lbResult.data ?? {
-          total_cards: 0,
-          current_streak: 0,
-          best_streak: 0,
-          win_rate: 0,
-          h2h_wins: 0,
-          h2h_losses: 0,
-        }) as {
-          total_cards: number;
-          current_streak: number;
-          best_streak: number;
-          win_rate: number;
-          h2h_wins: number;
-          h2h_losses: number;
-        };
-
-        await checkAndUnlockAchievements(supabase, result.user_id, {
-          cardResolved: { score: result.score, total: result.total },
-          leaderboardStats: lb,
-        });
-      } catch (achievementError) {
-        console.error(
-          "Failed to check achievements after card resolution:",
-          achievementError
-        );
-      }
-    }
-
+    await handlePostResolution(supabase, result);
     results.push(result);
   }
 
