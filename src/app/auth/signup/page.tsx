@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signUp } from "@/lib/auth/actions";
+import { signUp, claimCardsAfterLogin } from "@/lib/auth/actions";
+import { clearAnonymousId } from "@/lib/session/anonymous";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -84,11 +85,17 @@ function SignupForm() {
       return;
     }
 
-    // Step 3: Process referral if the user came via a referral link
+    // Step 3: Claim any anonymous cards created before signup
+    await claimCardsAfterLogin().catch((err) => {
+      console.error("Failed to claim anonymous cards after signup:", err);
+    });
+    clearAnonymousId();
+
+    // Step 4: Process referral if the user came via a referral link
     await processReferralIfNeeded();
 
-    // Step 4: Navigate -- auth context will have the user by now
-    router.push("/picks");
+    // Step 5: Navigate — auth context will have the user by now
+    router.push("/props");
   }
 
   async function handleGoogleSignIn() {
@@ -103,7 +110,7 @@ function SignupForm() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=%2Fcards`,
+        redirectTo: `${window.location.origin}/auth/callback?next=%2Fprops`,
       },
     });
   }
