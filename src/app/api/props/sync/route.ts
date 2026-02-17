@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
-import { isCacheStale, cacheProps, PROPS_CACHE_TAG } from "@/lib/odds-api/cache";
+import { isSyncOverlapping, getEventIdsWithProps, cacheProps, PROPS_CACHE_TAG } from "@/lib/odds-api/cache";
 import { fetchAllPropsMultiSport } from "@/lib/odds-api/client";
 import type { SportKey } from "@/lib/odds-api/constants";
 import { unauthorized, tooManyRequests, serverError, handleApiError } from "@/lib/api/errors";
@@ -20,16 +20,20 @@ export async function POST(request: NextRequest) {
 
   try {
     const force = request.nextUrl.searchParams.get("force") === "true";
-    const stale = force || await isCacheStale();
 
-    if (!stale) {
-      return NextResponse.json({
-        synced: false,
-        message: "Cache is fresh, no sync needed",
-      });
+    if (!force) {
+      const overlapping = await isSyncOverlapping();
+      if (overlapping) {
+        return NextResponse.json({
+          synced: false,
+          message: "Sync ran recently (within 5 min), skipping to prevent overlap",
+        });
+      }
     }
 
-    const multiResults = await fetchAllPropsMultiSport();
+    // Only fetch odds for events we don't already have props for
+    const skipEventIds = force ? undefined : await getEventIdsWithProps();
+    const multiResults = await fetchAllPropsMultiSport(skipEventIds);
 
     let totalGames = 0;
     let totalProps = 0;
@@ -76,6 +80,7 @@ export async function POST(request: NextRequest) {
       synced: true,
       gamesCount: totalGames,
       propsCount: totalProps,
+      eventsSkipped: skipEventIds?.size ?? 0,
       creditsRemaining: latestCreditsRemaining,
       sports: Array.from(multiResults.keys()),
       enrichment,
