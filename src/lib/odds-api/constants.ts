@@ -2,7 +2,6 @@ import type { StatCategory } from "@/lib/supabase/types";
 
 export const ODDS_API_BASE_URL = "https://api.the-odds-api.com";
 export const DEFAULT_REGION = "us";
-export const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 export type SportKey = "nba" | "epl" | "ncaab" | "nhl" | "la_liga";
 

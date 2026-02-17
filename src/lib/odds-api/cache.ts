@@ -1,46 +1,50 @@
 import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { CACHE_TTL_MS } from "./constants";
 import type { SportKey } from "./constants";
 import type { OddsApiEvent, ParsedPlayerProp } from "./types";
 import type { Game, Prop } from "@/lib/supabase/types";
 import { fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams, fetchSoccerPlayers } from "@/lib/stats-service/client";
 
-export async function isCacheStale(): Promise<boolean> {
+/**
+ * Returns true if a sync happened within the last 5 minutes,
+ * preventing overlapping syncs during the delete-then-insert window.
+ */
+export async function isSyncOverlapping(): Promise<boolean> {
+  const supabase = createAdminClient();
+  const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+
+  const result = await supabase
+    .from("props")
+    .select("fetched_at")
+    .gte("fetched_at", fiveMinAgo)
+    .limit(1);
+
+  return (result.data ?? []).length > 0;
+}
+
+/**
+ * Returns odds_api_event_ids for upcoming games that already have props in the DB.
+ * The sync pipeline uses this to skip re-fetching events, saving API credits.
+ */
+export async function getEventIdsWithProps(): Promise<Set<string>> {
   const supabase = createAdminClient();
 
   const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-  // Include tomorrow so we always have next-day props ready
-  const tomorrowEnd = new Date(now);
-  tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
-  tomorrowEnd.setHours(23, 59, 59, 999);
+  const rangeStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const rangeEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  const gamesResult = await supabase
+  // !inner join returns only games that have at least one prop — single query,
+  // one row per game, no row-limit concerns
+  const result = await supabase
     .from("games")
-    .select("id")
-    .gte("commence_time", todayStart.toISOString())
-    .lte("commence_time", tomorrowEnd.toISOString());
+    .select("odds_api_event_id, props!inner(id)")
+    .gte("commence_time", rangeStart.toISOString())
+    .lte("commence_time", rangeEnd.toISOString())
+    .not("odds_api_event_id", "is", null);
 
-  const games = (gamesResult.data ?? []) as Pick<Game, "id">[];
-  // No games at all for today+tomorrow — stale, need to sync
-  if (games.length === 0) return true;
-
-  const gameIds = games.map((g) => g.id);
-  const propsResult = await supabase
-    .from("props")
-    .select("fetched_at")
-    .in("game_id", gameIds)
-    .order("fetched_at", { ascending: false })
-    .limit(1);
-
-  const props = (propsResult.data ?? []) as Pick<Prop, "fetched_at">[];
-  // No props for any of these games — stale
-  if (props.length === 0) return true;
-
-  const lastFetched = new Date(props[0].fetched_at).getTime();
-  return now.getTime() - lastFetched > CACHE_TTL_MS;
+  return new Set(
+    ((result.data ?? []) as { odds_api_event_id: string }[]).map((g) => g.odds_api_event_id)
+  );
 }
 
 async function getCachedPropsInternal(sport?: SportKey): Promise<
@@ -96,16 +100,16 @@ async function getPropCountsBySportInternal(): Promise<Record<string, number>> {
 
   const result = await supabase
     .from("games")
-    .select("sport, props(id)")
+    .select("sport, props(count)")
     .gte("commence_time", rangeStart.toISOString())
     .lte("commence_time", rangeEnd.toISOString());
 
-  const games = (result.data ?? []) as { sport: string; props: { id: string }[] }[];
+  const games = (result.data ?? []) as { sport: string; props: { count: number }[] }[];
 
   const counts: Record<string, number> = {};
   for (const game of games) {
     const sport = game.sport || "nba";
-    counts[sport] = (counts[sport] ?? 0) + game.props.length;
+    counts[sport] = (counts[sport] ?? 0) + (game.props[0]?.count ?? 0);
   }
   return counts;
 }
@@ -122,10 +126,31 @@ export interface CachePropsResult {
   playerMapSize: number;
 }
 
+// Intra-request lock: cacheProps is called in a loop (once per sport) within
+// the same request. This prevents the loop iterations from interleaving.
+// Cross-request protection is handled by isSyncOverlapping() in the sync route.
+let _syncLock = false;
+
 export async function cacheProps(
   events: OddsApiEvent[],
   propsMap: Map<string, ParsedPlayerProp[]>,
   sport: SportKey = "nba"
+): Promise<CachePropsResult> {
+  if (_syncLock) {
+    return { propsInserted: 0, propsEnriched: 0, playerMapSize: 0 };
+  }
+  _syncLock = true;
+  try {
+    return await _cachePropsInternal(events, propsMap, sport);
+  } finally {
+    _syncLock = false;
+  }
+}
+
+async function _cachePropsInternal(
+  events: OddsApiEvent[],
+  propsMap: Map<string, ParsedPlayerProp[]>,
+  sport: SportKey
 ): Promise<CachePropsResult> {
   const supabase = createAdminClient();
   const now = new Date().toISOString();
@@ -502,7 +527,10 @@ export async function cacheProps(
     for (let i = 0; i < newPropRows.length; i += 500) {
       const batch = newPropRows.slice(i, i + 500);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("props") as any).insert(batch);
+      await (supabase.from("props") as any).upsert(batch, {
+        onConflict: "game_id,player_name,stat_category",
+        ignoreDuplicates: false,
+      });
     }
   }
 

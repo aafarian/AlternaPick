@@ -151,23 +151,35 @@ function parseOddsResponse(
   });
 }
 
-export async function fetchAllProps(sportKey: SportKey = "nba"): Promise<FetchPropsResult> {
+export async function fetchAllProps(
+  sportKey: SportKey = "nba",
+  skipEventIds?: Set<string>,
+): Promise<FetchPropsResult> {
   const events = await fetchEvents(sportKey);
 
-  // Only fetch odds for games that haven't started yet (saves API credits)
+  // Only fetch odds for games starting within the next 48 hours.
+  // Props are rarely available earlier, so calling the API for games further
+  // out wastes credits (each call costs 1 credit per market requested).
   const now = Date.now();
-  const upcomingEvents = events.filter(
-    (e) => new Date(e.commence_time).getTime() > now
-  );
+  const ODDS_WINDOW_MS = 48 * 60 * 60 * 1000; // 48 hours
+  const upcomingEvents = events.filter((e) => {
+    const start = new Date(e.commence_time).getTime();
+    return start > now && start < now + ODDS_WINDOW_MS;
+  });
+
+  // Skip events that already have props in the DB to save credits
+  const newEvents = skipEventIds
+    ? upcomingEvents.filter((e) => !skipEventIds.has(e.id))
+    : upcomingEvents;
 
   const propsMap = new Map<string, ParsedPlayerProp[]>();
   let latestCredits: CreditUsage = { used: null, remaining: null };
 
   console.log(
-    `[Odds API] [${sportKey}] ${events.length} total events, ${upcomingEvents.length} upcoming — fetching odds for upcoming only`
+    `[Odds API] [${sportKey}] ${events.length} total, ${upcomingEvents.length} within 48h, ${newEvents.length} new — fetching odds`
   );
 
-  for (const event of upcomingEvents) {
+  for (const event of newEvents) {
     try {
       const { props, credits } = await fetchEventOdds(event.id, sportKey);
       propsMap.set(event.id, props);
@@ -193,12 +205,14 @@ export async function fetchAllProps(sportKey: SportKey = "nba"): Promise<FetchPr
   return { events, props: propsMap, credits: latestCredits };
 }
 
-export async function fetchAllPropsMultiSport(): Promise<Map<SportKey, FetchPropsResult>> {
+export async function fetchAllPropsMultiSport(
+  skipEventIds?: Set<string>,
+): Promise<Map<SportKey, FetchPropsResult>> {
   const results = new Map<SportKey, FetchPropsResult>();
   const sports: SportKey[] = ["nba", "epl", "ncaab", "nhl", "la_liga"];
 
   const settled = await Promise.allSettled(
-    sports.map((sport) => fetchAllProps(sport).then((result) => ({ sport, result })))
+    sports.map((sport) => fetchAllProps(sport, skipEventIds).then((result) => ({ sport, result })))
   );
 
   for (const outcome of settled) {
