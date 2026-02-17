@@ -4,7 +4,6 @@ import { handleApiError } from "@/lib/api/errors";
 import { expireStaleChallenges } from "@/lib/challenges/queries";
 import { resolveEligibleCards } from "@/lib/cards/resolution";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
-import type { Database } from "@/lib/supabase/types";
 
 export async function POST(request: NextRequest) {
   try {
