@@ -33,31 +33,17 @@ export async function getEventIdsWithProps(): Promise<Set<string>> {
   const rangeStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const rangeEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  const gamesResult = await supabase
+  // !inner join returns only games that have at least one prop — single query,
+  // one row per game, no row-limit concerns
+  const result = await supabase
     .from("games")
-    .select("id, odds_api_event_id")
+    .select("odds_api_event_id, props!inner(id)")
     .gte("commence_time", rangeStart.toISOString())
     .lte("commence_time", rangeEnd.toISOString())
     .not("odds_api_event_id", "is", null);
 
-  const games = (gamesResult.data ?? []) as { id: string; odds_api_event_id: string }[];
-  if (games.length === 0) return new Set();
-
-  const gameIds = games.map((g) => g.id);
-  const propsResult = await supabase
-    .from("props")
-    .select("game_id")
-    .in("game_id", gameIds)
-    .limit(10000);
-
-  const gameIdsWithProps = new Set(
-    ((propsResult.data ?? []) as Pick<Prop, "game_id">[]).map((p) => p.game_id)
-  );
-
   return new Set(
-    games
-      .filter((g) => gameIdsWithProps.has(g.id))
-      .map((g) => g.odds_api_event_id)
+    ((result.data ?? []) as { odds_api_event_id: string }[]).map((g) => g.odds_api_event_id)
   );
 }
 
