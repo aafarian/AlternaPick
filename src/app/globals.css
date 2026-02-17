@@ -163,6 +163,26 @@ body {
   }
 }
 
+/* Skeleton loading shimmer — subtle left-to-right highlight sweep */
+@keyframes skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+@utility animate-skeleton-shimmer {
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-skeleton-shimmer {
+    animation: none;
+  }
+}
+
 /* Live stats bar shimmer animation */
 @keyframes bar-shimmer {
   0% {
