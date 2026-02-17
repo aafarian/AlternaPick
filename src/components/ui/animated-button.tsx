@@ -7,26 +7,7 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "./button";
 import { Loader2 } from "lucide-react";
 
-/* -------------------------------------------------------------------------- */
-/*  Spring presets                                                            */
-/* -------------------------------------------------------------------------- */
-
 const hoverSpring = { type: "spring" as const, stiffness: 400, damping: 25 };
-
-/* -------------------------------------------------------------------------- */
-/*  Glow keyframes (CSS animation for the primary variant)                    */
-/* -------------------------------------------------------------------------- */
-
-const glowKeyframes = `
-@keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 25px rgba(0,210,106,0.25); }
-  50%      { box-shadow: 0 0 40px rgba(0,210,106,0.45); }
-}
-`;
-
-/* -------------------------------------------------------------------------- */
-/*  AnimatedButton                                                            */
-/* -------------------------------------------------------------------------- */
 
 /**
  * Props that conflict between React's native button events and motion's event
@@ -47,8 +28,6 @@ interface AnimatedButtonProps
   loading?: boolean;
   /** Text shown next to the spinner while `loading` is true. */
   loadingText?: string;
-  /** Render as a child Slot component (passthrough). Disables motion wrapper. */
-  asChild?: boolean;
 }
 
 /**
@@ -69,7 +48,6 @@ function AnimatedButton({
   loadingText,
   disabled,
   children,
-  asChild,
   ...props
 }: AnimatedButtonProps) {
   const prefersReduced = useReducedMotion();
@@ -81,93 +59,73 @@ function AnimatedButton({
   /* Combine variant classes */
   const classes = cn(
     buttonVariants({ variant, size }),
-    isPrimary && !prefersReduced && "hover-glow",
+    isPrimary && !prefersReduced && "animated-btn-glow",
     className,
   );
 
   /* ---- Reduced-motion fallback: plain <button> with no motion wrapper ---- */
   if (prefersReduced) {
     return (
-      <>
-        <style>{glowKeyframes}</style>
-        <button
-          data-slot="button"
-          data-variant={variant}
-          data-size={size}
-          className={classes}
-          disabled={isDisabled}
-          {...props}
-        >
-          {loading ? (
-            <span className="inline-flex items-center gap-2">
-              <Loader2 className="size-4 animate-spin" />
-              {loadingText ?? children}
-            </span>
-          ) : (
-            children
-          )}
-        </button>
-      </>
-    );
-  }
-
-  /* ---- Full animated version ---- */
-  return (
-    <>
-      {/* Inject glow keyframes once */}
-      <style>{glowKeyframes}</style>
-
-      <motion.button
+      <button
         data-slot="button"
         data-variant={variant}
         data-size={size}
         className={classes}
         disabled={isDisabled}
-        /* Scale micro-interactions */
-        whileHover={isDisabled ? undefined : { scale: 1.02 }}
-        whileTap={isDisabled ? undefined : { scale: 0.97 }}
-        transition={hoverSpring}
-        /* Override transition for tap specifically */
         {...props}
       >
-        <AnimatePresence mode="wait" initial={false}>
-          {loading ? (
-            <motion.span
-              key="loading"
-              className="inline-flex items-center gap-2"
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.15 }}
-            >
-              <Loader2 className="size-4 animate-spin" />
-              {loadingText ?? children}
-            </motion.span>
-          ) : (
-            <motion.span
-              key="content"
-              className="inline-flex items-center gap-2"
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.15 }}
-            >
-              {children}
-            </motion.span>
-          )}
-        </AnimatePresence>
-      </motion.button>
+        {loading ? (
+          <span className="inline-flex items-center gap-2">
+            <Loader2 className="size-4 animate-spin" />
+            {loadingText ?? children}
+          </span>
+        ) : (
+          children
+        )}
+      </button>
+    );
+  }
 
-      {/* Scoped styles for hover glow */}
-      <style>{`
-        .hover-glow:hover:not(:disabled) {
-          animation: glow-pulse 1.5s ease-in-out infinite;
-        }
-        .hover-glow:not(:hover) {
-          box-shadow: none;
-        }
-      `}</style>
-    </>
+  /* ---- Full animated version ---- */
+  return (
+    <motion.button
+      data-slot="button"
+      data-variant={variant}
+      data-size={size}
+      className={classes}
+      disabled={isDisabled}
+      whileHover={isDisabled ? undefined : { scale: 1.02 }}
+      whileTap={isDisabled ? undefined : { scale: 0.97 }}
+      transition={hoverSpring}
+      {...props}
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        {loading ? (
+          <motion.span
+            key="loading"
+            className="inline-flex items-center gap-2"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+          >
+            <Loader2 className="size-4 animate-spin" />
+            {loadingText ?? children}
+          </motion.span>
+        ) : (
+          <motion.span
+            key="content"
+            className="inline-flex items-center gap-2"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+          >
+            {children}
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </motion.button>
   );
 }
 

@@ -16,18 +16,6 @@ import { StaggerChildren, StaggerItem } from "@/components/motion";
 import { AnimatePresence, motion, useReducedMotion } from "@/lib/motion";
 import { AlertCircle } from "lucide-react";
 
-/* -------------------------------------------------------------------------- */
-/*  Referral banner highlight glow (brief pulse on mount)                     */
-/* -------------------------------------------------------------------------- */
-
-const referralGlowKeyframes = `
-@keyframes referral-glow {
-  0%   { box-shadow: 0 0 8px rgba(0,210,106,0.1); }
-  40%  { box-shadow: 0 0 20px rgba(0,210,106,0.35), 0 0 40px rgba(0,210,106,0.15); }
-  100% { box-shadow: 0 0 8px rgba(0,210,106,0.1); }
-}
-`;
-
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -122,9 +110,6 @@ function SignupForm() {
 
   return (
     <>
-      {/* Inject referral glow keyframes */}
-      {refParam && <style>{referralGlowKeyframes}</style>}
-
       <SlideUp duration={0.5} offset={24}>
         <Card className="border-border bg-card relative overflow-hidden border-primary/10 shadow-[0_0_30px_rgba(0,210,106,0.06)]">
           <CardContent className="p-6">
@@ -181,7 +166,13 @@ function SignupForm() {
 
               {/* ---- Form ---- */}
               <StaggerItem>
-                <form action={handleSignUp} className="flex flex-col gap-4">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSignUp(new FormData(e.currentTarget));
+                  }}
+                  className="flex flex-col gap-4"
+                >
                   <AnimatedInput
                     id="username"
                     name="username"

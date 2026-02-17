@@ -336,25 +336,49 @@ body {
   }
 }
 
-/* Auth layout — ambient glow orb behind brand text */
-@keyframes auth-glow {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.7;
-  }
-  50% {
-    transform: scale(1.15);
-    opacity: 1;
-  }
+/* Autofill detection — browsers fire animationstart when autofilling,
+   which AnimatedInput listens for to float the label correctly. */
+@keyframes autofill-start { from {} to {} }
+input:-webkit-autofill { animation-name: autofill-start; }
+
+/* AnimatedButton — pulsing glow on hover for primary variant */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 25px rgba(0, 210, 106, 0.25); }
+  50%      { box-shadow: 0 0 40px rgba(0, 210, 106, 0.45); }
 }
 
-@utility animate-auth-glow {
-  animation: auth-glow 6s ease-in-out infinite;
+.animated-btn-glow:hover:not(:disabled) {
+  animation: glow-pulse 1.5s ease-in-out infinite;
+}
+
+.animated-btn-glow:not(:hover) {
+  box-shadow: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-auth-glow {
+  .animated-btn-glow:hover:not(:disabled) {
     animation: none;
+    box-shadow: 0 0 25px rgba(0, 210, 106, 0.25);
+  }
+}
+
+/* Referral banner — brief highlight pulse on mount */
+@keyframes referral-glow {
+  0%   { box-shadow: 0 0 8px rgba(0, 210, 106, 0.1); }
+  40%  { box-shadow: 0 0 20px rgba(0, 210, 106, 0.35), 0 0 40px rgba(0, 210, 106, 0.15); }
+  100% { box-shadow: 0 0 8px rgba(0, 210, 106, 0.1); }
+}
+
+/* Login card — subtle pulsing border glow */
+@keyframes card-border-glow {
+  0%, 100% { box-shadow: 0 0 15px rgba(0, 210, 106, 0.08), 0 0 30px rgba(59, 130, 246, 0.04); }
+  50%      { box-shadow: 0 0 20px rgba(0, 210, 106, 0.14), 0 0 40px rgba(59, 130, 246, 0.07); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-border-glow {
+    animation: none;
+    box-shadow: 0 0 15px rgba(0, 210, 106, 0.08);
   }
 }
 

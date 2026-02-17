@@ -83,7 +83,13 @@ export default function UpdatePasswordPage() {
           </Alert>
         )}
 
-        <form action={handleSubmit} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit(new FormData(e.currentTarget));
+          }}
+          className="flex flex-col gap-4"
+        >
           <div className="space-y-2">
             <Label htmlFor="password">New Password</Label>
             <Input

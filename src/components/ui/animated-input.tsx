@@ -19,7 +19,7 @@ interface AnimatedInputProps extends React.ComponentProps<"input"> {
  * Respects `prefers-reduced-motion` -- instant state changes, no animation.
  */
 const AnimatedInput = React.forwardRef<HTMLInputElement, AnimatedInputProps>(
-  ({ className, type, label, id, ...props }, ref) => {
+  ({ className, type, label, id, onFocus, onBlur, onChange, ...restProps }, ref) => {
     const [isFocused, setIsFocused] = React.useState(false);
     const [hasValue, setHasValue] = React.useState(false);
     const prefersReduced = useReducedMotion();
@@ -29,25 +29,37 @@ const AnimatedInput = React.forwardRef<HTMLInputElement, AnimatedInputProps>(
     const handleChange = React.useCallback(
       (e: React.ChangeEvent<HTMLInputElement>) => {
         setHasValue(e.target.value.length > 0);
-        props.onChange?.(e);
+        onChange?.(e);
       },
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      [props.onChange],
+      [onChange],
     );
 
     // Check initial value / defaultValue
     React.useEffect(() => {
-      if (props.value !== undefined && props.value !== "") {
+      if (restProps.value !== undefined && restProps.value !== "") {
         setHasValue(true);
-      } else if (props.defaultValue !== undefined && props.defaultValue !== "") {
+      } else if (restProps.defaultValue !== undefined && restProps.defaultValue !== "") {
         setHasValue(true);
       }
-    }, [props.value, props.defaultValue]);
+    }, [restProps.value, restProps.defaultValue]);
+
+    // Detect browser autofill via the CSS animation trick.
+    // Browsers fire animationstart with our "autofill-start" keyframe
+    // when they autofill an input (e.g. saved passwords).
+    const handleAnimationStart = React.useCallback(
+      (e: React.AnimationEvent<HTMLInputElement>) => {
+        if (e.animationName === "autofill-start") {
+          setHasValue(true);
+        }
+      },
+      [],
+    );
 
     const isLabelFloated = isFocused || hasValue;
 
     const inputElement = (
       <input
+        {...restProps}
         ref={ref}
         id={inputId}
         type={type}
@@ -76,14 +88,14 @@ const AnimatedInput = React.forwardRef<HTMLInputElement, AnimatedInputProps>(
         }
         onFocus={(e) => {
           setIsFocused(true);
-          props.onFocus?.(e);
+          onFocus?.(e);
         }}
         onBlur={(e) => {
           setIsFocused(false);
-          props.onBlur?.(e);
+          onBlur?.(e);
         }}
         onChange={handleChange}
-        {...props}
+        onAnimationStart={handleAnimationStart}
       />
     );
 

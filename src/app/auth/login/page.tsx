@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import { resolveLoginEmail, claimCardsAfterLogin } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { AnimatedInput } from "@/components/ui/animated-input";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -14,17 +15,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StaggerChildren, StaggerItem } from "@/components/motion";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 import { AlertCircle } from "lucide-react";
-
-/* -------------------------------------------------------------------------- */
-/*  Card glow keyframes                                                       */
-/* -------------------------------------------------------------------------- */
-
-const cardGlowKeyframes = `
-@keyframes card-border-glow {
-  0%, 100% { box-shadow: 0 0 15px rgba(0,210,106,0.08), 0 0 30px rgba(59,130,246,0.04); }
-  50%      { box-shadow: 0 0 20px rgba(0,210,106,0.14), 0 0 40px rgba(59,130,246,0.07); }
-}
-`;
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -105,10 +95,11 @@ function LoginForm() {
 
   return (
     <>
-      <style>{cardGlowKeyframes}</style>
-
       <motion.div
-        className="rounded-xl border border-border bg-card p-6"
+        className={cn(
+          "rounded-xl border border-border bg-card p-6",
+          !prefersReduced && "card-border-glow"
+        )}
         style={
           !prefersReduced
             ? { animation: "card-border-glow 3s ease-in-out infinite" }
@@ -144,7 +135,13 @@ function LoginForm() {
 
           {/* ── Form ── */}
           <StaggerItem>
-            <form action={handleSignIn} className="flex flex-col gap-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSignIn(new FormData(e.currentTarget));
+              }}
+              className="flex flex-col gap-4"
+            >
               <AnimatedInput
                 id="login"
                 name="login"
