@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { CardWithPicks } from "@/lib/cards/api";
 import { toLivePickData } from "@/lib/cards/live-types";
 import type { LivePickData } from "@/lib/cards/live-types";
@@ -51,7 +53,15 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
     card.picks.some(
       (p) => p.actual_value === null && (p.result === "hit" || p.result === "miss")
     );
-  const { data: liveData } = useLiveStats(card.id, isLocked || hasMissingValues);
+  const router = useRouter();
+  const { data: liveData, cardResolved } = useLiveStats(card.id, isLocked || hasMissingValues);
+
+  // Refresh page data when the backend resolves the card during live polling
+  useEffect(() => {
+    if (cardResolved) {
+      router.refresh();
+    }
+  }, [cardResolved, router]);
 
   const livePickMap = new Map<string, LivePickData>();
   if (liveData) {

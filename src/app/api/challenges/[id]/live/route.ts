@@ -11,8 +11,7 @@ import type {
   LiveGameStatus,
   LiveChallengeData,
 } from "@/lib/cards/live-types";
-import { tryResolveFromLiveData, resolveEligibleCards } from "@/lib/cards/resolution";
-import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
+import { tryResolveFromLiveData } from "@/lib/cards/resolution";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -78,37 +77,96 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       ? buildLivePicksForCard(opponentCardRaw.picks, gameStatusMap, boxscoreMap)
       : null;
 
-    // Auto-resolve cards whose games are all final
+    // --- Resolution ---
     const hadLockedCards = cardsList.some((c) => c.status === "locked");
     let challengeResolved = false;
 
     if (hadLockedCards) {
-      // Fast path: reuse pre-fetched live data
+      // Try the standard pipeline first (handles leaderboard, notifications, achievements)
       try {
         await tryResolveFromLiveData(cardsList, gameStatusMap, boxscoreMap);
       } catch (err) {
-        console.error("Auto-resolution from challenge live endpoint failed:", err);
+        console.error("tryResolveFromLiveData failed:", err);
       }
 
-      // Fallback: resolve via DB status (catches yesterday's games, missed syncs)
-      try {
-        await resolveEligibleCards();
-        await resolveEligibleChallenges();
-      } catch (err) {
-        console.error("Fallback resolution failed:", err);
+      // Direct fallback: if live computation already shows all picks are done,
+      // just write the results to DB. This catches whatever the pipeline misses
+      // (yesterday's games, RPC issues, missing ESPN IDs, etc.)
+      for (const [cardRaw, live] of [
+        [challengerCardRaw, challengerLive] as const,
+        [opponentCardRaw, opponentLive] as const,
+      ]) {
+        if (!cardRaw || cardRaw.status !== "locked") continue;
+        const livePicks = live?.livePicks;
+        if (!livePicks?.length) continue;
+
+        // Every pick must have a result and its game must be final
+        const allDone = livePicks.every(
+          (p) => p.trending !== null && p.game_status?.status === "final"
+        );
+        if (!allDone) continue;
+
+        // Check DB — card may already have been resolved by tryResolveFromLiveData
+        const { data: check } = await (admin.from("cards") as any)
+          .select("status")
+          .eq("id", cardRaw.id)
+          .single();
+        if (check?.status !== "locked") continue;
+
+        const score = livePicks.filter((p) => p.trending === "hit").length;
+
+        // Write pick results directly
+        for (const lp of livePicks) {
+          await (admin.from("picks") as any)
+            .update({ result: lp.trending, actual_value: lp.current_value })
+            .eq("id", lp.pick_id);
+        }
+
+        // Mark card resolved
+        await (admin.from("cards") as any)
+          .update({ status: "resolved", score, resolved_at: new Date().toISOString() })
+          .eq("id", cardRaw.id)
+          .eq("status", "locked");
       }
 
-      // Check if cards were resolved during this request
+      // Check if all cards are now resolved → resolve the challenge
       const { data: freshCards } = await (admin.from("cards") as any)
-        .select("status")
+        .select("user_id, score, status")
         .eq("challenge_id", id);
-      const allResolved = (freshCards ?? []).every(
-        (c: { status: string }) => c.status === "resolved"
-      );
-      challengeResolved = allResolved;
+
+      const allCardsResolved = (freshCards ?? []).length >= 2 &&
+        freshCards.every((c: { status: string }) => c.status === "resolved");
+
+      if (allCardsResolved) {
+        challengeResolved = true;
+
+        // Resolve the challenge itself if still active
+        if (challenge.status === "active") {
+          const cCard = freshCards.find(
+            (c: { user_id: string }) => c.user_id === challenge.challenger_id
+          );
+          const oCard = freshCards.find(
+            (c: { user_id: string }) => c.user_id === challenge.opponent_id
+          );
+          if (cCard && oCard) {
+            let winnerId: string | null = null;
+            if (cCard.score > oCard.score) winnerId = challenge.challenger_id;
+            else if (oCard.score > cCard.score) winnerId = challenge.opponent_id;
+
+            await (admin.from("challenges") as any)
+              .update({
+                status: "resolved",
+                winner_id: winnerId,
+                resolved_at: new Date().toISOString(),
+              })
+              .eq("id", id)
+              .eq("status", "active");
+          }
+        }
+      }
     }
 
-    // Merge unique games from both cards
+    // --- Build response ---
     const seenGames = new Set<string>();
     const games: LiveGameStatus[] = [];
     for (const result of [challengerLive, opponentLive]) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { unauthorized, notFound, handleApiError } from "@/lib/api/errors";
 import {
   buildLivePicksForCard,
@@ -52,11 +53,50 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       boxscoreMap,
     );
 
-    // Auto-resolve if all games are final (reuses pre-fetched data)
-    try {
-      await tryResolveFromLiveData([card], gameStatusMap, boxscoreMap);
-    } catch (err) {
-      console.error("Auto-resolution from single card live endpoint failed:", err);
+    // --- Resolution ---
+    let cardResolved = false;
+
+    if (card.status === "locked") {
+      // Try the standard pipeline first (handles leaderboard, notifications, achievements)
+      try {
+        await tryResolveFromLiveData([card], gameStatusMap, boxscoreMap);
+      } catch (err) {
+        console.error("Auto-resolution from single card live endpoint failed:", err);
+      }
+
+      // Direct fallback: if live computation shows all picks are done, write to DB
+      const allDone = livePicks.length > 0 && livePicks.every(
+        (p) => p.trending !== null && p.game_status?.status === "final"
+      );
+
+      if (allDone) {
+        const admin = createAdminClient();
+
+        // Check DB — card may already have been resolved above
+        const { data: check } = await (admin.from("cards") as any)
+          .select("status")
+          .eq("id", card.id)
+          .single();
+
+        if (check?.status === "locked") {
+          const score = livePicks.filter((p) => p.trending === "hit").length;
+
+          for (const lp of livePicks) {
+            await (admin.from("picks") as any)
+              .update({ result: lp.trending, actual_value: lp.current_value })
+              .eq("id", lp.pick_id);
+          }
+
+          await (admin.from("cards") as any)
+            .update({ status: "resolved", score, resolved_at: new Date().toISOString() })
+            .eq("id", card.id)
+            .eq("status", "locked");
+
+          cardResolved = true;
+        } else if (check?.status === "resolved") {
+          cardResolved = true;
+        }
+      }
     }
 
     const response: LiveCardData = {
@@ -64,6 +104,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       picks: livePicks,
       has_live_games: hasLiveGames,
       games,
+      card_resolved: cardResolved || undefined,
     };
 
     return NextResponse.json(response, {
