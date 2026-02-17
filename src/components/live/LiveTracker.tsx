@@ -7,8 +7,9 @@ import type { CardWithPicks } from "@/lib/cards/api";
 import type { LiveCardData, LivePickData } from "@/lib/cards/live-types";
 import { useBatchLiveStats } from "@/lib/cards/use-batch-live-stats";
 import LivePickCard from "./LivePickCard";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { AnimatedList } from "@/components/motion";
+import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
 
 function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
@@ -91,14 +92,14 @@ function LiveCard({
 
   if (card.challenge_id) {
     return (
-      <Link href={`/challenges/${card.challenge_id}`} className="block">
+      <Link href={`/challenges/${card.challenge_id}`} className="block hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 rounded-xl">
         {content}
       </Link>
     );
   }
 
   return (
-    <Link href={`/cards/${card.id}`} className="block">
+    <Link href={`/cards/${card.id}`} className="block hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 rounded-xl">
       {content}
     </Link>
   );
@@ -128,20 +129,16 @@ export default function LiveTracker({
 
   if (initialCards.length === 0) {
     return (
-      <Card className="border-border bg-card">
-        <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
-          <span className="text-4xl">&#x1F4E1;</span>
-          <h2 className="text-lg font-semibold">No active cards</h2>
-          <p className="text-sm text-muted-foreground">
-            Lock in some picks to track them live during games!
-          </p>
-        </CardContent>
-      </Card>
+      <AnimatedEmptyState
+        icon="&#x1F4E1;"
+        title="No active cards"
+        description="Lock in some picks to track them live during games!"
+      />
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <AnimatedList className="flex flex-col gap-6" staggerDelay={0.06}>
       {initialCards.map((card) => (
         <LiveCard
           key={card.id}
@@ -151,6 +148,6 @@ export default function LiveTracker({
           hasError={!!error}
         />
       ))}
-    </div>
+    </AnimatedList>
   );
 }

@@ -9,6 +9,8 @@ import { CARD_SELECT, type CardWithPicks } from "@/lib/cards/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Target, BarChart3, Trophy } from "lucide-react";
+import { SlideUp, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
+import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 
 const PAGE_SIZE = 20;
 
@@ -69,69 +71,78 @@ export default async function CardsPage({
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-8 py-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">My Picks</h1>
-        <Link href="/props">
-          <Button size="sm">
-            <Plus className="mr-1.5 h-4 w-4" />
-            New Card
-          </Button>
-        </Link>
-      </div>
+      <SlideUp>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold tracking-tight">My Picks</h1>
+          <Link href="/props">
+            <Button size="sm">
+              <Plus className="mr-1.5 h-4 w-4" />
+              New Card
+            </Button>
+          </Link>
+        </div>
+      </SlideUp>
 
       {/* Stats summary */}
       {completedCards.length > 0 && (
-        <div className="grid grid-cols-3 gap-4">
-          <Card className="border-border bg-card">
-            <CardContent className="flex flex-col items-center gap-1 p-4">
-              <Target className="h-5 w-5 text-muted-foreground" />
-              <span className="text-2xl font-black">{completedCards.length}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Completed</span>
-            </CardContent>
-          </Card>
-          <Card className="border-border bg-card">
-            <CardContent className="flex flex-col items-center gap-1 p-4">
-              <BarChart3 className="h-5 w-5 text-muted-foreground" />
-              <span className="text-2xl font-black">{hitRate}%</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Hit Rate</span>
-            </CardContent>
-          </Card>
-          <Card className="border-border bg-card">
-            <CardContent className="flex flex-col items-center gap-1 p-4">
-              <Trophy className="h-5 w-5 text-neon-green" />
-              <span className="text-2xl font-black text-neon-green">{bestCard?.score}/{bestCard?.total_picks}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Best</span>
-            </CardContent>
-          </Card>
-        </div>
+        <StaggerChildren className="grid grid-cols-3 gap-4" staggerDelay={0.08}>
+          <StaggerItem>
+            <Card className="border-border bg-card hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+              <CardContent className="flex flex-col items-center gap-1 p-4">
+                <Target className="h-5 w-5 text-muted-foreground" />
+                <span className="text-2xl font-black">{completedCards.length}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Completed</span>
+              </CardContent>
+            </Card>
+          </StaggerItem>
+          <StaggerItem>
+            <Card className="border-border bg-card hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+              <CardContent className="flex flex-col items-center gap-1 p-4">
+                <BarChart3 className="h-5 w-5 text-muted-foreground" />
+                <span className="text-2xl font-black">{hitRate}%</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Hit Rate</span>
+              </CardContent>
+            </Card>
+          </StaggerItem>
+          <StaggerItem>
+            <Card className="border-border bg-card hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+              <CardContent className="flex flex-col items-center gap-1 p-4">
+                <Trophy className="h-5 w-5 text-neon-green" />
+                <span className="text-2xl font-black text-neon-green">{bestCard?.score}/{bestCard?.total_picks}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Best</span>
+              </CardContent>
+            </Card>
+          </StaggerItem>
+        </StaggerChildren>
       )}
 
       {/* Tabs for Live / Finished */}
-      <Suspense>
-        <PicksTabs
-          defaultTab={defaultTab}
-          liveCount={activeCards.length}
-          finishedCount={completedCards.length}
-          liveContent={<LiveTracker initialCards={activeCards} />}
-          finishedContent={
-            completedCards.length === 0 ? (
-              <Card className="border-border bg-card">
-                <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-                  <span className="text-3xl">&#x1F4CA;</span>
-                  <p className="text-muted-foreground">No finished cards yet</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <CardListWithLoadMore
-                initialCards={completedCards}
-                statusFilter="resolved"
-                pageSize={PAGE_SIZE}
-                hasMoreInitially={completedCards.length >= PAGE_SIZE}
-              />
-            )
-          }
-        />
-      </Suspense>
+      <FadeIn delay={0.15}>
+        <Suspense>
+          <PicksTabs
+            defaultTab={defaultTab}
+            liveCount={activeCards.length}
+            finishedCount={completedCards.length}
+            liveContent={<LiveTracker initialCards={activeCards} />}
+            finishedContent={
+              completedCards.length === 0 ? (
+                <AnimatedEmptyState
+                  icon="&#x1F4CA;"
+                  title="No finished cards yet"
+                  description="Complete some picks to see your results here."
+                />
+              ) : (
+                <CardListWithLoadMore
+                  initialCards={completedCards}
+                  statusFilter="resolved"
+                  pageSize={PAGE_SIZE}
+                  hasMoreInitially={completedCards.length >= PAGE_SIZE}
+                />
+              )
+            }
+          />
+        </Suspense>
+      </FadeIn>
     </div>
   );
 }
