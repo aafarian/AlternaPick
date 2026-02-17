@@ -21,10 +21,9 @@ import {
 import {
   CATEGORY_LABELS,
   CATEGORY_COLORS,
-  SPORT_LABELS,
-  getPlayerHeadshotUrl,
   shortenTeamName,
 } from "@/lib/constants";
+import { SPORT_LABELS, getPlayerHeadshotUrl, isValidSport } from "@/lib/sports";
 import type { StatCategory } from "@/lib/supabase/types";
 import type { GameLogEntry, SeasonAverages } from "@/lib/stats-service/client";
 import { getCompositeValue, getGamelogFieldsForCategory } from "@/lib/players/stat-mapping";
@@ -301,7 +300,7 @@ export default function PlayerProfileSheet() {
               )}
               {target.sport && (
                 <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[9px]">
-                  {SPORT_LABELS[target.sport] ?? target.sport.toUpperCase()}
+                  {isValidSport(target.sport) ? SPORT_LABELS[target.sport] : target.sport.toUpperCase()}
                 </Badge>
               )}
             </SheetDescription>

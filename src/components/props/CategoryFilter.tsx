@@ -2,35 +2,9 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { StatCategory } from "@/lib/supabase/types";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-
-type CategoryOption = { value: StatCategory | "all"; label: string };
-
-const NBA_CATEGORIES: CategoryOption[] = [
-  { value: "all", label: "All" },
-  { value: "points", label: "Points" },
-  { value: "rebounds", label: "Rebounds" },
-  { value: "assists", label: "Assists" },
-  { value: "threes", label: "3PM" },
-  { value: "steals", label: "Steals" },
-  { value: "blocks", label: "Blocks" },
-  { value: "turnovers", label: "Turnovers" },
-  { value: "pra", label: "PRA" },
-  { value: "pts_reb", label: "Pts+Reb" },
-  { value: "pts_ast", label: "Pts+Ast" },
-  { value: "reb_ast", label: "Reb+Ast" },
-  { value: "blk_stl", label: "Blk+Stl" },
-];
-
-const EPL_CATEGORIES: CategoryOption[] = [
-  { value: "all", label: "All" },
-  { value: "shots", label: "Shots" },
-  { value: "shots_on_target", label: "On Target" },
-  { value: "goals", label: "Goals" },
-  { value: "assists", label: "Assists" },
-];
+import { getSportCategories } from "@/lib/sports";
 
 const SCROLL_SPEED = 3; // px per frame
 
@@ -44,7 +18,7 @@ export default function CategoryFilter({ sport = "nba" }: { sport?: string }) {
   const [canScrollRight, setCanScrollRight] = useState(false);
 
   const active = searchParams.get("category") ?? "all";
-  const categories = sport === "epl" || sport === "la_liga" ? EPL_CATEGORIES : NBA_CATEGORIES;
+  const categories = getSportCategories(sport);
 
   function handleChange(value: string) {
     const params = new URLSearchParams(searchParams.toString());

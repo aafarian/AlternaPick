@@ -23,7 +23,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { isValidGameMode } from "@/lib/modes/definitions";
-import { isValidSport, SPORTS } from "@/lib/constants";
+import { isValidSport, SPORT_CONFIG } from "@/lib/sports";
 import type { GameMode } from "@/lib/supabase/types";
 
 export const metadata = {
@@ -111,7 +111,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
   const isEmpty = totalPicks === 0;
 
-  const sportLabel = sport !== "all" ? SPORTS[sport].displayName : null;
+  const sportLabel = sport !== "all" ? SPORT_CONFIG[sport].displayName : null;
   const hasFilters = mode !== "all" || sport !== "all";
 
   if (isEmpty) {

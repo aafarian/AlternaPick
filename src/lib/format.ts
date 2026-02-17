@@ -1,6 +1,7 @@
 /**
  * Shared formatting utilities.
  */
+import { usesHalves as sportUsesHalves } from "@/lib/sports";
 
 /**
  * Formats a timestamp as a human-readable relative time string.
@@ -47,8 +48,7 @@ export function formatClock(period: number, clock: string, sport?: string): stri
   const isZero = minutes === 0 && seconds === 0;
 
   // Determine if sport uses halves vs quarters
-  const HALF_SPORTS = new Set(["ncaab", "epl", "la_liga"]);
-  const usesHalves = sport ? HALF_SPORTS.has(sport) : false;
+  const usesHalves = sport ? sportUsesHalves(sport) : false;
   const prefix = usesHalves ? "H" : "Q";
   // Halftime is end of H1 (period 1) for halves, end of Q2 (period 2) for quarters
   const halftimePeriod = usesHalves ? 1 : 2;

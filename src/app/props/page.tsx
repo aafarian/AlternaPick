@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { getCachedProps, getCachedPropCounts } from "@/lib/odds-api/cache";
-import type { SportKey } from "@/lib/odds-api/constants";
 import type { StatCategory } from "@/lib/supabase/types";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/helpers";
@@ -8,6 +7,7 @@ import { getCategoryStats, getPlayerStats } from "@/lib/analytics/queries";
 import type { EdgeMap } from "@/lib/analytics/types";
 import { teamMatchesQuery } from "@/lib/constants";
 import { fetchNcaabTeams } from "@/lib/stats-service/client";
+import { type SportKey, SPORT_PRIORITY, SPORT_KEYS, SPORT_CONFIG } from "@/lib/sports";
 import PropsHeader from "@/components/props/PropsHeader";
 import SportSelector from "@/components/props/SportSelector";
 import CategoryFilter from "@/components/props/CategoryFilter";
@@ -37,16 +37,13 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
   }
 
   // Determine sport: use URL param if set, otherwise pick the first sport with props
-  const SPORT_PRIORITY: SportKey[] = ["nba", "ncaab", "epl", "la_liga"];
-  const validSports: SportKey[] = ["nba", "ncaab", "epl", "la_liga", "nhl"];
   let sport: SportKey;
-  if (validSports.includes(rawSport as SportKey)) {
+  if ((SPORT_KEYS as readonly string[]).includes(rawSport as string)) {
     sport = rawSport as SportKey;
   } else {
     sport = SPORT_PRIORITY.find((s) => (propCounts[s] ?? 0) > 0) ?? "nba";
   }
-  const isSoccer = sport === "epl" || sport === "la_liga";
-  const emptyEmoji = isSoccer ? "\u26BD" : "\uD83C\uDFC0";
+  const emptyEmoji = SPORT_CONFIG[sport].icon;
 
   // Fetch props with a timeout so the page never hangs
   let games: Awaited<ReturnType<typeof getCachedProps>> = null;
