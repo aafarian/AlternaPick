@@ -1,5 +1,8 @@
+"use client";
+
 import LeaderboardRow from "./LeaderboardRow";
 import type { LeaderboardEntryWithProfile } from "@/app/api/leaderboard/route";
+import { AnimatedList } from "@/components/motion";
 import {
   Table,
   TableBody,
@@ -53,8 +56,8 @@ export default function LeaderboardTable({
         </Table>
       </div>
 
-      {/* Mobile cards */}
-      <div className="flex flex-col gap-2 md:hidden">
+      {/* Mobile cards — staggered animation */}
+      <AnimatedList className="flex flex-col gap-2 md:hidden" animationType="slideUp">
         {entries.map((entry) => (
           <LeaderboardRow
             key={entry.user.id}
@@ -64,7 +67,7 @@ export default function LeaderboardTable({
             sort={sort}
           />
         ))}
-      </div>
+      </AnimatedList>
     </>
   );
 }
