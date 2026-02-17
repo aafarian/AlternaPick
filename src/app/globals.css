@@ -117,6 +117,7 @@
 
 body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
 }
 
 @layer base {

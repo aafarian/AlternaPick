@@ -8,7 +8,6 @@ import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { PlayerProfileProvider } from "@/lib/players/player-profile-context";
 import PlayerProfileSheet from "@/components/players/PlayerProfileSheet";
 import ServiceWorkerRegistration from "@/components/pwa/ServiceWorkerRegistration";
-import PageTransition from "@/components/layout/PageTransition";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -49,7 +48,7 @@ export default function RootLayout({
             <PlayerProfileProvider>
             <Header />
             <main className="mx-auto min-h-screen max-w-6xl px-4 pt-20 pb-20 md:pb-12">
-              <PageTransition>{children}</PageTransition>
+              {children}
             </main>
             <Footer />
             <BottomTabBar />

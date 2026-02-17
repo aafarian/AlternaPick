@@ -24,12 +24,12 @@ export default function HeroSection() {
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10"
       >
-        {/* Primary green — large, top-center, pushed well above fold so edge is never visible */}
-        <div className="absolute left-1/2 top-0 h-[1000px] w-[1000px] -ml-[500px] -mt-[400px] rounded-full bg-[radial-gradient(circle,rgba(0,210,106,0.18)_0%,transparent_60%)] animate-hero-glow-1" />
+        {/* Primary green — centered on content, explicit radius so edges stay within section */}
+        <div className="absolute left-1/2 top-[40%] h-[1200px] w-[1200px] -ml-[600px] -mt-[600px] rounded-full bg-[radial-gradient(circle_420px,rgba(0,210,106,0.16)_0%,transparent_100%)] animate-hero-glow-1" />
         {/* Accent blue — offset right */}
-        <div className="absolute -right-[120px] top-1/3 h-[600px] w-[600px] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.12)_0%,transparent_70%)] animate-hero-glow-2" />
+        <div className="absolute -right-[120px] top-1/3 h-[600px] w-[600px] rounded-full bg-[radial-gradient(circle_250px,rgba(59,130,246,0.10)_0%,transparent_100%)] animate-hero-glow-2" />
         {/* Dim green — offset left, lower */}
-        <div className="absolute -left-[100px] -bottom-[100px] h-[500px] w-[500px] rounded-full bg-[radial-gradient(circle,rgba(0,210,106,0.10)_0%,transparent_70%)] animate-hero-glow-3" />
+        <div className="absolute -left-[100px] bottom-[10%] h-[500px] w-[500px] rounded-full bg-[radial-gradient(circle_200px,rgba(0,210,106,0.08)_0%,transparent_100%)] animate-hero-glow-3" />
       </div>
 
       {/* ── Badge ── */}
