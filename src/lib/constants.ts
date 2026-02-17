@@ -1,4 +1,14 @@
 import type { StatCategory } from "@/lib/supabase/types";
+import { SPORT_LABELS as _SPORT_LABELS } from "@/lib/sports";
+
+// Re-export sport registry for backward compatibility
+export {
+  type SportKey as Sport,
+  isValidSport,
+  SPORT_LABELS,
+  SPORT_CONFIG as SPORTS,
+  getPlayerHeadshotUrl,
+} from "@/lib/sports";
 
 /* ---------- Notification icons & accent classes ---------- */
 
@@ -101,19 +111,6 @@ export const CHALLENGE_STATUS_STYLES: Record<string, string> = {
 /* ---------- Polling ---------- */
 
 export const POLL_INTERVAL_MS = 30_000;
-
-/* ---------- Player headshots ---------- */
-
-export function getPlayerHeadshotUrl(playerId: string, sport?: string): string {
-  if (!playerId) return "";
-  if (sport === "epl" || sport === "la_liga") {
-    return `/api/players/${playerId}/photo`;
-  }
-  if (sport === "ncaab") {
-    return `https://a.espncdn.com/combiner/i?img=/i/headshots/mens-college-basketball/players/full/${playerId}.png&w=260&h=190`;
-  }
-  return `https://cdn.nba.com/headshots/nba/latest/260x190/${playerId}.png`;
-}
 
 /* ---------- Team data ---------- */
 
@@ -312,14 +309,6 @@ export function teamLogoUrl(teamName: string): string {
 
 /* ---------- Player subtitle ---------- */
 
-export const SPORT_LABELS: Record<string, string> = {
-  nba: "NBA",
-  ncaab: "NCAAB",
-  epl: "EPL",
-  nhl: "NHL",
-  la_liga: "La Liga",
-};
-
 /** Strip common mascot suffixes from team names ("Duke Blue Devils" → "Duke"). */
 export function shortenTeamName(team: string): string {
   // NBA teams already have abbreviations (e.g. "LAL"), return as-is
@@ -340,22 +329,8 @@ export function formatPlayerSubtitle(
   const parts: string[] = [];
   if (team) parts.push(shortenTeamName(team));
   if (position) parts.push(position);
-  if (sport) parts.push(SPORT_LABELS[sport] ?? sport.toUpperCase());
+  if (sport) parts.push(_SPORT_LABELS[sport as keyof typeof _SPORT_LABELS] ?? sport.toUpperCase());
   return parts.join(" \u00B7 ");
-}
-
-/* ---------- Sport definitions ---------- */
-
-export type Sport = "nba" | "ncaab" | "epl";
-
-export const SPORTS: Record<Sport, { key: Sport; displayName: string; icon: string }> = {
-  nba:   { key: "nba",   displayName: "NBA",            icon: "\uD83C\uDFC0" },
-  ncaab: { key: "ncaab", displayName: "NCAAB",          icon: "\uD83C\uDF93" },
-  epl:   { key: "epl",   displayName: "Premier League", icon: "\u26BD" },
-};
-
-export function isValidSport(v: string): v is Sport {
-  return v === "nba" || v === "ncaab" || v === "epl";
 }
 
 export const CATEGORY_LABELS: Record<StatCategory, string> = {

@@ -301,7 +301,7 @@ export default function PlayerProfileSheet() {
               )}
               {target.sport && (
                 <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[9px]">
-                  {SPORT_LABELS[target.sport] ?? target.sport.toUpperCase()}
+                  {(SPORT_LABELS as Record<string, string>)[target.sport] ?? target.sport.toUpperCase()}
                 </Badge>
               )}
             </SheetDescription>

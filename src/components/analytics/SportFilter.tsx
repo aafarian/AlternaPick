@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { SPORTS } from "@/lib/constants";
-import type { Sport } from "@/lib/constants";
+import { UI_SPORTS, SPORT_CONFIG } from "@/lib/sports";
 
 interface SportFilterProps {
   activeSport: string;
@@ -24,8 +23,8 @@ export default function SportFilter({
         All Sports
       </TabLink>
 
-      {(Object.keys(SPORTS) as Sport[]).map((key) => {
-        const sport = SPORTS[key];
+      {UI_SPORTS.map((key) => {
+        const sport = SPORT_CONFIG[key];
         return (
           <TabLink
             key={key}

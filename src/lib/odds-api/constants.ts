@@ -1,9 +1,10 @@
 import type { StatCategory } from "@/lib/supabase/types";
+import type { SportKey } from "@/lib/sports";
 
 export const ODDS_API_BASE_URL = "https://api.the-odds-api.com";
 export const DEFAULT_REGION = "us";
 
-export type SportKey = "nba" | "epl" | "ncaab" | "nhl" | "la_liga";
+export type { SportKey };
 
 export const SPORT_CONFIGS: Record<SportKey, {
   oddsApiKey: string;

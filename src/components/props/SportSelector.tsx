@@ -2,13 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-const SPORTS = [
-  { value: "nba", label: "NBA" },
-  { value: "ncaab", label: "NCAAB" },
-  { value: "epl", label: "EPL" },
-  { value: "la_liga", label: "La Liga" },
-] as const;
+import { UI_SPORTS, SPORT_CONFIG } from "@/lib/sports";
 
 interface SportSelectorProps {
   counts?: Record<string, number>;
@@ -32,15 +26,15 @@ export default function SportSelector({ counts, activeSport }: SportSelectorProp
   return (
     <Tabs value={active} onValueChange={handleChange}>
       <TabsList className="h-auto w-fit justify-start gap-1.5 bg-transparent p-0">
-        {SPORTS.map(({ value, label }) => (
+        {UI_SPORTS.map((key) => (
           <TabsTrigger
-            key={value}
-            value={value}
+            key={key}
+            value={key}
             className="flex-none cursor-pointer rounded-full border border-border bg-secondary px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-all data-[state=active]:border-primary data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-[0_0_10px_rgba(0,210,106,0.15)]"
           >
-            {label}
-            {counts?.[value] ? (
-              <span className="ml-1 text-[10px] opacity-60">({counts[value]})</span>
+            {SPORT_CONFIG[key].shortLabel}
+            {counts?.[key] ? (
+              <span className="ml-1 text-[10px] opacity-60">({counts[key]})</span>
             ) : null}
           </TabsTrigger>
         ))}

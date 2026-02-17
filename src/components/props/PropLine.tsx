@@ -4,7 +4,8 @@ import Image from "next/image";
 import { useState } from "react";
 import { Target } from "lucide-react";
 import type { StatCategory } from "@/lib/supabase/types";
-import { CATEGORY_LABELS, CATEGORY_COLORS, teamLogoUrl, getPlayerHeadshotUrl } from "@/lib/constants";
+import { CATEGORY_LABELS, CATEGORY_COLORS, teamLogoUrl } from "@/lib/constants";
+import { getPlayerHeadshotUrl, getHeadshotConfig } from "@/lib/sports";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { usePlayerProfile } from "@/lib/players/player-profile-context";
 import { getModeConfig } from "@/lib/modes/definitions";
@@ -49,19 +50,19 @@ function PlayerHeadshot({
     );
   }
 
-  const isSoccer = sport === "epl" || sport === "la_liga";
+  const hs = getHeadshotConfig(sport);
 
   return (
     <div className="relative h-[100px] w-[130px]">
       <Image
         src={getPlayerHeadshotUrl(playerId, sport)}
         alt={playerName}
-        width={isSoccer ? 90 : 130}
-        height={isSoccer ? 90 : 100}
-        unoptimized={isSoccer}
+        width={hs.width}
+        height={hs.height}
+        unoptimized={hs.isProxied}
         className={cn(
           "relative z-10 object-contain drop-shadow-lg",
-          isSoccer ? "mx-auto object-bottom" : "object-bottom"
+          hs.isProxied ? "mx-auto object-bottom" : "object-bottom"
         )}
         onError={() => setImgError(true)}
       />

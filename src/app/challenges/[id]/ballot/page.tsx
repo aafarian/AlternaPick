@@ -6,7 +6,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/lib/auth/auth-context";
 import { createCard } from "@/lib/cards/api";
-import { CATEGORY_LABELS, CATEGORY_COLORS, getPlayerHeadshotUrl, teamLogoUrl } from "@/lib/constants";
+import { CATEGORY_LABELS, CATEGORY_COLORS, teamLogoUrl } from "@/lib/constants";
+import { getPlayerHeadshotUrl, getHeadshotConfig } from "@/lib/sports";
 import type { StatCategory, Game, Prop, PickSelection } from "@/lib/supabase/types";
 import type { ChallengeDetail } from "@/lib/challenges/queries";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
@@ -50,19 +51,19 @@ function PlayerHeadshot({
     );
   }
 
-  const isSoccer = sport === "epl" || sport === "la_liga";
+  const hs = getHeadshotConfig(sport);
 
   return (
     <div className="relative h-[100px] w-[130px]">
       <Image
         src={getPlayerHeadshotUrl(playerId, sport)}
         alt={playerName}
-        width={isSoccer ? 90 : 130}
-        height={isSoccer ? 90 : 100}
-        unoptimized={isSoccer}
+        width={hs.width}
+        height={hs.height}
+        unoptimized={hs.isProxied}
         className={cn(
           "relative z-10 object-contain drop-shadow-lg",
-          isSoccer ? "mx-auto object-bottom" : "object-bottom"
+          hs.isProxied ? "mx-auto object-bottom" : "object-bottom"
         )}
         onError={() => setImgError(true)}
       />

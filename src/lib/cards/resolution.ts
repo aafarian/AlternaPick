@@ -2,12 +2,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
 import {
-  fetchBoxscore,
-  fetchSoccerBoxscore,
-  fetchNcaabBoxscore,
   type PlayerBoxScore,
   type StatsGame,
 } from "@/lib/stats-service/client";
+import { getBoxscoreFetcher } from "@/lib/sports/fetchers";
 import type { PickWithPropAndGame } from "@/lib/cards/live-computation";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import type {
@@ -219,14 +217,8 @@ export async function reResolveStaleCards(): Promise<{
     let boxscore = boxscoreCache.get(eventId);
     if (!boxscore) {
       try {
-        const sport = pick.props?.games?.sport;
-        if (sport === "epl" || sport === "la_liga") {
-          boxscore = await fetchSoccerBoxscore(eventId);
-        } else if (sport === "ncaab") {
-          boxscore = await fetchNcaabBoxscore(eventId);
-        } else {
-          boxscore = await fetchBoxscore(eventId);
-        }
+        const fetcher = getBoxscoreFetcher(pick.props?.games?.sport);
+        boxscore = await fetcher(eventId);
         boxscoreCache.set(eventId, boxscore);
       } catch {
         continue;
@@ -306,14 +298,8 @@ export async function resolveCard(
     let boxscore = boxscoreCache.get(eventId);
     if (!boxscore) {
       try {
-        const gameSport = pick.props?.games?.sport;
-        if (gameSport === "epl" || gameSport === "la_liga") {
-          boxscore = await fetchSoccerBoxscore(eventId);
-        } else if (gameSport === "ncaab") {
-          boxscore = await fetchNcaabBoxscore(eventId);
-        } else {
-          boxscore = await fetchBoxscore(eventId);
-        }
+        const fetcher = getBoxscoreFetcher(pick.props?.games?.sport);
+        boxscore = await fetcher(eventId);
         boxscoreCache.set(eventId, boxscore);
       } catch {
         boxscore = [];

@@ -4,6 +4,7 @@ import {
   SPORT_CONFIGS,
   type SportKey,
 } from "./constants";
+import { SPORT_KEYS } from "@/lib/sports";
 import type {
   OddsApiEvent,
   OddsApiOddsResponse,
@@ -209,7 +210,7 @@ export async function fetchAllPropsMultiSport(
   skipEventIds?: Set<string>,
 ): Promise<Map<SportKey, FetchPropsResult>> {
   const results = new Map<SportKey, FetchPropsResult>();
-  const sports: SportKey[] = ["nba", "epl", "ncaab", "nhl", "la_liga"];
+  const sports: SportKey[] = [...SPORT_KEYS];
 
   const settled = await Promise.allSettled(
     sports.map((sport) => fetchAllProps(sport, skipEventIds).then((result) => ({ sport, result })))
