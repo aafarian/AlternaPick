@@ -116,7 +116,6 @@ export async function POST(request: NextRequest) {
     tomorrowEnd.setHours(23, 59, 59, 999);
 
     const updated: { odds_team: string; nba_team: string; status: string; external_event_id: string }[] = [];
-    let anyBecameFinal = false;
     const gamesBecameLive: string[] = [];
 
     if (nbaGames.length > 0) {
@@ -172,10 +171,6 @@ export async function POST(request: NextRequest) {
             external_event_id: nbaGame.game_id,
           });
 
-          if (newStatus === "final" && previousStatus !== "final") {
-            anyBecameFinal = true;
-          }
-
           if (newStatus === "live" && previousStatus === "scheduled") {
             gamesBecameLive.push(match.id);
           }
@@ -225,9 +220,6 @@ export async function POST(request: NextRequest) {
               external_event_id: soccerGame.game_id,
             });
 
-            if (newStatus === "final" && previousStatus !== "final") {
-              anyBecameFinal = true;
-            }
             if (newStatus === "live" && previousStatus === "scheduled") {
               gamesBecameLive.push(match.id);
             }
@@ -280,9 +272,6 @@ export async function POST(request: NextRequest) {
               external_event_id: laLigaGame.game_id,
             });
 
-            if (newStatus === "final" && previousStatus !== "final") {
-              anyBecameFinal = true;
-            }
             if (newStatus === "live" && previousStatus === "scheduled") {
               gamesBecameLive.push(match.id);
             }
@@ -343,9 +332,6 @@ export async function POST(request: NextRequest) {
               external_event_id: ncaabGame.game_id,
             });
 
-            if (newStatus === "final" && previousStatus !== "final") {
-              anyBecameFinal = true;
-            }
             if (newStatus === "live" && previousStatus === "scheduled") {
               gamesBecameLive.push(match.id);
             }
@@ -422,9 +408,6 @@ export async function POST(request: NextRequest) {
               external_event_id: ncaabGame.game_id,
             });
 
-            if (newStatus === "final" && previousStatus !== "final") {
-              anyBecameFinal = true;
-            }
             if (newStatus === "live" && previousStatus === "scheduled") {
               gamesBecameLive.push(match.id);
             }
@@ -479,32 +462,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Auto-resolve cards and challenges when any games become final
-    // or when new ESPN IDs were matched (makes previously-unresolvable cards eligible)
+    // Always attempt resolution — these functions are idempotent and skip
+    // when nothing qualifies. Running unconditionally ensures cards/challenges
+    // that missed a previous cycle (timing, team name mismatch) still resolve.
     let cardsResolved = 0;
     let challengesResolved = 0;
     let reResolved = { picksUpdated: 0, cardsRescored: 0 };
 
-    const shouldResolve = anyBecameFinal || staleFinalizedCount > 0 || updated.length > 0;
+    try {
+      const cardResults = await resolveEligibleCards();
+      cardsResolved = cardResults.length;
 
-    if (shouldResolve) {
-      try {
-        const cardResults = await resolveEligibleCards();
-        cardsResolved = cardResults.length;
+      const challengeResults = await resolveEligibleChallenges();
+      challengesResolved = challengeResults.length;
+    } catch (resolveError) {
+      console.error("Auto-resolution error:", resolveError);
+    }
 
-        const challengeResults = await resolveEligibleChallenges();
-        challengesResolved = challengeResults.length;
-      } catch (resolveError) {
-        console.error("Auto-resolution error:", resolveError);
-      }
-
-      // Re-resolve stale picks (null actual_value on already-resolved cards).
-      // This fixes cards that were resolved before boxscore/ESPN ID was available.
-      try {
-        reResolved = await reResolveStaleCards();
-      } catch (reResolveError) {
-        console.error("Re-resolution of stale picks failed:", reResolveError);
-      }
+    // Re-resolve stale picks (null actual_value on already-resolved cards).
+    // This fixes cards that were resolved before boxscore/ESPN ID was available.
+    try {
+      reResolved = await reResolveStaleCards();
+    } catch (reResolveError) {
+      console.error("Re-resolution of stale picks failed:", reResolveError);
     }
 
     return NextResponse.json({
