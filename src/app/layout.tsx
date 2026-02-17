@@ -8,6 +8,7 @@ import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { PlayerProfileProvider } from "@/lib/players/player-profile-context";
 import PlayerProfileSheet from "@/components/players/PlayerProfileSheet";
 import ServiceWorkerRegistration from "@/components/pwa/ServiceWorkerRegistration";
+import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -43,6 +44,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ServiceWorkerRegistration />
+        <ScrollToTop />
         <AuthProvider>
           <OnboardingProvider>
             <PlayerProfileProvider>
