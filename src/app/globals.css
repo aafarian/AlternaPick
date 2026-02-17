@@ -266,3 +266,49 @@ body {
 @utility animate-winner-ring {
   animation: winner-ripple 2.5s ease-out infinite;
 }
+
+/* Hero section — floating glow orbs */
+@keyframes hero-glow-1 {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-45%, -55%) scale(1.15);
+    opacity: 0.7;
+  }
+}
+
+@keyframes hero-glow-2 {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-55%, -45%) scale(1.1);
+    opacity: 0.6;
+  }
+}
+
+@keyframes hero-glow-3 {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-48%, -52%) scale(1.2);
+    opacity: 0.5;
+  }
+}
+
+@utility animate-hero-glow-1 {
+  animation: hero-glow-1 8s ease-in-out infinite;
+}
+
+@utility animate-hero-glow-2 {
+  animation: hero-glow-2 10s ease-in-out infinite;
+}
+
+@utility animate-hero-glow-3 {
+  animation: hero-glow-3 12s ease-in-out infinite;
+}
