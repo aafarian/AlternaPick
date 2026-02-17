@@ -100,16 +100,16 @@ async function getPropCountsBySportInternal(): Promise<Record<string, number>> {
 
   const result = await supabase
     .from("games")
-    .select("sport, props(id)")
+    .select("sport, props(count)")
     .gte("commence_time", rangeStart.toISOString())
     .lte("commence_time", rangeEnd.toISOString());
 
-  const games = (result.data ?? []) as { sport: string; props: { id: string }[] }[];
+  const games = (result.data ?? []) as { sport: string; props: { count: number }[] }[];
 
   const counts: Record<string, number> = {};
   for (const game of games) {
     const sport = game.sport || "nba";
-    counts[sport] = (counts[sport] ?? 0) + game.props.length;
+    counts[sport] = (counts[sport] ?? 0) + (game.props[0]?.count ?? 0);
   }
   return counts;
 }
