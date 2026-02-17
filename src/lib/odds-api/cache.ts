@@ -47,7 +47,8 @@ export async function getEventIdsWithProps(): Promise<Set<string>> {
   const propsResult = await supabase
     .from("props")
     .select("game_id")
-    .in("game_id", gameIds);
+    .in("game_id", gameIds)
+    .limit(10000);
 
   const gameIdsWithProps = new Set(
     ((propsResult.data ?? []) as Pick<Prop, "game_id">[]).map((p) => p.game_id)
@@ -139,6 +140,9 @@ export interface CachePropsResult {
   playerMapSize: number;
 }
 
+// Intra-request lock: cacheProps is called in a loop (once per sport) within
+// the same request. This prevents the loop iterations from interleaving.
+// Cross-request protection is handled by isSyncOverlapping() in the sync route.
 let _syncLock = false;
 
 export async function cacheProps(
