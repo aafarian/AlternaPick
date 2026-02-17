@@ -6,19 +6,34 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signUp } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AnimatedInput } from "@/components/ui/animated-input";
+import { AnimatedButton } from "@/components/ui/animated-button";
+import { SlideUp } from "@/components/motion";
+import { StaggerChildren, StaggerItem } from "@/components/motion";
+import { AnimatePresence, motion, useReducedMotion } from "@/lib/motion";
 import { AlertCircle } from "lucide-react";
+
+/* -------------------------------------------------------------------------- */
+/*  Referral banner highlight glow (brief pulse on mount)                     */
+/* -------------------------------------------------------------------------- */
+
+const referralGlowKeyframes = `
+@keyframes referral-glow {
+  0%   { box-shadow: 0 0 8px rgba(0,210,106,0.1); }
+  40%  { box-shadow: 0 0 20px rgba(0,210,106,0.35), 0 0 40px rgba(0,210,106,0.15); }
+  100% { box-shadow: 0 0 8px rgba(0,210,106,0.1); }
+}
+`;
 
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const prefersReduced = useReducedMotion();
 
   // Detect referral query param (?ref=username)
   const refParam = searchParams.get("ref");
@@ -68,7 +83,7 @@ function SignupForm() {
       return;
     }
 
-    // Step 2: Sign in on the client so onAuthStateChange fires → nav updates
+    // Step 2: Sign in on the client so onAuthStateChange fires -> nav updates
     const supabase = createClient();
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
@@ -84,7 +99,7 @@ function SignupForm() {
     // Step 3: Process referral if the user came via a referral link
     await processReferralIfNeeded();
 
-    // Step 4: Navigate — auth context will have the user by now
+    // Step 4: Navigate -- auth context will have the user by now
     router.push("/picks");
   }
 
@@ -106,82 +121,150 @@ function SignupForm() {
   }
 
   return (
-    <Card className="border-border bg-card">
-      <CardContent className="p-6">
-        <h2 className="mb-6 text-xl font-semibold">Create Account</h2>
+    <>
+      {/* Inject referral glow keyframes */}
+      {refParam && <style>{referralGlowKeyframes}</style>}
 
-        {refParam && (
-          <div className="mb-4 rounded-lg border border-primary/20 bg-primary/5 p-3 text-center text-sm">
-            Invited by <span className="font-semibold text-primary">@{refParam}</span>
-          </div>
-        )}
+      <SlideUp duration={0.5} offset={24}>
+        <Card className="border-border bg-card relative overflow-hidden border-primary/10 shadow-[0_0_30px_rgba(0,210,106,0.06)]">
+          <CardContent className="p-6">
+            <StaggerChildren staggerDelay={0.08}>
+              {/* ---- Heading ---- */}
+              <StaggerItem>
+                <h2 className="mb-6 text-xl font-semibold">Create Account</h2>
+              </StaggerItem>
 
-        {error && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+              {/* ---- Referral banner with highlight glow ---- */}
+              <AnimatePresence>
+                {refParam && (
+                  <motion.div
+                    key="referral-banner"
+                    initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    animate={{ opacity: 1, height: "auto", marginBottom: 16 }}
+                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    transition={{ duration: 0.3, ease: "easeOut" }}
+                  >
+                    <div
+                      className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-center text-sm"
+                      style={
+                        !prefersReduced
+                          ? { animation: "referral-glow 1.5s ease-out 0.5s 1 both" }
+                          : undefined
+                      }
+                    >
+                      Invited by{" "}
+                      <span className="font-semibold text-primary">
+                        @{refParam}
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-        <form action={handleSignUp} className="flex flex-col gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
-            <Input
-              id="username"
-              name="username"
-              type="text"
-              required
-              pattern="^[a-zA-Z0-9_]{3,20}$"
-              title="3-20 characters, letters, numbers and underscores"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              required
-              minLength={6}
-            />
-            <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
-          </div>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? "Creating account..." : "Create Account"}
-          </Button>
-        </form>
+              {/* ---- Error alert ---- */}
+              <AnimatePresence>
+                {error && (
+                  <motion.div
+                    key="error-alert"
+                    initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    animate={{ opacity: 1, height: "auto", marginBottom: 16 }}
+                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                  >
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-        <div className="my-4 flex items-center gap-3">
-          <Separator className="flex-1" />
-          <span className="text-xs text-muted-foreground">or</span>
-          <Separator className="flex-1" />
-        </div>
+              {/* ---- Form ---- */}
+              <StaggerItem>
+                <form action={handleSignUp} className="flex flex-col gap-4">
+                  <AnimatedInput
+                    id="username"
+                    name="username"
+                    type="text"
+                    label="Username"
+                    required
+                    pattern="^[a-zA-Z0-9_]{3,20}$"
+                    title="3-20 characters, letters, numbers and underscores"
+                    autoComplete="username"
+                  />
 
-        <Button
-          onClick={handleGoogleSignIn}
-          variant="outline"
-          className="w-full"
-        >
-          Continue with Google
-        </Button>
+                  <AnimatedInput
+                    id="email"
+                    name="email"
+                    type="email"
+                    label="Email"
+                    required
+                    autoComplete="email"
+                  />
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
-          <Link href="/auth/login" className="text-primary hover:underline">
-            Sign in
-          </Link>
-        </p>
-      </CardContent>
-    </Card>
+                  <div>
+                    <AnimatedInput
+                      id="password"
+                      name="password"
+                      type="password"
+                      label="Password"
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                    />
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      Minimum 6 characters
+                    </p>
+                  </div>
+
+                  <AnimatedButton
+                    type="submit"
+                    loading={submitting}
+                    loadingText="Creating account..."
+                    disabled={submitting}
+                  >
+                    Create Account
+                  </AnimatedButton>
+                </form>
+              </StaggerItem>
+
+              {/* ---- Separator ---- */}
+              <StaggerItem>
+                <div className="my-4 flex items-center gap-3">
+                  <Separator className="flex-1" />
+                  <span className="text-xs text-muted-foreground">or</span>
+                  <Separator className="flex-1" />
+                </div>
+              </StaggerItem>
+
+              {/* ---- Google sign-in ---- */}
+              <StaggerItem>
+                <AnimatedButton
+                  onClick={handleGoogleSignIn}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Continue with Google
+                </AnimatedButton>
+              </StaggerItem>
+
+              {/* ---- Login link ---- */}
+              <StaggerItem>
+                <p className="mt-6 text-center text-sm text-muted-foreground">
+                  Already have an account?{" "}
+                  <Link
+                    href="/auth/login"
+                    className="text-primary hover:underline"
+                  >
+                    Sign in
+                  </Link>
+                </p>
+              </StaggerItem>
+            </StaggerChildren>
+          </CardContent>
+        </Card>
+      </SlideUp>
+    </>
   );
 }
 
