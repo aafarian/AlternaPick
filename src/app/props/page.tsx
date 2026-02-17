@@ -14,7 +14,8 @@ import CategoryFilter from "@/components/props/CategoryFilter";
 import PlayerSearch from "@/components/props/PlayerSearch";
 import PropsGameList from "@/components/props/PropsGameList";
 import NcaabTeamRegistrar from "@/components/props/NcaabTeamRegistrar";
-import { Card, CardContent } from "@/components/ui/card";
+import { SlideUp, FadeIn } from "@/components/motion";
+import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 
 /** Minimum accuracy threshold (0-1) to qualify as an "edge" */
 const EDGE_MIN_RATE = 0.65;
@@ -134,50 +135,49 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
       {sport === "ncaab" && Object.keys(ncaabTeams).length > 0 && (
         <NcaabTeamRegistrar teams={ncaabTeams} />
       )}
-      <PropsHeader gameCount={withProps.length} />
+      <SlideUp>
+        <PropsHeader gameCount={withProps.length} />
+      </SlideUp>
 
       <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-3 border-b border-border bg-background px-4 pb-3 pt-2 shadow-sm">
-        <Suspense fallback={null}>
-          <SportSelector counts={propCounts} activeSport={sport} />
-        </Suspense>
+        <FadeIn delay={0.1}>
+          <Suspense fallback={null}>
+            <SportSelector counts={propCounts} activeSport={sport} />
+          </Suspense>
+        </FadeIn>
 
-        <Suspense fallback={null}>
-          <PlayerSearch />
-        </Suspense>
+        <FadeIn delay={0.15}>
+          <Suspense fallback={null}>
+            <PlayerSearch />
+          </Suspense>
+        </FadeIn>
 
-        <Suspense fallback={null}>
-          <CategoryFilter sport={sport} />
-        </Suspense>
+        <FadeIn delay={0.2}>
+          <Suspense fallback={null}>
+            <CategoryFilter sport={sport} />
+          </Suspense>
+        </FadeIn>
       </div>
 
       {withProps.length === 0 ? (
-        <Card className="border-border bg-card">
-          <CardContent className="flex flex-col items-center gap-4 py-20 text-center">
-            <span className="text-5xl">{emptyEmoji}</span>
-            {playerQuery || category ? (
-              <>
-                <h2 className="text-xl font-bold">No props found</h2>
-                <p className="text-muted-foreground">
-                  Try adjusting your search or filters.
-                </p>
-              </>
-            ) : (
-              <>
-                <h2 className="text-xl font-bold">No games available</h2>
-                <p className="text-muted-foreground">
-                  Check back later for upcoming player props!
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+        <AnimatedEmptyState
+          icon={emptyEmoji}
+          title={playerQuery || !isAll ? "No props found" : "No games available"}
+          description={
+            playerQuery || !isAll
+              ? "Try adjusting your search or filters."
+              : "Check back later for upcoming player props!"
+          }
+        />
       ) : (
+        <FadeIn delay={0.25}>
         <PropsGameList
           key={`${sport}-${category}`}
           games={withProps}
           categoryEdges={categoryEdges}
           playerEdges={playerEdges}
         />
+        </FadeIn>
       )}
     </div>
   );

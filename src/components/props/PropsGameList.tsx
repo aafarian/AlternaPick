@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import type { Game, Prop } from "@/lib/supabase/types";
 import type { EdgeMap } from "@/lib/analytics/types";
+import { StaggerChildren, StaggerItem } from "@/components/motion";
 import GameCard from "./GameCard";
 import GameSelector from "./GameSelector";
 
@@ -72,18 +73,19 @@ export default function PropsGameList({
         onSelect={handleChipSelect}
       />
 
-      <div className="mt-4 flex flex-col gap-3">
+      <StaggerChildren staggerDelay={0.06} className="mt-4 flex flex-col gap-3">
         {games.map((game) => (
-          <GameCard
-            key={game.id}
-            game={game}
-            expanded={expandedIds.has(game.id)}
-            onToggle={() => toggleGame(game.id)}
-            categoryEdges={categoryEdges}
-            playerEdges={playerEdges}
-          />
+          <StaggerItem key={game.id}>
+            <GameCard
+              game={game}
+              expanded={expandedIds.has(game.id)}
+              onToggle={() => toggleGame(game.id)}
+              categoryEdges={categoryEdges}
+              playerEdges={playerEdges}
+            />
+          </StaggerItem>
         ))}
-      </div>
+      </StaggerChildren>
     </>
   );
 }
