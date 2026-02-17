@@ -21,7 +21,7 @@ const modes = [
     icon: "🪞",
     name: "Mirror",
     description:
-      "The challenger picks the props, then both players independently call over or under on the same lines.",
+      "Challenger picks the props, both players call over or under on the same lines.",
   },
   {
     icon: "🎲",
