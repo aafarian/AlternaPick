@@ -89,9 +89,8 @@ function LoginForm() {
   }
 
   // Initial load — show skeleton while checking if user is already signed in.
-  // Once auth resolves and user exists, render nothing (redirect is in-flight).
-  if (authLoading) return <Skeleton className="h-96 rounded-xl" />;
-  if (user) return null;
+  // Once auth resolves and user exists, show nothing (redirect is in-flight).
+  if (authLoading || user) return null;
 
   return (
     <>
