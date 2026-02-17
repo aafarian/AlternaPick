@@ -8,11 +8,13 @@ import CreateChallengeModal from "@/components/challenges/CreateChallengeModal";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, AlertCircle, Loader2, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
+import { SlideUp, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
+import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
+import { AnimatedSkeleton } from "@/components/ui/animated-skeleton";
 
 type Tab = "feed" | "inbox" | "sent";
 
@@ -45,6 +47,8 @@ export default function ChallengesPage() {
   const [userCardChallengeIds, setUserCardChallengeIds] = useState<Set<string>>(
     new Set()
   );
+
+  const prefersReduced = useReducedMotion();
 
   // Infinite scroll sentinel
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -207,11 +211,9 @@ export default function ChallengesPage() {
   if (authLoading) {
     return (
       <div className="flex flex-col gap-6 py-8">
-        <Skeleton className="h-8 w-44" />
-        <Skeleton className="h-9 w-64 rounded-lg" />
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-16 rounded-xl" />
-        ))}
+        <AnimatedSkeleton count={1} className="h-8 w-44" variant="row" />
+        <AnimatedSkeleton count={1} className="h-9 w-64 rounded-lg" variant="row" />
+        <AnimatedSkeleton count={3} className="h-16" variant="card" />
       </div>
     );
   }
@@ -228,193 +230,267 @@ export default function ChallengesPage() {
     );
   }
 
-  const renderCardList = (list: ChallengeWithProfiles[]) => (
-    <div className="flex flex-col gap-2">
-      {list.map((challenge) => (
-        <ChallengeCard
-          key={challenge.id}
-          challenge={challenge}
-          currentUserId={userId}
-          onAccept={(id) => handleAction(id, "accept")}
-          onDecline={(id) => handleAction(id, "decline")}
-          onCancel={(id) => handleAction(id, "cancel")}
-          actionLoading={actionLoading}
-          userHasCard={userCardChallengeIds.has(challenge.id)}
-        />
-      ))}
-    </div>
-  );
-
   return (
     <div className="flex flex-col gap-5 py-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Challenges</h1>
-        <Button onClick={() => setModalOpen(true)} size="sm">
-          <Plus className="mr-1.5 h-4 w-4" />
-          New Challenge
-        </Button>
-      </div>
+      <SlideUp>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold tracking-tight">Challenges</h1>
+          <Button onClick={() => setModalOpen(true)} size="sm">
+            <Plus className="mr-1.5 h-4 w-4" />
+            New Challenge
+          </Button>
+        </div>
+      </SlideUp>
 
       {/* Search */}
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="Search opponents..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-9 w-full rounded-lg border border-border bg-secondary/50 pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-        {searchQuery && (
-          <button
-            type="button"
-            onClick={() => setSearchQuery("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
-      </div>
+      <FadeIn delay={0.15}>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search opponents..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-9 w-full rounded-lg border border-border bg-secondary/50 pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </FadeIn>
 
       {/* Error */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {error}
-            <Button
-              variant="link"
-              size="sm"
-              onClick={() => setError(null)}
-              className="ml-2 text-destructive underline"
-            >
-              Dismiss
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: prefersReduced ? 0 : 0.25 }}
+          >
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {error}
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => setError(null)}
+                  className="ml-2 text-destructive underline"
+                >
+                  Dismiss
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 rounded-lg bg-secondary/50 p-1">
-        {TABS.map((tab) => {
-          const count = tab.key === "inbox" ? inboxCount : tab.key === "sent" ? sentCount : 0;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                "relative flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-all",
-                activeTab === tab.key
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {tab.label}
-              {count > 0 && (
-                <Badge
-                  className={cn(
-                    "h-4.5 min-w-4.5 px-1.5 text-[10px]",
-                    tab.key === "inbox"
-                      ? "bg-amber-500 text-white"
-                      : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {count}
-                </Badge>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <FadeIn delay={0.2}>
+        <div className="flex items-center gap-1 rounded-lg bg-secondary/50 p-1">
+          {TABS.map((tab) => {
+            const count = tab.key === "inbox" ? inboxCount : tab.key === "sent" ? sentCount : 0;
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  "relative flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
+                  isActive
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {isActive && (
+                  <motion.div
+                    layoutId="challenge-tab-indicator"
+                    className="absolute inset-0 rounded-md bg-background shadow-sm"
+                    transition={{
+                      type: "spring",
+                      bounce: 0.2,
+                      duration: prefersReduced ? 0 : 0.4,
+                    }}
+                  />
+                )}
+                <span className="relative z-10">{tab.label}</span>
+                {count > 0 && (
+                  <Badge
+                    className={cn(
+                      "relative z-10 h-4.5 min-w-4.5 px-1.5 text-[10px]",
+                      tab.key === "inbox"
+                        ? "bg-amber-500 text-white"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {count}
+                  </Badge>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </FadeIn>
 
       {/* Tab content */}
       {loading ? (
-        <div className="flex flex-col gap-2">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-16 rounded-xl" />
-          ))}
-        </div>
-      ) : activeTab === "feed" ? (
-        feedEmpty ? (
-          <Card className="border-border bg-card">
-            <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-              <span className="text-3xl">{"\uD83D\uDCE8"}</span>
-              <p className="text-sm text-muted-foreground">No challenges yet</p>
-              <Button
-                variant="link"
-                onClick={() => setModalOpen(true)}
-                className="text-primary"
-              >
-                Challenge a friend!
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="flex flex-col gap-5">
-            {/* Active section */}
-            {filteredActive.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                    Active
-                  </h3>
-                </div>
-                {renderCardList(filteredActive)}
-              </div>
-            )}
-
-            {/* Completed section */}
-            {filteredCompleted.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  Completed
-                </h3>
-                {renderCardList(filteredCompleted)}
-
-                {/* Infinite scroll sentinel */}
-                {hasMoreCompleted && (
-                  <div ref={sentinelRef} className="flex justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )
-      ) : activeTab === "inbox" ? (
-        filteredInbox.length === 0 ? (
-          <Card className="border-border bg-card">
-            <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-              <span className="text-3xl">{"\uD83D\uDCE8"}</span>
-              <p className="text-sm text-muted-foreground">No incoming challenges</p>
-              <p className="text-xs text-muted-foreground/60">
-                When someone challenges you, it&apos;ll show up here
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          renderCardList(filteredInbox)
-        )
+        <AnimatedSkeleton count={3} className="h-16" variant="card" />
       ) : (
-        filteredSent.length === 0 ? (
-          <Card className="border-border bg-card">
-            <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-              <span className="text-3xl">{"\uD83D\uDCE4"}</span>
-              <p className="text-sm text-muted-foreground">No pending sent challenges</p>
-              <Button
-                variant="link"
-                onClick={() => setModalOpen(true)}
-                className="text-primary"
-              >
-                Challenge a friend!
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          renderCardList(filteredSent)
-        )
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: prefersReduced ? 0 : 0.2 }}
+          >
+            {activeTab === "feed" ? (
+              feedEmpty ? (
+                <AnimatedEmptyState
+                  icon={"\uD83D\uDCE8"}
+                  title="No challenges yet"
+                  action={
+                    <Button
+                      variant="link"
+                      onClick={() => setModalOpen(true)}
+                      className="text-primary"
+                    >
+                      Challenge a friend!
+                    </Button>
+                  }
+                />
+              ) : (
+                <div className="flex flex-col gap-5">
+                  {/* Active section */}
+                  {filteredActive.length > 0 && (
+                    <FadeIn>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                          <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                            Active
+                          </h3>
+                        </div>
+                        <StaggerChildren staggerDelay={0.06} className="flex flex-col gap-2">
+                          {filteredActive.map((challenge) => (
+                            <StaggerItem key={challenge.id}>
+                              <ChallengeCard
+                                challenge={challenge}
+                                currentUserId={userId}
+                                onAccept={(id) => handleAction(id, "accept")}
+                                onDecline={(id) => handleAction(id, "decline")}
+                                onCancel={(id) => handleAction(id, "cancel")}
+                                actionLoading={actionLoading}
+                                userHasCard={userCardChallengeIds.has(challenge.id)}
+                              />
+                            </StaggerItem>
+                          ))}
+                        </StaggerChildren>
+                      </div>
+                    </FadeIn>
+                  )}
+
+                  {/* Completed section */}
+                  {filteredCompleted.length > 0 && (
+                    <FadeIn delay={filteredActive.length > 0 ? 0.15 : 0}>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                          Completed
+                        </h3>
+                        <StaggerChildren staggerDelay={0.06} className="flex flex-col gap-2">
+                          {filteredCompleted.map((challenge) => (
+                            <StaggerItem key={challenge.id}>
+                              <ChallengeCard
+                                challenge={challenge}
+                                currentUserId={userId}
+                                onAccept={(id) => handleAction(id, "accept")}
+                                onDecline={(id) => handleAction(id, "decline")}
+                                onCancel={(id) => handleAction(id, "cancel")}
+                                actionLoading={actionLoading}
+                                userHasCard={userCardChallengeIds.has(challenge.id)}
+                              />
+                            </StaggerItem>
+                          ))}
+                        </StaggerChildren>
+
+                        {/* Infinite scroll sentinel */}
+                        {hasMoreCompleted && (
+                          <div ref={sentinelRef} className="flex justify-center py-4">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                    </FadeIn>
+                  )}
+                </div>
+              )
+            ) : activeTab === "inbox" ? (
+              filteredInbox.length === 0 ? (
+                <AnimatedEmptyState
+                  icon={"\uD83D\uDCE8"}
+                  title="No incoming challenges"
+                  description="When someone challenges you, it'll show up here"
+                />
+              ) : (
+                <StaggerChildren staggerDelay={0.06} className="flex flex-col gap-2">
+                  {filteredInbox.map((challenge) => (
+                    <StaggerItem key={challenge.id}>
+                      <ChallengeCard
+                        challenge={challenge}
+                        currentUserId={userId}
+                        onAccept={(id) => handleAction(id, "accept")}
+                        onDecline={(id) => handleAction(id, "decline")}
+                        onCancel={(id) => handleAction(id, "cancel")}
+                        actionLoading={actionLoading}
+                        userHasCard={userCardChallengeIds.has(challenge.id)}
+                      />
+                    </StaggerItem>
+                  ))}
+                </StaggerChildren>
+              )
+            ) : (
+              filteredSent.length === 0 ? (
+                <AnimatedEmptyState
+                  icon={"\uD83D\uDCE4"}
+                  title="No pending sent challenges"
+                  action={
+                    <Button
+                      variant="link"
+                      onClick={() => setModalOpen(true)}
+                      className="text-primary"
+                    >
+                      Challenge a friend!
+                    </Button>
+                  }
+                />
+              ) : (
+                <StaggerChildren staggerDelay={0.06} className="flex flex-col gap-2">
+                  {filteredSent.map((challenge) => (
+                    <StaggerItem key={challenge.id}>
+                      <ChallengeCard
+                        challenge={challenge}
+                        currentUserId={userId}
+                        onAccept={(id) => handleAction(id, "accept")}
+                        onDecline={(id) => handleAction(id, "decline")}
+                        onCancel={(id) => handleAction(id, "cancel")}
+                        actionLoading={actionLoading}
+                        userHasCard={userCardChallengeIds.has(challenge.id)}
+                      />
+                    </StaggerItem>
+                  ))}
+                </StaggerChildren>
+              )
+            )}
+          </motion.div>
+        </AnimatePresence>
       )}
 
       <CreateChallengeModal

@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import CardDetail from "@/components/cards/CardDetail";
 import { Button } from "@/components/ui/button";
+import { AnimatedList } from "@/components/motion";
 import type { CardWithPicks } from "@/lib/cards/api";
 
 interface CardListWithLoadMoreProps {
@@ -58,9 +59,13 @@ export default function CardListWithLoadMore({
 
   return (
     <div className="flex flex-col gap-4">
-      {cards.map((card) => (
-        <CardDetail key={card.id} card={card} />
-      ))}
+      <AnimatedList className="flex flex-col gap-4" staggerDelay={0.05}>
+        {cards.map((card) => (
+          <div key={card.id} className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 rounded-xl">
+            <CardDetail card={card} />
+          </div>
+        ))}
+      </AnimatedList>
       {nextCursor && (
         <Button
           onClick={loadMore}

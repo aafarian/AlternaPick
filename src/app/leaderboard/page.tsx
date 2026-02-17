@@ -11,10 +11,13 @@ import type {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion, useReducedMotion } from "@/lib/motion";
+import { SlideUp, ScaleIn, FadeIn } from "@/components/motion";
+import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
+import { AnimatedSkeleton } from "@/components/ui/animated-skeleton";
 
 type TabKey = "global" | "friends";
 type SortKey = "hit_rate" | "h2h";
@@ -30,6 +33,7 @@ export default function LeaderboardPage() {
   const { user, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const prefersReduced = useReducedMotion();
 
   const tabParam = searchParams.get("tab");
   const sortParam = searchParams.get("sort");
@@ -86,7 +90,6 @@ export default function LeaderboardPage() {
   useEffect(() => {
     if (authLoading) return;
     fetchLeaderboard(activeTab, sortBy);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, sortBy, authLoading]);
 
   const handleTabChange = (value: string) => {
@@ -98,146 +101,187 @@ export default function LeaderboardPage() {
   if (authLoading) {
     return (
       <div className="flex flex-col gap-6 py-8">
-        <Skeleton className="h-8 w-44" />
-        <div className="flex gap-2">
-          <Skeleton className="h-9 w-24 rounded-lg" />
-          <Skeleton className="h-9 w-24 rounded-lg" />
-        </div>
-        {[1, 2, 3, 4, 5].map((i) => (
-          <Skeleton key={i} className="h-14 rounded-xl" />
-        ))}
+        <AnimatedSkeleton count={1} variant="row" className="h-8 w-44" />
+        <AnimatedSkeleton count={2} variant="row" className="h-9 w-24 rounded-lg" containerClassName="flex-row gap-2" />
+        <AnimatedSkeleton count={5} variant="card" className="h-14 rounded-xl" />
       </div>
     );
   }
 
+  const springTransition = prefersReduced
+    ? { duration: 0 }
+    : { type: "spring" as const, stiffness: 500, damping: 30 };
+
   return (
     <div className="flex flex-col gap-6 py-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Leaderboard</h1>
-        <p className="text-sm text-muted-foreground">
-          {total} player{total !== 1 ? "s" : ""} ranked
-        </p>
-      </div>
+      <SlideUp>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Leaderboard</h1>
+          <p className="text-sm text-muted-foreground">
+            {total} player{total !== 1 ? "s" : ""} ranked
+          </p>
+        </div>
+      </SlideUp>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="bg-secondary">
-          <TabsTrigger
-            value="global"
-            className="data-[state=active]:bg-primary/15 data-[state=active]:text-primary"
-          >
-            Global
-          </TabsTrigger>
-          <TabsTrigger
-            value="friends"
-            disabled={!user}
-            className="data-[state=active]:bg-primary/15 data-[state=active]:text-primary"
-          >
-            Friends
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <FadeIn delay={0.1}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          <TabsList className="bg-secondary">
+            <TabsTrigger
+              value="global"
+              className="data-[state=active]:bg-primary/15 data-[state=active]:text-primary"
+            >
+              Global
+            </TabsTrigger>
+            <TabsTrigger
+              value="friends"
+              disabled={!user}
+              className="data-[state=active]:bg-primary/15 data-[state=active]:text-primary"
+            >
+              Friends
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </FadeIn>
 
-      {/* Sort toggle */}
-      <div className="flex items-center gap-1 rounded-lg bg-secondary p-1 w-fit">
-        <button
-          onClick={() => updateParams({ sort: "hit_rate" })}
-          className={cn(
-            "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
-            sortBy === "hit_rate"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          Hit Rate
-        </button>
-        <button
-          onClick={() => updateParams({ sort: "h2h" })}
-          className={cn(
-            "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
-            sortBy === "h2h"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          H2H
-        </button>
-      </div>
+      {/* Sort toggle with layoutId active indicator */}
+      <FadeIn delay={0.15}>
+        <div className="flex items-center gap-1 rounded-lg bg-secondary p-1 w-fit relative">
+          <button
+            onClick={() => updateParams({ sort: "hit_rate" })}
+            className={cn(
+              "relative rounded-md px-3 py-1.5 text-xs font-semibold transition-colors z-10",
+              sortBy === "hit_rate"
+                ? "text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {sortBy === "hit_rate" && (
+              <motion.div
+                layoutId="leaderboard-sort-indicator"
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+                transition={springTransition}
+              />
+            )}
+            <span className="relative z-10">Hit Rate</span>
+          </button>
+          <button
+            onClick={() => updateParams({ sort: "h2h" })}
+            className={cn(
+              "relative rounded-md px-3 py-1.5 text-xs font-semibold transition-colors z-10",
+              sortBy === "h2h"
+                ? "text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {sortBy === "h2h" && (
+              <motion.div
+                layoutId="leaderboard-sort-indicator"
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+                transition={springTransition}
+              />
+            )}
+            <span className="relative z-10">H2H</span>
+          </button>
+        </div>
+      </FadeIn>
 
       {/* Current User Rank Card */}
       {user && userRank && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Your Rank
-                </p>
-                <p className="mt-1 text-3xl font-black text-primary">
-                  #{userRank.rank}
-                </p>
+        <ScaleIn delay={0.2} initialScale={0.95}>
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Your Rank
+                  </p>
+                  <motion.p
+                    className="mt-1 text-3xl font-black text-primary"
+                    initial={prefersReduced ? false : { scale: 1 }}
+                    animate={
+                      prefersReduced
+                        ? undefined
+                        : {
+                            scale: [1, 1.08, 1],
+                            textShadow: [
+                              "0 0 0px hsl(var(--primary))",
+                              "0 0 12px hsl(var(--primary))",
+                              "0 0 0px hsl(var(--primary))",
+                            ],
+                          }
+                    }
+                    transition={
+                      prefersReduced
+                        ? { duration: 0 }
+                        : { duration: 2, repeat: Infinity, repeatDelay: 4, ease: "easeInOut" }
+                    }
+                  >
+                    #{userRank.rank}
+                  </motion.p>
+                </div>
+                <div className="flex flex-wrap gap-4 sm:gap-6 sm:text-right">
+                  {sortBy === "hit_rate" ? (
+                    <>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Hit Rate</p>
+                        <p className="text-sm font-bold">
+                          {userRank.stats.win_rate.toFixed(1)}%
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Streak</p>
+                        <p className="text-sm font-bold">
+                          {userRank.stats.current_streak}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cards</p>
+                        <p className="text-sm font-bold">
+                          {userRank.stats.total_cards}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">H2H</p>
+                        <p className="text-sm font-bold">
+                          {userRank.stats.h2h_wins}W-{userRank.stats.h2h_losses}L
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">H2H</p>
+                        <p className="text-sm font-bold">
+                          {userRank.stats.h2h_wins}W-{userRank.stats.h2h_losses}L
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Hit Rate</p>
+                        <p className="text-sm font-bold">
+                          {userRank.stats.win_rate.toFixed(1)}%
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Streak</p>
+                        <p className="text-sm font-bold">
+                          {userRank.stats.current_streak}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cards</p>
+                        <p className="text-sm font-bold">
+                          {userRank.stats.total_cards}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-4 sm:gap-6 sm:text-right">
-                {sortBy === "hit_rate" ? (
-                  <>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Hit Rate</p>
-                      <p className="text-sm font-bold">
-                        {userRank.stats.win_rate.toFixed(1)}%
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Streak</p>
-                      <p className="text-sm font-bold">
-                        {userRank.stats.current_streak}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cards</p>
-                      <p className="text-sm font-bold">
-                        {userRank.stats.total_cards}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">H2H</p>
-                      <p className="text-sm font-bold">
-                        {userRank.stats.h2h_wins}W-{userRank.stats.h2h_losses}L
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">H2H</p>
-                      <p className="text-sm font-bold">
-                        {userRank.stats.h2h_wins}W-{userRank.stats.h2h_losses}L
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Hit Rate</p>
-                      <p className="text-sm font-bold">
-                        {userRank.stats.win_rate.toFixed(1)}%
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Streak</p>
-                      <p className="text-sm font-bold">
-                        {userRank.stats.current_streak}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cards</p>
-                      <p className="text-sm font-bold">
-                        {userRank.stats.total_cards}
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </ScaleIn>
       )}
 
       {/* Error */}
@@ -260,11 +304,7 @@ export default function LeaderboardPage() {
 
       {/* Loading */}
       {loading && !error && (
-        <div className="flex flex-col gap-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-14 rounded-xl" />
-          ))}
-        </div>
+        <AnimatedSkeleton count={5} variant="card" className="h-14 rounded-xl" />
       )}
 
       {/* Content */}
@@ -278,18 +318,19 @@ export default function LeaderboardPage() {
 
       {/* Empty state */}
       {!loading && !error && entries.length === 0 && (
-        <Card className="border-border bg-card">
-          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-            <span className="text-3xl">
-              {activeTab === "global" ? "\uD83C\uDFC6" : "\uD83D\uDC65"}
-            </span>
-            <p className="text-muted-foreground">
-              {activeTab === "global"
-                ? "No leaderboard entries yet. Play some cards to get ranked!"
-                : "None of your friends have played yet. Challenge them to get started!"}
-            </p>
-          </CardContent>
-        </Card>
+        <AnimatedEmptyState
+          icon={activeTab === "global" ? "\uD83C\uDFC6" : "\uD83D\uDC65"}
+          title={
+            activeTab === "global"
+              ? "No leaderboard entries yet"
+              : "No friends ranked yet"
+          }
+          description={
+            activeTab === "global"
+              ? "Play some cards to get ranked!"
+              : "None of your friends have played yet. Challenge them to get started!"
+          }
+        />
       )}
     </div>
   );

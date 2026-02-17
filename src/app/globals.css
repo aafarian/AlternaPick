@@ -163,6 +163,26 @@ body {
   }
 }
 
+/* Skeleton loading shimmer — subtle left-to-right highlight sweep */
+@keyframes skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+@utility animate-skeleton-shimmer {
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-skeleton-shimmer {
+    animation: none;
+  }
+}
+
 /* Live stats bar shimmer animation */
 @keyframes bar-shimmer {
   0% {
@@ -359,6 +379,38 @@ input:-webkit-autofill { animation-name: autofill-start; }
   .animated-btn-glow:hover:not(:disabled) {
     animation: none;
     box-shadow: 0 0 25px rgba(0, 210, 106, 0.25);
+  }
+}
+
+/* ChallengeCard — subtle horizontal shake for incoming challenges (plays once on mount) */
+@keyframes challenge-shake {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-2px); }
+  50%      { transform: translateX(2px); }
+  75%      { transform: translateX(-2px); }
+}
+
+@utility animate-challenge-shake {
+  animation: challenge-shake 0.4s ease-in-out 1;
+}
+
+/* ChallengeCard — pulsing glow for active challenges, synced with the green dot */
+@keyframes active-card-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(0, 210, 106, 0.08); }
+  50%      { box-shadow: 0 0 14px rgba(0, 210, 106, 0.2); }
+}
+
+@utility animate-active-glow {
+  animation: active-card-glow 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-challenge-shake {
+    animation: none;
+  }
+  .animate-active-glow {
+    animation: none;
+    box-shadow: none;
   }
 }
 

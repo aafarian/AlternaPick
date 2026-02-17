@@ -1,28 +1,24 @@
+import { AnimatedSkeleton } from "@/components/ui/animated-skeleton";
+
 export default function ChallengesLoading() {
   return (
     <div className="flex flex-col gap-8 py-8">
+      {/* Header row */}
       <div className="flex items-center justify-between">
-        <div className="h-8 w-44 animate-pulse rounded-lg bg-card" />
-        <div className="h-10 w-36 animate-pulse rounded-lg bg-card" />
+        <AnimatedSkeleton variant="row" count={1} className="h-8 w-44" />
+        <AnimatedSkeleton variant="row" count={1} className="h-10 w-36" />
       </div>
 
-      {/* Tab skeleton */}
-      <div className="flex gap-2">
-        {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className="h-9 w-24 animate-pulse rounded-lg bg-card"
-          />
-        ))}
-      </div>
+      {/* Tab bar */}
+      <AnimatedSkeleton
+        variant="row"
+        count={4}
+        containerClassName="flex-row gap-2"
+        className="h-9 w-24 rounded-lg"
+      />
 
-      {/* Card skeletons */}
-      {[1, 2, 3].map((i) => (
-        <div
-          key={i}
-          className="h-20 animate-pulse rounded-xl border border-border bg-card"
-        />
-      ))}
+      {/* Card list */}
+      <AnimatedSkeleton variant="card" count={3} className="h-20" />
     </div>
   );
 }

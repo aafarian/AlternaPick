@@ -25,6 +25,8 @@ import { Button } from "@/components/ui/button";
 import { isValidGameMode } from "@/lib/modes/definitions";
 import { isValidSport, SPORT_CONFIG } from "@/lib/sports";
 import type { GameMode } from "@/lib/supabase/types";
+import { SlideUp, FadeIn, StaggerChildren, StaggerItem, ScrollReveal } from "@/components/motion";
+import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 
 export const metadata = {
   title: "Analytics | Sports Tower",
@@ -117,32 +119,36 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   if (isEmpty) {
     return (
       <div className="flex flex-col gap-6 py-8">
-        <div>
+        <SlideUp>
           <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
           <p className="text-sm text-muted-foreground">
             Your prop pick performance breakdown
           </p>
-        </div>
-        <ModeFilter activeMode={mode} availableModes={availableModes} currentSport={sport} />
-        <SportFilter activeSport={sport} currentMode={mode} />
-        <Card className="border-border bg-card">
-          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-            <span className="text-4xl">📊</span>
-            <p className="text-lg font-semibold text-foreground">
-              No data{hasFilters ? " for this filter combo" : ""}
-            </p>
-            <p className="max-w-sm text-sm text-muted-foreground">
-              {!hasFilters
+        </SlideUp>
+        <FadeIn delay={0.1}>
+          <ModeFilter activeMode={mode} availableModes={availableModes} currentSport={sport} />
+        </FadeIn>
+        <FadeIn delay={0.15}>
+          <SportFilter activeSport={sport} currentMode={mode} />
+        </FadeIn>
+        <FadeIn delay={0.2}>
+          <AnimatedEmptyState
+            icon="📊"
+            title={`No data${hasFilters ? " for this filter combo" : ""}`}
+            description={
+              !hasFilters
                 ? "Play some games to see your analytics! Once your cards are resolved, your hit rates and trends will appear here."
-                : "No resolved cards for these filters yet. Try a different combination or play more games!"}
-            </p>
-            <Link href="/props">
-              <Button variant="default" size="sm" className="mt-2">
-                Browse Props
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+                : "No resolved cards for these filters yet. Try a different combination or play more games!"
+            }
+            action={
+              <Link href="/props">
+                <Button variant="default" size="sm">
+                  Browse Props
+                </Button>
+              </Link>
+            }
+          />
+        </FadeIn>
       </div>
     );
   }
@@ -150,92 +156,40 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   return (
     <div className="flex flex-col gap-6 py-8">
       {/* Header */}
-      <div>
+      <SlideUp>
         <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
         <p className="text-sm text-muted-foreground">
           {totalPicks} resolved pick{totalPicks !== 1 ? "s" : ""}
           {sportLabel ? ` in ${sportLabel}` : ""} &middot;{" "}
           {overallRate}% overall hit rate
         </p>
-      </div>
+      </SlideUp>
 
       {/* Mode Filter Tabs */}
-      <ModeFilter activeMode={mode} availableModes={availableModes} currentSport={sport} />
-      <SportFilter activeSport={sport} currentMode={mode} />
+      <FadeIn delay={0.1}>
+        <ModeFilter activeMode={mode} availableModes={availableModes} currentSport={sport} />
+      </FadeIn>
+      <FadeIn delay={0.15}>
+        <SportFilter activeSport={sport} currentMode={mode} />
+      </FadeIn>
 
       {/* Overview Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Total Cards
-            </p>
-            <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-              {totalCards}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Hit Rate
-            </p>
-            <p
-              className={`mt-1 text-2xl font-black tabular-nums ${
-                overallRate >= 60
-                  ? "text-neon-green"
-                  : overallRate >= 40
-                    ? "text-electric-blue"
-                    : "text-bold-red"
-              }`}
-            >
-              {overallRate}%
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Best Streak
-            </p>
-            <p className="mt-1 text-2xl font-black tabular-nums text-amber-400">
-              {bestStreak} day{bestStreak !== 1 ? "s" : ""}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Total Picks
-            </p>
-            <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-              {totalPicks}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Summary stats row */}
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-6">
-            <div>
+      <StaggerChildren staggerDelay={0.08} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StaggerItem>
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Hits
+                Total Cards
               </p>
-              <p className="mt-1 text-2xl font-black tabular-nums text-neon-green">
-                {totalHits}
+              <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
+                {totalCards}
               </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Misses
-              </p>
-              <p className="mt-1 text-2xl font-black tabular-nums text-bold-red">
-                {totalPicks - totalHits}
-              </p>
-            </div>
-            <div>
+            </CardContent>
+          </Card>
+        </StaggerItem>
+        <StaggerItem>
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 Hit Rate
               </p>
@@ -250,34 +204,118 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               >
                 {overallRate}%
               </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </StaggerItem>
+        <StaggerItem>
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Best Streak
+              </p>
+              <p className="mt-1 text-2xl font-black tabular-nums text-amber-400">
+                {bestStreak} day{bestStreak !== 1 ? "s" : ""}
+              </p>
+            </CardContent>
+          </Card>
+        </StaggerItem>
+        <StaggerItem>
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Total Picks
+              </p>
+              <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
+                {totalPicks}
+              </p>
+            </CardContent>
+          </Card>
+        </StaggerItem>
+      </StaggerChildren>
 
-      {/* Core Charts grid (existing) */}
+      {/* Summary stats row */}
+      <FadeIn delay={0.35}>
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-4">
+            <div className="flex flex-wrap gap-6">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Hits
+                </p>
+                <p className="mt-1 text-2xl font-black tabular-nums text-neon-green">
+                  {totalHits}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Misses
+                </p>
+                <p className="mt-1 text-2xl font-black tabular-nums text-bold-red">
+                  {totalPicks - totalHits}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Hit Rate
+                </p>
+                <p
+                  className={`mt-1 text-2xl font-black tabular-nums ${
+                    overallRate >= 60
+                      ? "text-neon-green"
+                      : overallRate >= 40
+                        ? "text-electric-blue"
+                        : "text-bold-red"
+                  }`}
+                >
+                  {overallRate}%
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </FadeIn>
+
+      {/* Core Charts grid */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <CategoryChart data={categories} />
-        <PlayerHitRate data={players} />
-        <DirectionSplit data={directions} />
-        <TrendChart data={trend} />
+        <ScrollReveal>
+          <CategoryChart data={categories} />
+        </ScrollReveal>
+        <ScrollReveal>
+          <PlayerHitRate data={players} />
+        </ScrollReveal>
+        <ScrollReveal>
+          <DirectionSplit data={directions} />
+        </ScrollReveal>
+        <ScrollReveal>
+          <TrendChart data={trend} />
+        </ScrollReveal>
       </div>
 
       {/* Advanced Analytics Section */}
-      <div>
+      <FadeIn delay={0.1}>
         <h2 className="text-lg font-bold tracking-tight text-foreground">
           Advanced Analytics
         </h2>
         <p className="text-sm text-muted-foreground">
           Deeper insights into your prop picking patterns
         </p>
-      </div>
+      </FadeIn>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <CardSizeChart data={cardSizes} />
-        {isAllMode && <GameModeStats data={gameModes} />}
-        <ScoreDistribution data={scoreDistributionData} />
-        <TeamHitRate data={teams} />
+        <ScrollReveal>
+          <CardSizeChart data={cardSizes} />
+        </ScrollReveal>
+        {isAllMode && (
+          <ScrollReveal>
+            <GameModeStats data={gameModes} />
+          </ScrollReveal>
+        )}
+        <ScrollReveal>
+          <ScoreDistribution data={scoreDistributionData} />
+        </ScrollReveal>
+        <ScrollReveal>
+          <TeamHitRate data={teams} />
+        </ScrollReveal>
       </div>
     </div>
   );

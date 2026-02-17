@@ -1,17 +1,19 @@
+import { AnimatedSkeleton } from "@/components/ui/animated-skeleton";
+
 export default function CardsLoading() {
   return (
     <div className="flex flex-col gap-8 py-8">
+      {/* Header row */}
       <div className="flex items-center justify-between">
-        <div className="h-8 w-36 animate-pulse rounded-lg bg-card" />
-        <div className="h-10 w-28 animate-pulse rounded-lg bg-card" />
+        <AnimatedSkeleton variant="row" count={1} className="h-8 w-36" />
+        <AnimatedSkeleton variant="row" count={1} className="h-10 w-28" />
       </div>
-      <div className="h-6 w-32 animate-pulse rounded-lg bg-card" />
-      {[1, 2, 3].map((i) => (
-        <div
-          key={i}
-          className="h-56 animate-pulse rounded-xl border border-border bg-card"
-        />
-      ))}
+
+      {/* Sub-header */}
+      <AnimatedSkeleton variant="row" count={1} className="h-6 w-32" />
+
+      {/* Card grid */}
+      <AnimatedSkeleton variant="card" count={4} className="h-56" />
     </div>
   );
 }
