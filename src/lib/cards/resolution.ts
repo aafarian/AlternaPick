@@ -438,8 +438,7 @@ async function persistResolution(
   supabase: ReturnType<typeof createAdminClient>,
   result: ResolutionResult
 ): Promise<boolean> {
-  // Atomic resolution: updates all picks + card status in a single transaction.
-  // Returns false if the card was already resolved (race condition).
+  // Try atomic RPC first (single transaction for all picks + card status)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: success, error } = await (supabase.rpc as any)("resolve_card", {
     p_card_id: result.card_id,
@@ -451,27 +450,49 @@ async function persistResolution(
     })),
   });
 
-  if (error) {
-    // Card not in 'locked' status — already resolved by another caller
-    if (error.message?.includes("not found") || error.message?.includes("locked")) {
-      return false;
+  if (!error && success) {
+    // RPC succeeded — update leaderboard
+    if (result.user_id) {
+      await updateLeaderboardStats(supabase, result.user_id, result.score, result.total);
     }
-    throw error;
+    return true;
   }
 
-  if (!success) {
-    // Card was already resolved (race condition) — skip leaderboard update
+  // Already resolved by another caller — no-op
+  if (!error && !success) return false;
+  if (error?.message?.includes("not found") || error?.message?.includes("locked")) {
     return false;
   }
 
-  // Update leaderboard stats for authenticated users
+  // RPC failed for another reason — fall back to direct writes
+  console.error("resolve_card RPC failed, falling back to direct writes:", error?.message);
+
+  // Verify card is still locked
+  const { data: check } = await (supabase.from("cards") as any)
+    .select("status")
+    .eq("id", result.card_id)
+    .single();
+  if (check?.status !== "locked") return false;
+
+  // Write pick results
+  for (const p of result.picks) {
+    await (supabase.from("picks") as any)
+      .update({ result: p.result, actual_value: p.actual_value })
+      .eq("id", p.pick_id);
+  }
+
+  // Mark card resolved (only if still locked — race protection)
+  const { data: updated } = await (supabase.from("cards") as any)
+    .update({ status: "resolved", score: result.score, resolved_at: new Date().toISOString() })
+    .eq("id", result.card_id)
+    .eq("status", "locked")
+    .select("id");
+
+  if (!updated?.length) return false;
+
+  // Update leaderboard stats
   if (result.user_id) {
-    await updateLeaderboardStats(
-      supabase,
-      result.user_id,
-      result.score,
-      result.total
-    );
+    await updateLeaderboardStats(supabase, result.user_id, result.score, result.total);
   }
 
   return true;
