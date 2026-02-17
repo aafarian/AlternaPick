@@ -3,11 +3,13 @@
 import Link from "next/link";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { AnimatedButton } from "@/components/ui/animated-button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
+import { motion, useReducedMotion } from "@/lib/motion";
+import { ScaleIn } from "@/components/motion";
 
 interface ChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -33,6 +35,7 @@ export default function ChallengeCard({
   const displayName = opponent.display_name || opponent.username;
   const avatarInitial = displayName.charAt(0).toUpperCase();
   const isLoading = actionLoading === challenge.id;
+  const prefersReduced = useReducedMotion();
 
   const isActive =
     challenge.status === "active" || challenge.status === "accepted";
@@ -62,172 +65,201 @@ export default function ChallengeCard({
     day: "numeric",
   });
 
+  // Hover lift animation (card lifts -1px with shadow increase)
+  const hoverProps = prefersReduced
+    ? {}
+    : {
+        whileHover: {
+          y: -1,
+          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+        },
+        transition: {
+          type: "spring" as const,
+          stiffness: 400,
+          damping: 30,
+        },
+      };
+
   return (
     <Link href={`/challenges/${challenge.id}`}>
-      <Card
-        className={cn(
-          "border-border transition-all hover:bg-secondary/50",
-          borderClass,
-          bgClass
-        )}
-      >
-        <CardContent className="flex items-center gap-3 px-4 py-2.5">
-          {/* Avatar */}
-          <Avatar className="h-9 w-9 shrink-0">
-            <AvatarFallback
-              className={cn(
-                "text-sm font-bold",
-                isIncoming
-                  ? "bg-amber-500/15 text-amber-400"
-                  : "bg-primary/10 text-primary"
-              )}
-            >
-              {avatarInitial}
-            </AvatarFallback>
-          </Avatar>
-
-          {/* Info — name row has inline status */}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-sm font-bold">{displayName}</span>
-
-              {/* Inline status indicator */}
-              {isActive && (
-                <div className="flex items-center gap-1">
-                  <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                  <span className="text-[10px] font-bold text-primary">ACTIVE</span>
-                </div>
-              )}
-              {won && (
-                <span className="text-[10px] font-bold text-neon-green">WIN</span>
-              )}
-              {lost && (
-                <span className="text-[10px] font-bold text-bold-red">LOSS</span>
-              )}
-              {isResolved && !challenge.winner_id && (
-                <span className="text-[10px] font-bold text-muted-foreground">DRAW</span>
-              )}
-              {isOutgoing && (
-                <span className="text-[10px] font-medium text-muted-foreground/60">WAITING</span>
-              )}
-              {(challenge.status === "cancelled" || challenge.status === "declined") && (
-                <span className="text-[10px] font-medium text-muted-foreground/60">
-                  {challenge.status === "cancelled" ? "CANCELLED" : "DECLINED"}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5">
-              {challenge.game_mode && (
-                <GameModeBadge
-                  mode={challenge.game_mode as GameMode}
-                  size="md"
-                  showClassic
-                />
-              )}
-              <span className="text-xs text-muted-foreground">
-                {isIncoming
-                  ? "Challenged you"
-                  : isOutgoing
-                    ? "You challenged"
-                    : isChallenger
-                      ? "You challenged"
-                      : "Challenged you"}{" "}
-                &middot; {date}
-              </span>
-            </div>
-            {/* Trash talk — more prominent on incoming */}
-            {challenge.message && (
-              <p
+      <motion.div {...hoverProps}>
+        <Card
+          className={cn(
+            "border-border transition-all hover:bg-secondary/50",
+            borderClass,
+            bgClass,
+            // Active cards: pulsing glow synced with green dot
+            isActive && !prefersReduced && "animate-active-glow",
+            // Incoming cards: brief horizontal shake on mount
+            isIncoming && !prefersReduced && "animate-challenge-shake"
+          )}
+        >
+          <CardContent className="flex items-center gap-3 px-4 py-2.5">
+            {/* Avatar */}
+            <Avatar className="h-9 w-9 shrink-0">
+              <AvatarFallback
                 className={cn(
-                  "mt-0.5 max-w-[280px] truncate text-xs italic",
+                  "text-sm font-bold",
                   isIncoming
-                    ? "text-amber-400/70"
-                    : "text-muted-foreground/60"
+                    ? "bg-amber-500/15 text-amber-400"
+                    : "bg-primary/10 text-primary"
                 )}
               >
-                &ldquo;
-                {challenge.message.length > 60
-                  ? challenge.message.slice(0, 60) + "..."
-                  : challenge.message}
-                &rdquo;
-              </p>
-            )}
-          </div>
+                {avatarInitial}
+              </AvatarFallback>
+            </Avatar>
 
-          {/* Right side — actions only */}
-          <div
-            className="flex shrink-0 items-center gap-2"
-            onClick={(e) => e.preventDefault()}
-          >
-            {/* Incoming: Accept / Decline */}
-            {isIncoming && (
-              <>
-                <Button
-                  onClick={() => onAccept?.(challenge.id)}
-                  disabled={isLoading}
-                  size="sm"
-                >
-                  {isLoading ? "..." : "Accept"}
-                </Button>
-                <Button
-                  onClick={() => onDecline?.(challenge.id)}
-                  disabled={isLoading}
-                  variant="outline"
-                  size="sm"
-                >
-                  Decline
-                </Button>
-              </>
-            )}
+            {/* Info — name row has inline status */}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-bold">{displayName}</span>
 
-            {/* Outgoing: Make Picks + Cancel */}
-            {isOutgoing && (
-              <>
-                {!userHasCard && (
-                  <Button
+                {/* Inline status indicator */}
+                {isActive && (
+                  <div className="flex items-center gap-1">
+                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                    <span className="text-[10px] font-bold text-primary">ACTIVE</span>
+                  </div>
+                )}
+                {won && (
+                  <ScaleIn initialScale={0.5} duration={0.35}>
+                    <span className="text-[10px] font-bold text-neon-green">WIN</span>
+                  </ScaleIn>
+                )}
+                {lost && (
+                  <ScaleIn initialScale={0.5} duration={0.35}>
+                    <span className="text-[10px] font-bold text-bold-red">LOSS</span>
+                  </ScaleIn>
+                )}
+                {isResolved && !challenge.winner_id && (
+                  <span className="text-[10px] font-bold text-muted-foreground">DRAW</span>
+                )}
+                {isOutgoing && (
+                  <span className="text-[10px] font-medium text-muted-foreground/60">WAITING</span>
+                )}
+                {(challenge.status === "cancelled" || challenge.status === "declined") && (
+                  <span className="text-[10px] font-medium text-muted-foreground/60">
+                    {challenge.status === "cancelled" ? "CANCELLED" : "DECLINED"}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                {challenge.game_mode && (
+                  <GameModeBadge
+                    mode={challenge.game_mode as GameMode}
+                    size="md"
+                    showClassic
+                  />
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {isIncoming
+                    ? "Challenged you"
+                    : isOutgoing
+                      ? "You challenged"
+                      : isChallenger
+                        ? "You challenged"
+                        : "Challenged you"}{" "}
+                  &middot; {date}
+                </span>
+              </div>
+              {/* Trash talk — more prominent on incoming */}
+              {challenge.message && (
+                <p
+                  className={cn(
+                    "mt-0.5 max-w-[280px] truncate text-xs italic",
+                    isIncoming
+                      ? "text-amber-400/70"
+                      : "text-muted-foreground/60"
+                  )}
+                >
+                  &ldquo;
+                  {challenge.message.length > 60
+                    ? challenge.message.slice(0, 60) + "..."
+                    : challenge.message}
+                  &rdquo;
+                </p>
+              )}
+            </div>
+
+            {/* Right side — actions only */}
+            <div
+              className="flex shrink-0 items-center gap-2"
+              onClick={(e) => e.preventDefault()}
+            >
+              {/* Incoming: Accept / Decline */}
+              {isIncoming && (
+                <>
+                  <AnimatedButton
+                    onClick={() => onAccept?.(challenge.id)}
+                    disabled={isLoading}
                     size="sm"
+                    loading={isLoading}
+                    loadingText="..."
+                  >
+                    Accept
+                  </AnimatedButton>
+                  <AnimatedButton
+                    onClick={() => onDecline?.(challenge.id)}
+                    disabled={isLoading}
                     variant="outline"
+                    size="sm"
+                  >
+                    Decline
+                  </AnimatedButton>
+                </>
+              )}
+
+              {/* Outgoing: Make Picks + Cancel */}
+              {isOutgoing && (
+                <>
+                  {!userHasCard && (
+                    <AnimatedButton
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.location.href = `/props?challenge_id=${challenge.id}`;
+                      }}
+                    >
+                      Make Picks
+                    </AnimatedButton>
+                  )}
+                  <AnimatedButton
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      window.location.href = `/props?challenge_id=${challenge.id}`;
+                      onCancel?.(challenge.id);
                     }}
+                    disabled={isLoading}
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    loading={isLoading}
+                    loadingText="..."
                   >
-                    Make Picks
-                  </Button>
-                )}
-                <Button
+                    Cancel
+                  </AnimatedButton>
+                </>
+              )}
+
+              {/* Active: Make Picks if needed */}
+              {isActive && !userHasCard && (
+                <AnimatedButton
+                  size="sm"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    onCancel?.(challenge.id);
+                    window.location.href = `/props?challenge_id=${challenge.id}`;
                   }}
-                  disabled={isLoading}
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground"
                 >
-                  {isLoading ? "..." : "Cancel"}
-                </Button>
-              </>
-            )}
-
-            {/* Active: Make Picks if needed */}
-            {isActive && !userHasCard && (
-              <Button
-                size="sm"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  window.location.href = `/props?challenge_id=${challenge.id}`;
-                }}
-              >
-                Make Picks
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+                  Make Picks
+                </AnimatedButton>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </Link>
   );
 }
