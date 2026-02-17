@@ -11,10 +11,15 @@ export default function PlayerSearch() {
   const currentPlayer = searchParams.get("player") ?? "";
   const [value, setValue] = useState(currentPlayer);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track the last value we pushed so we can distinguish our own URL updates
+  // from external navigation (back/forward) and only sync on the latter.
+  const lastPushedRef = useRef(currentPlayer);
 
-  // Sync local state when URL changes externally (e.g., back/forward navigation)
   useEffect(() => {
-    setValue(currentPlayer);
+    if (currentPlayer !== lastPushedRef.current) {
+      setValue(currentPlayer);
+    }
+    lastPushedRef.current = currentPlayer;
   }, [currentPlayer]);
 
   // Clean up debounce timeout on unmount
@@ -26,9 +31,11 @@ export default function PlayerSearch() {
 
   const pushSearch = useCallback(
     (query: string) => {
+      const trimmed = query.trim();
+      lastPushedRef.current = trimmed;
       const params = new URLSearchParams(searchParams.toString());
-      if (query.trim()) {
-        params.set("player", query.trim());
+      if (trimmed) {
+        params.set("player", trimmed);
       } else {
         params.delete("player");
       }

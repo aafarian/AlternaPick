@@ -27,30 +27,37 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
   const [searching, setSearching] = useState(false);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const prefersReduced = useReducedMotion();
 
   const search = useCallback(async (q: string) => {
+    // Cancel any in-flight request so stale responses don't overwrite newer ones
+    abortRef.current?.abort();
+
     if (q.length < 2) {
       setResults([]);
       setIsOpen(false);
       return;
     }
 
+    const controller = new AbortController();
+    abortRef.current = controller;
     setSearching(true);
     try {
       const res = await fetch(
-        `/api/users/search?q=${encodeURIComponent(q)}`
+        `/api/users/search?q=${encodeURIComponent(q)}`,
+        { signal: controller.signal }
       );
       if (res.ok) {
         const data = await res.json();
         setResults(data.users ?? []);
         setIsOpen(true);
       }
-    } catch {
-      // Silently fail search
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
     } finally {
-      setSearching(false);
+      if (!controller.signal.aborted) setSearching(false);
     }
   }, []);
 
