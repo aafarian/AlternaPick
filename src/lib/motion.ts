@@ -12,6 +12,7 @@ export {
   motion,
   AnimatePresence,
   useInView,
+  useReducedMotion,
   useScroll,
   useTransform,
 } from "motion/react";
