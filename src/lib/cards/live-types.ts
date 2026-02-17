@@ -109,4 +109,6 @@ export interface LiveChallengeData {
   } | null;
   games: LiveGameStatus[];
   has_live_games: boolean;
+  /** True when cards/challenge were resolved during this request */
+  challenge_resolved?: boolean;
 }

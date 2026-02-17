@@ -11,7 +11,8 @@ import type {
   LiveGameStatus,
   LiveChallengeData,
 } from "@/lib/cards/live-types";
-import { tryResolveFromLiveData } from "@/lib/cards/resolution";
+import { tryResolveFromLiveData, resolveEligibleCards } from "@/lib/cards/resolution";
+import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -77,11 +78,34 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       ? buildLivePicksForCard(opponentCardRaw.picks, gameStatusMap, boxscoreMap)
       : null;
 
-    // Auto-resolve cards whose games are all final (reuses pre-fetched data)
-    try {
-      await tryResolveFromLiveData(cardsList, gameStatusMap, boxscoreMap);
-    } catch (err) {
-      console.error("Auto-resolution from challenge live endpoint failed:", err);
+    // Auto-resolve cards whose games are all final
+    const hadLockedCards = cardsList.some((c) => c.status === "locked");
+    let challengeResolved = false;
+
+    if (hadLockedCards) {
+      // Fast path: reuse pre-fetched live data
+      try {
+        await tryResolveFromLiveData(cardsList, gameStatusMap, boxscoreMap);
+      } catch (err) {
+        console.error("Auto-resolution from challenge live endpoint failed:", err);
+      }
+
+      // Fallback: resolve via DB status (catches yesterday's games, missed syncs)
+      try {
+        await resolveEligibleCards();
+        await resolveEligibleChallenges();
+      } catch (err) {
+        console.error("Fallback resolution failed:", err);
+      }
+
+      // Check if cards were resolved during this request
+      const { data: freshCards } = await (admin.from("cards") as any)
+        .select("status")
+        .eq("challenge_id", id);
+      const allResolved = (freshCards ?? []).every(
+        (c: { status: string }) => c.status === "resolved"
+      );
+      challengeResolved = allResolved;
     }
 
     // Merge unique games from both cards
@@ -115,6 +139,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         : null,
       games,
       has_live_games: (challengerLive?.hasLiveGames || opponentLive?.hasLiveGames) ?? false,
+      challenge_resolved: challengeResolved || undefined,
     };
 
     return NextResponse.json(response, {
