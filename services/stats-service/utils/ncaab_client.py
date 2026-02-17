@@ -11,9 +11,14 @@ groups=50 filters to Division I only.
 import asyncio
 import logging
 import time
-from datetime import date
+from datetime import date, datetime, timezone, timedelta
 
 import httpx
+
+# US Eastern: ESPN dates are in ET. Using a fixed UTC-5 offset is sufficient
+# for date calculation (worst case we're off by 1 hour during DST transition,
+# but the scoreboard date will still be correct for evening games).
+_ET = timezone(timedelta(hours=-5))
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +100,7 @@ async def get_todays_ncaab_games(target_date: str | None = None) -> list[dict]:
     Args:
         target_date: Date in YYYYMMDD format. Defaults to today.
     """
-    today = target_date or date.today().strftime("%Y%m%d")
+    today = target_date or datetime.now(_ET).strftime("%Y%m%d")
     cache_key = f"ncaab_games:{today}"
     cached = _get_cached(cache_key)
     if cached is not None:
