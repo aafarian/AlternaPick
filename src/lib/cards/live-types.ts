@@ -6,6 +6,7 @@ export interface LiveGameStatus {
   status: "scheduled" | "live" | "final";
   period: number;
   clock: string;
+  sport?: string;
   home_team: string;
   away_team: string;
   home_tricode: string;

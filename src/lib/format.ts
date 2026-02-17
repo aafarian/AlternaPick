@@ -29,24 +29,36 @@ export function formatTimeAgo(timestamp: string, compact = false): string {
 }
 
 /**
- * Formats an NBA game clock string (ISO 8601 duration) into a readable "Q1 5:30" format.
- * Handles halftime (Q2 0:00) and end-of-period (Qn 0:00) cases.
+ * Formats a game clock string into a readable format (e.g. "Q1 5:30", "H1 5:30").
+ * Supports both ISO 8601 durations (NBA: "PT05M30.00S") and display format (NCAAB/ESPN: "5:30").
+ * Uses sport to determine period labels: H (halves) for ncaab/epl/la_liga, Q (quarters) for nba/nhl.
  */
-export function formatClock(period: number, clock: string): string {
+export function formatClock(period: number, clock: string, sport?: string): string {
+  // Parse ISO 8601 duration (e.g. "PT05M30.00S" → 5, 30)
   const cleanClock = clock.replace(/^PT/, "").replace(/\.00S$/, "S");
-  const match = cleanClock.match(/(\d+)M(\d+)/);
+  const isoMatch = cleanClock.match(/(\d+)M(\d+)/);
+
+  // Parse display format (e.g. "5:30", "0:00")
+  const displayMatch = !isoMatch ? clock.match(/^(\d+):(\d{2})$/) : null;
+
+  const match = isoMatch || displayMatch;
   const minutes = match ? parseInt(match[1], 10) : -1;
   const seconds = match ? parseInt(match[2], 10) : -1;
   const isZero = minutes === 0 && seconds === 0;
 
-  // Halftime: end of Q2
-  if (period === 2 && isZero) return "Half";
+  // Determine if sport uses halves vs quarters
+  const HALF_SPORTS = new Set(["ncaab", "epl", "la_liga"]);
+  const usesHalves = sport ? HALF_SPORTS.has(sport) : false;
+  const prefix = usesHalves ? "H" : "Q";
+  // Halftime is end of H1 (period 1) for halves, end of Q2 (period 2) for quarters
+  const halftimePeriod = usesHalves ? 1 : 2;
 
-  // End of other periods
-  if (isZero && period >= 1) return `End Q${period}`;
+  if (period === halftimePeriod && isZero) return "Half";
+
+  if (isZero && period >= 1) return `End ${prefix}${period}`;
 
   const display = match ? `${match[1]}:${match[2].padStart(2, "0")}` : clock;
-  return `Q${period} ${display}`;
+  return `${prefix}${period} ${display}`;
 }
 
 /**
