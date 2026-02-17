@@ -267,36 +267,37 @@ body {
   animation: winner-ripple 2.5s ease-out infinite;
 }
 
-/* Hero section — floating glow orbs */
+/* Hero section — floating glow orbs.
+   Positioning is margin-based (not translate) so keyframe transforms don't conflict. */
 @keyframes hero-glow-1 {
   0%, 100% {
-    transform: translate(-50%, -50%) scale(1);
+    transform: scale(1);
     opacity: 1;
   }
   50% {
-    transform: translate(-45%, -55%) scale(1.15);
+    transform: translate(3%, -4%) scale(1.15);
     opacity: 0.7;
   }
 }
 
 @keyframes hero-glow-2 {
   0%, 100% {
-    transform: translate(-50%, -50%) scale(1);
+    transform: scale(1);
     opacity: 1;
   }
   50% {
-    transform: translate(-55%, -45%) scale(1.1);
+    transform: translate(-4%, 3%) scale(1.1);
     opacity: 0.6;
   }
 }
 
 @keyframes hero-glow-3 {
   0%, 100% {
-    transform: translate(-50%, -50%) scale(1);
+    transform: scale(1);
     opacity: 1;
   }
   50% {
-    transform: translate(-48%, -52%) scale(1.2);
+    transform: translate(2%, -2%) scale(1.2);
     opacity: 0.5;
   }
 }
