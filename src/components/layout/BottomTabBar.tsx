@@ -10,6 +10,7 @@ import {
   Trophy,
   User,
 } from "lucide-react";
+import { motion, useReducedMotion } from "@/lib/motion";
 
 interface Tab {
   href: string;
@@ -25,11 +26,17 @@ const tabs: Tab[] = [
   { href: "/profile", label: "Profile", icon: User },
 ];
 
+const springTransition = { type: "spring" as const, stiffness: 500, damping: 30 };
+const instantTransition = { duration: 0 };
+
 export default function BottomTabBar() {
   const pathname = usePathname();
   const { user } = useAuth();
+  const prefersReducedMotion = useReducedMotion();
 
   if (!user) return null;
+
+  const transition = prefersReducedMotion ? instantTransition : springTransition;
 
   return (
     <nav
@@ -47,17 +54,30 @@ export default function BottomTabBar() {
             <Link
               key={tab.href}
               href={tab.href}
-              className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium transition-colors ${
+              className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium transition-colors ${
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground active:text-foreground"
               }`}
             >
-              <Icon
-                className={`h-5 w-5 ${isActive ? "text-primary" : ""}`}
-                strokeWidth={isActive ? 2.5 : 2}
-              />
+              <motion.div
+                animate={{ scale: isActive ? 1.15 : 1 }}
+                transition={transition}
+              >
+                <Icon
+                  className={`h-5 w-5 ${isActive ? "text-primary" : ""}`}
+                  strokeWidth={isActive ? 2.5 : 2}
+                />
+              </motion.div>
               <span>{tab.label}</span>
+              {isActive && (
+                <motion.div
+                  layoutId="bottom-tab-indicator"
+                  className="absolute -bottom-1 h-0.5 w-4 rounded-full bg-primary"
+                  style={{ boxShadow: "0 0 6px var(--color-primary)" }}
+                  transition={transition}
+                />
+              )}
             </Link>
           );
         })}
