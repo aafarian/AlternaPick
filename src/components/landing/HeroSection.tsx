@@ -11,26 +11,25 @@ import {
 } from "@/components/motion";
 
 /**
- * Animated hero section for the landing page.
+ * Full-viewport hero with ambient glow orbs.
  *
- * Orchestrated entrance: badge -> headline words -> subtitle -> CTA buttons.
- * Background glow orbs are pure CSS animations for zero JS overhead.
- * Respects `prefers-reduced-motion` via the motion primitives.
+ * Glow container has NO overflow-hidden so the radial gradients
+ * bleed naturally to viewport edges — no visible box.
  */
 export default function HeroSection() {
   return (
-    <section className="relative flex flex-col items-center gap-6 py-24 text-center overflow-hidden">
-      {/* ── Background glow orbs (CSS-only) ── */}
+    <section className="relative flex min-h-[85vh] flex-col items-center justify-center gap-6 px-4 text-center">
+      {/* ── Background glow orbs (no overflow-hidden → no visible box) ── */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+        className="pointer-events-none absolute inset-0 -z-10"
       >
-        {/* Primary green orb — top center */}
-        <div className="absolute left-1/2 top-1/4 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(0,210,106,0.15)_0%,transparent_70%)] animate-hero-glow-1" />
-        {/* Accent blue orb — offset right */}
-        <div className="absolute left-2/3 top-1/2 h-[340px] w-[340px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.12)_0%,transparent_70%)] animate-hero-glow-2" />
-        {/* Dim green orb — offset left, lower */}
-        <div className="absolute left-1/3 top-2/3 h-[280px] w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(0,210,106,0.08)_0%,transparent_70%)] animate-hero-glow-3" />
+        {/* Primary green — large, top-center, pushed well above fold so edge is never visible */}
+        <div className="absolute left-1/2 top-0 h-[1000px] w-[1000px] -translate-x-1/2 -translate-y-[40%] rounded-full bg-[radial-gradient(circle,rgba(0,210,106,0.10)_0%,transparent_60%)] animate-hero-glow-1" />
+        {/* Accent blue — offset right */}
+        <div className="absolute right-0 top-1/3 h-[600px] w-[600px] translate-x-[20%] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.07)_0%,transparent_70%)] animate-hero-glow-2" />
+        {/* Dim green — offset left, lower */}
+        <div className="absolute left-0 bottom-0 h-[500px] w-[500px] -translate-x-[20%] translate-y-[20%] rounded-full bg-[radial-gradient(circle,rgba(0,210,106,0.05)_0%,transparent_70%)] animate-hero-glow-3" />
       </div>
 
       {/* ── Badge ── */}
@@ -40,9 +39,9 @@ export default function HeroSection() {
         </div>
       </ScaleIn>
 
-      {/* ── Headline with staggered word reveal ── */}
-      <StaggerChildren staggerDelay={0.12} className="max-w-3xl">
-        <h1 className="text-5xl font-black tracking-tight sm:text-7xl">
+      {/* ── Headline ── */}
+      <StaggerChildren staggerDelay={0.12} className="max-w-4xl">
+        <h1 className="text-5xl font-black tracking-tight sm:text-7xl lg:text-8xl">
           <StaggerItem>
             <span className="inline-block">Predict.</span>
           </StaggerItem>{" "}
@@ -58,11 +57,11 @@ export default function HeroSection() {
       </StaggerChildren>
 
       {/* ── Subtitle ── */}
-      <FadeIn delay={0.65} duration={0.6} className="max-w-xl">
-        <p className="text-lg text-muted-foreground">
-          Pick over/unders on real NBA player props, challenge your friends
-          head-to-head, and see who really knows the game. No money — just
-          bragging rights.
+      <FadeIn delay={0.65} duration={0.6} className="max-w-2xl">
+        <p className="text-lg text-muted-foreground sm:text-xl">
+          Pick over/unders on real player props across NBA, college basketball,
+          soccer, and more. Challenge friends head-to-head and prove who really
+          knows the game.
         </p>
       </FadeIn>
 
@@ -83,11 +82,12 @@ export default function HeroSection() {
               size="lg"
               className="text-base font-bold transition-all duration-300 hover:border-accent/50 hover:shadow-[0_0_25px_rgba(59,130,246,0.2)] hover:scale-105"
             >
-              Challenge Friends
+              Challenge a Friend
             </Button>
           </Link>
         </div>
       </SlideUp>
+
     </section>
   );
 }

@@ -9,24 +9,23 @@ const features: { title: string; description: string; icon: LucideIcon }[] = [
   {
     title: "Pick Over/Unders",
     description:
-      "Browse tonight's NBA player props and lock in your predictions. Points, rebounds, assists, and more.",
+      "Browse real player props across NBA, college basketball, Premier League, La Liga, and more. Lock in your predictions on points, assists, goals, and dozens of other stats.",
     icon: Target,
   },
   {
     title: "Challenge Friends",
     description:
-      "Go head-to-head with your friends. You both pick 6 — see who knows the game better.",
+      "Go head-to-head in 6 unique game modes — from Classic to Sabotage. Send a challenge, both make your picks, and see who comes out on top.",
     icon: Swords,
   },
   {
     title: "Climb the Leaderboard",
     description:
-      "Track your win rate, build streaks, and prove you're the best predictor in your crew.",
+      "Track your hit rate, build win streaks, and climb the global rankings. Compare stats with friends or compete for the #1 spot.",
     icon: Trophy,
   },
 ];
 
-/* ── Stagger variants (scroll-triggered) ── */
 const containerVariants = {
   hidden: {},
   visible: {
@@ -48,35 +47,53 @@ export function FeaturesSection() {
   const isInView = useInView(ref, { amount: 0.2, once: true });
   const prefersReduced = useReducedMotion();
 
-  /* Reduced motion: render instantly, no animation */
+  const header = (
+    <div className="mb-12 text-center">
+      <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
+        How It{" "}
+        <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+          Works
+        </span>
+      </h2>
+      <p className="mx-auto mt-4 max-w-lg text-muted-foreground">
+        Three steps to getting in the game. No money, no risk — just bragging
+        rights.
+      </p>
+    </div>
+  );
+
   if (prefersReduced) {
     return (
-      <section className="grid w-full max-w-4xl gap-6 py-12 sm:grid-cols-3">
-        {features.map((feature) => (
-          <FeatureCard key={feature.title} feature={feature} reduced />
-        ))}
+      <section className="mx-auto max-w-5xl px-4 py-20">
+        {header}
+        <div className="grid gap-6 sm:grid-cols-3">
+          {features.map((feature) => (
+            <FeatureCard key={feature.title} feature={feature} reduced />
+          ))}
+        </div>
       </section>
     );
   }
 
   return (
-    <motion.section
-      ref={ref}
-      className="grid w-full max-w-4xl gap-6 py-12 sm:grid-cols-3"
-      variants={containerVariants}
-      initial="hidden"
-      animate={isInView ? "visible" : "hidden"}
-    >
-      {features.map((feature) => (
-        <motion.div key={feature.title} variants={cardVariants}>
-          <FeatureCard feature={feature} />
-        </motion.div>
-      ))}
-    </motion.section>
+    <section className="mx-auto max-w-5xl px-4 py-20">
+      {header}
+      <motion.div
+        ref={ref}
+        className="grid gap-6 sm:grid-cols-3"
+        variants={containerVariants}
+        initial="hidden"
+        animate={isInView ? "visible" : "hidden"}
+      >
+        {features.map((feature) => (
+          <motion.div key={feature.title} variants={cardVariants}>
+            <FeatureCard feature={feature} />
+          </motion.div>
+        ))}
+      </motion.div>
+    </section>
   );
 }
-
-/* ── Individual feature card ── */
 
 function FeatureCard({
   feature,
@@ -88,14 +105,12 @@ function FeatureCard({
   const Icon = feature.icon;
 
   const card = (
-    <Card className="group relative overflow-hidden border-border bg-card/80 backdrop-blur-sm transition-colors hover:border-primary/40">
-      {/* Gradient border glow on hover */}
+    <Card className="group relative h-full overflow-hidden border-border bg-card/80 backdrop-blur-sm transition-colors hover:border-primary/40">
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 transition-opacity duration-500 group-hover:opacity-100">
         <div className="absolute inset-[-1px] rounded-[inherit] bg-gradient-to-br from-primary/20 via-accent/10 to-transparent" />
       </div>
 
       <CardContent className="relative flex flex-col gap-3 p-6">
-        {/* Icon container with glow on hover */}
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 transition-all duration-300 group-hover:bg-primary/20 group-hover:shadow-[0_0_20px_rgba(0,210,106,0.15)]">
           <Icon className="h-5 w-5 text-primary transition-transform duration-300 group-hover:scale-110" />
         </div>
@@ -108,7 +123,6 @@ function FeatureCard({
     </Card>
   );
 
-  /* When reduced motion is preferred, skip the hover scale wrapper */
   if (reduced) return card;
 
   return (

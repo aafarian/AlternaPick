@@ -24,7 +24,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "AlternaPick - Predict. Compete. Dominate.",
   description:
-    "Pick over/unders on NBA player props, challenge your friends head-to-head, and climb the leaderboard. No money, just bragging rights.",
+    "Pick over/unders on real player props across NBA, college basketball, soccer, and more. Challenge friends head-to-head and climb the leaderboard. Free to play.",
 };
 
 export default function RootLayout({

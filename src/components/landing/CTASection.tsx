@@ -2,22 +2,13 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ScrollReveal } from "@/components/motion";
-import { SlideUp } from "@/components/motion";
+import { ScrollReveal, SlideUp } from "@/components/motion";
 
-/**
- * Bottom CTA section — the final conversion touchpoint on the landing page.
- *
- * Sits below features and provides a compelling closing call-to-action
- * with a gradient panel, animated glow button, and social proof.
- * Uses ScrollReveal for viewport-triggered entrance animation.
- * Respects `prefers-reduced-motion` via the motion primitives.
- */
 export function CTASection() {
   return (
-    <ScrollReveal className="w-full max-w-4xl px-4 py-20">
+    <ScrollReveal className="mx-auto w-full max-w-5xl px-4 py-20">
       <section className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary/5 px-6 py-16 text-center sm:px-12">
-        {/* Background glow orbs (CSS-only, decorative) */}
+        {/* Background glow orbs */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-[inherit]"
@@ -40,12 +31,13 @@ export function CTASection() {
         {/* Supporting text */}
         <SlideUp delay={0.25} offset={12}>
           <p className="mx-auto mt-4 max-w-lg text-base text-muted-foreground sm:text-lg">
-            No money, no risk — just you vs. your friends on real NBA player
-            props. Make your picks and find out who really knows the game.
+            No money, no risk — just you vs. your friends on real player props
+            across multiple sports. Make your picks and find out who really knows
+            the game.
           </p>
         </SlideUp>
 
-        {/* CTA button with animated glow */}
+        {/* CTA button */}
         <SlideUp delay={0.4} offset={12}>
           <div className="mt-8 flex flex-col items-center gap-4">
             <Link href="/props">
@@ -57,11 +49,10 @@ export function CTASection() {
               </Button>
             </Link>
 
-            {/* Social proof line */}
             <p className="text-sm text-muted-foreground">
               Join players already competing on{" "}
               <span className="font-semibold text-foreground">
-                Sports Tower
+                AlternaPick
               </span>
             </p>
           </div>
