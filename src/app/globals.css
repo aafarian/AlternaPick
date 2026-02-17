@@ -312,3 +312,24 @@ body {
 @utility animate-hero-glow-3 {
   animation: hero-glow-3 12s ease-in-out infinite;
 }
+
+/* CTA button — pulsing neon glow */
+@keyframes cta-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 210, 106, 0.25), 0 0 40px rgba(0, 210, 106, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(0, 210, 106, 0.4), 0 0 60px rgba(0, 210, 106, 0.15);
+  }
+}
+
+@utility animate-cta-glow {
+  animation: cta-glow 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-cta-glow {
+    animation: none;
+    box-shadow: 0 0 20px rgba(0, 210, 106, 0.25);
+  }
+}
