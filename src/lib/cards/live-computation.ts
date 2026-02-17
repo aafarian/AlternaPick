@@ -82,17 +82,17 @@ export function buildLivePicksForCard(
         liveGamesSet.add(eventId);
       }
     } else {
-      // Not in today's stats service or external event ID not yet set.
-      // Use DB status/scores when available; only default to "final" for
-      // games that are definitely past (external_event_id was set but not in today's list).
+      // Not in today's stats service — use DB status.
+      // Do NOT assume "final" just because the game has an external_event_id;
+      // the stats service may not have returned it due to timezone mismatch
+      // (Vercel UTC vs US evening games) or transient failures.
       const dbStatus = (dbGameStatus as "scheduled" | "live" | "final") ?? "scheduled";
-      const fallbackStatus = eventId ? "final" : dbStatus;
       gameStatus = {
         game_id: pick.props.game_id,
         external_event_id: eventId ?? pick.props.game_id,
-        status: fallbackStatus,
-        period: fallbackStatus === "final" ? 4 : 0,
-        clock: fallbackStatus === "final" ? "0:00" : "",
+        status: dbStatus,
+        period: dbStatus === "final" ? 4 : 0,
+        clock: dbStatus === "final" ? "0:00" : "",
         sport: pick.props.games?.sport ?? undefined,
         home_team: pick.props.games?.home_team ?? "",
         away_team: pick.props.games?.away_team ?? "",

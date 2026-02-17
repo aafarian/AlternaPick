@@ -17,7 +17,7 @@ import logging
 import os
 import time
 import unicodedata
-from datetime import date
+from datetime import date, datetime, timezone, timedelta
 
 import httpx
 
@@ -97,7 +97,7 @@ def _parse_fixture_status(status_short: str) -> str:
 
 async def get_todays_fixtures(league_id: int = EPL_LEAGUE_ID) -> list[dict]:
     """Fetch today's fixtures for a given league with scores and status."""
-    today = date.today().isoformat()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     cache_key = f"fixtures:{league_id}:{today}"
     cached = _get_cached(cache_key)
     if cached is not None:
