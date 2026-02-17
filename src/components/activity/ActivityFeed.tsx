@@ -2,7 +2,8 @@
 
 import type { ActivityItem as ActivityItemType } from "@/app/api/activity/route";
 import ActivityItem from "./ActivityItem";
-import { Card, CardContent } from "@/components/ui/card";
+import { AnimatedList } from "@/components/motion";
+import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 
 interface ActivityFeedProps {
   items: ActivityItemType[];
@@ -11,20 +12,16 @@ interface ActivityFeedProps {
 export default function ActivityFeed({ items }: ActivityFeedProps) {
   if (items.length === 0) {
     return (
-      <Card className="border-border bg-card">
-        <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-          <span className="text-3xl">{"\uD83D\uDCE1"}</span>
-          <p className="text-muted-foreground">No recent activity</p>
-          <p className="text-sm text-muted-foreground">
-            Activity from your friends will show up here.
-          </p>
-        </CardContent>
-      </Card>
+      <AnimatedEmptyState
+        icon="📡"
+        title="No recent activity"
+        description="Activity from your friends will show up here."
+      />
     );
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <AnimatedList className="flex flex-col gap-3" animationType="slideUp">
       {items.map((item, index) => {
         // Build a unique key from type + relevant id + timestamp
         let key: string;
@@ -44,6 +41,6 @@ export default function ActivityFeed({ items }: ActivityFeedProps) {
 
         return <ActivityItem key={key} item={item} />;
       })}
-    </div>
+    </AnimatedList>
   );
 }

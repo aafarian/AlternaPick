@@ -5,6 +5,7 @@ import type { ActivityItem as ActivityItemType } from "@/app/api/activity/route"
 import { Card, CardContent } from "@/components/ui/card";
 import { formatTimeAgo } from "@/lib/format";
 import { getNotificationIcon, getNotificationAccent } from "@/lib/constants";
+import { ScaleIn } from "@/components/motion";
 
 interface ActivityItemProps {
   item: ActivityItemType;
@@ -88,12 +89,14 @@ export default function ActivityItem({ item }: ActivityItemProps) {
 
   const content = (
     <CardContent className="flex items-start gap-3 p-4">
-      {/* Icon */}
-      <div
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg ${accentClass}`}
-      >
-        {icon}
-      </div>
+      {/* Icon — pops in with ScaleIn */}
+      <ScaleIn delay={0.05} duration={0.35} initialScale={0.5}>
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg ${accentClass}`}
+        >
+          {icon}
+        </div>
+      </ScaleIn>
 
       {/* Content */}
       <div className="min-w-0 flex-1">
@@ -106,7 +109,7 @@ export default function ActivityItem({ item }: ActivityItemProps) {
   if (href) {
     return (
       <Link href={href}>
-        <Card className="border-border bg-card transition-colors hover:bg-secondary/50">
+        <Card className="border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:bg-secondary/50 hover:shadow-md">
           {content}
         </Card>
       </Link>
@@ -114,7 +117,7 @@ export default function ActivityItem({ item }: ActivityItemProps) {
   }
 
   return (
-    <Card className="border-border bg-card">
+    <Card className="border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
       {content}
     </Card>
   );
