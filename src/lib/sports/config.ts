@@ -138,11 +138,11 @@ export const SPORT_CONFIG: Record<SportKey, SportConfig> = {
 
 /* ---------- UI Subsets ---------- */
 
-/** Sports shown in selector tabs (NHL omitted until ready). */
+/** Sports shown in selector tabs and auto-select priority order (NHL omitted until ready). */
 export const UI_SPORTS: SportKey[] = ["nba", "ncaab", "epl", "la_liga"];
 
-/** Auto-select priority order on props page. */
-export const SPORT_PRIORITY: SportKey[] = ["nba", "ncaab", "epl", "la_liga"];
+/** Auto-select priority order on props page. Same as UI_SPORTS — split if they diverge. */
+export const SPORT_PRIORITY = UI_SPORTS;
 
 /* ---------- Derived Maps ---------- */
 

@@ -23,5 +23,8 @@ export function getBoxscoreFetcher(sport?: string | null): BoxscoreFetcher {
   if (sport && sport in FETCHER_MAP) {
     return FETCHER_MAP[sport as SportKey]!;
   }
+  if (sport && sport !== "nba") {
+    console.warn(`[getBoxscoreFetcher] No fetcher mapped for "${sport}", falling back to NBA`);
+  }
   return fetchBoxscore;
 }

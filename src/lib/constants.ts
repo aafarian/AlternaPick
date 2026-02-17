@@ -1,14 +1,5 @@
 import type { StatCategory } from "@/lib/supabase/types";
-import { SPORT_LABELS as _SPORT_LABELS } from "@/lib/sports";
-
-// Re-export sport registry for backward compatibility
-export {
-  type SportKey as Sport,
-  isValidSport,
-  SPORT_LABELS,
-  SPORT_CONFIG as SPORTS,
-  getPlayerHeadshotUrl,
-} from "@/lib/sports";
+import { SPORT_LABELS, isValidSport } from "@/lib/sports";
 
 /* ---------- Notification icons & accent classes ---------- */
 
@@ -329,7 +320,7 @@ export function formatPlayerSubtitle(
   const parts: string[] = [];
   if (team) parts.push(shortenTeamName(team));
   if (position) parts.push(position);
-  if (sport) parts.push(_SPORT_LABELS[sport as keyof typeof _SPORT_LABELS] ?? sport.toUpperCase());
+  if (sport) parts.push(isValidSport(sport) ? SPORT_LABELS[sport] : sport.toUpperCase());
   return parts.join(" \u00B7 ");
 }
 

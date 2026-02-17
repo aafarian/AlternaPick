@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/format/name-utils";
-import { getPlayerHeadshotUrl } from "@/lib/constants";
+import { getPlayerHeadshotUrl } from "@/lib/sports";
 
 interface PlayerAvatarProps {
   playerId: string | null;
