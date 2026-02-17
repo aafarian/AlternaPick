@@ -329,7 +329,9 @@ export async function POST(request: NextRequest) {
                     ncaabTeamMap2.set(name.toLowerCase(), teamName);
                     ncaabTeamMap2.set(normalizeName(name), teamName);
                   }
-                } catch { /* skip */ }
+                } catch (err) {
+                  console.warn(`[Backfill] Failed to fetch NCAAB roster for team ${teamName}:`, err);
+                }
                 break;
               }
             }
@@ -341,7 +343,9 @@ export async function POST(request: NextRequest) {
               ncaabTeamMap2.set(name.toLowerCase(), teamName);
               ncaabTeamMap2.set(normalizeName(name), teamName);
             }
-          } catch { /* skip */ }
+          } catch (err) {
+            console.warn(`[Backfill] Failed to fetch NCAAB roster for team ${teamName}:`, err);
+          }
         }
 
         for (const prop of ncaabTeamNullProps) {

@@ -264,7 +264,10 @@ export async function fetchLiveMaps(
 
   const gamesPerSport = await Promise.all(
     sportEntries.map(([sport]) =>
-      SPORT_FETCHERS[sport].fetchGames().catch(() => [] as StatsGame[]),
+      SPORT_FETCHERS[sport].fetchGames().catch((err) => {
+        console.error(`Failed to fetch live games for ${sport}:`, err);
+        return [] as StatsGame[];
+      }),
     ),
   );
 
@@ -298,7 +301,10 @@ export async function fetchLiveMaps(
     if (liveIds.length > 0) {
       fetches.push(
         Promise.all(
-          liveIds.map((gid) => fetcher.fetchBoxscoreLive(gid).catch(() => [] as PlayerBoxScore[])),
+          liveIds.map((gid) => fetcher.fetchBoxscoreLive(gid).catch((err) => {
+            console.error(`Failed to fetch live boxscore for game ${gid}:`, err);
+            return [] as PlayerBoxScore[];
+          })),
         ).then((results) => {
           for (let i = 0; i < liveIds.length; i++) {
             boxscoreMap.set(liveIds[i], results[i]);
@@ -312,7 +318,10 @@ export async function fetchLiveMaps(
     if (staticIds.length > 0) {
       fetches.push(
         Promise.all(
-          staticIds.map((gid) => fetcher.fetchBoxscore(gid).catch(() => [] as PlayerBoxScore[])),
+          staticIds.map((gid) => fetcher.fetchBoxscore(gid).catch((err) => {
+            console.error(`Failed to fetch boxscore for game ${gid}:`, err);
+            return [] as PlayerBoxScore[];
+          })),
         ).then((results) => {
           for (let i = 0; i < staticIds.length; i++) {
             boxscoreMap.set(staticIds[i], results[i]);

@@ -239,10 +239,14 @@ export async function POST(request: NextRequest) {
 
         // Both participants have locked cards — transition challenge to active
         if (challengeCards.length >= 2) {
-          await (adminClient.from("challenges") as any)
+          const { error: activateError } = await (adminClient.from("challenges") as any)
             .update({ status: "active" })
             .eq("id", challenge_id)
             .eq("status", "accepted");
+
+          if (activateError) {
+            console.error(`Failed to activate challenge ${challenge_id}:`, activateError.message);
+          }
 
           // Sabotage mode: swap user_id on both cards so each player
           // ends up "owning" the card their opponent built for them.
@@ -251,13 +255,17 @@ export async function POST(request: NextRequest) {
             const cardB = challengeCards[1];
 
             // Swap user_ids via admin client (bypasses RLS)
-            await (adminClient.from("cards") as any)
+            const { error: swapErr1 } = await (adminClient.from("cards") as any)
               .update({ user_id: cardB.user_id })
               .eq("id", cardA.id);
 
-            await (adminClient.from("cards") as any)
+            const { error: swapErr2 } = await (adminClient.from("cards") as any)
               .update({ user_id: cardA.user_id })
               .eq("id", cardB.id);
+
+            if (swapErr1 || swapErr2) {
+              console.error(`Failed to swap sabotage cards for challenge ${challenge_id}:`, swapErr1?.message, swapErr2?.message);
+            }
           }
         }
       }

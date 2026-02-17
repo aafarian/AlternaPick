@@ -8,6 +8,7 @@ import { CATEGORY_LABELS, CATEGORY_COLORS, teamLogoUrl, getPlayerHeadshotUrl } f
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { usePlayerProfile } from "@/lib/players/player-profile-context";
 import { getModeConfig } from "@/lib/modes/definitions";
+import { getInitials } from "@/lib/format/name-utils";
 import { cn } from "@/lib/utils";
 
 interface PropLineProps {
@@ -25,14 +26,6 @@ interface PropLineProps {
   /** User's historical accuracy rate (0-1) for this prop's player/category */
   edgeRate?: number;
   sport?: string;
-}
-
-function getInitials(name: string): string {
-  const parts = name.split(" ");
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
-  return name.slice(0, 2).toUpperCase();
 }
 
 function PlayerHeadshot({

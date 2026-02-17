@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { getInitials } from "@/lib/format/name-utils";
 import { ArrowLeft, AlertCircle, Lock, Clock } from "lucide-react";
 
 const LOCK_BUFFER_MS = 5 * 60 * 1000;
@@ -25,14 +26,6 @@ type PropWithGame = Prop & { games: Game };
 interface BallotPick {
   prop_id: string;
   selection: PickSelection;
-}
-
-function getInitials(name: string): string {
-  const parts = name.split(" ");
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
-  return name.slice(0, 2).toUpperCase();
 }
 
 /** Matches PropLine's PlayerHeadshot exactly */

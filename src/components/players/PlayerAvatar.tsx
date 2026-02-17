@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { getInitials } from "@/lib/format/name-utils";
 import { getPlayerHeadshotUrl } from "@/lib/constants";
 
 interface PlayerAvatarProps {
@@ -20,14 +21,6 @@ const SIZE_CLASSES = {
   lg: "h-10 w-10 text-xs",
   xl: "h-14 w-14 text-sm",
 } as const;
-
-function getInitials(name: string): string {
-  const parts = name.split(" ");
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
-  return name.slice(0, 2).toUpperCase();
-}
 
 export default function PlayerAvatar({
   playerId,

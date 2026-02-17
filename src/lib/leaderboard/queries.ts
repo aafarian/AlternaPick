@@ -1,6 +1,9 @@
+import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { typedFrom } from "@/lib/supabase/typed-queries";
+import { getFriendIds } from "@/lib/friends/get-friend-ids";
 
 export type LeaderboardSort = "hit_rate" | "h2h";
 
@@ -66,13 +69,23 @@ function applySortOrder<T extends { order: (...args: any[]) => T }>(
 
 /**
  * Get the global leaderboard, ordered by the given sort criteria.
+ * Uses a 5-minute cache to avoid heavy table scans on every pageview.
  */
 export async function getGlobalLeaderboard(
-  supabase: SupabaseClient<Database>,
+  _supabase: SupabaseClient<Database>,
   limit: number = 25,
   offset: number = 0,
   sort: LeaderboardSort = "hit_rate"
 ): Promise<LeaderboardRow[]> {
+  return getCachedGlobalLeaderboard(limit, offset, sort);
+}
+
+async function getGlobalLeaderboardInternal(
+  limit: number,
+  offset: number,
+  sort: LeaderboardSort
+): Promise<LeaderboardRow[]> {
+  const supabase = createAdminClient();
   const query = typedFrom(supabase, "leaderboard_entries").select(
     "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url)"
   );
@@ -87,6 +100,12 @@ export async function getGlobalLeaderboard(
   return ((data ?? []) as Record<string, unknown>[]).map(toLeaderboardRow);
 }
 
+const getCachedGlobalLeaderboard = unstable_cache(
+  getGlobalLeaderboardInternal,
+  ["global-leaderboard"],
+  { revalidate: 300 }
+);
+
 /**
  * Get the friends leaderboard for a user: includes only the user
  * themselves and their accepted friends, sorted by win_rate desc
@@ -99,39 +118,8 @@ export async function getFriendsLeaderboard(
   offset: number = 0,
   sort: LeaderboardSort = "hit_rate"
 ): Promise<LeaderboardRow[]> {
-  // Step 1: Get accepted friend IDs (same pattern as activity route)
-  const { data: asRequester, error: err1 } = await typedFrom(
-    supabase,
-    "friendships"
-  )
-    .select("addressee_id")
-    .eq("requester_id", userId)
-    .eq("status", "accepted");
-
-  if (err1) throw new Error(err1.message);
-
-  const { data: asAddressee, error: err2 } = await typedFrom(
-    supabase,
-    "friendships"
-  )
-    .select("requester_id")
-    .eq("addressee_id", userId)
-    .eq("status", "accepted");
-
-  if (err2) throw new Error(err2.message);
-
-  const friendIds = new Set<string>();
-  for (const row of (asRequester ?? []) as Array<{ addressee_id: string }>) {
-    friendIds.add(row.addressee_id);
-  }
-  for (const row of (asAddressee ?? []) as Array<{ requester_id: string }>) {
-    friendIds.add(row.requester_id);
-  }
-
-  // Always include self
-  friendIds.add(userId);
-
-  const userIds = Array.from(friendIds);
+  const friendIdList = await getFriendIds(supabase, userId);
+  const userIds = [...friendIdList, userId]; // Always include self
 
   // Step 2: Fetch leaderboard entries for these users with profile join
   const query = typedFrom(supabase, "leaderboard_entries")
