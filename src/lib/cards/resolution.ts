@@ -621,11 +621,11 @@ export async function tryResolveFromLiveData(
       const eventId = pick.props?.games?.external_event_id;
       if (!eventId) return false;
       const liveGame = gameStatusMap.get(eventId);
-      // Only treat as final if the stats service explicitly confirms it.
-      // Games missing from the list may still be in progress (timezone
-      // mismatch or transient stats service failure).
-      if (!liveGame) return false;
-      return liveGame.status === "final";
+      if (liveGame) return liveGame.status === "final";
+      // Game not in today's live data (yesterday's game) — trust DB status.
+      // If the DB already has it as "final" with scores, it was confirmed
+      // in a previous sync cycle.
+      return pick.props?.games?.status === "final";
     });
 
     if (!allFinal) continue;
