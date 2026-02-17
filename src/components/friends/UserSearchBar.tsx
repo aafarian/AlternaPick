@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, Search } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 
 interface SearchResult {
   id: string;
@@ -27,6 +28,7 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
   const [sendingTo, setSendingTo] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const prefersReduced = useReducedMotion();
 
   const search = useCallback(async (q: string) => {
     if (q.length < 2) {
@@ -132,48 +134,71 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
         )}
       </div>
 
-      {isOpen && results.length > 0 && (
-        <div className="absolute z-10 mt-2 w-full rounded-xl border border-border bg-card shadow-lg">
-          {results.map((user) => {
-            const initials = (user.display_name ?? user.username)
-              .slice(0, 2)
-              .toUpperCase();
+      <AnimatePresence>
+        {isOpen && results.length > 0 && (
+          <motion.div
+            key="search-results"
+            initial={prefersReduced ? false : { opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={prefersReduced ? undefined : { opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="absolute z-10 mt-2 w-full rounded-xl border border-border bg-card shadow-lg"
+          >
+            {results.map((user, index) => {
+              const initials = (user.display_name ?? user.username)
+                .slice(0, 2)
+                .toUpperCase();
 
-            return (
-              <div
-                key={user.id}
-                className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
-              >
-                <Avatar className="h-8 w-8">
-                  {user.avatar_url && (
-                    <AvatarImage src={user.avatar_url} alt={user.username} />
-                  )}
-                  <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
+              return (
+                <motion.div
+                  key={user.id}
+                  initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={
+                    prefersReduced
+                      ? { duration: 0 }
+                      : { delay: index * 0.05, duration: 0.25, ease: "easeOut" }
+                  }
+                  className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
+                >
+                  <Avatar className="h-8 w-8">
+                    {user.avatar_url && (
+                      <AvatarImage src={user.avatar_url} alt={user.username} />
+                    )}
+                    <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
 
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold">
-                    {user.display_name ?? user.username}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    @{user.username}
-                  </p>
-                </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold">
+                      {user.display_name ?? user.username}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      @{user.username}
+                    </p>
+                  </div>
 
-                {getStatusButton(user)}
-              </div>
-            );
-          })}
-        </div>
-      )}
+                  {getStatusButton(user)}
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        )}
 
-      {isOpen && results.length === 0 && query.length >= 2 && !searching && (
-        <div className="absolute z-10 mt-2 w-full rounded-xl border border-border bg-card p-4 text-center text-sm text-muted-foreground shadow-lg">
-          No users found matching &quot;{query}&quot;
-        </div>
-      )}
+        {isOpen && results.length === 0 && query.length >= 2 && !searching && (
+          <motion.div
+            key="no-results"
+            initial={prefersReduced ? false : { opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={prefersReduced ? undefined : { opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="absolute z-10 mt-2 w-full rounded-xl border border-border bg-card p-4 text-center text-sm text-muted-foreground shadow-lg"
+          >
+            No users found matching &quot;{query}&quot;
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
