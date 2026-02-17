@@ -23,7 +23,7 @@ import {
   LogIn,
   BarChart3,
 } from "lucide-react";
-import { motion, useReducedMotion } from "@/lib/motion";
+import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 
 interface NavLink {
   href: string;
@@ -112,11 +112,22 @@ export default function Nav({
               <span className="relative z-[1] flex items-center gap-2">
                 <Icon className="h-4 w-4 md:hidden" />
                 {link.label}
-                {badgeCount > 0 && (
-                  <Badge variant="destructive" className="ml-1 h-5 min-w-5 px-1.5 text-[10px] font-bold">
-                    {badgeCount > 9 ? "9+" : badgeCount}
-                  </Badge>
-                )}
+                <AnimatePresence>
+                  {badgeCount > 0 && (
+                    <motion.span
+                      key={`badge-${link.badgeKey}`}
+                      initial={prefersReducedMotion ? false : { scale: 0, opacity: 0 }}
+                      animate={prefersReducedMotion ? {} : { scale: 1, opacity: 1 }}
+                      exit={prefersReducedMotion ? {} : { scale: 0, opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                      className="inline-flex"
+                    >
+                      <Badge variant="destructive" className="ml-1 h-5 min-w-5 px-1.5 text-[10px] font-bold">
+                        {badgeCount > 9 ? "9+" : badgeCount}
+                      </Badge>
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </span>
             </Button>
           </Link>

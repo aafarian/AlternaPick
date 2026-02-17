@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Bell } from "lucide-react";
@@ -16,6 +16,7 @@ import type { Notification } from "@/lib/supabase/types";
 import { formatTimeAgo } from "@/lib/format";
 import { getNotificationIcon, getNotificationTitle } from "@/lib/constants";
 import { getNavigationPath } from "@/lib/notifications/utils";
+import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 
 interface NotificationBellProps {
   count: number;
@@ -32,9 +33,23 @@ export default function NotificationBell({
   onRegisterNewNotification,
 }: NotificationBellProps) {
   const router = useRouter();
+  const prefersReducedMotion = useReducedMotion();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
+  const [shaking, setShaking] = useState(false);
+  const prevCountRef = useRef(count);
+
+  // Trigger bell shake when count increases (new notification arrived)
+  useEffect(() => {
+    if (count > prevCountRef.current && count > 0 && !prefersReducedMotion) {
+      setShaking(true);
+      const timer = setTimeout(() => setShaking(false), 500);
+      prevCountRef.current = count;
+      return () => clearTimeout(timer);
+    }
+    prevCountRef.current = count;
+  }, [count, prefersReducedMotion]);
 
   // Register a callback so the Header can push realtime notifications into dropdown
   useEffect(() => {
@@ -96,12 +111,35 @@ export default function NotificationBell({
           size="icon"
           className="relative text-muted-foreground hover:text-foreground"
         >
-          <Bell className="h-5 w-5" />
-          {count > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
-              {count > 9 ? "9+" : count}
-            </span>
-          )}
+          <motion.span
+            animate={
+              shaking
+                ? { rotate: [0, -12, 10, -8, 6, 0] }
+                : { rotate: 0 }
+            }
+            transition={
+              shaking
+                ? { duration: 0.5, ease: "easeInOut" }
+                : { duration: 0 }
+            }
+            className="inline-flex"
+          >
+            <Bell className="h-5 w-5" />
+          </motion.span>
+          <AnimatePresence>
+            {count > 0 && (
+              <motion.span
+                key="notification-badge"
+                initial={prefersReducedMotion ? false : { scale: 0, opacity: 0 }}
+                animate={prefersReducedMotion ? {} : { scale: 1, opacity: 1 }}
+                exit={prefersReducedMotion ? {} : { scale: 0, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground"
+              >
+                {count > 9 ? "9+" : count}
+              </motion.span>
+            )}
+          </AnimatePresence>
           <span className="sr-only">Notifications</span>
         </Button>
       </DropdownMenuTrigger>
