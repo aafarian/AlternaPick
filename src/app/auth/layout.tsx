@@ -10,12 +10,6 @@ export default function AuthLayout({
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
       <div className="relative w-full max-w-md">
-        {/* ── Ambient glow orb behind brand text ── */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute left-1/2 top-0 -z-10 h-[340px] w-[340px] -translate-x-1/2 -translate-y-1/3 rounded-full bg-[radial-gradient(circle,rgba(0,210,106,0.14)_0%,rgba(59,130,246,0.07)_50%,transparent_70%)] animate-auth-glow"
-        />
-
         {/* ── Brand heading ── */}
         <div className="mb-8 text-center">
           <ScaleIn duration={0.5} initialScale={0.85}>
