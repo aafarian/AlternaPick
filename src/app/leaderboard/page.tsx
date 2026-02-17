@@ -90,7 +90,6 @@ export default function LeaderboardPage() {
   useEffect(() => {
     if (authLoading) return;
     fetchLeaderboard(activeTab, sortBy);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, sortBy, authLoading]);
 
   const handleTabChange = (value: string) => {
