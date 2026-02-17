@@ -7,7 +7,7 @@ import { processReferral } from "@/lib/referrals/queries";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/picks";
+  const next = searchParams.get("next") ?? "/props";
 
   if (!code) {
     return NextResponse.redirect(`${origin}/auth/login`);

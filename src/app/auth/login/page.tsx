@@ -5,6 +5,7 @@ import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import { resolveLoginEmail, claimCardsAfterLogin } from "@/lib/auth/actions";
+import { clearAnonymousId } from "@/lib/session/anonymous";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { AnimatedInput } from "@/components/ui/animated-input";
@@ -20,7 +21,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const redirectTo = searchParams.get("redirectTo") ?? "/picks";
+  const redirectTo = searchParams.get("redirectTo") ?? "/props";
   const prefersReduced = useReducedMotion();
 
   // If the user is already authenticated client-side (stale server cookie
@@ -73,6 +74,7 @@ function LoginForm() {
     await claimCardsAfterLogin().catch((err) => {
       console.error("Failed to claim anonymous cards after login:", err);
     });
+    clearAnonymousId();
 
     // Step 4: Navigate — auth context will have the user by now
     router.push(redirectTo);
