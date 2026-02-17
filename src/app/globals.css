@@ -117,6 +117,7 @@
 
 body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
 }
 
 @layer base {
@@ -267,36 +268,37 @@ body {
   animation: winner-ripple 2.5s ease-out infinite;
 }
 
-/* Hero section — floating glow orbs */
+/* Hero section — floating glow orbs.
+   Positioning is margin-based (not translate) so keyframe transforms don't conflict. */
 @keyframes hero-glow-1 {
   0%, 100% {
-    transform: translate(-50%, -50%) scale(1);
+    transform: scale(1);
     opacity: 1;
   }
   50% {
-    transform: translate(-45%, -55%) scale(1.15);
+    transform: translate(3%, -4%) scale(1.15);
     opacity: 0.7;
   }
 }
 
 @keyframes hero-glow-2 {
   0%, 100% {
-    transform: translate(-50%, -50%) scale(1);
+    transform: scale(1);
     opacity: 1;
   }
   50% {
-    transform: translate(-55%, -45%) scale(1.1);
+    transform: translate(-4%, 3%) scale(1.1);
     opacity: 0.6;
   }
 }
 
 @keyframes hero-glow-3 {
   0%, 100% {
-    transform: translate(-50%, -50%) scale(1);
+    transform: scale(1);
     opacity: 1;
   }
   50% {
-    transform: translate(-48%, -52%) scale(1.2);
+    transform: translate(2%, -2%) scale(1.2);
     opacity: 0.5;
   }
 }
@@ -331,5 +333,95 @@ body {
   .animate-cta-glow {
     animation: none;
     box-shadow: 0 0 20px rgba(0, 210, 106, 0.25);
+  }
+}
+
+/* Autofill detection — browsers fire animationstart when autofilling,
+   which AnimatedInput listens for to float the label correctly. */
+@keyframes autofill-start { from {} to {} }
+input:-webkit-autofill { animation-name: autofill-start; }
+
+/* AnimatedButton — pulsing glow on hover for primary variant */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 25px rgba(0, 210, 106, 0.25); }
+  50%      { box-shadow: 0 0 40px rgba(0, 210, 106, 0.45); }
+}
+
+.animated-btn-glow:hover:not(:disabled) {
+  animation: glow-pulse 1.5s ease-in-out infinite;
+}
+
+.animated-btn-glow:not(:hover) {
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated-btn-glow:hover:not(:disabled) {
+    animation: none;
+    box-shadow: 0 0 25px rgba(0, 210, 106, 0.25);
+  }
+}
+
+/* Referral banner — brief highlight pulse on mount */
+@keyframes referral-glow {
+  0%   { box-shadow: 0 0 8px rgba(0, 210, 106, 0.1); }
+  40%  { box-shadow: 0 0 20px rgba(0, 210, 106, 0.35), 0 0 40px rgba(0, 210, 106, 0.15); }
+  100% { box-shadow: 0 0 8px rgba(0, 210, 106, 0.1); }
+}
+
+/* Login card — subtle pulsing border glow */
+@keyframes card-border-glow {
+  0%, 100% { box-shadow: 0 0 15px rgba(0, 210, 106, 0.08), 0 0 30px rgba(59, 130, 246, 0.04); }
+  50%      { box-shadow: 0 0 20px rgba(0, 210, 106, 0.14), 0 0 40px rgba(59, 130, 246, 0.07); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-border-glow {
+    animation: none;
+    box-shadow: 0 0 15px rgba(0, 210, 106, 0.08);
+  }
+}
+
+/* ── Sonner toast entrance/exit animations ── */
+
+/* Slide-in from right with fade for top-right position */
+@keyframes toast-slide-in-right {
+  from {
+    transform: translateX(calc(100% + 1rem));
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Slide-out to right with fade on dismiss */
+@keyframes toast-slide-out-right {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(calc(100% + 1rem));
+    opacity: 0;
+  }
+}
+
+/* Override Sonner default vertical slide with horizontal slide-in */
+[data-sonner-toaster][data-x-position='right'] [data-sonner-toast][data-mounted='true'] {
+  animation: toast-slide-in-right 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+}
+
+/* Smooth slide-out when toast is removed (not swiped) */
+[data-sonner-toaster][data-x-position='right'] [data-sonner-toast][data-removed='true'][data-swipe-out='false'] {
+  animation: toast-slide-out-right 0.3s cubic-bezier(0.06, 0.71, 0.55, 1) forwards;
+}
+
+/* Disable toast animations for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toaster][data-x-position='right'] [data-sonner-toast][data-mounted='true'],
+  [data-sonner-toaster][data-x-position='right'] [data-sonner-toast][data-removed='true'][data-swipe-out='false'] {
+    animation: none;
   }
 }

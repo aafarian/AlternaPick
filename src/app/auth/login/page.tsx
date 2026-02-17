@@ -6,13 +6,14 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import { resolveLoginEmail, claimCardsAfterLogin } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { AnimatedInput } from "@/components/ui/animated-input";
+import { AnimatedButton } from "@/components/ui/animated-button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StaggerChildren, StaggerItem } from "@/components/motion";
+import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 import { AlertCircle } from "lucide-react";
 
 function LoginForm() {
@@ -20,6 +21,7 @@ function LoginForm() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const redirectTo = searchParams.get("redirectTo") ?? "/picks";
+  const prefersReduced = useReducedMotion();
 
   // If the user is already authenticated client-side (stale server cookie
   // caused the middleware redirect), bounce them back immediately.
@@ -86,80 +88,132 @@ function LoginForm() {
     });
   }
 
-  // Don't flash the form while we check if the user is already signed in
-  if (authLoading || user) {
-    return <Skeleton className="h-96 rounded-xl" />;
-  }
+  // Initial load — show skeleton while checking if user is already signed in.
+  // Once auth resolves and user exists, show nothing (redirect is in-flight).
+  if (authLoading || user) return null;
 
   return (
-    <Card className="border-border bg-card">
-      <CardContent className="p-6">
-        <h2 className="mb-6 text-xl font-semibold">Sign In</h2>
-
-        {error && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+    <>
+      <motion.div
+        className={cn(
+          "rounded-xl border border-border bg-card p-6",
+          !prefersReduced && "card-border-glow"
         )}
+        style={
+          !prefersReduced
+            ? { animation: "card-border-glow 3s ease-in-out infinite" }
+            : undefined
+        }
+        initial={prefersReduced ? false : { y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.45, ease: "easeOut" }}
+      >
+        <StaggerChildren staggerDelay={0.08} className="flex flex-col">
+          {/* ── Heading ── */}
+          <StaggerItem>
+            <h2 className="mb-6 text-xl font-semibold">Sign In</h2>
+          </StaggerItem>
 
-        <form action={handleSignIn} className="flex flex-col gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="login">Email or Username</Label>
-            <Input
-              id="login"
-              name="login"
-              type="text"
-              autoComplete="username"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              required
-              minLength={6}
-            />
-          </div>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? "Signing in..." : "Sign In"}
-          </Button>
-        </form>
+          {/* ── Error alert with AnimatePresence ── */}
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div
+                key="error-alert"
+                initial={prefersReduced ? false : { opacity: 0, height: 0, marginBottom: 0 }}
+                animate={{ opacity: 1, height: "auto", marginBottom: 16 }}
+                exit={prefersReduced ? undefined : { opacity: 0, height: 0, marginBottom: 0 }}
+                transition={{ duration: 0.25, ease: "easeOut" }}
+              >
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        <div className="mt-2 text-right">
-          <Link
-            href="/auth/reset-password"
-            className="text-xs text-muted-foreground hover:text-primary hover:underline"
-          >
-            Forgot password?
-          </Link>
-        </div>
+          {/* ── Form ── */}
+          <StaggerItem>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSignIn(new FormData(e.currentTarget));
+              }}
+              className="flex flex-col gap-4"
+            >
+              <AnimatedInput
+                id="login"
+                name="login"
+                type="text"
+                label="Email or Username"
+                autoComplete="username"
+                required
+              />
 
-        <div className="my-4 flex items-center gap-3">
-          <Separator className="flex-1" />
-          <span className="text-xs text-muted-foreground">or</span>
-          <Separator className="flex-1" />
-        </div>
+              <AnimatedInput
+                id="password"
+                name="password"
+                type="password"
+                label="Password"
+                required
+                minLength={6}
+              />
 
-        <Button
-          onClick={handleGoogleSignIn}
-          variant="outline"
-          className="w-full"
-        >
-          Continue with Google
-        </Button>
+              <AnimatedButton
+                type="submit"
+                disabled={submitting}
+                loading={submitting}
+                loadingText="Signing in..."
+              >
+                Sign In
+              </AnimatedButton>
+            </form>
+          </StaggerItem>
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{" "}
-          <Link href="/auth/signup" className="text-primary hover:underline">
-            Sign up
-          </Link>
-        </p>
-      </CardContent>
-    </Card>
+          {/* ── Forgot password ── */}
+          <StaggerItem>
+            <div className="mt-2 text-right">
+              <Link
+                href="/auth/reset-password"
+                className="text-xs text-muted-foreground hover:text-primary hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
+          </StaggerItem>
+
+          {/* ── Separator ── */}
+          <StaggerItem>
+            <div className="my-4 flex items-center gap-3">
+              <Separator className="flex-1" />
+              <span className="text-xs text-muted-foreground">or</span>
+              <Separator className="flex-1" />
+            </div>
+          </StaggerItem>
+
+          {/* ── Google sign-in ── */}
+          <StaggerItem>
+            <AnimatedButton
+              onClick={handleGoogleSignIn}
+              variant="outline"
+              className="w-full"
+            >
+              Continue with Google
+            </AnimatedButton>
+          </StaggerItem>
+
+          {/* ── Sign-up link ── */}
+          <StaggerItem>
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              Don&apos;t have an account?{" "}
+              <Link href="/auth/signup" className="text-primary hover:underline">
+                Sign up
+              </Link>
+            </p>
+          </StaggerItem>
+        </StaggerChildren>
+      </motion.div>
+    </>
   );
 }
 

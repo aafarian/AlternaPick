@@ -8,7 +8,7 @@ import { CTASection } from "@/components/landing/CTASection";
 
 export default function Home() {
   return (
-    <div className="w-screen ml-[calc(50%-50vw)] overflow-x-hidden">
+    <div className="w-screen ml-[calc(50%-50vw)]">
       <HeroSection />
       <SportsBar />
       <FeaturesSection />

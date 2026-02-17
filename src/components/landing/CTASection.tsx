@@ -13,7 +13,7 @@ export function CTASection() {
           aria-hidden
           className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-[inherit]"
         >
-          <div className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(0,210,106,0.1)_0%,transparent_70%)] animate-hero-glow-1" />
+          <div className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -ml-[150px] -mt-[150px] rounded-full bg-[radial-gradient(circle,rgba(0,210,106,0.1)_0%,transparent_70%)] animate-hero-glow-1" />
           <div className="absolute right-0 top-0 h-[200px] w-[200px] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.08)_0%,transparent_70%)] animate-hero-glow-2" />
         </div>
 
