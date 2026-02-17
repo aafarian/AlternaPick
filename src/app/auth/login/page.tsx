@@ -88,10 +88,10 @@ function LoginForm() {
     });
   }
 
-  // Don't flash the form while we check if the user is already signed in
-  if (authLoading || user) {
-    return <Skeleton className="h-96 rounded-xl" />;
-  }
+  // Initial load — show skeleton while checking if user is already signed in.
+  // Once auth resolves and user exists, render nothing (redirect is in-flight).
+  if (authLoading) return <Skeleton className="h-96 rounded-xl" />;
+  if (user) return null;
 
   return (
     <>
