@@ -1,18 +1,18 @@
 "use client";
 
 import type { LiveGameStatus } from "@/lib/cards/live-types";
-import { teamTricode, teamLogoUrl } from "@/lib/constants";
+import { teamTricode } from "@/lib/constants";
 import { formatClock, formatGameTime } from "@/lib/format";
 
-function TeamBadge({ team, tricode, score, showScore, side }: {
+function TeamBadge({ team, tricode, logo, score, showScore, side }: {
   team: string;
   tricode: string;
+  logo?: string;
   score: number;
   showScore: boolean;
   side: "away" | "home";
 }) {
   const code = tricode || teamTricode(team);
-  const logo = teamLogoUrl(team);
 
   return (
     <div className={`flex items-center gap-1.5 ${side === "home" ? "flex-row-reverse" : ""}`}>
@@ -56,6 +56,7 @@ export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) 
               <TeamBadge
                 team={game.away_team}
                 tricode={game.away_tricode}
+                logo={game.away_logo}
                 score={game.away_score}
                 showScore={!isScheduled}
                 side="away"
@@ -68,6 +69,7 @@ export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) 
               <TeamBadge
                 team={game.home_team}
                 tricode={game.home_tricode}
+                logo={game.home_logo}
                 score={game.home_score}
                 showScore={!isScheduled}
                 side="home"

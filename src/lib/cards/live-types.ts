@@ -13,6 +13,9 @@ export interface LiveGameStatus {
   away_tricode: string;
   home_score: number;
   away_score: number;
+  /** Pre-computed logo URLs (server-side, avoids client NCAAB ID issues) */
+  home_logo?: string;
+  away_logo?: string;
   /** ISO 8601 start time — used to show "Today 7:00 PM" for scheduled games */
   commence_time: string | null;
 }

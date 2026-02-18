@@ -53,18 +53,21 @@ export default function ChallengesPage() {
   // Infinite scroll sentinel
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // Rematch: auto-open modal with pre-filled opponent from URL params
-  const initialOpponentId = searchParams.get("opponent");
-  const initialMode = searchParams.get("mode");
+  // Rematch: auto-open modal with pre-filled opponent from URL params.
+  // Capture values in a ref so they survive the URL cleanup below.
+  const initialOpponentRef = useRef<string | null>(null);
+  const initialModeRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (searchParams.get("create") === "true" || initialOpponentId) {
+    const opponent = searchParams.get("opponent");
+    const mode = searchParams.get("mode");
+    if (searchParams.get("create") === "true" || opponent) {
+      if (opponent) initialOpponentRef.current = opponent;
+      if (mode) initialModeRef.current = mode;
       setModalOpen(true);
-      if (searchParams.get("create") === "true") {
-        router.replace("/challenges", { scroll: false });
-      }
+      router.replace("/challenges", { scroll: false });
     }
-  }, [searchParams, router, initialOpponentId]);
+  }, [searchParams, router]);
 
   // Fetch core challenges (pending + active)
   const fetchCore = useCallback(async () => {
@@ -497,13 +500,17 @@ export default function ChallengesPage() {
 
       <CreateChallengeModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+          initialOpponentRef.current = null;
+          initialModeRef.current = null;
+        }}
         onCreated={() => {
           fetchCore();
           fetchCompleted(0, false);
         }}
-        initialOpponentId={initialOpponentId}
-        initialMode={initialMode}
+        initialOpponentId={initialOpponentRef.current}
+        initialMode={initialModeRef.current}
       />
     </div>
   );

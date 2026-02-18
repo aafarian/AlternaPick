@@ -14,7 +14,7 @@ import {
   type StatsGame,
 } from "@/lib/stats-service/client";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
-import { registerNcaabTeamIds } from "@/lib/constants";
+import { registerNcaabTeamIds, teamLogoUrl } from "@/lib/constants";
 import type {
   LivePickData,
   LiveGameStatus,
@@ -75,6 +75,8 @@ export function buildLivePicksForCard(
         away_tricode: gameInfo.away_tricode,
         home_score: gameInfo.home_score,
         away_score: gameInfo.away_score,
+        home_logo: teamLogoUrl(gameInfo.home_team),
+        away_logo: teamLogoUrl(gameInfo.away_team),
         commence_time: gameInfo.start_time || pick.props.games?.commence_time || null,
       };
 
@@ -87,6 +89,8 @@ export function buildLivePicksForCard(
       // the stats service may not have returned it due to timezone mismatch
       // (Vercel UTC vs US evening games) or transient failures.
       const dbStatus = (dbGameStatus as "scheduled" | "live" | "final") ?? "scheduled";
+      const dbHomeTeam = pick.props.games?.home_team ?? "";
+      const dbAwayTeam = pick.props.games?.away_team ?? "";
       gameStatus = {
         game_id: pick.props.game_id,
         external_event_id: eventId ?? pick.props.game_id,
@@ -94,12 +98,14 @@ export function buildLivePicksForCard(
         period: dbStatus === "final" ? 4 : 0,
         clock: dbStatus === "final" ? "0:00" : "",
         sport: pick.props.games?.sport ?? undefined,
-        home_team: pick.props.games?.home_team ?? "",
-        away_team: pick.props.games?.away_team ?? "",
+        home_team: dbHomeTeam,
+        away_team: dbAwayTeam,
         home_tricode: "",
         away_tricode: "",
         home_score: pick.props.games?.home_score ?? 0,
         away_score: pick.props.games?.away_score ?? 0,
+        home_logo: teamLogoUrl(dbHomeTeam),
+        away_logo: teamLogoUrl(dbAwayTeam),
         commence_time: pick.props.games?.commence_time || null,
       };
     }
