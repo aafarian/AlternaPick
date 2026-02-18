@@ -4,6 +4,7 @@ import type { Notification } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/format";
 import { getNotificationIcon, getNotificationAccent, getNotificationTitle } from "@/lib/constants";
+import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 
 interface NotificationItemProps {
   notification: Notification;
@@ -16,6 +17,7 @@ export default function NotificationItem({
   onMarkRead,
   onNavigate,
 }: NotificationItemProps) {
+  const prefersReduced = useReducedMotion();
   const icon = getNotificationIcon(notification.type);
   const accentClass = getNotificationAccent(notification.type);
   const timeAgo = formatTimeAgo(notification.created_at);
@@ -28,9 +30,15 @@ export default function NotificationItem({
   };
 
   return (
-    <button
+    <motion.button
       type="button"
       onClick={handleClick}
+      whileHover={
+        prefersReduced
+          ? undefined
+          : { y: -2, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }
+      }
+      transition={{ duration: 0.2, ease: "easeOut" }}
       className={cn(
         "flex min-h-[44px] w-full items-start gap-3 rounded-xl border p-4 text-left transition-colors hover:bg-secondary/50",
         notification.read
@@ -66,13 +74,24 @@ export default function NotificationItem({
               {notification.body}
             </p>
           </div>
-          {/* Unread indicator */}
-          {!notification.read && (
-            <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
-          )}
+          {/* Unread indicator — fades out smoothly when marked as read */}
+          <AnimatePresence>
+            {!notification.read && (
+              <motion.span
+                initial={{ opacity: 1, scale: 1 }}
+                exit={
+                  prefersReduced
+                    ? { opacity: 0 }
+                    : { opacity: 0, scale: 0.5 }
+                }
+                transition={{ duration: prefersReduced ? 0 : 0.3, ease: "easeOut" }}
+                className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary"
+              />
+            )}
+          </AnimatePresence>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">{timeAgo}</p>
       </div>
-    </button>
+    </motion.button>
   );
 }

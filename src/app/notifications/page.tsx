@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import NotificationList from "@/components/notifications/NotificationList";
 import type { Notification } from "@/lib/supabase/types";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
+import { SlideUp, FadeIn } from "@/components/motion";
+import { AnimatePresence, motion } from "@/lib/motion";
+import { AnimatedSkeleton } from "@/components/ui/animated-skeleton";
 
 export default function NotificationsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -128,11 +130,9 @@ export default function NotificationsPage() {
   if (authLoading || (!user && !authLoading)) {
     return (
       <div className="flex flex-col gap-8 py-8">
-        <Skeleton className="h-8 w-52" />
-        <Skeleton className="h-4 w-64" />
-        {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-20 rounded-xl" />
-        ))}
+        <AnimatedSkeleton count={1} variant="row" className="h-8 w-52" />
+        <AnimatedSkeleton count={1} variant="row" className="h-4 w-64" />
+        <AnimatedSkeleton count={4} variant="card" className="h-20 rounded-xl" />
       </div>
     );
   }
@@ -140,60 +140,80 @@ export default function NotificationsPage() {
   return (
     <div className="flex flex-col gap-6 py-8">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
-          <p className="text-sm text-muted-foreground">
-            Stay up to date with your picks and challenges
-          </p>
-        </div>
+      <SlideUp>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
+            <p className="text-sm text-muted-foreground">
+              Stay up to date with your picks and challenges
+            </p>
+          </div>
 
-        {hasUnread && !loading && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleMarkAllRead}
-            disabled={markingAll}
-          >
-            {markingAll ? "Marking..." : "Mark all read"}
-          </Button>
-        )}
-      </div>
+          <AnimatePresence>
+            {hasUnread && !loading && (
+              <motion.div
+                key="mark-all-read"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.25, ease: "easeOut" }}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleMarkAllRead}
+                  disabled={markingAll}
+                >
+                  {markingAll ? "Marking..." : "Mark all read"}
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </SlideUp>
 
       {/* Error state */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {error}
-            <Button
-              variant="link"
-              size="sm"
-              onClick={fetchNotifications}
-              className="ml-2 text-destructive underline"
-            >
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            key="error-alert"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+          >
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {error}
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={fetchNotifications}
+                  className="ml-2 text-destructive underline"
+                >
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Loading state */}
       {loading && !error && (
-        <div className="flex flex-col gap-3">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-20 rounded-xl" />
-          ))}
-        </div>
+        <AnimatedSkeleton count={4} variant="card" className="h-20 rounded-xl" />
       )}
 
       {/* Notifications list */}
       {!loading && !error && (
-        <NotificationList
-          notifications={notifications}
-          onMarkRead={handleMarkRead}
-          onNavigate={handleNavigate}
-        />
+        <FadeIn delay={0.1}>
+          <NotificationList
+            notifications={notifications}
+            onMarkRead={handleMarkRead}
+            onNavigate={handleNavigate}
+          />
+        </FadeIn>
       )}
     </div>
   );
