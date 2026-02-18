@@ -60,9 +60,7 @@ export default function ChallengesPage() {
   useEffect(() => {
     if (searchParams.get("create") === "true" || initialOpponentId) {
       setModalOpen(true);
-      if (searchParams.get("create") === "true") {
-        router.replace("/challenges", { scroll: false });
-      }
+      router.replace("/challenges", { scroll: false });
     }
   }, [searchParams, router, initialOpponentId]);
 
