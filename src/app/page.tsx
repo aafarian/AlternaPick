@@ -8,7 +8,7 @@ import { CTASection } from "@/components/landing/CTASection";
 
 export default function Home() {
   return (
-    <div className="-mx-4 overflow-x-hidden">
+    <div className="-mx-4">
       <HeroSection />
       <SportsBar />
       <FeaturesSection />
