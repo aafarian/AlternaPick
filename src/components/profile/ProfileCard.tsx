@@ -2,6 +2,7 @@ import Image from "next/image";
 import type { Profile, LeaderboardEntry } from "@/lib/supabase/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ProfileStatsGrid, ProfileStatCard } from "@/components/profile/ProfileStatsGrid";
 
 interface ProfileCardProps {
   profile: Profile;
@@ -44,32 +45,32 @@ export default function ProfileCard({ profile, email, stats }: ProfileCardProps)
         </div>
 
         {stats && (
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
-            <div className="rounded-xl border border-border bg-background/50 p-3 text-center">
+          <ProfileStatsGrid>
+            <ProfileStatCard>
               <div className="text-lg font-bold tabular-nums">{stats.total_cards}</div>
               <div className="text-xs text-muted-foreground">Cards</div>
-            </div>
-            <div className="rounded-xl border border-border bg-background/50 p-3 text-center">
+            </ProfileStatCard>
+            <ProfileStatCard>
               <div className="text-lg font-bold tabular-nums">{stats.total_correct_picks}</div>
               <div className="text-xs text-muted-foreground">Correct</div>
-            </div>
-            <div className="rounded-xl border border-border bg-background/50 p-3 text-center">
+            </ProfileStatCard>
+            <ProfileStatCard>
               <div className="text-lg font-bold tabular-nums">
                 {stats.win_rate.toFixed(0)}%
               </div>
               <div className="text-xs text-muted-foreground">Hit Rate</div>
-            </div>
-            <div className="rounded-xl border border-border bg-background/50 p-3 text-center">
+            </ProfileStatCard>
+            <ProfileStatCard>
               <div className="text-lg font-bold tabular-nums text-neon-green">
                 {stats.current_streak}
               </div>
               <div className="text-xs text-muted-foreground">Streak</div>
-            </div>
-            <div className="rounded-xl border border-border bg-background/50 p-3 text-center">
+            </ProfileStatCard>
+            <ProfileStatCard>
               <div className="text-lg font-bold tabular-nums">{stats.best_streak}</div>
               <div className="text-xs text-muted-foreground">Best</div>
-            </div>
-          </div>
+            </ProfileStatCard>
+          </ProfileStatsGrid>
         )}
       </CardContent>
     </Card>

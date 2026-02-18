@@ -15,6 +15,7 @@ import BadgeGrid from "@/components/profile/BadgeGrid";
 import ReferralSection from "@/components/profile/ReferralSection";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
+import { SlideUp, FadeIn } from "@/components/motion";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -107,27 +108,37 @@ export default async function ProfilePage() {
 
   return (
     <div className="flex flex-col gap-6 py-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/settings" className="gap-1.5">
-            <Settings className="h-4 w-4" />
-            Edit Profile
-          </Link>
-        </Button>
-      </div>
-      <ProfileCard
-        profile={profile as Profile}
-        email={user.email ?? ""}
-        stats={(stats as LeaderboardEntry | null) ?? null}
-      />
-      <ProfileChecklist items={checklistItems} />
-      <BadgeGrid achievements={achievements} unlocked={userAchievements} />
-      <ReferralSection
-        referralInfo={referralInfo}
-        referredUsers={referredUsers}
-        baseUrl={referralBaseUrl}
-      />
+      <SlideUp>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/settings" className="gap-1.5">
+              <Settings className="h-4 w-4" />
+              Edit Profile
+            </Link>
+          </Button>
+        </div>
+      </SlideUp>
+      <FadeIn delay={0.1}>
+        <ProfileCard
+          profile={profile as Profile}
+          email={user.email ?? ""}
+          stats={(stats as LeaderboardEntry | null) ?? null}
+        />
+      </FadeIn>
+      <FadeIn delay={0.15}>
+        <ProfileChecklist items={checklistItems} />
+      </FadeIn>
+      <FadeIn delay={0.2}>
+        <BadgeGrid achievements={achievements} unlocked={userAchievements} />
+      </FadeIn>
+      <FadeIn delay={0.25}>
+        <ReferralSection
+          referralInfo={referralInfo}
+          referredUsers={referredUsers}
+          baseUrl={referralBaseUrl}
+        />
+      </FadeIn>
     </div>
   );
 }
