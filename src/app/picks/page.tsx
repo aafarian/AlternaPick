@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Suspense } from "react";
+import { type ReactNode, Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import CardListWithLoadMore from "@/components/cards/CardListWithLoadMore";
 import LiveTracker from "@/components/live/LiveTracker";
@@ -11,8 +11,23 @@ import { Button } from "@/components/ui/button";
 import { Plus, Target, BarChart3, Trophy, Activity } from "lucide-react";
 import { SlideUp, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
+
+function StatCard({ icon, value, label, valueClassName }: { icon: ReactNode; value: ReactNode; label: string; valueClassName?: string }) {
+  return (
+    <StaggerItem>
+      <Card className="border-border bg-card hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+        <CardContent className="flex flex-col items-center gap-1 p-4">
+          {icon}
+          <span className={cn("text-2xl font-black", valueClassName)}>{value}</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
+        </CardContent>
+      </Card>
+    </StaggerItem>
+  );
+}
 
 async function getCardsByStatus(
   userId: string,
@@ -84,44 +99,29 @@ export default async function CardsPage({
       </SlideUp>
 
       {/* Stats summary */}
-      {completedCards.length > 0 && (
+      {(completedCards.length > 0 || activeCards.length > 0) && (
         <StaggerChildren className="grid grid-cols-2 gap-4 md:grid-cols-4" staggerDelay={0.08}>
-          <StaggerItem>
-            <Card className="border-border bg-card hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
-              <CardContent className="flex flex-col items-center gap-1 p-4">
-                <Activity className="h-5 w-5 text-primary" />
-                <span className="text-2xl font-black">{activeCards.length}</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active</span>
-              </CardContent>
-            </Card>
-          </StaggerItem>
-          <StaggerItem>
-            <Card className="border-border bg-card hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
-              <CardContent className="flex flex-col items-center gap-1 p-4">
-                <Target className="h-5 w-5 text-muted-foreground" />
-                <span className="text-2xl font-black">{completedCards.length}</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Completed</span>
-              </CardContent>
-            </Card>
-          </StaggerItem>
-          <StaggerItem>
-            <Card className="border-border bg-card hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
-              <CardContent className="flex flex-col items-center gap-1 p-4">
-                <BarChart3 className="h-5 w-5 text-muted-foreground" />
-                <span className="text-2xl font-black">{hitRate}%</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Hit Rate</span>
-              </CardContent>
-            </Card>
-          </StaggerItem>
-          <StaggerItem>
-            <Card className="border-border bg-card hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
-              <CardContent className="flex flex-col items-center gap-1 p-4">
-                <Trophy className="h-5 w-5 text-neon-green" />
-                <span className="text-2xl font-black text-neon-green">{bestCard?.score}/{bestCard?.total_picks}</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Best</span>
-              </CardContent>
-            </Card>
-          </StaggerItem>
+          <StatCard
+            icon={<Activity className="h-5 w-5 text-primary" />}
+            value={activeCards.length}
+            label="Active"
+          />
+          <StatCard
+            icon={<Target className="h-5 w-5 text-muted-foreground" />}
+            value={completedCards.length}
+            label="Completed"
+          />
+          <StatCard
+            icon={<BarChart3 className="h-5 w-5 text-muted-foreground" />}
+            value={hitRate != null ? `${hitRate}%` : "—"}
+            label="Hit Rate"
+          />
+          <StatCard
+            icon={<Trophy className="h-5 w-5 text-neon-green" />}
+            value={bestCard ? `${bestCard.score}/${bestCard.total_picks}` : "—"}
+            label="Best"
+            valueClassName="text-neon-green"
+          />
         </StaggerChildren>
       )}
 
