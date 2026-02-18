@@ -243,7 +243,7 @@ export default function PropLine({
       </div>
 
       {/* Over / Under buttons */}
-      <div className="grid grid-cols-2 gap-px border-t border-border">
+      <div className="mt-auto grid grid-cols-2 gap-px border-t border-border">
         <button
           onClick={() => handleClick("over")}
           disabled={disabledUnselected}
@@ -252,8 +252,8 @@ export default function PropLine({
             selected && selection === "over"
               ? "bg-neon-green/15 text-neon-green"
               : disabledUnselected
-                ? "cursor-not-allowed bg-secondary/20 text-muted-foreground/30"
-                : "bg-secondary/30 text-muted-foreground hover:bg-neon-green/10 hover:text-neon-green"
+                ? "cursor-not-allowed text-muted-foreground/30"
+                : "text-muted-foreground hover:bg-neon-green/5 hover:text-neon-green"
           )}
         >
           Over
@@ -266,8 +266,8 @@ export default function PropLine({
             selected && selection === "under"
               ? "bg-bold-red/15 text-bold-red"
               : disabledUnselected
-                ? "cursor-not-allowed bg-secondary/20 text-muted-foreground/30"
-                : "bg-secondary/30 text-muted-foreground hover:bg-bold-red/10 hover:text-bold-red"
+                ? "cursor-not-allowed text-muted-foreground/30"
+                : "text-muted-foreground hover:bg-bold-red/5 hover:text-bold-red"
           )}
         >
           Under

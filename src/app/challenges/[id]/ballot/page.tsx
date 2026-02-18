@@ -398,10 +398,10 @@ export default function BallotPage() {
                   className={cn(
                     "cursor-pointer py-3 text-xs font-bold uppercase tracking-wider transition-all",
                     isExpired
-                      ? "cursor-not-allowed bg-secondary/20 text-muted-foreground/30"
+                      ? "cursor-not-allowed text-muted-foreground/30"
                       : selection === "over"
                         ? "bg-neon-green/15 text-neon-green"
-                        : "bg-secondary/30 text-muted-foreground hover:bg-neon-green/10 hover:text-neon-green"
+                        : "text-muted-foreground hover:bg-neon-green/5 hover:text-neon-green"
                   )}
                 >
                   Over
@@ -412,10 +412,10 @@ export default function BallotPage() {
                   className={cn(
                     "cursor-pointer border-l border-border py-3 text-xs font-bold uppercase tracking-wider transition-all",
                     isExpired
-                      ? "cursor-not-allowed bg-secondary/20 text-muted-foreground/30"
+                      ? "cursor-not-allowed text-muted-foreground/30"
                       : selection === "under"
                         ? "bg-bold-red/15 text-bold-red"
-                        : "bg-secondary/30 text-muted-foreground hover:bg-bold-red/10 hover:text-bold-red"
+                        : "text-muted-foreground hover:bg-bold-red/5 hover:text-bold-red"
                   )}
                 >
                   Under
