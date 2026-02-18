@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import CardDetail from "@/components/cards/CardDetail";
 import { CARD_SELECT, type CardWithPicks } from "@/lib/cards/api";
+import { FadeIn } from "@/components/motion";
 
 export default async function CardDetailPage({
   params,
@@ -32,8 +33,10 @@ export default async function CardDetailPage({
   const card = data as CardWithPicks;
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-8 py-8">
-      <CardDetail card={card} linked={false} />
-    </div>
+    <FadeIn>
+      <div className="mx-auto flex max-w-2xl flex-col gap-8 py-8">
+        <CardDetail card={card} linked={false} />
+      </div>
+    </FadeIn>
   );
 }

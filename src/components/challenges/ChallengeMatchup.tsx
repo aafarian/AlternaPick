@@ -24,6 +24,8 @@ import QuickActions from "@/components/challenges/QuickActions";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import ShareButton from "@/components/ui/ShareButton";
 import type { GameMode } from "@/lib/modes/types";
+import { SlideUp, ScaleIn, FadeIn } from "@/components/motion";
+import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 
 interface ChallengeMatchupProps {
   challenge: ChallengeDetail;
@@ -42,6 +44,7 @@ function PlayerSide({
   livePickMap,
   hasLiveGames,
   liveLoading,
+  side,
 }: {
   label: string;
   name: string;
@@ -52,8 +55,10 @@ function PlayerSide({
   livePickMap: Map<string, LivePickData>;
   hasLiveGames: boolean;
   liveLoading: boolean;
+  side: "left" | "right";
 }) {
   const initial = name.charAt(0).toUpperCase();
+  const prefersReduced = useReducedMotion();
 
   // Build LivePickData[] — always render picks immediately using fallback, overlay live data when available
   const picks: LivePickData[] =
@@ -72,27 +77,37 @@ function PlayerSide({
       : [];
 
   const statusBadge = card ? (
-    <Badge
-      variant="secondary"
-      className={cn(
-        "text-xs",
-        card.status === "resolved"
-          ? "bg-purple-500/15 text-purple-400"
+    <ScaleIn delay={0.25} duration={0.3} initialScale={0.7}>
+      <Badge
+        variant="secondary"
+        className={cn(
+          "text-xs",
+          card.status === "resolved"
+            ? "bg-purple-500/15 text-purple-400"
+            : card.status === "locked"
+              ? "bg-amber-500/15 text-amber-400"
+              : "bg-muted/15 text-muted-foreground"
+        )}
+      >
+        {card.status === "resolved"
+          ? `${card.score}/${card.total_picks}`
           : card.status === "locked"
-            ? "bg-amber-500/15 text-amber-400"
-            : "bg-muted/15 text-muted-foreground"
-      )}
-    >
-      {card.status === "resolved"
-        ? `${card.score}/${card.total_picks}`
-        : card.status === "locked"
-          ? "Locked In"
-          : "Draft"}
-    </Badge>
+            ? "Locked In"
+            : "Draft"}
+      </Badge>
+    </ScaleIn>
   ) : null;
 
-  return (
-    <div className="flex flex-1 flex-col gap-3">
+  // Slide direction: left panel comes from left, right panel from right
+  const slideX = side === "left" ? -20 : 20;
+
+  const content = (
+    <div
+      className={cn(
+        "flex flex-1 flex-col gap-3 rounded-xl",
+        isWinner && "animate-winner-glow"
+      )}
+    >
       {/* Player identity */}
       <div className="flex flex-col items-center gap-2">
         <Avatar
@@ -138,6 +153,21 @@ function PlayerSide({
       )}
     </div>
   );
+
+  if (prefersReduced) {
+    return content;
+  }
+
+  return (
+    <motion.div
+      className="flex flex-1"
+      initial={{ opacity: 0, x: slideX }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
+    >
+      {content}
+    </motion.div>
+  );
 }
 
 /* ---------- Main Component ---------- */
@@ -149,6 +179,7 @@ export default function ChallengeMatchup({
   const router = useRouter();
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const prefersReduced = useReducedMotion();
 
   // Live stats — enabled when cards are locked (polling) or challenge is
   // resolved (single fetch for final scores so users can see results)
@@ -278,50 +309,58 @@ export default function ChallengeMatchup({
   return (
     <div className="flex flex-col gap-6">
       {/* Back link */}
-      <Link
-        href="/challenges"
-        className="inline-flex min-h-[44px] items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Challenges
-      </Link>
+      <SlideUp duration={0.3} offset={16}>
+        <Link
+          href="/challenges"
+          className="inline-flex min-h-[44px] items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Challenges
+        </Link>
+      </SlideUp>
 
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
-            Challenge Matchup
-          </h1>
-          {challenge.game_mode && (
-            <GameModeBadge mode={challenge.game_mode as GameMode} size="lg" showClassic />
-          )}
-          {liveData?.has_live_games ? (
-            <div className="flex items-center gap-1">
-              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
-              <span className="text-xs font-bold text-primary">LIVE</span>
-            </div>
-          ) : (
-            <span className={cn(
-              "text-xs font-bold uppercase tracking-wider",
-              challenge.status === "active" || challenge.status === "accepted"
-                ? "text-neon-green"
-                : challenge.status === "resolved"
-                  ? "text-purple-400"
-                  : challenge.status === "pending"
-                    ? "text-amber-400"
-                    : "text-muted-foreground"
-            )}>
-              {challenge.status === "resolved" ? "Completed"
-                : challenge.status === "accepted" ? "Active"
-                : challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
-            </span>
-          )}
-          {liveLoading && !liveData && (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          )}
+      <SlideUp delay={0.05} duration={0.3} offset={16}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
+              Challenge Matchup
+            </h1>
+            {challenge.game_mode && (
+              <GameModeBadge mode={challenge.game_mode as GameMode} size="lg" showClassic />
+            )}
+            {liveData?.has_live_games ? (
+              <ScaleIn delay={0.15} duration={0.3} initialScale={0.7}>
+                <div className="flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
+                  <span className="text-xs font-bold text-primary">LIVE</span>
+                </div>
+              </ScaleIn>
+            ) : (
+              <ScaleIn delay={0.15} duration={0.3} initialScale={0.7}>
+                <span className={cn(
+                  "text-xs font-bold uppercase tracking-wider",
+                  challenge.status === "active" || challenge.status === "accepted"
+                    ? "text-neon-green"
+                    : challenge.status === "resolved"
+                      ? "text-purple-400"
+                      : challenge.status === "pending"
+                        ? "text-amber-400"
+                        : "text-muted-foreground"
+                )}>
+                  {challenge.status === "resolved" ? "Completed"
+                    : challenge.status === "accepted" ? "Active"
+                    : challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
+                </span>
+              </ScaleIn>
+            )}
+            {liveLoading && !liveData && (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+          </div>
+          <span className="text-sm text-muted-foreground">{date}</span>
         </div>
-        <span className="text-sm text-muted-foreground">{date}</span>
-      </div>
+      </SlideUp>
 
       {/* Trash Talk Bubble */}
       {challenge.message && (
@@ -343,58 +382,70 @@ export default function ChallengeMatchup({
       )}
 
       {/* Error */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {error}
-            <Button
-              variant="link"
-              size="sm"
-              onClick={() => setError(null)}
-              className="ml-2 text-destructive underline"
-            >
-              Dismiss
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            key="error-alert"
+            initial={prefersReduced ? false : { opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {error}
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => setError(null)}
+                  className="ml-2 text-destructive underline"
+                >
+                  Dismiss
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Resolved: reactions, share, result, quick actions — compact group */}
       {challenge.status === "resolved" && (
-        <div className="flex flex-col items-center gap-2">
-          <ReactionBar
-            targetType="challenge"
-            targetId={challenge.id}
-            currentUserId={currentUserId}
-          />
-          <div className="mb-1 flex items-center gap-3">
-            <p className="text-sm font-semibold">
-              {isDraw ? (
-                <span className="text-amber-400">It&apos;s a draw!</span>
-              ) : isWinner ? (
-                <span className="text-neon-green">You won!</span>
-              ) : (
-                <span className="text-bold-red">
-                  {isChallenger ? opponentName : challengerName} won!
-                </span>
-              )}
-            </p>
-            <span className="text-muted-foreground/30">|</span>
-            <ShareButton
-              url={`${typeof window !== "undefined" ? window.location.origin : ""}/challenges/${challenge.id}/share`}
-              title={`${challengerName} vs ${opponentName} - AlternaPick Challenge`}
-              text={`Check out this challenge on AlternaPick! ${challengerName} vs ${opponentName}`}
+        <FadeIn delay={0.2} duration={0.3}>
+          <div className="flex flex-col items-center gap-2">
+            <ReactionBar
+              targetType="challenge"
+              targetId={challenge.id}
+              currentUserId={currentUserId}
+            />
+            <div className="mb-1 flex items-center gap-3">
+              <p className="text-sm font-semibold">
+                {isDraw ? (
+                  <span className="text-amber-400">It&apos;s a draw!</span>
+                ) : isWinner ? (
+                  <span className="text-neon-green">You won!</span>
+                ) : (
+                  <span className="text-bold-red">
+                    {isChallenger ? opponentName : challengerName} won!
+                  </span>
+                )}
+              </p>
+              <span className="text-muted-foreground/30">|</span>
+              <ShareButton
+                url={`${typeof window !== "undefined" ? window.location.origin : ""}/challenges/${challenge.id}/share`}
+                title={`${challengerName} vs ${opponentName} - AlternaPick Challenge`}
+                text={`Check out this challenge on AlternaPick! ${challengerName} vs ${opponentName}`}
+              />
+            </div>
+            <QuickActions
+              challengeId={challenge.id}
+              opponentId={isChallenger ? challenge.opponent_id : challenge.challenger_id}
+              gameMode={(challenge.game_mode as GameMode) ?? "classic"}
+              isParticipant={true}
+              isResolved={challenge.status === "resolved"}
             />
           </div>
-          <QuickActions
-            challengeId={challenge.id}
-            opponentId={isChallenger ? challenge.opponent_id : challenge.challenger_id}
-            gameMode={(challenge.game_mode as GameMode) ?? "classic"}
-            isParticipant={true}
-            isResolved={challenge.status === "resolved"}
-          />
-        </div>
+        </FadeIn>
       )}
 
       {/* Matchup Layout — no wrapper card, just the two sides */}
@@ -410,24 +461,27 @@ export default function ChallengeMatchup({
           livePickMap={challengerLivePickMap}
           hasLiveGames={liveData?.challenger_card?.has_live_games ?? false}
           liveLoading={shouldFetchLive && !liveData}
+          side="left"
         />
 
         {/* Score + VS column */}
-        <div className="flex shrink-0 flex-col items-center gap-2 md:self-stretch">
-          {/* Score — below avatar row */}
-          {challenge.challenger_card && challenge.opponent_card &&
-            (challenge.status === "active" || challenge.status === "resolved") && (
-            <span className="mt-6 text-lg font-bold tabular-nums tracking-wide md:mt-10">
-              {challenge.challenger_card.score} &ndash; {challenge.opponent_card.score}
-            </span>
-          )}
-          {/* VS centered in remaining space */}
-          <div className="flex flex-1 items-center justify-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-              VS
+        <ScaleIn delay={0.2} duration={0.3} initialScale={0.8}>
+          <div className="flex shrink-0 flex-col items-center gap-2 md:self-stretch">
+            {/* Score — below avatar row */}
+            {challenge.challenger_card && challenge.opponent_card &&
+              (challenge.status === "active" || challenge.status === "resolved") && (
+              <span className="mt-6 text-lg font-bold tabular-nums tracking-wide md:mt-10">
+                {challenge.challenger_card.score} &ndash; {challenge.opponent_card.score}
+              </span>
+            )}
+            {/* VS centered in remaining space */}
+            <div className="flex flex-1 items-center justify-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+                VS
+              </div>
             </div>
           </div>
-        </div>
+        </ScaleIn>
 
         {/* Opponent Side */}
         <PlayerSide
@@ -440,11 +494,13 @@ export default function ChallengeMatchup({
           livePickMap={opponentLivePickMap}
           hasLiveGames={liveData?.opponent_card?.has_live_games ?? false}
           liveLoading={shouldFetchLive && !liveData}
+          side="right"
         />
       </div>
 
       {/* Status-specific CTAs */}
       {challenge.status === "pending" && (
+        <FadeIn delay={0.25} duration={0.3}>
         <Card className="border-border bg-card">
           <CardContent className="p-4">
             {isChallenger ? (
@@ -504,9 +560,11 @@ export default function ChallengeMatchup({
             )}
           </CardContent>
         </Card>
+        </FadeIn>
       )}
 
       {challenge.status === "accepted" && (
+        <FadeIn delay={0.25} duration={0.3}>
         <Card className="border-border bg-card">
           <CardContent className="p-4">
             <div className="flex flex-col items-center gap-3 text-center">
@@ -538,22 +596,25 @@ export default function ChallengeMatchup({
             </div>
           </CardContent>
         </Card>
+        </FadeIn>
       )}
 
       {challenge.status === "active" && (
-        <Card className="border-neon-green/20 bg-neon-green/5">
-          <CardContent className="p-4">
-            <div className="flex flex-col items-center gap-2 text-center">
-              <p className="text-sm font-semibold text-neon-green">
-                Challenge is live!
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Both players have locked in their picks. Results will be revealed
-                once games finish.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <FadeIn delay={0.25} duration={0.3}>
+          <Card className="border-neon-green/20 bg-neon-green/5">
+            <CardContent className="p-4">
+              <div className="flex flex-col items-center gap-2 text-center">
+                <p className="text-sm font-semibold text-neon-green">
+                  Challenge is live!
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Both players have locked in their picks. Results will be revealed
+                  once games finish.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </FadeIn>
       )}
     </div>
   );

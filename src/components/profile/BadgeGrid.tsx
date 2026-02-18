@@ -1,6 +1,7 @@
 "use client";
 
 import type { Achievement, UserAchievement } from "@/lib/supabase/types";
+import { FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
 import BadgeCard from "./BadgeCard";
 
 interface BadgeGridProps {
@@ -38,20 +39,26 @@ export default function BadgeGrid({ achievements, unlocked }: BadgeGridProps) {
     <section className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold tracking-tight">Achievements</h2>
-        <span className="text-sm text-muted-foreground">
-          {unlockedCount}/{totalCount} Badges Unlocked
-        </span>
+        <FadeIn delay={0.2}>
+          <span className="text-sm text-muted-foreground">
+            {unlockedCount}/{totalCount} Badges Unlocked
+          </span>
+        </FadeIn>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <StaggerChildren
+        staggerDelay={0.05}
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+      >
         {sorted.map((achievement) => (
-          <BadgeCard
-            key={achievement.id}
-            achievement={achievement}
-            userAchievement={unlockedMap.get(achievement.id) ?? null}
-          />
+          <StaggerItem key={achievement.id}>
+            <BadgeCard
+              achievement={achievement}
+              userAchievement={unlockedMap.get(achievement.id) ?? null}
+            />
+          </StaggerItem>
         ))}
-      </div>
+      </StaggerChildren>
     </section>
   );
 }

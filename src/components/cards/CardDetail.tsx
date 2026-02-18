@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { SlideUp, ScaleIn, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
+import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 
 function StatusBadge({ status, score, total }: { status: string; score: number; total: number }) {
   if (status === "locked") {
@@ -89,12 +91,17 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
       )
     : ({ children }: { children: React.ReactNode }) => <>{children}</>;
 
+  const prefersReduced = useReducedMotion();
+
   return (
     <Wrapper>
+    <SlideUp offset={16} duration={0.4}>
     <Card className="border-border bg-card">
       <CardHeader className="flex-row items-center justify-between space-y-0 px-4 py-3">
         <div className="flex items-center gap-3">
-          <StatusBadge status={card.status} score={card.score} total={card.total_picks} />
+          <ScaleIn delay={0.1} duration={0.35}>
+            <StatusBadge status={card.status} score={card.score} total={card.total_picks} />
+          </ScaleIn>
           {card.challenge_id ? (
             <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
               H2H
@@ -114,45 +121,63 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
         )}
       </CardHeader>
 
-      {liveData && liveData.games.length > 0 && (
-        <div className="px-3 pb-2">
-          <GameScoreBanner games={liveData.games} />
-        </div>
-      )}
+      <AnimatePresence>
+        {liveData && liveData.games.length > 0 && (
+          <motion.div
+            key="game-score-banner"
+            className="px-3 pb-2"
+            initial={prefersReduced ? false : { y: 12, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -8, opacity: 0 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+          >
+            <GameScoreBanner games={liveData.games} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <Separator />
 
       <CardContent className="flex flex-col gap-0 p-0">
-        {card.picks.map((pick) => {
-          // Use live data if available, otherwise convert the static pick
-          const livePick = livePickMap.get(pick.id) ?? toLivePickData({
-            id: pick.id,
-            selection: pick.selection,
-            result: pick.result,
-            actual_value: pick.actual_value,
-            prop: pick.props ? {
-              id: pick.prop_id,
-              player_name: pick.props.player_name,
-              player_id: pick.props.player_id,
-              player_team: pick.props.player_team,
-              player_position: pick.props.player_position,
-              stat_category: pick.props.stat_category,
-              line: pick.props.line,
-              game_id: pick.props.game_id,
-              games: pick.props.games,
-            } : null,
-          });
+        <StaggerChildren staggerDelay={0.07} className="flex flex-col gap-0">
+          {card.picks.map((pick) => {
+            // Use live data if available, otherwise convert the static pick
+            const livePick = livePickMap.get(pick.id) ?? toLivePickData({
+              id: pick.id,
+              selection: pick.selection,
+              result: pick.result,
+              actual_value: pick.actual_value,
+              prop: pick.props ? {
+                id: pick.prop_id,
+                player_name: pick.props.player_name,
+                player_id: pick.props.player_id,
+                player_team: pick.props.player_team,
+                player_position: pick.props.player_position,
+                stat_category: pick.props.stat_category,
+                line: pick.props.line,
+                game_id: pick.props.game_id,
+                games: pick.props.games,
+              } : null,
+            });
 
-          return <LivePickRow key={pick.id} pick={livePick} />;
-        })}
+            return (
+              <StaggerItem key={pick.id}>
+                <LivePickRow pick={livePick} />
+              </StaggerItem>
+            );
+          })}
+        </StaggerChildren>
       </CardContent>
 
       {card.status === "resolved" && (
-        <CardFooter className="justify-end px-4 py-3">
-          <ShareButton cardId={card.id} />
-        </CardFooter>
+        <FadeIn delay={0.3}>
+          <CardFooter className="justify-end px-4 py-3">
+            <ShareButton cardId={card.id} />
+          </CardFooter>
+        </FadeIn>
       )}
     </Card>
+    </SlideUp>
     </Wrapper>
   );
 }

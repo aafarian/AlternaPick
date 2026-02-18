@@ -2,7 +2,8 @@
 
 import type { Notification } from "@/lib/supabase/types";
 import NotificationItem from "./NotificationItem";
-import { Card, CardContent } from "@/components/ui/card";
+import { AnimatedList } from "@/components/motion";
+import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 
 interface NotificationListProps {
   notifications: Notification[];
@@ -17,21 +18,16 @@ export default function NotificationList({
 }: NotificationListProps) {
   if (notifications.length === 0) {
     return (
-      <Card className="border-border bg-card">
-        <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-          <span className="text-3xl">{"\uD83D\uDD14"}</span>
-          <p className="text-muted-foreground">No notifications yet</p>
-          <p className="text-sm text-muted-foreground">
-            You&apos;ll be notified about friend requests, challenges, and results
-            here.
-          </p>
-        </CardContent>
-      </Card>
+      <AnimatedEmptyState
+        icon={"\uD83D\uDD14"}
+        title="No notifications yet"
+        description="You'll be notified about friend requests, challenges, and results here."
+      />
     );
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <AnimatedList className="flex flex-col gap-3">
       {notifications.map((notification) => (
         <NotificationItem
           key={notification.id}
@@ -40,6 +36,6 @@ export default function NotificationList({
           onNavigate={onNavigate}
         />
       ))}
-    </div>
+    </AnimatedList>
   );
 }
