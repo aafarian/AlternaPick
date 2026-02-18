@@ -1,40 +1,63 @@
+import { AnimatedSkeleton } from "@/components/ui/animated-skeleton";
+
 export default function ShareCardLoading() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
-      {/* Branding skeleton */}
-      <div className="mb-8 h-8 w-40 animate-pulse rounded-lg bg-card" />
+      {/* Branding */}
+      <AnimatedSkeleton
+        variant="row"
+        count={1}
+        className="mb-8 h-8 w-40"
+        containerClassName="items-center"
+      />
 
-      {/* Card container skeleton */}
+      {/* Card container */}
       <div className="w-full max-w-md rounded-xl border border-border bg-card shadow-xl">
         {/* Card header */}
         <div className="flex flex-col gap-3 border-b border-border px-5 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 animate-pulse rounded-full bg-background/50" />
-              <div className="h-4 w-24 animate-pulse rounded bg-background/50" />
+              <AnimatedSkeleton
+                variant="avatar"
+                count={1}
+                className="h-8 w-8"
+              />
+              <AnimatedSkeleton
+                variant="text"
+                count={1}
+                className="h-4 w-24"
+              />
             </div>
-            <div className="h-3 w-16 animate-pulse rounded bg-background/50" />
+            <AnimatedSkeleton variant="text" count={1} className="h-3 w-16" />
           </div>
           <div className="flex items-center justify-between">
-            <div className="h-4 w-20 animate-pulse rounded bg-background/50" />
-            <div className="h-8 w-12 animate-pulse rounded bg-background/50" />
+            <AnimatedSkeleton variant="text" count={1} className="h-4 w-20" />
+            <AnimatedSkeleton variant="text" count={1} className="h-8 w-12" />
           </div>
         </div>
 
         {/* Pick rows */}
-        <div className="flex flex-col gap-1 p-2">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div
-              key={i}
-              className="h-14 animate-pulse rounded-lg bg-background/50"
-            />
-          ))}
-        </div>
+        <AnimatedSkeleton
+          variant="row"
+          count={6}
+          containerClassName="gap-1 p-2"
+          className="h-14 rounded-lg"
+        />
 
         {/* Footer */}
         <div className="flex flex-col items-center gap-2 border-t border-border px-5 py-4">
-          <div className="h-3 w-32 animate-pulse rounded bg-background/50" />
-          <div className="h-9 w-28 animate-pulse rounded-lg bg-background/50" />
+          <AnimatedSkeleton
+            variant="text"
+            count={1}
+            className="h-3 w-32"
+            containerClassName="items-center"
+          />
+          <AnimatedSkeleton
+            variant="row"
+            count={1}
+            className="h-9 w-28 rounded-lg"
+            containerClassName="items-center"
+          />
         </div>
       </div>
     </div>
