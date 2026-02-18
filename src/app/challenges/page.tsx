@@ -58,11 +58,13 @@ export default function ChallengesPage() {
   const initialMode = searchParams.get("mode");
 
   useEffect(() => {
-    if (searchParams.get("create") === "true") {
+    if (searchParams.get("create") === "true" || initialOpponentId) {
       setModalOpen(true);
-      router.replace("/challenges", { scroll: false });
+      if (searchParams.get("create") === "true") {
+        router.replace("/challenges", { scroll: false });
+      }
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, initialOpponentId]);
 
   // Fetch core challenges (pending + active)
   const fetchCore = useCallback(async () => {

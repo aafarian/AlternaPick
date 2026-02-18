@@ -18,6 +18,7 @@ interface StatItem {
 
 interface AnimatedUserProfileProps {
   profile: {
+    id: string;
     display_name: string | null;
     username: string;
     avatar_url: string | null;
@@ -84,7 +85,7 @@ export function AnimatedUserProfile({
                     transition={buttonSpring}
                   >
                     <Button variant="outline" size="sm" asChild>
-                      <Link href={`/challenges?opponent=${profile.username}`} className="gap-1.5">
+                      <Link href={`/challenges?opponent=${profile.id}`} className="gap-1.5">
                         <Swords className="h-4 w-4" />
                         Challenge
                       </Link>
