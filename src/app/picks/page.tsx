@@ -8,7 +8,7 @@ import PicksTabs from "@/components/picks/PicksTabs";
 import { CARD_SELECT, type CardWithPicks } from "@/lib/cards/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Target, BarChart3, Trophy } from "lucide-react";
+import { Plus, Target, BarChart3, Trophy, Activity } from "lucide-react";
 import { SlideUp, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 
@@ -69,7 +69,7 @@ export default async function CardsPage({
       : null;
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-8 py-8">
+    <div className="flex flex-col gap-8 py-8">
       {/* Header */}
       <SlideUp>
         <div className="flex items-center justify-between">
@@ -85,7 +85,16 @@ export default async function CardsPage({
 
       {/* Stats summary */}
       {completedCards.length > 0 && (
-        <StaggerChildren className="grid grid-cols-3 gap-4" staggerDelay={0.08}>
+        <StaggerChildren className="grid grid-cols-2 gap-4 md:grid-cols-4" staggerDelay={0.08}>
+          <StaggerItem>
+            <Card className="border-border bg-card hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+              <CardContent className="flex flex-col items-center gap-1 p-4">
+                <Activity className="h-5 w-5 text-primary" />
+                <span className="text-2xl font-black">{activeCards.length}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active</span>
+              </CardContent>
+            </Card>
+          </StaggerItem>
           <StaggerItem>
             <Card className="border-border bg-card hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
               <CardContent className="flex flex-col items-center gap-1 p-4">
