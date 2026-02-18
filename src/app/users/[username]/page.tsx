@@ -91,6 +91,7 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
       {/* Profile header */}
       <AnimatedUserProfile
         profile={{
+          id: profile.id,
           display_name: profile.display_name,
           username: profile.username,
           avatar_url: profile.avatar_url,

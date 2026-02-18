@@ -95,8 +95,8 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
 
   return (
     <Wrapper>
-    <SlideUp offset={16} duration={0.4}>
-    <Card className="border-border bg-card">
+      <SlideUp offset={16} duration={0.4}>
+        <Card className="border-border bg-card">
       <CardHeader className="flex-row items-center justify-between space-y-0 px-4 py-3">
         <div className="flex items-center gap-3">
           <ScaleIn delay={0.1} duration={0.35}>
@@ -176,8 +176,8 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
           </CardFooter>
         </FadeIn>
       )}
-    </Card>
-    </SlideUp>
+        </Card>
+      </SlideUp>
     </Wrapper>
   );
 }

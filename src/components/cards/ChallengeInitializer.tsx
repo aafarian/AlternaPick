@@ -47,11 +47,19 @@ export default function ChallengeInitializer() {
         // is missing.
         const opponent = challenge.opponent ?? challenge.challenger;
 
+        // If the challenger already locked a card, the opponent must match
+        // the challenger's actual pick count — not the challenge's configured
+        // card_size (which may be a larger default like 6).
+        const actualCardSize =
+          challenge.challenger_card?.total_picks ??
+          challenge.card_size ??
+          6;
+
         setChallenge(
           id,
           { username: opponent.username, display_name: opponent.display_name },
           challenge.game_mode ?? "classic",
-          challenge.card_size ?? 6,
+          actualCardSize,
         );
       } catch {
         // Silently fail — the user can still build a normal card

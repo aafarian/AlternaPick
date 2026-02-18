@@ -103,7 +103,7 @@ export default function FriendsStrip({ friends, onUnfriend }: FriendsStripProps)
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link
-                      href={`/challenges?opponent=${profile.username}`}
+                      href={`/challenges?opponent=${profile.id}`}
                       className="gap-2"
                     >
                       <Swords className="h-4 w-4" />

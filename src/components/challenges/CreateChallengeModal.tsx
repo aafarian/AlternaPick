@@ -26,6 +26,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ChevronRight,
+  Loader2,
   MessageSquare,
 } from "lucide-react";
 
@@ -541,7 +542,10 @@ export default function CreateChallengeModal({
             className="flex-1 gap-1.5"
           >
             {creating ? (
-              "Sending..."
+              <>
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                Sending...
+              </>
             ) : step === "opponent" ? (
               <>
                 Next

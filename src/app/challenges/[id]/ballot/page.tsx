@@ -18,7 +18,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/format/name-utils";
-import { ArrowLeft, AlertCircle, Lock, Clock } from "lucide-react";
+import { ArrowLeft, AlertCircle, Lock, Clock, Loader2 } from "lucide-react";
 
 const LOCK_BUFFER_MS = 5 * 60 * 1000;
 
@@ -435,7 +435,11 @@ export default function BallotPage() {
             className="w-full gap-2 py-6 text-base font-bold"
             size="lg"
           >
-            <Lock className="h-4 w-4" />
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Lock className="h-4 w-4" />
+            )}
             {submitting
               ? "Locking..."
               : allPicked

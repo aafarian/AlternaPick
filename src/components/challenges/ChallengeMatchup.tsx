@@ -465,8 +465,8 @@ export default function ChallengeMatchup({
         />
 
         {/* Score + VS column */}
-        <ScaleIn delay={0.2} duration={0.3} initialScale={0.8}>
-          <div className="flex shrink-0 flex-col items-center gap-2 md:self-stretch">
+        <ScaleIn delay={0.2} duration={0.3} initialScale={0.8} className="shrink-0 md:self-stretch">
+          <div className="flex flex-col items-center gap-2 md:h-full">
             {/* Score — below avatar row */}
             {challenge.challenger_card && challenge.opponent_card &&
               (challenge.status === "active" || challenge.status === "resolved") && (
