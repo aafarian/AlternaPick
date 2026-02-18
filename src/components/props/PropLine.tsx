@@ -243,7 +243,7 @@ export default function PropLine({
       </div>
 
       {/* Over / Under buttons */}
-      <div className="grid grid-cols-2 gap-px border-t border-border">
+      <div className="mt-auto grid grid-cols-2 gap-px border-t border-border">
         <button
           onClick={() => handleClick("over")}
           disabled={disabledUnselected}
