@@ -145,7 +145,7 @@ export default function Header() {
           )}
         </div>
 
-        {/* Mobile: streak + bell + hamburger (secondary items only) */}
+        {/* Mobile: streak + bell + hamburger */}
         <div className="flex items-center gap-1 md:hidden">
           {user && <StreakBadge />}
           {user && (
@@ -156,7 +156,7 @@ export default function Header() {
               }
             />
           )}
-          {user ? (
+          {!loading && (
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -173,18 +173,12 @@ export default function Header() {
                     onNavigate={() => setSheetOpen(false)}
                     user={user}
                     notificationCounts={notificationCounts}
-                    mobileSecondaryOnly
+                    mobileSecondaryOnly={!!user}
                   />
                 </div>
               </SheetContent>
             </Sheet>
-          ) : !loading ? (
-            <Link href="/auth/login">
-              <Button variant="default" size="sm">
-                Sign In
-              </Button>
-            </Link>
-          ) : null}
+          )}
         </div>
       </div>
     </header>
