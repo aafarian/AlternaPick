@@ -24,6 +24,17 @@ const AnimatedInput = React.forwardRef<HTMLInputElement, AnimatedInputProps>(
     const [hasValue, setHasValue] = React.useState(false);
     const prefersReduced = useReducedMotion();
     const inputId = id || React.useId();
+    const internalRef = React.useRef<HTMLInputElement | null>(null);
+
+    // Merge forwarded ref with internal ref
+    const setRefs = React.useCallback(
+      (node: HTMLInputElement | null) => {
+        internalRef.current = node;
+        if (typeof ref === "function") ref(node);
+        else if (ref) (ref as React.MutableRefObject<HTMLInputElement | null>).current = node;
+      },
+      [ref],
+    );
 
     // Track whether the input has a value (for floating label)
     const handleChange = React.useCallback(
@@ -55,12 +66,29 @@ const AnimatedInput = React.forwardRef<HTMLInputElement, AnimatedInputProps>(
       [],
     );
 
+    // Fallback: poll for :autofill pseudo-class after mount.
+    // The animationstart event misses autofills that happen before React
+    // hydrates (e.g. saved passwords injected on page load).
+    React.useEffect(() => {
+      const el = internalRef.current;
+      if (!el) return;
+      const check = () => {
+        try {
+          if (el.matches(":autofill") || el.matches(":-webkit-autofill")) {
+            setHasValue(true);
+          }
+        } catch { /* pseudo-class not supported */ }
+      };
+      const timers = [60, 200, 1000].map((ms) => setTimeout(check, ms));
+      return () => timers.forEach(clearTimeout);
+    }, []);
+
     const isLabelFloated = isFocused || hasValue;
 
     const inputElement = (
       <input
         {...restProps}
-        ref={ref}
+        ref={setRefs}
         id={inputId}
         type={type}
         data-slot="input"
