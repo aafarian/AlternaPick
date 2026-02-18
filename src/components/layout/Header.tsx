@@ -123,7 +123,7 @@ export default function Header() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-1 text-xl font-bold tracking-tight">
+        <Link href={user ? "/props" : "/"} className="flex items-center gap-1 text-xl font-bold tracking-tight">
           <span className="text-primary">Alterna</span>
           <span className="text-foreground">Pick</span>
         </Link>
