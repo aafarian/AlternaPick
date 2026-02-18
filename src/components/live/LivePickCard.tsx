@@ -89,16 +89,10 @@ export default function LivePickCard({
         </div>
       )}
 
-      {/* Game scores */}
-      {games && games.length > 0 ? (
+      {/* Game scores — only show skeleton when games prop is explicitly provided */}
+      {games && games.length > 0 && (
         <div className="px-4 pb-2">
           <GameScoreBanner games={games} />
-        </div>
-      ) : loading && (
-        <div className="flex gap-2 px-4 pb-2">
-          {Array.from({ length: Math.min(pickCount, 3) }, (_, i) => (
-            <Skeleton key={i} className="h-[50px] w-[100px] shrink-0 rounded-lg" />
-          ))}
         </div>
       )}
 
