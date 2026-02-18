@@ -138,7 +138,7 @@ export default function LiveTracker({
   }
 
   return (
-    <AnimatedList className="flex flex-col gap-6" staggerDelay={0.06}>
+    <AnimatedList className="grid grid-cols-1 gap-4 md:grid-cols-2" staggerDelay={0.06}>
       {initialCards.map((card) => (
         <LiveCard
           key={card.id}
