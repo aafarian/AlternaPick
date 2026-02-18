@@ -8,7 +8,7 @@ import { CTASection } from "@/components/landing/CTASection";
 
 export default function Home() {
   return (
-    <div className="w-screen ml-[calc(50%-50vw)]">
+    <div className="-mx-4">
       <HeroSection />
       <SportsBar />
       <FeaturesSection />
