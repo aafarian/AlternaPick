@@ -6,7 +6,8 @@ import { GAME_MODES } from "@/lib/modes/definitions";
 import type { GameMode } from "@/lib/supabase/types";
 import {
   CHART_COLORS,
-  rateColor,
+  BAR_GRADIENT_ID,
+  BarGradientDef,
   useResponsiveWidth,
 } from "@/lib/analytics/chart-utils";
 
@@ -58,6 +59,7 @@ export default function GameModeStats({ data }: GameModeStatsProps) {
       <div ref={containerRef} className="w-full">
         {width > 0 && (
           <svg width={width} height={height}>
+            <BarGradientDef />
             <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
               {/* Grid lines */}
               {GRID_TICKS.map((tick) => (
@@ -101,8 +103,8 @@ export default function GameModeStats({ data }: GameModeStatsProps) {
                       width={Math.max(xScale(winPct), 0)}
                       height={bh}
                       rx={3}
-                      fill={rateColor(winPct)}
-                      fillOpacity={0.75}
+                      fill={`url(#${BAR_GRADIENT_ID})`}
+                      fillOpacity={0.85}
                     />
 
                     {/* Stats on right side */}

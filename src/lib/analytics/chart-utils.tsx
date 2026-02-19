@@ -18,6 +18,21 @@ export function rateColor(pct: number): string {
   return CHART_COLORS.red;
 }
 
+/** SVG gradient ID used by all horizontal bar charts */
+export const BAR_GRADIENT_ID = "barGradient";
+
+/** Render an SVG <defs> block containing the shared bar gradient (primary → accent) */
+export function BarGradientDef() {
+  return (
+    <defs>
+      <linearGradient id={BAR_GRADIENT_ID} x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor={CHART_COLORS.green} />
+        <stop offset="100%" stopColor={CHART_COLORS.blue} />
+      </linearGradient>
+    </defs>
+  );
+}
+
 /** Reusable hook: tracks an element's width via ResizeObserver for responsive SVG charts */
 export function useResponsiveWidth() {
   const containerRef = useRef<HTMLDivElement>(null);

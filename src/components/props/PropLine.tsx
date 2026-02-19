@@ -230,14 +230,14 @@ export default function PropLine({
           );
         })()}
 
-        {/* "Your Edge" indicator for users with strong historical accuracy */}
+        {/* Personal hit rate indicator */}
         {edgeRate !== undefined && (
           <span
             className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-neon-green"
-            title={`Your edge: ${Math.round(edgeRate * 100)}%`}
+            title={`You hit ${Math.round(edgeRate * 100)}% on this player`}
           >
             <Target size={12} className="shrink-0" />
-            {Math.round(edgeRate * 100)}% edge
+            You hit {Math.round(edgeRate * 100)}%
           </span>
         )}
       </div>
