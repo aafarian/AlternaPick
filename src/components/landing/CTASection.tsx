@@ -43,7 +43,7 @@ export function CTASection() {
             <Link href="/props">
               <Button
                 size="lg"
-                className="animate-cta-glow text-base font-bold transition-all duration-300 hover:scale-105"
+                className="animate-cta-glow text-base font-bold transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(0,210,106,0.35)]"
               >
                 Start Playing — It&apos;s Free
               </Button>

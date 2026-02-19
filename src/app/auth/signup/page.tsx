@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signUp, claimCardsAfterLogin } from "@/lib/auth/actions";
-import { clearAnonymousId } from "@/lib/session/anonymous";
+import { clearAnonymousId, syncCookie } from "@/lib/session/anonymous";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -99,6 +99,10 @@ function SignupForm() {
   }
 
   async function handleGoogleSignIn() {
+    // Ensure anonymous ID cookie is fresh before leaving for OAuth
+    const anonId = localStorage.getItem("ap_anon_id");
+    if (anonId) syncCookie(anonId);
+
     const supabase = createClient();
     const ref = refParam || localStorage.getItem("sports_tower_ref");
     // Persist ref for the OAuth redirect flow

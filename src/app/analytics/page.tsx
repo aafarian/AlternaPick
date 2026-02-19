@@ -27,6 +27,7 @@ import { isValidSport, SPORT_CONFIG } from "@/lib/sports";
 import type { GameMode } from "@/lib/supabase/types";
 import { SlideUp, FadeIn, StaggerChildren, StaggerItem, ScrollReveal } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
+import { BarChart3 } from "lucide-react";
 
 export const metadata = {
   title: "Analytics | Sports Tower",
@@ -133,7 +134,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </FadeIn>
         <FadeIn delay={0.2}>
           <AnimatedEmptyState
-            icon="📊"
+            icon={<BarChart3 className="h-8 w-8" />}
             title={`No data${hasFilters ? " for this filter combo" : ""}`}
             description={
               !hasFilters

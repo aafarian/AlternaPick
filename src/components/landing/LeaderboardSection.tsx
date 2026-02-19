@@ -1,6 +1,6 @@
 "use client";
 
-import { Globe, Users, Swords, Flame } from "lucide-react";
+import { Globe, Users, Swords, Flame, Medal } from "lucide-react";
 import { ScrollReveal } from "@/components/motion";
 
 const highlights = [
@@ -27,11 +27,11 @@ const highlights = [
 ];
 
 const mockLeaderboard = [
-  { rank: 1, name: "PropsKing", rate: "74.2%", medal: "🥇" },
-  { rank: 2, name: "StatGuru", rate: "71.8%", medal: "🥈" },
-  { rank: 3, name: "BetMaster", rate: "69.5%", medal: "🥉" },
-  { rank: 4, name: "SlamDunk", rate: "68.1%", medal: undefined },
-  { rank: 5, name: "GridIron", rate: "67.3%", medal: undefined },
+  { rank: 1, name: "PropsKing", rate: "74.2%", color: "text-yellow-400" },
+  { rank: 2, name: "StatGuru", rate: "71.8%", color: "text-gray-400" },
+  { rank: 3, name: "BetMaster", rate: "69.5%", color: "text-amber-600" },
+  { rank: 4, name: "SlamDunk", rate: "68.1%", color: undefined },
+  { rank: 5, name: "GridIron", rate: "67.3%", color: undefined },
 ];
 
 export function LeaderboardSection() {
@@ -56,13 +56,17 @@ export function LeaderboardSection() {
               {mockLeaderboard.map((player) => (
                 <div
                   key={player.rank}
-                  className={`flex items-center justify-between rounded-lg px-3 py-2.5 ${
+                  className={`flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-primary/10 ${
                     player.rank <= 3 ? "bg-primary/5" : ""
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="w-6 text-center text-sm font-bold text-muted-foreground">
-                      {player.medal ?? player.rank}
+                    <span className="flex w-6 items-center justify-center text-sm font-bold text-muted-foreground">
+                      {player.color ? (
+                        <Medal className={`h-4 w-4 ${player.color}`} />
+                      ) : (
+                        player.rank
+                      )}
                     </span>
                     <span className="text-sm font-semibold">
                       {player.name}

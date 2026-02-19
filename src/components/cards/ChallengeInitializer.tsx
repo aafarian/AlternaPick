@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
+import { useAuth } from "@/lib/auth/auth-context";
 
 /**
  * Reads the `challenge` search param from the URL and, if present,
@@ -13,6 +14,7 @@ export default function ChallengeInitializer() {
   const searchParams = useSearchParams();
   const challengeId = searchParams.get("challenge_id");
   const { setChallenge, state } = useCardBuilder();
+  const { user } = useAuth();
   const fetchedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -34,18 +36,8 @@ export default function ChallengeInitializer() {
         if (!challenge) return;
 
         // Determine who the opponent is relative to the current user.
-        // The API only returns challenges where the user is a participant,
-        // so if the current user is the challenger, the opponent is the
-        // other party, and vice versa. We use a heuristic: the challenge
-        // was fetched successfully, so pick the opponent profile.
-        // Since we don't know the current user ID on the client easily,
-        // we expose both and let the component pick. The challenger
-        // initiated the challenge, so if someone navigates to
-        // /props?challenge=<id>, they are likely the participant who
-        // needs to build a card. We'll use the opponent field (the person
-        // being challenged) vs the challenger field based on which card
-        // is missing.
-        const opponent = challenge.opponent ?? challenge.challenger;
+        const isChallenger = user?.id === challenge.challenger_id;
+        const opponent = isChallenger ? challenge.opponent : challenge.challenger;
 
         // If the challenger already locked a card, the opponent must match
         // the challenger's actual pick count — not the challenge's configured
@@ -67,7 +59,7 @@ export default function ChallengeInitializer() {
     }
 
     loadChallenge(challengeId);
-  }, [challengeId, setChallenge, state.challengeId]);
+  }, [challengeId, setChallenge, state.challengeId, user?.id]);
 
   return null;
 }

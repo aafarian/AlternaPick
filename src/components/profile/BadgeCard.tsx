@@ -93,10 +93,14 @@ export default function BadgeCard({
         {achievement.description}
       </p>
 
-      {/* Unlock date */}
-      {isUnlocked && unlockDate && (
+      {/* Unlock date — always reserve space so all cards share the same height */}
+      {isUnlocked && unlockDate ? (
         <span className="mt-auto text-[10px] font-medium text-primary">
           Unlocked {unlockDate}
+        </span>
+      ) : (
+        <span className="mt-auto text-[10px] invisible" aria-hidden="true">
+          Placeholder
         </span>
       )}
     </motion.div>

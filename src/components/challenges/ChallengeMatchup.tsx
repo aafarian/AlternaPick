@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Crown } from "lucide-react";
 import ReactionBar from "@/components/challenges/ReactionBar";
 import TrashTalkBubble from "@/components/challenges/TrashTalkBubble";
 import QuickActions from "@/components/challenges/QuickActions";
@@ -129,7 +129,7 @@ function PlayerSide({
           </AvatarFallback>
         </Avatar>
         <span className="text-sm font-semibold">
-          {isWinner && <span className="mr-1">👑</span>}
+          {isWinner && <Crown className="mr-1 inline h-4 w-4 text-neon-green" />}
           {name}
         </span>
         {isWinner ? (

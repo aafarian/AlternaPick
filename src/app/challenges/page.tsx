@@ -9,7 +9,7 @@ import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, AlertCircle, Loader2, Search, X } from "lucide-react";
+import { Plus, AlertCircle, Loader2, Search, X, Inbox, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 import { SlideUp, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
@@ -360,7 +360,7 @@ export default function ChallengesPage() {
             {activeTab === "feed" ? (
               feedEmpty ? (
                 <AnimatedEmptyState
-                  icon={"\uD83D\uDCE8"}
+                  icon={<Inbox className="h-8 w-8" />}
                   title="No challenges yet"
                   action={
                     <Button
@@ -440,7 +440,7 @@ export default function ChallengesPage() {
             ) : activeTab === "inbox" ? (
               filteredInbox.length === 0 ? (
                 <AnimatedEmptyState
-                  icon={"\uD83D\uDCE8"}
+                  icon={<Inbox className="h-8 w-8" />}
                   title="No incoming challenges"
                   description="When someone challenges you, it'll show up here"
                 />
@@ -464,7 +464,7 @@ export default function ChallengesPage() {
             ) : (
               filteredSent.length === 0 ? (
                 <AnimatedEmptyState
-                  icon={"\uD83D\uDCE4"}
+                  icon={<Send className="h-8 w-8" />}
                   title="No pending sent challenges"
                   action={
                     <Button

@@ -234,10 +234,10 @@ export default function PropLine({
         {edgeRate !== undefined && (
           <span
             className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-neon-green"
-            title={`Your Edge: ${Math.round(edgeRate * 100)}% accuracy`}
+            title={`Your edge: ${Math.round(edgeRate * 100)}%`}
           >
             <Target size={12} className="shrink-0" />
-            {Math.round(edgeRate * 100)}% accuracy
+            {Math.round(edgeRate * 100)}% edge
           </span>
         )}
       </div>

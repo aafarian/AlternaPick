@@ -4,6 +4,7 @@ import type { ActivityItem as ActivityItemType } from "@/app/api/activity/route"
 import ActivityItem from "./ActivityItem";
 import { AnimatedList } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
+import { Rss } from "lucide-react";
 
 interface ActivityFeedProps {
   items: ActivityItemType[];
@@ -13,7 +14,7 @@ export default function ActivityFeed({ items }: ActivityFeedProps) {
   if (items.length === 0) {
     return (
       <AnimatedEmptyState
-        icon="📡"
+        icon={<Rss className="h-8 w-8" />}
         title="No recent activity"
         description="Activity from your friends will show up here."
       />

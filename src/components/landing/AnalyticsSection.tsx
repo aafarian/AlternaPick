@@ -1,7 +1,8 @@
 "use client";
 
-import { BarChart3, TrendingUp, Target, Users } from "lucide-react";
+import { BarChart3, TrendingUp, Target, Users, Flame } from "lucide-react";
 import { ScrollReveal } from "@/components/motion";
+import { motion, useReducedMotion } from "@/lib/motion";
 
 const highlights = [
   {
@@ -34,6 +35,8 @@ const mockBars = [
 ];
 
 export function AnalyticsSection() {
+  const prefersReduced = useReducedMotion();
+
   return (
     <section className="relative overflow-hidden py-20">
       {/* Subtle background accent */}
@@ -78,7 +81,11 @@ export function AnalyticsSection() {
 
         {/* ── Mockup dashboard card ── */}
         <ScrollReveal>
-          <div className="rounded-xl border border-border bg-card/80 p-6 backdrop-blur-sm">
+          <motion.div
+            className="rounded-xl border border-border bg-card/80 p-6 backdrop-blur-sm transition-colors hover:border-primary/30"
+            whileHover={prefersReduced ? undefined : { scale: 1.02, y: -2 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          >
             <p className="mb-4 text-sm font-semibold text-muted-foreground">
               Your Analytics
             </p>
@@ -94,7 +101,7 @@ export function AnalyticsSection() {
                 <p className="text-xs text-muted-foreground">Cards Played</p>
               </div>
               <div>
-                <p className="text-2xl font-black text-accent">🔥 5</p>
+                <p className="flex items-center justify-center gap-1 text-2xl font-black text-accent"><Flame className="h-5 w-5" /> 5</p>
                 <p className="text-xs text-muted-foreground">Streak</p>
               </div>
             </div>
@@ -116,7 +123,7 @@ export function AnalyticsSection() {
                 </div>
               ))}
             </div>
-          </div>
+          </motion.div>
         </ScrollReveal>
       </div>
     </section>

@@ -5,7 +5,13 @@ import { claimAnonymousCards } from "@/lib/auth/claim-cards";
 import { processReferral } from "@/lib/referrals/queries";
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
+  const host = forwardedHost ?? request.headers.get("host");
+  const origin = host
+    ? `${forwardedProto}://${host}`
+    : (process.env.NEXT_PUBLIC_SITE_URL ?? "https://alternapick.com");
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/props";
 
