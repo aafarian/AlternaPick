@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useRef, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
 import OnboardingModal from "./OnboardingModal";
 import UsernameSetupModal from "./UsernameSetupModal";
@@ -9,53 +9,55 @@ const AUTO_USERNAME_RE = /^user_[a-f0-9]{8}$/;
 
 type Phase = "idle" | "username_setup" | "onboarding" | "done";
 
+const MAX_RETRIES = 5;
+const RETRY_INTERVAL_MS = 1_000;
+
 export function OnboardingProvider({ children }: { children: ReactNode }) {
   const { user, loading, supabase } = useAuth();
   const [phase, setPhase] = useState<Phase>("idle");
 
+  // Derive a stable primitive so the effect doesn't re-run on every
+  // onAuthStateChange event (each event produces a new user object ref).
+  const userId = user?.id ?? null;
+  const resolvedForRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (loading || !user || !supabase) return;
+    if (loading || !userId || !supabase) return;
+    if (resolvedForRef.current === userId) return;
 
     let cancelled = false;
 
     async function checkStatus(attempt = 0) {
-      // Query username separately first — it's guaranteed to exist in the schema.
-      // onboarding_completed may not exist if migrations are pending.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from("profiles") as any)
-        .select("username")
-        .eq("id", user!.id)
+        .select("username, onboarding_completed")
+        .eq("id", userId)
         .single();
 
       if (cancelled) return;
 
-      // Profile may not exist yet right after OAuth redirect (replication lag).
-      // Retry up to 3 times with increasing delay.
-      if ((error || !data) && attempt < 3) {
-        setTimeout(() => { if (!cancelled) checkStatus(attempt + 1); }, 500 * (attempt + 1));
+      if ((error || !data) && attempt < MAX_RETRIES) {
+        setTimeout(() => {
+          if (!cancelled) checkStatus(attempt + 1);
+        }, RETRY_INTERVAL_MS);
         return;
       }
+
       if (error || !data) return;
 
-      const username = (data as { username: string }).username;
+      const profile = data as {
+        username: string;
+        onboarding_completed?: boolean;
+      };
 
-      // Auto-generated username from Google OAuth → prompt to pick a real one
-      if (AUTO_USERNAME_RE.test(username)) {
+      resolvedForRef.current = userId;
+
+      if (AUTO_USERNAME_RE.test(profile.username)) {
         setPhase("username_setup");
         return;
       }
 
-      // Check onboarding status (column may not exist — default to showing onboarding)
-      const { data: full } = await (supabase.from("profiles") as any)
-        .select("onboarding_completed")
-        .eq("id", user!.id)
-        .single();
-
-      if (cancelled) return;
-
-      const onboardingCompleted = (full as { onboarding_completed?: boolean } | null)
-        ?.onboarding_completed ?? false;
-
-      if (!onboardingCompleted) {
+      if (!profile.onboarding_completed) {
         setPhase("onboarding");
       } else {
         setPhase("done");
@@ -63,24 +65,24 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     }
 
     checkStatus();
-    return () => { cancelled = true; };
-  }, [user, loading, supabase]);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, loading, supabase]);
 
   function handleUsernameComplete() {
-    // After username step, check if onboarding is still needed
-    // Re-fetch would be ideal, but we know that if we got to username_setup,
-    // onboarding_completed was checked. Google OAuth users are always new,
-    // so they'll need the onboarding slideshow too.
     setPhase("onboarding");
   }
 
   async function handleOnboardingDismiss() {
     setPhase("done");
 
-    if (user && supabase) {
+    if (userId && supabase) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from("profiles") as any)
         .update({ onboarding_completed: true })
-        .eq("id", user.id);
+        .eq("id", userId);
     }
   }
 
