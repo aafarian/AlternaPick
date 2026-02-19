@@ -3,7 +3,7 @@ export const ANON_SESSION_KEY = "ap_anon_id";
 /** 30-day cookie expiry (seconds) */
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
-function syncCookie(id: string) {
+export function syncCookie(id: string) {
   document.cookie = `${ANON_SESSION_KEY}=${id}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
 }
 

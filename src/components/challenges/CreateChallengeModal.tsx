@@ -22,6 +22,7 @@ import {
 } from "@/lib/modes";
 import type { GameMode, CardSize } from "@/lib/modes";
 import MirrorPropPicker from "./MirrorPropPicker";
+import UserSearchBar from "@/components/friends/UserSearchBar";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -338,12 +339,20 @@ export default function CreateChallengeModal({
               ) : filteredFriends.length === 0 ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">
                   {friends.length === 0 ? (
-                    <>
-                      <p>No friends yet.</p>
-                      <a href="/friends" className="text-primary underline hover:text-primary/80">
-                        Add friends first!
-                      </a>
-                    </>
+                    <div className="flex flex-col gap-3 py-2">
+                      <p className="text-sm text-muted-foreground">
+                        Search for users to add as friends, then challenge them!
+                      </p>
+                      <UserSearchBar
+                        onSendRequest={async (username) => {
+                          await fetch("/api/friends", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ username }),
+                          });
+                        }}
+                      />
+                    </div>
                   ) : (
                     <p>No friends match your search.</p>
                   )}

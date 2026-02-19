@@ -5,7 +5,7 @@ import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import { resolveLoginEmail, claimCardsAfterLogin } from "@/lib/auth/actions";
-import { clearAnonymousId } from "@/lib/session/anonymous";
+import { clearAnonymousId, syncCookie } from "@/lib/session/anonymous";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { AnimatedInput } from "@/components/ui/animated-input";
@@ -81,6 +81,10 @@ function LoginForm() {
   }
 
   async function handleGoogleSignIn() {
+    // Ensure anonymous ID cookie is fresh before leaving for OAuth
+    const anonId = localStorage.getItem("ap_anon_id");
+    if (anonId) syncCookie(anonId);
+
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: "google",

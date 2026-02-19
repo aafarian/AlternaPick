@@ -10,6 +10,7 @@ import LivePickCard from "./LivePickCard";
 import { Badge } from "@/components/ui/badge";
 import { AnimatedList } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
+import { Radio } from "lucide-react";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
 
 function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
@@ -130,7 +131,7 @@ export default function LiveTracker({
   if (initialCards.length === 0) {
     return (
       <AnimatedEmptyState
-        icon="&#x1F4E1;"
+        icon={<Radio className="h-8 w-8" />}
         title="No active cards"
         description="Lock in some picks to track them live during games!"
       />

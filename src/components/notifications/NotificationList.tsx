@@ -4,6 +4,7 @@ import type { Notification } from "@/lib/supabase/types";
 import NotificationItem from "./NotificationItem";
 import { AnimatedList } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
+import { Bell } from "lucide-react";
 
 interface NotificationListProps {
   notifications: Notification[];
@@ -19,7 +20,7 @@ export default function NotificationList({
   if (notifications.length === 0) {
     return (
       <AnimatedEmptyState
-        icon={"\uD83D\uDD14"}
+        icon={<Bell className="h-8 w-8" />}
         title="No notifications yet"
         description="You'll be notified about friend requests, challenges, and results here."
       />

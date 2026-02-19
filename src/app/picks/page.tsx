@@ -136,7 +136,7 @@ export default async function CardsPage({
             finishedContent={
               completedCards.length === 0 ? (
                 <AnimatedEmptyState
-                  icon="&#x1F4CA;"
+                  icon={<BarChart3 className="h-8 w-8" />}
                   title="No finished cards yet"
                   description="Complete some picks to see your results here."
                 />

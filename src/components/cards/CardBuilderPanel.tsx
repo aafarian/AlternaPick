@@ -17,6 +17,7 @@ import { X, Lock, Loader2, Swords, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CardSuccessAnimation from "./CardSuccessAnimation";
 import ModeSelector from "./ModeSelector";
+import UserSearchBar from "@/components/friends/UserSearchBar";
 
 interface FriendProfile {
   id: string;
@@ -223,7 +224,17 @@ export default function CardBuilderPanel() {
                     ))}
                   </div>
                 ) : friends.length === 0 ? (
-                  <span className="text-xs text-muted-foreground">No friends yet. <a href="/friends" className="text-primary underline">Add friends</a></span>
+                  <div className="flex-1 min-w-0">
+                    <UserSearchBar
+                      onSendRequest={async (username) => {
+                        await fetch("/api/friends", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ username }),
+                        });
+                      }}
+                    />
+                  </div>
                 ) : (() => {
                   const query = friendSearch.toLowerCase().trim();
                   const filtered = query

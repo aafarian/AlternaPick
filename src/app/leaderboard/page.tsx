@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Trophy, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, useReducedMotion } from "@/lib/motion";
 import { SlideUp, ScaleIn, FadeIn } from "@/components/motion";
@@ -319,7 +319,7 @@ export default function LeaderboardPage() {
       {/* Empty state */}
       {!loading && !error && entries.length === 0 && (
         <AnimatedEmptyState
-          icon={activeTab === "global" ? "\uD83C\uDFC6" : "\uD83D\uDC65"}
+          icon={activeTab === "global" ? <Trophy className="h-8 w-8" /> : <Users className="h-8 w-8" />}
           title={
             activeTab === "global"
               ? "No leaderboard entries yet"

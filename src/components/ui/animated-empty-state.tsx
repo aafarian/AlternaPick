@@ -6,7 +6,7 @@ import { ScaleIn, FadeIn } from "@/components/motion";
 import { cn } from "@/lib/utils";
 
 interface AnimatedEmptyStateProps {
-  icon: string;
+  icon: ReactNode;
   title: string;
   description?: string;
   action?: ReactNode;
@@ -47,9 +47,13 @@ export function AnimatedEmptyState({
     >
       {/* Icon — scales in with a bounce */}
       <ScaleIn delay={0} duration={0.5} initialScale={0.5}>
-        <span className="text-4xl" role="img" aria-hidden="true">
-          {icon}
-        </span>
+        <div className="flex items-center justify-center text-muted-foreground" aria-hidden="true">
+          {typeof icon === "string" ? (
+            <span className="text-4xl">{icon}</span>
+          ) : (
+            icon
+          )}
+        </div>
       </ScaleIn>
 
       {/* Title — fades in after icon */}
