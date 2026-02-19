@@ -16,7 +16,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading || !user || !supabase) return;
 
-    async function checkStatus() {
+    let cancelled = false;
+
+    async function checkStatus(attempt = 0) {
       // Query username separately first — it's guaranteed to exist in the schema.
       // onboarding_completed may not exist if migrations are pending.
       const { data, error } = await (supabase.from("profiles") as any)
@@ -24,6 +26,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         .eq("id", user!.id)
         .single();
 
+      if (cancelled) return;
+
+      // Profile may not exist yet right after OAuth redirect (replication lag).
+      // Retry up to 3 times with increasing delay.
+      if ((error || !data) && attempt < 3) {
+        setTimeout(() => { if (!cancelled) checkStatus(attempt + 1); }, 500 * (attempt + 1));
+        return;
+      }
       if (error || !data) return;
 
       const username = (data as { username: string }).username;
@@ -40,6 +50,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         .eq("id", user!.id)
         .single();
 
+      if (cancelled) return;
+
       const onboardingCompleted = (full as { onboarding_completed?: boolean } | null)
         ?.onboarding_completed ?? false;
 
@@ -51,6 +63,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     }
 
     checkStatus();
+    return () => { cancelled = true; };
   }, [user, loading, supabase]);
 
   function handleUsernameComplete() {
