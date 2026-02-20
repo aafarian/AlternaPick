@@ -44,6 +44,9 @@ export async function fetchEvents(sportKey: SportKey = "nba"): Promise<OddsApiEv
   return response.json();
 }
 
+const RATE_LIMIT_RETRIES = 3;
+const RATE_LIMIT_BASE_DELAY_MS = 1_500;
+
 export async function fetchEventOdds(
   eventId: string,
   sportKey: SportKey = "nba"
@@ -52,20 +55,34 @@ export async function fetchEventOdds(
   const marketsParam = config.markets.join(",");
   const url = `${ODDS_API_BASE_URL}/v4/sports/${config.oddsApiKey}/events/${eventId}/odds?apiKey=${getApiKey()}&regions=${DEFAULT_REGION}&markets=${marketsParam}&oddsFormat=american`;
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(
-      `Odds API odds error (${response.status}) for event ${eventId}: ${text}`
-    );
+  for (let attempt = 0; attempt <= RATE_LIMIT_RETRIES; attempt++) {
+    const response = await fetch(url);
+
+    if (response.status === 429 && attempt < RATE_LIMIT_RETRIES) {
+      const delay = RATE_LIMIT_BASE_DELAY_MS * 2 ** attempt;
+      console.warn(
+        `[Odds API] Rate limited on event ${eventId}, retrying in ${delay}ms (attempt ${attempt + 1}/${RATE_LIMIT_RETRIES})`
+      );
+      await new Promise((r) => setTimeout(r, delay));
+      continue;
+    }
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `Odds API odds error (${response.status}) for event ${eventId}: ${text}`
+      );
+    }
+
+    const credits = parseCreditHeader(response.headers);
+    const data: OddsApiOddsResponse = await response.json();
+
+    const props = parseOddsResponse(data, config.marketToCategory);
+
+    return { props, credits };
   }
 
-  const credits = parseCreditHeader(response.headers);
-  const data: OddsApiOddsResponse = await response.json();
-
-  const props = parseOddsResponse(data, config.marketToCategory);
-
-  return { props, credits };
+  throw new Error(`Odds API rate limited after ${RATE_LIMIT_RETRIES} retries for event ${eventId}`);
 }
 
 function parseOddsResponse(
@@ -88,18 +105,20 @@ function parseOddsResponse(
 
       for (const outcome of market.outcomes) {
         // Odds API: name = "Over"/"Under", description = player name
+        // Anytime goalscorer markets use "Yes"/"No" with no point value
         const playerName = outcome.description;
         const side = outcome.name;
-        const key = `${playerName}_${outcome.point}`;
+        const line = outcome.point ?? 0.5; // Default 0.5 for anytime markets (score ≥1)
+        const key = `${playerName}_${line}`;
         const existing = playerOutcomes.get(key) || {
           over_odds: null,
           under_odds: null,
-          line: outcome.point,
+          line,
         };
 
-        if (side === "Over") {
+        if (side === "Over" || side === "Yes") {
           existing.over_odds = outcome.price;
-        } else if (side === "Under") {
+        } else if (side === "Under" || side === "No") {
           existing.under_odds = outcome.price;
         }
 
@@ -180,7 +199,11 @@ export async function fetchAllProps(
     `[Odds API] [${sportKey}] ${events.length} total, ${upcomingEvents.length} within 48h, ${newEvents.length} new — fetching odds`
   );
 
-  for (const event of newEvents) {
+  for (let i = 0; i < newEvents.length; i++) {
+    const event = newEvents[i];
+    // Small delay between requests to avoid rate limiting
+    if (i > 0) await new Promise((r) => setTimeout(r, 300));
+
     try {
       const { props, credits } = await fetchEventOdds(event.id, sportKey);
       propsMap.set(event.id, props);
@@ -212,15 +235,13 @@ export async function fetchAllPropsMultiSport(
   const results = new Map<SportKey, FetchPropsResult>();
   const sports: SportKey[] = [...SPORT_KEYS];
 
-  const settled = await Promise.allSettled(
-    sports.map((sport) => fetchAllProps(sport, skipEventIds).then((result) => ({ sport, result })))
-  );
-
-  for (const outcome of settled) {
-    if (outcome.status === "fulfilled") {
-      results.set(outcome.value.sport, outcome.value.result);
-    } else {
-      console.error(`[Odds API] Failed to fetch props for a sport:`, outcome.reason);
+  // Fetch sports sequentially to avoid rate-limiting from concurrent requests
+  for (const sport of sports) {
+    try {
+      const result = await fetchAllProps(sport, skipEventIds);
+      results.set(sport, result);
+    } catch (error) {
+      console.error(`[Odds API] Failed to fetch props for ${sport}:`, error);
     }
   }
 

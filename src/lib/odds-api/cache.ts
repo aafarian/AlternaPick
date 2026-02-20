@@ -388,12 +388,17 @@ async function _cachePropsInternal(
   if (gameRows.length === 0) return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: upsertedGames } = await (supabase.from("games") as any)
+  const { data: upsertedGames, error: gamesError } = await (supabase.from("games") as any)
     .upsert(gameRows, { onConflict: "odds_api_event_id" })
     .select("id, odds_api_event_id") as {
     data: { id: string; odds_api_event_id: string }[] | null;
+    error: { message: string; code: string } | null;
   };
 
+  if (gamesError) {
+    console.error(`[${sport} cache] Games upsert failed:`, gamesError);
+  }
+  console.log(`[${sport} cache] Upserted ${upsertedGames?.length ?? 0} games from ${gameRows.length} rows`);
   if (!upsertedGames) return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
 
   const eventToGameId = new Map(
@@ -457,6 +462,9 @@ async function _cachePropsInternal(
     if (!gameId) continue;
 
     for (const prop of props) {
+      // Skip props with invalid lines (e.g. NaN from missing point values)
+      if (prop.line == null || Number.isNaN(prop.line)) continue;
+
       propRows.push({
         game_id: gameId,
         player_name: prop.player_name,
@@ -527,13 +535,17 @@ async function _cachePropsInternal(
     for (let i = 0; i < newPropRows.length; i += 500) {
       const batch = newPropRows.slice(i, i + 500);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("props") as any).upsert(batch, {
+      const { error: insertError } = await (supabase.from("props") as any).upsert(batch, {
         onConflict: "game_id,player_name,stat_category",
         ignoreDuplicates: false,
       });
+      if (insertError) {
+        console.error(`[${sport} cache] Props upsert failed (batch ${i / 500 + 1}):`, insertError);
+      }
     }
   }
 
+  console.log(`[${sport} cache] Prepared ${propRows.length} props, inserted ${newPropRows.length} new (${keptProps.length} kept)`);
   const enrichedCount = propRows.filter((r) => r.player_id !== null).length;
   return { propsInserted: newPropRows.length, propsEnriched: enrichedCount, playerMapSize: playerIdMap.size };
 }
