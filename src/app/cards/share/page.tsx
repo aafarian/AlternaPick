@@ -62,13 +62,12 @@ async function fetchUsername(userId: string | null): Promise<string> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("profiles")
-    .select("username, display_name")
+    .select("username")
     .eq("id", userId)
     .single();
 
   if (!data) return "Anonymous";
-  const profile = data as { username: string; display_name: string | null };
-  return profile.display_name ?? profile.username;
+  return (data as { username: string }).username;
 }
 
 // ---------- Metadata ----------

@@ -40,21 +40,19 @@ export async function GET(request: Request) {
   // Fetch both profiles
   const { data: profiles } = await admin
     .from("profiles")
-    .select("id, username, display_name")
+    .select("id, username")
     .in("id", [challenge.challenger_id, challenge.opponent_id]);
 
-  const profileMap = new Map<string, { username: string; display_name: string | null }>();
-  for (const p of (profiles ?? []) as Array<{ id: string; username: string; display_name: string | null }>) {
+  const profileMap = new Map<string, { username: string }>();
+  for (const p of (profiles ?? []) as Array<{ id: string; username: string }>) {
     profileMap.set(p.id, p);
   }
 
   const challengerProfile = profileMap.get(challenge.challenger_id);
   const opponentProfile = profileMap.get(challenge.opponent_id);
 
-  const challengerName =
-    challengerProfile?.display_name ?? challengerProfile?.username ?? "Player 1";
-  const opponentName =
-    opponentProfile?.display_name ?? opponentProfile?.username ?? "Player 2";
+  const challengerName = challengerProfile?.username ?? "Player 1";
+  const opponentName = opponentProfile?.username ?? "Player 2";
 
   // Fetch cards for this challenge
   const { data: cards } = await (admin.from("cards") as any)

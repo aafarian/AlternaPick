@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { createCard } from "@/lib/cards/api";
@@ -16,13 +16,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { X, Lock, Loader2, Swords, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CardSuccessAnimation from "./CardSuccessAnimation";
+import AuthRequiredModal from "./AuthRequiredModal";
 import ModeSelector from "./ModeSelector";
 import UserSearchBar from "@/components/friends/UserSearchBar";
 
 interface FriendProfile {
   id: string;
   username: string;
-  display_name: string | null;
   avatar_url: string | null;
 }
 
@@ -44,6 +44,9 @@ export default function CardBuilderPanel() {
   const { picks, isLocking, error, challengeId, challengeOpponent, gameMode } = state;
   const redirectRef = useRef<string | null>(null);
 
+  // Auth gate for guest lock-in
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   // Challenge-a-friend state
   const [showChallengePicker, setShowChallengePicker] = useState(false);
   const [friends, setFriends] = useState<FriendProfile[]>([]);
@@ -52,6 +55,27 @@ export default function CardBuilderPanel() {
   const [creatingChallenge, setCreatingChallenge] = useState(false);
   const [friendSearch, setFriendSearch] = useState("");
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
+
+  // Auto-create card after guest signs up/in with pending picks
+  useEffect(() => {
+    if (!user) return;
+    const pending = sessionStorage.getItem("pending_card_picks");
+    if (!pending) return;
+
+    sessionStorage.removeItem("pending_card_picks");
+    const { picks: savedPicks, gameMode: savedMode, cardSize } = JSON.parse(pending);
+
+    (async () => {
+      setLocking(true);
+      try {
+        await createCard(savedPicks, undefined, null, savedMode, cardSize);
+        clearCard();
+        router.push("/picks");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to lock in card");
+      }
+    })();
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchFriendsForChallenge = useCallback(async () => {
     setLoadingFriends(true);
@@ -153,8 +177,7 @@ export default function CardBuilderPanel() {
 
   if (picks.length === 0 && !challengeId && !state.showSuccess) return null;
 
-  const opponentLabel =
-    challengeOpponent?.display_name ?? challengeOpponent?.username ?? null;
+  const opponentLabel = challengeOpponent?.username ?? null;
 
   // Constraint banner — only for existing challenges with constrained modes
   const modeConfig = getModeConfig(gameMode);
@@ -170,14 +193,24 @@ export default function CardBuilderPanel() {
   async function handleLockIn() {
     if (!canLockIn || isLocking) return;
 
+    // Guest users: save picks and show auth modal
+    if (!user) {
+      sessionStorage.setItem("pending_card_picks", JSON.stringify({
+        picks: picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
+        gameMode,
+        cardSize: picks.length,
+      }));
+      setShowAuthModal(true);
+      return;
+    }
+
     setLocking(true);
     setError(null);
 
     try {
-      const anonId = getAnonymousId();
       await createCard(
         picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
-        anonId,
+        undefined,
         challengeId,
         gameMode,
         picks.length
@@ -198,6 +231,12 @@ export default function CardBuilderPanel() {
       {state.showSuccess && (
         <CardSuccessAnimation onDismiss={handleAnimationDismiss} />
       )}
+
+      <AuthRequiredModal
+        open={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        pickCount={picks.length}
+      />
 
       <div className="fixed bottom-0 left-0 right-0 z-50 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0">
         {/* Challenge picker panel — sits ABOVE the bar */}
@@ -239,7 +278,6 @@ export default function CardBuilderPanel() {
                   const query = friendSearch.toLowerCase().trim();
                   const filtered = query
                     ? friends.filter((f) =>
-                        (f.display_name || f.username).toLowerCase().includes(query) ||
                         f.username.toLowerCase().includes(query)
                       )
                     : friends;
@@ -260,7 +298,7 @@ export default function CardBuilderPanel() {
                       ) : (
                         <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
                           {filtered.map((friend) => {
-                            const name = friend.display_name || friend.username;
+                            const name = friend.username;
                             const isSelected = selectedFriendId === friend.id;
                             return (
                               <button

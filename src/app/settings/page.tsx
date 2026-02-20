@@ -61,7 +61,6 @@ export default async function SettingsPage() {
           <TabsContent value="profile" className="mt-6">
             <FadeIn delay={0.15}>
               <ProfileSection
-                displayName={typedProfile?.display_name ?? null}
                 avatarUrl={typedProfile?.avatar_url ?? null}
                 username={typedProfile?.username ?? user.email?.split("@")[0] ?? "user"}
               />

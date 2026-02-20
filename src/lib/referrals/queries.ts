@@ -227,7 +227,7 @@ export async function getReferralStats(
   userId: string
 ): Promise<ReferralStats> {
   const { data, error } = await typedFrom(supabase, "profiles")
-    .select("username, display_name, created_at")
+    .select("username, created_at")
     .eq("referred_by", userId)
     .order("created_at", { ascending: false });
 
@@ -237,7 +237,6 @@ export async function getReferralStats(
 
   const referredUsers = ((data ?? []) as ReferredUser[]).map((u) => ({
     username: u.username,
-    display_name: u.display_name,
     created_at: u.created_at,
   }));
 

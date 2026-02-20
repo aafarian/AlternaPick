@@ -33,7 +33,6 @@ interface ChallengeData {
 interface ProfileData {
   id: string;
   username: string;
-  display_name: string | null;
 }
 
 interface CardData {
@@ -64,7 +63,7 @@ async function fetchChallenge(challengeId: string): Promise<{
   // Fetch profiles
   const { data: profiles } = await admin
     .from("profiles")
-    .select("id, username, display_name")
+    .select("id, username")
     .in("id", [ch.challenger_id, ch.opponent_id]);
 
   const profileMap = new Map<string, ProfileData>();
@@ -75,10 +74,8 @@ async function fetchChallenge(challengeId: string): Promise<{
   const challengerProfile = profileMap.get(ch.challenger_id);
   const opponentProfile = profileMap.get(ch.opponent_id);
 
-  const challengerName =
-    challengerProfile?.display_name ?? challengerProfile?.username ?? "Player 1";
-  const opponentName =
-    opponentProfile?.display_name ?? opponentProfile?.username ?? "Player 2";
+  const challengerName = challengerProfile?.username ?? "Player 1";
+  const opponentName = opponentProfile?.username ?? "Player 2";
 
   // Fetch cards
   const { data: cards } = await (admin.from("cards") as any)

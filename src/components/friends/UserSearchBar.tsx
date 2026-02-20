@@ -152,7 +152,7 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
             className="absolute z-10 mt-2 w-full rounded-xl border border-border bg-card shadow-lg"
           >
             {results.map((user, index) => {
-              const initials = (user.display_name ?? user.username)
+              const initials = user.username
                 .slice(0, 2)
                 .toUpperCase();
 
@@ -179,7 +179,7 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold">
-                      {user.display_name ?? user.username}
+                      {user.username}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
                       @{user.username}

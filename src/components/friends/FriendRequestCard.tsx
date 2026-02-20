@@ -83,7 +83,7 @@ export default function FriendRequestCard({
   }, [exitAction, onAccept, onDecline, request.id]);
 
   const profile = request.friend_profile;
-  const initials = (profile.display_name ?? profile.username)
+  const initials = profile.username
     .slice(0, 2)
     .toUpperCase();
 
@@ -122,7 +122,7 @@ export default function FriendRequestCard({
 
           <div className="min-w-0 flex-1">
             <p className="truncate font-bold">
-              {profile.display_name ?? profile.username}
+              {profile.username}
             </p>
             <p className="truncate text-sm text-muted-foreground">
               @{profile.username}
@@ -183,7 +183,7 @@ export default function FriendRequestCard({
 
           <div className="min-w-0 flex-1">
             <p className="truncate font-bold">
-              {profile.display_name ?? profile.username}
+              {profile.username}
             </p>
             <p className="truncate text-sm text-muted-foreground">
               @{profile.username}

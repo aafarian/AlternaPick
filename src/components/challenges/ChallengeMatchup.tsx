@@ -213,10 +213,8 @@ export default function ChallengeMatchup({
   }
 
   const isChallenger = challenge.challenger_id === currentUserId;
-  const challengerName =
-    challenge.challenger.display_name || challenge.challenger.username;
-  const opponentName =
-    challenge.opponent.display_name || challenge.opponent.username;
+  const challengerName = challenge.challenger.username;
+  const opponentName = challenge.opponent.username;
 
   // Determine if the current user has submitted their card
   const myCard = isChallenger

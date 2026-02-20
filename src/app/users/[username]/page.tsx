@@ -73,7 +73,7 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
     month: "long",
     year: "numeric",
   });
-  const initial = (profile.display_name ?? profile.username).charAt(0).toUpperCase();
+  const initial = profile.username.charAt(0).toUpperCase();
 
   // Build serializable stat items for the client component
   const statItems = stats
@@ -92,7 +92,6 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
       <AnimatedUserProfile
         profile={{
           id: profile.id,
-          display_name: profile.display_name,
           username: profile.username,
           avatar_url: profile.avatar_url,
         }}

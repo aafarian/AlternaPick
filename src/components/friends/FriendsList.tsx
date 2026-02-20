@@ -44,7 +44,7 @@ export default function FriendsList({ friends, onUnfriend }: FriendsListProps) {
     <div className="grid gap-3 sm:grid-cols-2">
       {friends.map((friend) => {
         const profile = friend.friend_profile;
-        const initials = (profile.display_name ?? profile.username)
+        const initials = profile.username
           .slice(0, 2)
           .toUpperCase();
         const isConfirming = confirmId === friend.id;
@@ -65,7 +65,7 @@ export default function FriendsList({ friends, onUnfriend }: FriendsListProps) {
 
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-bold hover:text-primary transition-colors">
-                    {profile.display_name ?? profile.username}
+                    {profile.username}
                   </p>
                   <p className="truncate text-sm text-muted-foreground">@{profile.username}</p>
                 </div>

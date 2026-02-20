@@ -45,11 +45,10 @@ export default function FriendsStrip({ friends, onUnfriend }: FriendsStripProps)
       <AnimatePresence mode="popLayout">
         {friends.map((friend, index) => {
           const profile = friend.friend_profile;
-          const initials = (profile.display_name ?? profile.username)
+          const initials = profile.username
             .slice(0, 2)
             .toUpperCase();
-          const displayName = profile.display_name ?? profile.username;
-          const firstName = displayName.split(" ")[0];
+          const firstName = profile.username;
 
           return (
             <motion.div
@@ -86,7 +85,7 @@ export default function FriendsStrip({ friends, onUnfriend }: FriendsStripProps)
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="center" className="w-44 duration-200">
                   <div className="px-2 py-1.5">
-                    <p className="truncate text-sm font-semibold">{displayName}</p>
+                    <p className="truncate text-sm font-semibold">{profile.username}</p>
                     <p className="truncate text-xs text-muted-foreground">
                       @{profile.username}
                     </p>
