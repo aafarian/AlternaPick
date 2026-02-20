@@ -1,10 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import type { RecapData, PersonalHighlight } from "@/lib/recaps/compute";
-import { SlideUp, FadeIn } from "@/components/motion";
+import { SlideUp, FadeIn, ScrollReveal } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { YourDay } from "@/components/recap/YourDay";
-import { Newspaper } from "lucide-react";
+import { PropCalloutCard } from "@/components/recap/PropCalloutCard";
+import { PlayerSpotlightCard } from "@/components/recap/PlayerSpotlightCard";
+import { PerfectCardsCard } from "@/components/recap/PerfectCardsCard";
+import { MostPickedCard } from "@/components/recap/MostPickedCard";
+import { BreakdownCard } from "@/components/recap/BreakdownCard";
+import { Newspaper, BarChart3, Hash, Target } from "lucide-react";
 
 export const metadata = {
   title: "Daily Recap | Sports Tower",
@@ -75,6 +80,8 @@ export default async function RecapPage() {
     timeZone: "UTC",
   });
 
+  const platformHitPercent = Math.round(recapData.platformHitRate * 100);
+
   return (
     <div className="flex flex-col gap-6 py-8">
       {/* Page Header */}
@@ -88,7 +95,7 @@ export default async function RecapPage() {
         </p>
       </SlideUp>
 
-      {/* Personal Highlights — Your Day */}
+      {/* Personal Highlights — Your Day (logged-in users only) */}
       {personalHighlights && (
         <FadeIn delay={0.1}>
           <section aria-label="Your Day" data-section="your-day">
@@ -97,110 +104,83 @@ export default async function RecapPage() {
         </FadeIn>
       )}
 
-      {/* Trap Props (Wave 2 component slot) */}
-      {recapData.trapProps.length > 0 && (
-        <FadeIn delay={0.15}>
-          <section aria-label="Trap Props" data-section="trap-props">
-            <div className="rounded-xl border border-border bg-card p-6">
-              <h2 className="text-lg font-bold tracking-tight">Trap Props</h2>
-              <p className="text-sm text-muted-foreground">
-                {recapData.trapProps.length} prop
-                {recapData.trapProps.length !== 1 ? "s" : ""} with low hit rates
+      {/* Platform Overview Stats */}
+      <FadeIn delay={0.15}>
+        <section aria-label="Platform Overview" data-section="platform-overview">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center gap-1.5">
+                <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Total Picks
+                </p>
+              </div>
+              <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
+                {recapData.totalPicks.toLocaleString()}
               </p>
             </div>
-          </section>
-        </FadeIn>
-      )}
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center gap-1.5">
+                <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Total Cards
+                </p>
+              </div>
+              <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
+                {recapData.totalCards.toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center gap-1.5">
+                <Target className="h-3.5 w-3.5 text-muted-foreground" />
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Hit Rate
+                </p>
+              </div>
+              <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
+                {platformHitPercent}%
+              </p>
+            </div>
+          </div>
+        </section>
+      </FadeIn>
 
-      {/* Lock Props (Wave 2 component slot) */}
-      {recapData.lockProps.length > 0 && (
-        <FadeIn delay={0.2}>
-          <section aria-label="Lock Props" data-section="lock-props">
-            <div className="rounded-xl border border-border bg-card p-6">
-              <h2 className="text-lg font-bold tracking-tight">Lock Props</h2>
-              <p className="text-sm text-muted-foreground">
-                {recapData.lockProps.length} prop
-                {recapData.lockProps.length !== 1 ? "s" : ""} with high hit
-                rates
-              </p>
-            </div>
-          </section>
-        </FadeIn>
-      )}
+      {/* Callout Cards Grid — 2 columns on desktop, 1 on mobile */}
+      <ScrollReveal>
+        <section
+          aria-label="Callout Cards"
+          data-section="callout-cards"
+          className="grid gap-4 lg:grid-cols-2"
+        >
+          <PropCalloutCard props={recapData.trapProps} variant="trap" />
+          <PropCalloutCard props={recapData.lockProps} variant="lock" />
+          <PlayerSpotlightCard
+            good={recapData.playerSpotlightsGood}
+            bad={recapData.playerSpotlightsBad}
+          />
+          <PerfectCardsCard data={recapData.perfectCards} />
+        </section>
+      </ScrollReveal>
 
-      {/* Player Spotlights (Wave 2 component slot) */}
-      {(recapData.playerSpotlightsGood.length > 0 ||
-        recapData.playerSpotlightsBad.length > 0) && (
-        <FadeIn delay={0.25}>
-          <section
-            aria-label="Player Spotlights"
-            data-section="player-spotlights"
-          >
-            <div className="rounded-xl border border-border bg-card p-6">
-              <h2 className="text-lg font-bold tracking-tight">
-                Player Spotlights
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {recapData.playerSpotlightsGood.length +
-                  recapData.playerSpotlightsBad.length}{" "}
-                notable player performance
-                {recapData.playerSpotlightsGood.length +
-                  recapData.playerSpotlightsBad.length !==
-                1
-                  ? "s"
-                  : ""}
-              </p>
-            </div>
-          </section>
-        </FadeIn>
-      )}
+      {/* Most Picked Section */}
+      <ScrollReveal>
+        <section aria-label="Most Picked" data-section="most-picked">
+          <MostPickedCard
+            players={recapData.mostPickedPlayers}
+            props={recapData.mostPickedProps}
+          />
+        </section>
+      </ScrollReveal>
 
-      {/* Perfect Cards (Wave 2 component slot) */}
-      {recapData.perfectCards.count > 0 && (
-        <FadeIn delay={0.3}>
-          <section aria-label="Perfect Cards" data-section="perfect-cards">
-            <div className="rounded-xl border border-border bg-card p-6">
-              <h2 className="text-lg font-bold tracking-tight">
-                Perfect Cards
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {recapData.perfectCards.count} perfect card
-                {recapData.perfectCards.count !== 1 ? "s" : ""} yesterday
-              </p>
-            </div>
-          </section>
-        </FadeIn>
-      )}
-
-      {/* Most Picked (Wave 2 component slot) */}
-      {recapData.mostPickedProps.length > 0 && (
-        <FadeIn delay={0.35}>
-          <section aria-label="Most Picked" data-section="most-picked">
-            <div className="rounded-xl border border-border bg-card p-6">
-              <h2 className="text-lg font-bold tracking-tight">Most Picked</h2>
-              <p className="text-sm text-muted-foreground">
-                Top {recapData.mostPickedProps.length} most popular prop
-                {recapData.mostPickedProps.length !== 1 ? "s" : ""}
-              </p>
-            </div>
-          </section>
-        </FadeIn>
-      )}
-
-      {/* Breakdowns (Wave 2 component slot) */}
-      {(recapData.statCategoryBreakdown.length > 0 ||
-        recapData.sportBreakdown.length > 0) && (
-        <FadeIn delay={0.4}>
-          <section aria-label="Breakdowns" data-section="breakdowns">
-            <div className="rounded-xl border border-border bg-card p-6">
-              <h2 className="text-lg font-bold tracking-tight">Breakdowns</h2>
-              <p className="text-sm text-muted-foreground">
-                Hit rates by stat category and sport
-              </p>
-            </div>
-          </section>
-        </FadeIn>
-      )}
+      {/* Breakdowns Section */}
+      <ScrollReveal>
+        <section aria-label="Breakdowns" data-section="breakdowns">
+          <BreakdownCard
+            statCategories={recapData.statCategoryBreakdown}
+            sports={recapData.sportBreakdown}
+          />
+        </section>
+      </ScrollReveal>
     </div>
   );
 }
