@@ -50,7 +50,8 @@ export type NotificationType =
   | "challenge_resolved"
   | "card_resolved"
   | "achievement_unlocked"
-  | "reaction_received";
+  | "reaction_received"
+  | "daily_recap";
 
 export type NotificationPreferences = Record<NotificationType, boolean>;
 
@@ -502,6 +503,45 @@ export interface Database {
           updated_at?: string;
         };
       };
+      /**
+       * Daily recap summaries computed from resolved cards/picks.
+       *
+       * recap_data (jsonb): {
+       *   trapProps, lockProps, playerSpotlightsGood, playerSpotlightsBad,
+       *   mostPickedPlayers, mostPickedProps, perfectCards,
+       *   statCategoryBreakdown, sportBreakdown, platformHitRate,
+       *   totalPicks, totalCards
+       * }
+       *
+       * personal_highlights (jsonb): maps user_id to {
+       *   cardsPlayed, hitRate, bestPick, worstPick,
+       *   platformAvgHitRate, featuredIn
+       * }
+       */
+      recaps: {
+        Row: {
+          id: string;
+          recap_date: string;
+          recap_data: Record<string, unknown>;
+          personal_highlights: Record<string, unknown>;
+          computed_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          recap_date: string;
+          recap_data: Record<string, unknown>;
+          personal_highlights?: Record<string, unknown>;
+          computed_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          recap_date?: string;
+          recap_data?: Record<string, unknown>;
+          personal_highlights?: Record<string, unknown>;
+          computed_at?: string;
+        };
+      };
     };
     Enums: {
       stat_category: StatCategory;
@@ -536,3 +576,4 @@ export type UserAchievement =
 export type Reaction = Database["public"]["Tables"]["reactions"]["Row"];
 export type LeaderboardEntry =
   Database["public"]["Tables"]["leaderboard_entries"]["Row"];
+export type Recap = Database["public"]["Tables"]["recaps"]["Row"];
