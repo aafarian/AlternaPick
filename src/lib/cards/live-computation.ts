@@ -14,7 +14,7 @@ import {
   type StatsGame,
 } from "@/lib/stats-service/client";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
-import { registerNcaabTeamIds, teamLogoUrl } from "@/lib/constants";
+import { registerNcaabTeamIds, teamLogoUrl, teamTricode, gameUrl } from "@/lib/constants";
 import type {
   LivePickData,
   LiveGameStatus,
@@ -78,6 +78,7 @@ export function buildLivePicksForCard(
         home_logo: teamLogoUrl(gameInfo.home_team),
         away_logo: teamLogoUrl(gameInfo.away_team),
         commence_time: gameInfo.start_time || pick.props.games?.commence_time || null,
+        game_url: gameUrl(pick.props.games?.sport ?? undefined, eventId),
       };
 
       if (gameInfo.status === "live") {
@@ -100,13 +101,14 @@ export function buildLivePicksForCard(
         sport: pick.props.games?.sport ?? undefined,
         home_team: dbHomeTeam,
         away_team: dbAwayTeam,
-        home_tricode: "",
-        away_tricode: "",
+        home_tricode: teamTricode(dbHomeTeam),
+        away_tricode: teamTricode(dbAwayTeam),
         home_score: pick.props.games?.home_score ?? 0,
         away_score: pick.props.games?.away_score ?? 0,
         home_logo: teamLogoUrl(dbHomeTeam),
         away_logo: teamLogoUrl(dbAwayTeam),
         commence_time: pick.props.games?.commence_time || null,
+        game_url: gameUrl(pick.props.games?.sport ?? undefined, eventId ?? ""),
       };
     }
 

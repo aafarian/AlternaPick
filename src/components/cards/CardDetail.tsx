@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CardWithPicks } from "@/lib/cards/api";
 import { toLivePickData } from "@/lib/cards/live-types";
-import type { LivePickData } from "@/lib/cards/live-types";
+import type { LivePickData, LiveGameStatus } from "@/lib/cards/live-types";
 import ShareButton from "@/components/cards/ShareButton";
 import { useLiveStats } from "@/lib/cards/use-live-stats";
 import GameScoreBanner from "@/components/live/GameScoreBanner";
 import LivePickRow from "@/components/live/LivePickRow";
+import { teamTricode, teamLogoUrl, gameUrl } from "@/lib/constants";
 import {
   Card,
   CardHeader,
@@ -20,6 +21,44 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { SlideUp, ScaleIn, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
+
+/** Build LiveGameStatus[] from card picks' DB game data (for resolved cards with no live feed). */
+function buildGamesFromPicks(picks: CardWithPicks["picks"]): LiveGameStatus[] {
+  const seen = new Set<string>();
+  const games: LiveGameStatus[] = [];
+
+  for (const pick of picks) {
+    const g = pick.props?.games;
+    if (!g) continue;
+    const gameId = pick.props!.game_id;
+    if (seen.has(gameId)) continue;
+    seen.add(gameId);
+
+    const homeTeam = g.home_team ?? "";
+    const awayTeam = g.away_team ?? "";
+
+    games.push({
+      game_id: gameId,
+      external_event_id: g.external_event_id ?? gameId,
+      status: (g.status as "scheduled" | "live" | "final") ?? "final",
+      period: g.status === "final" ? 4 : 0,
+      clock: g.status === "final" ? "0:00" : "",
+      sport: g.sport ?? undefined,
+      home_team: homeTeam,
+      away_team: awayTeam,
+      home_tricode: teamTricode(homeTeam),
+      away_tricode: teamTricode(awayTeam),
+      home_score: g.home_score ?? 0,
+      away_score: g.away_score ?? 0,
+      home_logo: teamLogoUrl(homeTeam),
+      away_logo: teamLogoUrl(awayTeam),
+      commence_time: g.commence_time ?? null,
+      game_url: gameUrl(g.sport ?? undefined, g.external_event_id ?? ""),
+    });
+  }
+
+  return games;
+}
 
 function StatusBadge({ status, score, total }: { status: string; score: number; total: number }) {
   if (status === "locked") {
@@ -72,6 +111,11 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
     }
   }
 
+  const fallbackGames = useMemo(
+    () => (card.status === "resolved" ? buildGamesFromPicks(card.picks) : []),
+    [card.status, card.picks],
+  );
+
   const date = new Date(card.created_at).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -122,18 +166,21 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
       </CardHeader>
 
       <AnimatePresence>
-        {liveData && liveData.games.length > 0 && (
-          <motion.div
-            key="game-score-banner"
-            className="px-3 pb-2"
-            initial={prefersReduced ? false : { y: 12, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -8, opacity: 0 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-          >
-            <GameScoreBanner games={liveData.games} />
-          </motion.div>
-        )}
+        {(() => {
+          const gamesToShow = liveData?.games ?? (fallbackGames.length > 0 ? fallbackGames : undefined);
+          return gamesToShow && gamesToShow.length > 0 ? (
+            <motion.div
+              key="game-score-banner"
+              className="px-3 pb-2"
+              initial={prefersReduced ? false : { y: 12, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -8, opacity: 0 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+            >
+              <GameScoreBanner games={gamesToShow} />
+            </motion.div>
+          ) : null;
+        })()}
       </AnimatePresence>
 
       <Separator />

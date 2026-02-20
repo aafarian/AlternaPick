@@ -2,7 +2,7 @@ import type { PickSelection, CardStatus } from "@/lib/supabase/types";
 
 /** Supabase select string for cards with picks, props, and game data.
  *  Superset of all card queries — includes card_size and game_mode. */
-export const CARD_SELECT = "id, user_id, status, score, total_picks, card_size, game_mode, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport)))" as const;
+export const CARD_SELECT = "id, user_id, status, score, total_picks, card_size, game_mode, locked_at, resolved_at, created_at, challenge_id, picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport, home_team, away_team, home_score, away_score, commence_time, external_event_id, status)))" as const;
 
 export interface CardWithPicks {
   id: string;
@@ -30,7 +30,16 @@ export interface CardWithPicks {
       stat_category: string;
       line: number;
       game_id: string;
-      games?: { sport: string };
+      games?: {
+        sport: string;
+        home_team: string;
+        away_team: string;
+        home_score: number | null;
+        away_score: number | null;
+        commence_time: string | null;
+        external_event_id: string | null;
+        status: string | null;
+      };
     };
   }[];
 }
