@@ -307,6 +307,7 @@ export function gameUrl(sport: string | undefined, externalEventId: string): str
     case "ncaab": return `https://www.espn.com/mens-college-basketball/game/_/gameId/${externalEventId}`;
     case "epl":
     case "la_liga": return `https://www.espn.com/soccer/match/_/gameId/${externalEventId}`;
+    case "nhl": return `https://www.nhl.com/gamecenter/${externalEventId}`;
     default: return undefined;
   }
 }
