@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { typedFrom } from "@/lib/supabase/typed-queries";
-import type { RecapData, PersonalHighlight } from "@/lib/recaps/compute";
+import type {
+  RecapData,
+  PersonalHighlight,
+  WeeklyRecapData,
+} from "@/lib/recaps/compute";
 import { SlideUp, FadeIn, ScrollReveal } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { YourDay } from "@/components/recap/YourDay";
@@ -9,9 +13,12 @@ import { PlayerSpotlightCard } from "@/components/recap/PlayerSpotlightCard";
 import { PerfectCardsCard } from "@/components/recap/PerfectCardsCard";
 import { MostPickedCard } from "@/components/recap/MostPickedCard";
 import { BreakdownCard } from "@/components/recap/BreakdownCard";
+import { DateNavigator } from "@/components/recap/DateNavigator";
+import { ThisWeek } from "@/components/recap/ThisWeek";
 import { Newspaper, BarChart3, Hash, Target } from "lucide-react";
+import type { Metadata } from "next";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Daily Recap | Sports Tower",
   description: "Yesterday's prop pick highlights and platform stats.",
 };
@@ -21,10 +28,16 @@ interface RecapRow {
   recap_date: string;
   recap_data: RecapData;
   personal_highlights: Record<string, PersonalHighlight> | null;
+  weekly_data: WeeklyRecapData | null;
   computed_at: string;
 }
 
-export default async function RecapPage() {
+export default async function RecapPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>;
+}) {
+  const { date: dateParam } = await searchParams;
   const supabase = await createClient();
 
   // Auth is optional — show global data to everyone, personal section only for logged-in users
@@ -32,12 +45,25 @@ export default async function RecapPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Fetch the most recent recap
-  const { data: recap, error } = await typedFrom(supabase, "recaps")
-    .select("*")
-    .order("recap_date", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Fetch available recap dates for the DateNavigator
+  const { data: dateRows } = await typedFrom(supabase, "recaps")
+    .select("recap_date")
+    .order("recap_date", { ascending: true });
+
+  const availableDates: string[] = (dateRows ?? []).map(
+    (r: { recap_date: string }) => r.recap_date,
+  );
+
+  // Fetch the recap for the requested date, or fall back to the most recent
+  let query = typedFrom(supabase, "recaps").select("*");
+
+  if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+    query = query.eq("recap_date", dateParam);
+  } else {
+    query = query.order("recap_date", { ascending: false }).limit(1);
+  }
+
+  const { data: recap, error } = await query.maybeSingle();
 
   if (error) {
     console.error("Failed to fetch recap:", error.message);
@@ -55,6 +81,14 @@ export default async function RecapPage() {
             Yesterday&apos;s prop pick highlights and platform stats
           </p>
         </SlideUp>
+        {availableDates.length > 0 && dateParam && (
+          <FadeIn delay={0.1}>
+            <DateNavigator
+              currentDate={dateParam}
+              availableDates={availableDates}
+            />
+          </FadeIn>
+        )}
         <FadeIn delay={0.2}>
           <AnimatedEmptyState
             icon={<Newspaper className="h-8 w-8" />}
@@ -67,13 +101,16 @@ export default async function RecapPage() {
   }
 
   const recapData = typedRecap.recap_data;
+  const weeklyData = typedRecap.weekly_data ?? null;
   const personalHighlights: PersonalHighlight | null =
     user && typedRecap.personal_highlights
       ? (typedRecap.personal_highlights[user.id] ?? null)
       : null;
 
+  const currentDate = typedRecap.recap_date;
+
   // Format the recap date for display (e.g., "Feb 19")
-  const recapDate = new Date(`${typedRecap.recap_date}T00:00:00Z`);
+  const recapDate = new Date(`${currentDate}T00:00:00Z`);
   const dateLabel = recapDate.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -86,14 +123,26 @@ export default async function RecapPage() {
     <div className="flex flex-col gap-6 py-8">
       {/* Page Header */}
       <SlideUp>
-        <h1 className="text-2xl font-bold tracking-tight">Daily Recap</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Daily Recap &mdash; {dateLabel}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          {dateLabel} &mdash; {recapData.totalPicks.toLocaleString()} pick
+          {recapData.totalPicks.toLocaleString()} pick
           {recapData.totalPicks !== 1 ? "s" : ""} across{" "}
           {recapData.totalCards.toLocaleString()} card
           {recapData.totalCards !== 1 ? "s" : ""}
         </p>
       </SlideUp>
+
+      {/* Date Navigator */}
+      {availableDates.length > 1 && (
+        <FadeIn delay={0.05}>
+          <DateNavigator
+            currentDate={currentDate}
+            availableDates={availableDates}
+          />
+        </FadeIn>
+      )}
 
       {/* Personal Highlights — Your Day (logged-in users only) */}
       {personalHighlights && (
@@ -144,6 +193,15 @@ export default async function RecapPage() {
           </div>
         </section>
       </FadeIn>
+
+      {/* This Week — weekly summary section */}
+      {weeklyData && (
+        <ScrollReveal>
+          <section aria-label="This Week" data-section="this-week">
+            <ThisWeek weeklyData={weeklyData} />
+          </section>
+        </ScrollReveal>
+      )}
 
       {/* Callout Cards Grid — 2 columns on desktop, 1 on mobile */}
       <ScrollReveal>
