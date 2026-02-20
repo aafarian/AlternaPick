@@ -46,10 +46,9 @@ export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) 
         const isScheduled = game.status === "scheduled";
         const isLive = game.status === "live";
 
-        return (
+        const inner = (
           <div
-            key={game.external_event_id}
-            className="flex shrink-0 flex-col items-center gap-1 rounded-lg bg-secondary/40 px-4 py-2"
+            className={`flex shrink-0 flex-col items-center gap-1 rounded-lg bg-secondary/40 px-4 py-2 transition-colors ${game.game_url ? "cursor-pointer hover:bg-secondary/60" : ""}`}
           >
             {/* Teams + scores */}
             <div className="flex items-center gap-2">
@@ -92,6 +91,22 @@ export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) 
               </span>
             </div>
           </div>
+        );
+
+        return game.game_url ? (
+          <button
+            key={game.external_event_id}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              window.open(game.game_url, "_blank", "noopener,noreferrer");
+            }}
+          >
+            {inner}
+          </button>
+        ) : (
+          <div key={game.external_event_id}>{inner}</div>
         );
       })}
     </div>

@@ -14,7 +14,7 @@ import {
   type StatsGame,
 } from "@/lib/stats-service/client";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
-import { registerNcaabTeamIds, teamLogoUrl } from "@/lib/constants";
+import { registerNcaabTeamIds, teamLogoUrl, teamTricode, gameUrl } from "@/lib/constants";
 import type {
   LivePickData,
   LiveGameStatus,
@@ -54,17 +54,35 @@ export function buildLivePicksForCard(
   const liveGamesSet = new Set<string>();
   const livePicks: LivePickData[] = [];
 
+  // Build reverse lookup by team name for games without external_event_id
+  const gamesByTeam = new Map<string, StatsGame>();
+  for (const g of gameStatusMap.values()) {
+    gamesByTeam.set(`${g.home_team}|${g.away_team}`.toLowerCase(), g);
+  }
+
   for (const pick of picks) {
     const eventId = pick.props?.games?.external_event_id;
-    const gameInfo = eventId ? gameStatusMap.get(eventId) : null;
+    let gameInfo = eventId ? gameStatusMap.get(eventId) : null;
+
+    // Fallback: match by team names when external_event_id isn't set yet
+    if (!gameInfo) {
+      const home = pick.props?.games?.home_team?.toLowerCase() ?? "";
+      const away = pick.props?.games?.away_team?.toLowerCase() ?? "";
+      if (home && away) {
+        gameInfo = gamesByTeam.get(`${home}|${away}`) ?? null;
+      }
+    }
+
     const dbGameStatus = pick.props?.games?.status;
 
     let gameStatus: LiveGameStatus | null = null;
-    if (gameInfo && eventId) {
+    const resolvedEventId = eventId ?? gameInfo?.game_id ?? null;
+
+    if (gameInfo) {
       // Stats service has this game (today's game) — use live data
       gameStatus = {
         game_id: pick.props.game_id,
-        external_event_id: eventId,
+        external_event_id: resolvedEventId ?? pick.props.game_id,
         status: gameInfo.status as "scheduled" | "live" | "final",
         period: gameInfo.period,
         clock: gameInfo.clock,
@@ -75,13 +93,14 @@ export function buildLivePicksForCard(
         away_tricode: gameInfo.away_tricode,
         home_score: gameInfo.home_score,
         away_score: gameInfo.away_score,
-        home_logo: teamLogoUrl(gameInfo.home_team),
-        away_logo: teamLogoUrl(gameInfo.away_team),
+        home_logo: teamLogoUrl(gameInfo.home_team) || teamLogoUrl(gameInfo.home_tricode),
+        away_logo: teamLogoUrl(gameInfo.away_team) || teamLogoUrl(gameInfo.away_tricode),
         commence_time: gameInfo.start_time || pick.props.games?.commence_time || null,
+        game_url: gameUrl(pick.props.games?.sport ?? undefined, resolvedEventId ?? ""),
       };
 
-      if (gameInfo.status === "live") {
-        liveGamesSet.add(eventId);
+      if (gameInfo.status === "live" && resolvedEventId) {
+        liveGamesSet.add(resolvedEventId);
       }
     } else {
       // Not in today's stats service — use DB status.
@@ -100,13 +119,14 @@ export function buildLivePicksForCard(
         sport: pick.props.games?.sport ?? undefined,
         home_team: dbHomeTeam,
         away_team: dbAwayTeam,
-        home_tricode: "",
-        away_tricode: "",
+        home_tricode: teamTricode(dbHomeTeam),
+        away_tricode: teamTricode(dbAwayTeam),
         home_score: pick.props.games?.home_score ?? 0,
         away_score: pick.props.games?.away_score ?? 0,
-        home_logo: teamLogoUrl(dbHomeTeam),
-        away_logo: teamLogoUrl(dbAwayTeam),
+        home_logo: teamLogoUrl(dbHomeTeam) || teamLogoUrl(teamTricode(dbHomeTeam)),
+        away_logo: teamLogoUrl(dbAwayTeam) || teamLogoUrl(teamTricode(dbAwayTeam)),
         commence_time: pick.props.games?.commence_time || null,
+        game_url: gameUrl(pick.props.games?.sport ?? undefined, eventId ?? ""),
       };
     }
 
@@ -118,8 +138,8 @@ export function buildLivePicksForCard(
 
     if (effectiveStatus === "live" || effectiveStatus === "final") {
       // Try boxscore first (only for today's games with external event ID)
-      if (eventId) {
-        const boxscore = boxscoreMap.get(eventId) ?? [];
+      if (resolvedEventId) {
+        const boxscore = boxscoreMap.get(resolvedEventId) ?? [];
         const playerStats = fuzzyMatchPlayer(boxscore, pick.props.player_name);
 
         if (playerStats) {

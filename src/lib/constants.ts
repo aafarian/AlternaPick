@@ -298,6 +298,20 @@ export function teamLogoUrl(teamName: string): string {
   return "";
 }
 
+/* ---------- Game URLs ---------- */
+
+export function gameUrl(sport: string | undefined, externalEventId: string): string | undefined {
+  if (!externalEventId) return undefined;
+  switch (sport) {
+    case "nba": return `https://www.nba.com/game/${externalEventId}`;
+    case "ncaab": return `https://www.espn.com/mens-college-basketball/game/_/gameId/${externalEventId}`;
+    case "epl":
+    case "la_liga": return `https://www.espn.com/soccer/match/_/gameId/${externalEventId}`;
+    case "nhl": return `https://www.nhl.com/gamecenter/${externalEventId}`;
+    default: return undefined;
+  }
+}
+
 /* ---------- Player subtitle ---------- */
 
 /** Strip common mascot suffixes from team names ("Duke Blue Devils" → "Duke"). */
