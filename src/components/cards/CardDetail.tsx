@@ -148,7 +148,12 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
           </ScaleIn>
           {card.challenge_id ? (
             <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
-              H2H
+              H2H{(() => {
+                const c = card.challenges;
+                if (!c) return "";
+                const name = card.user_id === c.challenger_id ? c.opponent.username : c.challenger.username;
+                return ` · ${name}`;
+              })()}
             </Badge>
           ) : (
             <Badge variant="outline" className="text-muted-foreground text-[10px] px-1.5 py-0">

@@ -48,11 +48,16 @@ function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
   });
 }
 
-function CardTypeBadge({ challengeId }: { challengeId: string | null }) {
-  if (challengeId) {
+function CardTypeBadge({ card }: { card: CardWithPicks }) {
+  if (card.challenge_id) {
+    const opponentName = card.challenges
+      ? card.user_id === card.challenges.challenger_id
+        ? card.challenges.opponent.username
+        : card.challenges.challenger.username
+      : null;
     return (
       <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
-        H2H
+        H2H{opponentName ? ` · ${opponentName}` : ""}
       </Badge>
     );
   }
@@ -81,7 +86,7 @@ function LiveCard({
       games={liveData?.games}
       statusLabel={
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <CardTypeBadge challengeId={card.challenge_id} />
+          <CardTypeBadge card={card} />
           {card.picks.length} picks
         </span>
       }
@@ -139,7 +144,7 @@ export default function LiveTracker({
   }
 
   return (
-    <AnimatedList className="grid grid-cols-1 gap-4 md:grid-cols-2" staggerDelay={0.06}>
+    <AnimatedList className="grid grid-cols-1 gap-4" staggerDelay={0.06}>
       {initialCards.map((card) => (
         <LiveCard
           key={card.id}

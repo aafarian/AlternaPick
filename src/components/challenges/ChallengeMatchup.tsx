@@ -102,12 +102,7 @@ function PlayerSide({
   const slideX = side === "left" ? -20 : 20;
 
   const content = (
-    <div
-      className={cn(
-        "flex flex-1 flex-col gap-3 rounded-xl",
-        isWinner && "animate-winner-glow"
-      )}
-    >
+    <div className="flex flex-1 flex-col gap-3 rounded-xl">
       {/* Player identity */}
       <div className="flex flex-col items-center gap-2">
         <Avatar
