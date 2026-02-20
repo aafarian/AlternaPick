@@ -3,6 +3,7 @@ import { typedFrom } from "@/lib/supabase/typed-queries";
 import type { RecapData, PersonalHighlight } from "@/lib/recaps/compute";
 import { SlideUp, FadeIn } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
+import { YourDay } from "@/components/recap/YourDay";
 import { Newspaper } from "lucide-react";
 
 export const metadata = {
@@ -87,19 +88,11 @@ export default async function RecapPage() {
         </p>
       </SlideUp>
 
-      {/* Personal Highlights — Your Day (Wave 2 component slot) */}
+      {/* Personal Highlights — Your Day */}
       {personalHighlights && (
         <FadeIn delay={0.1}>
           <section aria-label="Your Day" data-section="your-day">
-            <div className="rounded-xl border border-border bg-card p-6">
-              <h2 className="text-lg font-bold tracking-tight">Your Day</h2>
-              <p className="text-sm text-muted-foreground">
-                {personalHighlights.cardsPlayed} card
-                {personalHighlights.cardsPlayed !== 1 ? "s" : ""} played
-                &middot; {Math.round(personalHighlights.hitRate * 100)}% hit
-                rate
-              </p>
-            </div>
+            <YourDay highlight={personalHighlights} />
           </section>
         </FadeIn>
       )}
