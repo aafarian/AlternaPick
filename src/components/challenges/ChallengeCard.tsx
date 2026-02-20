@@ -32,7 +32,7 @@ export default function ChallengeCard({
 }: ChallengeCardProps) {
   const isChallenger = challenge.challenger_id === currentUserId;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
-  const displayName = opponent.display_name || opponent.username;
+  const displayName = opponent.username;
   const avatarInitial = displayName.charAt(0).toUpperCase();
   const isLoading = actionLoading === challenge.id;
   const prefersReduced = useReducedMotion();

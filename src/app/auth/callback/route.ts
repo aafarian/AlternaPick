@@ -36,17 +36,12 @@ export async function GET(request: NextRequest) {
   if (user) {
     const admin = createAdminClient();
     const fallbackUsername = "user_" + user.id.replace(/-/g, "").slice(0, 8);
-    const displayName =
-      user.user_metadata?.display_name ||
-      user.user_metadata?.full_name ||
-      null;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: profileError } = await (admin.from("profiles") as any).upsert(
       {
         id: user.id,
         username: fallbackUsername,
-        display_name: displayName,
       },
       { onConflict: "id", ignoreDuplicates: true }
     );

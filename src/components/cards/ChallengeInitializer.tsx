@@ -49,7 +49,7 @@ export default function ChallengeInitializer() {
 
         setChallenge(
           id,
-          { username: opponent.username, display_name: opponent.display_name },
+          { username: opponent.username },
           challenge.game_mode ?? "classic",
           actualCardSize,
         );

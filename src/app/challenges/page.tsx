@@ -200,7 +200,7 @@ export default function ChallengesPage() {
   const matchesSearch = (c: ChallengeWithProfiles) => {
     if (!sq) return true;
     const opp = c.challenger_id === userId ? c.opponent : c.challenger;
-    const name = (opp.display_name || opp.username).toLowerCase();
+    const name = opp.username.toLowerCase();
     return name.includes(sq);
   };
 

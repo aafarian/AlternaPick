@@ -50,7 +50,7 @@ export default async function JoinPage({ params }: JoinPageProps) {
   const { count: totalUsers } = await (supabase.from("profiles") as any)
     .select("id", { count: "exact", head: true });
 
-  const displayName = referrer.display_name || referrer.username;
+  const displayName = referrer.username;
   const signupUrl = `/auth/signup?ref=${encodeURIComponent(referrer.username)}`;
   const userCount = totalUsers ?? 0;
 

@@ -113,7 +113,7 @@ export default function GameCard({
 
       {expanded && (
         <CardContent className="p-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
             {sortedProps.map((prop) => {
               // Pick the higher of player edge vs category edge
               const catRate = categoryEdges[prop.stat_category];

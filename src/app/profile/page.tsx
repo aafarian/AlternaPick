@@ -68,7 +68,7 @@ export default async function ProfilePage() {
 
   // Fetch referral data (non-blocking — graceful fallback on error)
   let referralInfo = { referralLink: "", totalReferred: 0, rewardsEarned: 0 };
-  let referredUsers: { username: string; display_name: string | null; created_at: string }[] = [];
+  let referredUsers: { username: string; created_at: string }[] = [];
   try {
     const [info, stats_referral] = await Promise.all([
       getReferralInfo(supabase, user.id),
@@ -89,11 +89,6 @@ export default async function ProfilePage() {
     : `https://${baseUrl}`;
 
   const checklistItems: ChecklistItem[] = [
-    {
-      label: "Set display name",
-      completed: !!(profile as Profile).display_name?.trim(),
-      href: "/settings",
-    },
     {
       label: "Set avatar",
       completed: !!(profile as Profile).avatar_url,

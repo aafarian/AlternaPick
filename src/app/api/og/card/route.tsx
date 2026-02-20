@@ -45,15 +45,12 @@ export async function GET(request: Request) {
   if (card.user_id) {
     const { data: profile } = await admin
       .from("profiles")
-      .select("username, display_name")
+      .select("username")
       .eq("id", card.user_id)
       .single();
 
     if (profile) {
-      username =
-        (profile as { display_name: string | null; username: string })
-          .display_name ??
-        (profile as { username: string }).username;
+      username = (profile as { username: string }).username;
     }
   }
 

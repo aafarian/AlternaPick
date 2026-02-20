@@ -191,14 +191,10 @@ export default function ReferralSection({
                     >
                       <div className="flex items-center gap-2">
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                          {(
-                            user.display_name ?? user.username
-                          )
-                            .charAt(0)
-                            .toUpperCase()}
+                          {user.username.charAt(0).toUpperCase()}
                         </div>
                         <span className="text-sm font-medium">
-                          {user.display_name ?? user.username}
+                          {user.username}
                         </span>
                       </div>
                       <span className="text-xs text-muted-foreground">

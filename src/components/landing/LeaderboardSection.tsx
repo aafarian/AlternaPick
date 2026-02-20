@@ -39,7 +39,7 @@ export function LeaderboardSection() {
     <section className="relative overflow-hidden py-20">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10"
+        className="pointer-events-none absolute inset-0 -z-10 overflow-clip"
       >
         <div className="absolute right-0 top-1/2 h-[400px] w-[400px] translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(0,210,106,0.06)_0%,transparent_70%)]" />
       </div>

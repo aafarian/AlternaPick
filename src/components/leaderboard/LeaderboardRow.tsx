@@ -32,7 +32,7 @@ export default function LeaderboardRow({
   sort,
 }: LeaderboardRowProps) {
   const { rank, user, stats } = entry;
-  const initials = (user.display_name ?? user.username)
+  const initials = user.username
     .slice(0, 2)
     .toUpperCase();
   const prefersReduced = useReducedMotion();
@@ -95,7 +95,7 @@ export default function LeaderboardRow({
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold">
-                  {user.display_name ?? user.username}
+                  {user.username}
                   {isCurrentUser && (
                     <span className="ml-1.5 text-xs text-primary">(you)</span>
                   )}
@@ -154,7 +154,7 @@ export default function LeaderboardRow({
           </Avatar>
           <div className="min-w-0">
             <p className="truncate text-sm font-bold">
-              {user.display_name ?? user.username}
+              {user.username}
               {isCurrentUser && (
                 <span className="ml-1.5 text-xs text-primary">(you)</span>
               )}

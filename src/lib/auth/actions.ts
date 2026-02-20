@@ -85,7 +85,7 @@ export async function signUp(formData: FormData) {
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
-    user_metadata: { username, display_name: username },
+    user_metadata: { username },
     email_confirm: true,
   });
 
@@ -101,7 +101,6 @@ export async function signUp(formData: FormData) {
       {
         id: data.user.id,
         username,
-        display_name: username,
       },
       { onConflict: "id" }
     );

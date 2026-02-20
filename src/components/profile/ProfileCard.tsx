@@ -16,7 +16,7 @@ export default function ProfileCard({ profile, email, stats }: ProfileCardProps)
     year: "numeric",
   });
 
-  const initial = (profile.display_name ?? profile.username).charAt(0).toUpperCase();
+  const initial = profile.username.charAt(0).toUpperCase();
 
   return (
     <Card className="border-border bg-card">
@@ -37,7 +37,7 @@ export default function ProfileCard({ profile, email, stats }: ProfileCardProps)
             </AvatarFallback>
           </Avatar>
           <div>
-            <h2 className="text-xl font-bold">{profile.display_name ?? profile.username}</h2>
+            <h2 className="text-xl font-bold">{profile.username}</h2>
             <p className="text-sm text-muted-foreground">@{profile.username}</p>
             <p className="text-xs text-muted-foreground">{email}</p>
             <p className="text-xs text-muted-foreground">Member since {memberSince}</p>

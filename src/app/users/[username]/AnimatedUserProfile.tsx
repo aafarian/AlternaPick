@@ -19,7 +19,6 @@ interface StatItem {
 interface AnimatedUserProfileProps {
   profile: {
     id: string;
-    display_name: string | null;
     username: string;
     avatar_url: string | null;
   };
@@ -69,7 +68,7 @@ export function AnimatedUserProfile({
             </ScaleIn>
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-xl font-bold">
-                {profile.display_name ?? profile.username}
+                {profile.username}
               </h1>
               <p className="text-sm text-muted-foreground">@{profile.username}</p>
               <p className="text-xs text-muted-foreground">Member since {memberSince}</p>

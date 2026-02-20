@@ -12,18 +12,15 @@ import { CheckCircle2, AlertCircle, Pencil, X, Loader2 } from "lucide-react";
 import { updateUsername } from "@/lib/auth/actions";
 
 interface ProfileSectionProps {
-  displayName: string | null;
   avatarUrl: string | null;
   username: string;
 }
 
 export default function ProfileSection({
-  displayName,
   avatarUrl,
   username,
 }: ProfileSectionProps) {
   const { supabase, user } = useAuth();
-  const [name, setName] = useState(displayName ?? "");
   const [avatar, setAvatar] = useState(avatarUrl ?? "");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
@@ -104,7 +101,7 @@ export default function ProfileSection({
     setUsernameError(null);
   }
 
-  const initial = (displayName ?? currentUsername).charAt(0).toUpperCase();
+  const initial = currentUsername.charAt(0).toUpperCase();
   const previewUrl = avatar || avatarUrl;
 
   async function handleSave(e: React.FormEvent) {
@@ -116,7 +113,6 @@ export default function ProfileSection({
 
     const { error } = await (supabase.from("profiles") as any)
       .update({
-        display_name: name || null,
         avatar_url: avatar || null,
       })
       .eq("id", user.id);
@@ -134,7 +130,7 @@ export default function ProfileSection({
     <div className="rounded-xl border border-border bg-card p-6">
       <h2 className="text-lg font-semibold">Profile Settings</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Manage your display name, avatar, and public profile information.
+        Manage your avatar and public profile information.
       </p>
 
       <div className="mt-6">
@@ -161,7 +157,7 @@ export default function ProfileSection({
             {previewUrl && (
               <Image
                 src={previewUrl}
-                alt={name || username}
+                alt={currentUsername}
                 width={64}
                 height={64}
                 className="aspect-square size-full object-cover"
@@ -172,7 +168,7 @@ export default function ProfileSection({
             </AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-medium">{name || currentUsername}</p>
+            <p className="font-medium">{currentUsername}</p>
             {editingUsername ? (
               <div className="mt-1 flex items-center gap-2">
                 <div className="relative">
@@ -240,15 +236,6 @@ export default function ProfileSection({
         </div>
 
         <form onSubmit={handleSave} className="flex flex-col gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="settings_display_name">Display Name</Label>
-            <Input
-              id="settings_display_name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
           <div className="space-y-2">
             <Label htmlFor="settings_avatar_url">Avatar URL</Label>
             <Input

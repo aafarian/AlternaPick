@@ -11,10 +11,6 @@ BEGIN
     UPDATE profiles
     SET
       username            = 'user_' || LEFT(NEW.id::TEXT, 8),
-      display_name        = COALESCE(
-                              NEW.raw_user_meta_data->>'display_name',
-                              NEW.raw_user_meta_data->>'full_name'
-                            ),
       onboarding_completed = false
     WHERE id = NEW.id;
   END IF;

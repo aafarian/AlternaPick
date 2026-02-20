@@ -122,7 +122,7 @@ export default function Header() {
         const data = await res.json();
         const notifications = (data.notifications ?? []) as Notification[];
         for (const n of notifications) {
-          if (!n.read && new Date(n.created_at).toISOString() >= lastEventAt) {
+          if (!n.read && new Date(n.created_at).getTime() >= new Date(lastEventAt).getTime()) {
             showNotificationToast(n);
             prependNotificationRef.current?.(n);
           }

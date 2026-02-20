@@ -17,7 +17,6 @@ export interface ReferralInfo {
 
 export interface ReferredUser {
   username: string;
-  display_name: string | null;
   created_at: string;
 }
 

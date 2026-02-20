@@ -22,8 +22,7 @@ function getCardFlavorText(score: number, total: number): string {
 }
 
 function renderMessage(item: ActivityItemType): string {
-  const username =
-    item.user.display_name ?? item.user.username;
+  const username = item.user.username;
 
   switch (item.type) {
     case "card_resolved": {
@@ -34,10 +33,8 @@ function renderMessage(item: ActivityItemType): string {
     case "challenge_resolved": {
       const { challenger, opponent, winner_id, challenger_score, opponent_score } =
         item.data;
-      const challengerName =
-        challenger.display_name ?? challenger.username;
-      const opponentName =
-        opponent.display_name ?? opponent.username;
+      const challengerName = challenger.username;
+      const opponentName = opponent.username;
 
       if (!winner_id) {
         return `${challengerName} and ${opponentName} deadlocked ${challenger_score}-${opponent_score}`;

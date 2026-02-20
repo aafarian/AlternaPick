@@ -207,8 +207,7 @@ export default function BallotPage() {
     );
   }
 
-  const challengerName =
-    challenge.challenger.display_name || challenge.challenger.username;
+  const challengerName = challenge.challenger.username;
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 py-8">

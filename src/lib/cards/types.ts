@@ -13,7 +13,6 @@ export interface CardBuilderPick {
 
 export interface ChallengeOpponent {
   username: string;
-  display_name: string | null;
 }
 
 export interface CardBuilderState {

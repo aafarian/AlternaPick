@@ -41,13 +41,12 @@ async function getSharedCard(token: string): Promise<SharedCardData | null> {
   if (typedCard.user_id) {
     const { data: profile } = await admin
       .from("profiles")
-      .select("username, display_name")
+      .select("username")
       .eq("id", typedCard.user_id)
       .single();
 
     if (profile) {
-      username = (profile as { username: string; display_name: string | null }).display_name
-        ?? (profile as { username: string }).username;
+      username = (profile as { username: string }).username;
     }
   }
 

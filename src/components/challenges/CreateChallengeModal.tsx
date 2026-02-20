@@ -38,7 +38,6 @@ interface Friend {
   friend_profile: {
     id: string;
     username: string;
-    display_name: string | null;
     avatar_url: string | null;
   };
 }
@@ -233,10 +232,7 @@ export default function CreateChallengeModal({
   /* ---------- Filtered friends ---------- */
 
   const filteredFriends = friends.filter((f) => {
-    const name = (
-      f.friend_profile.display_name || f.friend_profile.username
-    ).toLowerCase();
-    return name.includes(search.toLowerCase());
+    return f.friend_profile.username.toLowerCase().includes(search.toLowerCase());
   });
 
   /* ---------- Mode info text for special modes ---------- */
@@ -361,7 +357,7 @@ export default function CreateChallengeModal({
                 <div className="flex flex-col gap-1 p-1">
                   {filteredFriends.map((friend) => {
                     const profile = friend.friend_profile;
-                    const name = profile.display_name || profile.username;
+                    const name = profile.username;
                     const isSelected = selectedFriend?.friend_profile.id === profile.id;
                     return (
                       <button
@@ -381,12 +377,7 @@ export default function CreateChallengeModal({
                         </Avatar>
                         <div>
                           <div className="text-sm font-bold">{name}</div>
-                          {profile.display_name && (
-                            <div className="text-xs text-muted-foreground">
-                              @{profile.username}
-                            </div>
-                          )}
-                        </div>
+                          </div>
                       </button>
                     );
                   })}
@@ -404,8 +395,7 @@ export default function CreateChallengeModal({
               <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2">
                 <span className="text-xs text-muted-foreground">vs</span>
                 <span className="text-sm font-bold">
-                  {selectedFriend.friend_profile.display_name ||
-                    selectedFriend.friend_profile.username}
+                  {selectedFriend.friend_profile.username}
                 </span>
               </div>
             )}
