@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy } from "lucide-react";
 import type { PerfectCards } from "@/lib/recaps/compute";
+import { AnimatedNumber } from "@/components/recap/AnimatedNumber";
 
 interface PerfectCardsCardProps {
   data: PerfectCards;
@@ -34,7 +35,7 @@ export function PerfectCardsCard({ data }: PerfectCardsCardProps) {
         {/* Celebration Content */}
         <div className="mt-4 rounded-lg bg-amber-500/5 px-3 py-3 text-center">
           <p className="text-2xl font-black tabular-nums text-amber-400">
-            {data.count}
+            <AnimatedNumber value={data.count} />
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {data.count === 1

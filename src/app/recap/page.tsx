@@ -5,7 +5,14 @@ import type {
   PersonalHighlight,
   WeeklyRecapData,
 } from "@/lib/recaps/compute";
-import { SlideUp, FadeIn, ScrollReveal } from "@/components/motion";
+import {
+  SlideUp,
+  FadeIn,
+  ScrollReveal,
+  StaggerChildren,
+  StaggerItem,
+} from "@/components/motion";
+import { AnimatedNumber } from "@/components/recap/AnimatedNumber";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { YourDay } from "@/components/recap/YourDay";
 import { PropCalloutCard } from "@/components/recap/PropCalloutCard";
@@ -156,41 +163,47 @@ export default async function RecapPage({
       {/* Platform Overview Stats */}
       <FadeIn delay={0.15}>
         <section aria-label="Platform Overview" data-section="platform-overview">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-xl border border-border bg-card p-4">
-              <div className="flex items-center gap-1.5">
-                <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Total Picks
+          <StaggerChildren className="grid grid-cols-3 gap-3" staggerDelay={0.1}>
+            <StaggerItem>
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-center gap-1.5">
+                  <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Total Picks
+                  </p>
+                </div>
+                <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
+                  <AnimatedNumber value={recapData.totalPicks} />
                 </p>
               </div>
-              <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-                {recapData.totalPicks.toLocaleString()}
-              </p>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-4">
-              <div className="flex items-center gap-1.5">
-                <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Total Cards
+            </StaggerItem>
+            <StaggerItem>
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-center gap-1.5">
+                  <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Total Cards
+                  </p>
+                </div>
+                <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
+                  <AnimatedNumber value={recapData.totalCards} />
                 </p>
               </div>
-              <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-                {recapData.totalCards.toLocaleString()}
-              </p>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-4">
-              <div className="flex items-center gap-1.5">
-                <Target className="h-3.5 w-3.5 text-muted-foreground" />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Hit Rate
+            </StaggerItem>
+            <StaggerItem>
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5 text-muted-foreground" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Hit Rate
+                  </p>
+                </div>
+                <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
+                  <AnimatedNumber value={platformHitPercent} suffix="%" />
                 </p>
               </div>
-              <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-                {platformHitPercent}%
-              </p>
-            </div>
-          </div>
+            </StaggerItem>
+          </StaggerChildren>
         </section>
       </FadeIn>
 
@@ -204,21 +217,26 @@ export default async function RecapPage({
       )}
 
       {/* Callout Cards Grid — 2 columns on desktop, 1 on mobile */}
-      <ScrollReveal>
-        <section
-          aria-label="Callout Cards"
-          data-section="callout-cards"
-          className="grid gap-4 lg:grid-cols-2"
-        >
+      <StaggerChildren
+        className="grid gap-4 lg:grid-cols-2"
+        staggerDelay={0.1}
+      >
+        <StaggerItem>
           <PropCalloutCard props={recapData.trapProps} variant="trap" />
+        </StaggerItem>
+        <StaggerItem>
           <PropCalloutCard props={recapData.lockProps} variant="lock" />
+        </StaggerItem>
+        <StaggerItem>
           <PlayerSpotlightCard
             good={recapData.playerSpotlightsGood}
             bad={recapData.playerSpotlightsBad}
           />
+        </StaggerItem>
+        <StaggerItem>
           <PerfectCardsCard data={recapData.perfectCards} />
-        </section>
-      </ScrollReveal>
+        </StaggerItem>
+      </StaggerChildren>
 
       {/* Most Picked Section */}
       <ScrollReveal>

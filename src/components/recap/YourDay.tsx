@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS } from "@/lib/constants";
 import { User, TrendingUp, TrendingDown, Star } from "lucide-react";
 import type { PersonalHighlight, PickHighlight } from "@/lib/recaps/compute";
+import { AnimatedNumber } from "@/components/recap/AnimatedNumber";
 
 interface YourDayProps {
   highlight: PersonalHighlight;
@@ -60,7 +61,7 @@ export function YourDay({ highlight }: YourDayProps) {
               Cards Played
             </p>
             <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-              {highlight.cardsPlayed}
+              <AnimatedNumber value={highlight.cardsPlayed} />
             </p>
           </div>
 
@@ -72,7 +73,7 @@ export function YourDay({ highlight }: YourDayProps) {
             <p
               className={`mt-1 text-2xl font-black tabular-nums ${hitRateColor(highlight.hitRate)}`}
             >
-              {hitRatePercent}%
+              <AnimatedNumber value={hitRatePercent} suffix="%" />
             </p>
           </div>
 

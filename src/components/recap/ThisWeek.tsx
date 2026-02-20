@@ -16,6 +16,7 @@ import type {
   WeeklyRecapData,
   WeeklyPersonalStats,
 } from "@/lib/recaps/compute";
+import { AnimatedNumber } from "@/components/recap/AnimatedNumber";
 
 interface ThisWeekProps {
   weeklyData: WeeklyRecapData;
@@ -89,7 +90,7 @@ export function ThisWeek({ weeklyData, personalWeekly }: ThisWeekProps) {
               Total Picks
             </p>
             <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-              {totalPicks.toLocaleString()}
+              <AnimatedNumber value={totalPicks} />
             </p>
           </div>
 
@@ -99,7 +100,7 @@ export function ThisWeek({ weeklyData, personalWeekly }: ThisWeekProps) {
               Total Cards
             </p>
             <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-              {totalCards.toLocaleString()}
+              <AnimatedNumber value={totalCards} />
             </p>
           </div>
 
@@ -111,7 +112,7 @@ export function ThisWeek({ weeklyData, personalWeekly }: ThisWeekProps) {
             <p
               className={`mt-1 text-2xl font-black tabular-nums ${hitRateColor(weeklyHitRate)}`}
             >
-              {hitPercent}%
+              <AnimatedNumber value={hitPercent} suffix="%" />
             </p>
           </div>
         </div>
