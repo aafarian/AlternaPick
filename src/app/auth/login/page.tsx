@@ -71,9 +71,9 @@ function LoginForm() {
     }
 
     // Step 3: Claim anonymous cards (server action reads cookies)
-    await claimCardsAfterLogin().catch((err) => {
-      console.error("Failed to claim anonymous cards after login:", err);
-    });
+    if (localStorage.getItem("ap_anon_id")) {
+      await claimCardsAfterLogin().catch(() => {});
+    }
     clearAnonymousId();
 
     // Step 4: Navigate — auth context will have the user by now

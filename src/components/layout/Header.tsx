@@ -32,6 +32,42 @@ export default function Header() {
   // Callback registered by NotificationBell to prepend a new notification
   const prependNotificationRef = useRef<((n: Notification) => void) | null>(null);
 
+  // Dedup set so the same notification is never toasted twice
+  // (covers overlap between realtime delivery and reconnection catch-up)
+  const toastedIdsRef = useRef<Set<string>>(new Set());
+
+  const showNotificationToast = useCallback(
+    (n: Notification) => {
+      if (toastedIdsRef.current.has(n.id)) return;
+      toastedIdsRef.current.add(n.id);
+
+      const icon = getNotificationIcon(n.type);
+      const title = getNotificationTitle(n.type, n.title, n.body);
+      const path = getNavigationPath(n);
+
+      toast.custom(
+        (id) => (
+          <button
+            type="button"
+            onClick={() => {
+              toast.dismiss(id);
+              if (path) router.push(path);
+            }}
+            className="flex w-full items-start gap-3 rounded-lg border border-border bg-card p-3 text-left shadow-lg transition-colors hover:bg-secondary/50"
+          >
+            <span className="mt-0.5 text-base leading-none">{icon}</span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-foreground">{title}</p>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{n.body}</p>
+            </div>
+          </button>
+        ),
+        { duration: 5000 }
+      );
+    },
+    [router]
+  );
+
   const fetchCounts = useCallback(async () => {
     try {
       const res = await fetch("/api/notifications");
@@ -50,6 +86,7 @@ export default function Header() {
   useEffect(() => {
     if (!user) {
       setNotificationCounts({ friends: 0, challenges: 0, notifications: 0 });
+      toastedIdsRef.current.clear();
       return;
     }
     fetchCounts();
@@ -61,64 +98,111 @@ export default function Header() {
     return () => clearInterval(interval);
   }, [user, fetchCounts]);
 
-  // Supabase Realtime subscription for instant notifications
+  // Supabase Realtime subscription with automatic reconnection.
+  // On reconnect, catches up on any notifications missed while disconnected.
   useEffect(() => {
     if (!user || !supabase) return;
 
-    const channel = supabase
-      .channel("notifications-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const n = payload.new as Notification;
+    let retryTimeout: ReturnType<typeof setTimeout>;
+    let retryCount = 0;
+    let channelRef: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+    const MAX_RETRIES = 10;
 
-          // Bump unread count
-          setNotificationCounts((prev) => ({
-            ...prev,
-            notifications: prev.notifications + 1,
-          }));
+    // Timestamp of the last successfully received realtime event.
+    // Used after reconnection to fetch anything we missed.
+    let lastEventAt = new Date().toISOString();
 
-          // Push into the bell dropdown cache
-          prependNotificationRef.current?.(n);
-
-          // Show toast
-          const icon = getNotificationIcon(n.type);
-          const title = getNotificationTitle(n.type, n.title, n.body);
-          const path = getNavigationPath(n);
-
-          toast.custom(
-            (id) => (
-              <button
-                type="button"
-                onClick={() => {
-                  toast.dismiss(id);
-                  if (path) router.push(path);
-                }}
-                className="flex w-full items-start gap-3 rounded-lg border border-border bg-card p-3 text-left shadow-lg transition-colors hover:bg-secondary/50"
-              >
-                <span className="mt-0.5 text-base leading-none">{icon}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">{title}</p>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{n.body}</p>
-                </div>
-              </button>
-            ),
-            { duration: 5000 }
-          );
+    async function catchUpMissedNotifications() {
+      try {
+        const res = await fetch(
+          `/api/notifications?type=list&limit=10`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        const notifications = (data.notifications ?? []) as Notification[];
+        for (const n of notifications) {
+          if (!n.read && new Date(n.created_at).toISOString() >= lastEventAt) {
+            showNotificationToast(n);
+            prependNotificationRef.current?.(n);
+          }
         }
-      )
-      .subscribe();
+        // Also refresh counts
+        fetchCounts();
+      } catch {
+        // Non-fatal
+      }
+    }
+
+    function subscribe() {
+      if (cancelled) return;
+
+      const channel = supabase
+        .channel(`notifications-realtime-${Date.now()}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user!.id}`,
+          },
+          (payload) => {
+            const n = payload.new as Notification;
+            lastEventAt = n.created_at ?? new Date().toISOString();
+
+            // Bump unread count
+            setNotificationCounts((prev) => ({
+              ...prev,
+              notifications: prev.notifications + 1,
+            }));
+
+            // Push into the bell dropdown cache
+            prependNotificationRef.current?.(n);
+
+            // Show toast (deduped via toastedIdsRef)
+            showNotificationToast(n);
+          }
+        )
+        .subscribe((status) => {
+          if (cancelled) return;
+
+          if (status === "SUBSCRIBED") {
+            // On reconnection, catch up on missed notifications
+            if (retryCount > 0) {
+              catchUpMissedNotifications();
+            }
+            retryCount = 0;
+          }
+
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            // Remove broken channel and retry with exponential backoff
+            supabase.removeChannel(channel);
+            channelRef = null;
+
+            if (!cancelled && retryCount < MAX_RETRIES) {
+              const delay = Math.min(1000 * Math.pow(2, retryCount), 30000);
+              retryTimeout = setTimeout(() => {
+                retryCount++;
+                subscribe();
+              }, delay);
+            }
+          }
+        });
+
+      channelRef = channel;
+    }
+
+    subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      clearTimeout(retryTimeout);
+      if (channelRef) {
+        supabase.removeChannel(channelRef);
+      }
     };
-  }, [user, supabase, router]);
+  }, [user, supabase, showNotificationToast, fetchCounts]);
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/70 backdrop-blur-xl">

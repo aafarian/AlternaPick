@@ -86,9 +86,9 @@ function SignupForm() {
     }
 
     // Step 3: Claim any anonymous cards created before signup
-    await claimCardsAfterLogin().catch((err) => {
-      console.error("Failed to claim anonymous cards after signup:", err);
-    });
+    if (localStorage.getItem("ap_anon_id")) {
+      await claimCardsAfterLogin().catch(() => {});
+    }
     clearAnonymousId();
 
     // Step 4: Process referral if the user came via a referral link
