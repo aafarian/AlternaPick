@@ -50,8 +50,8 @@ function buildGamesFromPicks(picks: CardWithPicks["picks"]): LiveGameStatus[] {
       away_tricode: teamTricode(awayTeam),
       home_score: g.home_score ?? 0,
       away_score: g.away_score ?? 0,
-      home_logo: teamLogoUrl(homeTeam),
-      away_logo: teamLogoUrl(awayTeam),
+      home_logo: teamLogoUrl(homeTeam) || teamLogoUrl(teamTricode(homeTeam)),
+      away_logo: teamLogoUrl(awayTeam) || teamLogoUrl(teamTricode(awayTeam)),
       commence_time: g.commence_time ?? null,
       game_url: gameUrl(g.sport ?? undefined, g.external_event_id ?? ""),
     });

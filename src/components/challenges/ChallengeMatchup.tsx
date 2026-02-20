@@ -147,6 +147,7 @@ function PlayerSide({
           statusLabel={statusBadge}
           loading={liveLoading}
           pickCount={card.picks.length}
+          showGameScores={false}
         />
       ) : (
         <p className="text-center text-xs text-muted-foreground">No card yet</p>

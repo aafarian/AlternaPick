@@ -75,8 +75,8 @@ export function buildLivePicksForCard(
         away_tricode: gameInfo.away_tricode,
         home_score: gameInfo.home_score,
         away_score: gameInfo.away_score,
-        home_logo: teamLogoUrl(gameInfo.home_team),
-        away_logo: teamLogoUrl(gameInfo.away_team),
+        home_logo: teamLogoUrl(gameInfo.home_team) || teamLogoUrl(gameInfo.home_tricode),
+        away_logo: teamLogoUrl(gameInfo.away_team) || teamLogoUrl(gameInfo.away_tricode),
         commence_time: gameInfo.start_time || pick.props.games?.commence_time || null,
         game_url: gameUrl(pick.props.games?.sport ?? undefined, eventId),
       };
@@ -105,8 +105,8 @@ export function buildLivePicksForCard(
         away_tricode: teamTricode(dbAwayTeam),
         home_score: pick.props.games?.home_score ?? 0,
         away_score: pick.props.games?.away_score ?? 0,
-        home_logo: teamLogoUrl(dbHomeTeam),
-        away_logo: teamLogoUrl(dbAwayTeam),
+        home_logo: teamLogoUrl(dbHomeTeam) || teamLogoUrl(teamTricode(dbHomeTeam)),
+        away_logo: teamLogoUrl(dbAwayTeam) || teamLogoUrl(teamTricode(dbAwayTeam)),
         commence_time: pick.props.games?.commence_time || null,
         game_url: gameUrl(pick.props.games?.sport ?? undefined, eventId ?? ""),
       };

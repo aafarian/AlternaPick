@@ -35,6 +35,8 @@ interface LivePickCardProps {
   loading?: boolean;
   pickCount?: number;
   error?: boolean;
+  /** When true, shows game score section (banner + skeleton). Default true. */
+  showGameScores?: boolean;
 }
 
 export default function LivePickCard({
@@ -45,6 +47,7 @@ export default function LivePickCard({
   loading = false,
   pickCount = 0,
   error = false,
+  showGameScores = true,
 }: LivePickCardProps) {
   return (
     <Card className="overflow-hidden border-border bg-card">
@@ -90,7 +93,7 @@ export default function LivePickCard({
       )}
 
       {/* Game score skeletons while loading */}
-      {loading && !games && (
+      {showGameScores && loading && !games && (
         <div className="flex gap-2 px-4 pb-2">
           <Skeleton className="h-[50px] w-[100px] shrink-0 rounded-lg" />
           <Skeleton className="h-[50px] w-[100px] shrink-0 rounded-lg" />
@@ -98,7 +101,7 @@ export default function LivePickCard({
       )}
 
       {/* Game scores */}
-      {games && games.length > 0 && (
+      {showGameScores && games && games.length > 0 && (
         <div className="px-4 pb-2">
           <GameScoreBanner games={games} />
         </div>
