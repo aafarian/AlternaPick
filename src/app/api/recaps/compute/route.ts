@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { computeDailyRecap } from "@/lib/recaps/compute";
+import { computeDailyRecap, computeWeeklyRecap } from "@/lib/recaps/compute";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { unauthorized, handleApiError } from "@/lib/api/errors";
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     // Idempotency check: skip if recap was computed within the last hour
     const adminClient = createAdminClient();
     const { data: existingRecap } = await typedFrom(adminClient, "recaps")
-      .select("computed_at, recap_data")
+      .select("computed_at, recap_data, weekly_data")
       .eq("recap_date", targetDate)
       .maybeSingle();
 
@@ -38,6 +38,34 @@ export async function POST(request: NextRequest) {
       if (computedAt > oneHourAgo) {
         // Recently computed — return existing stats without re-computing or re-notifying
         const recapData = existingRecap.recap_data as Record<string, unknown>;
+
+        // Still attempt weekly computation if it hasn't been done yet
+        let weekly: { computed: boolean; days_included?: number; weekly_hit_rate?: number } =
+          { computed: false };
+
+        if (!existingRecap.weekly_data) {
+          try {
+            const weeklyResult = await computeWeeklyRecap(targetDate);
+            weekly = {
+              computed: true,
+              days_included: weeklyResult.dailyTrend.length,
+              weekly_hit_rate: weeklyResult.weeklyHitRate,
+            };
+          } catch (weeklyError) {
+            console.error("Weekly recap computation failed (skipped path):", weeklyError);
+            weekly = { computed: false };
+          }
+        } else {
+          const wd = existingRecap.weekly_data as Record<string, unknown>;
+          weekly = {
+            computed: true,
+            days_included: Array.isArray(wd.dailyTrend)
+              ? (wd.dailyTrend as unknown[]).length
+              : 0,
+            weekly_hit_rate: typeof wd.weeklyHitRate === "number" ? wd.weeklyHitRate : 0,
+          };
+        }
+
         return NextResponse.json({
           recap_date: targetDate,
           skipped: true,
@@ -49,6 +77,7 @@ export async function POST(request: NextRequest) {
                 : 0)
             : 0,
           computed_at: existingRecap.computed_at,
+          weekly,
         });
       }
     }
@@ -65,6 +94,22 @@ export async function POST(request: NextRequest) {
 
     const computedAt = new Date().toISOString();
 
+    // Run weekly computation after daily succeeds (sequential, not parallel)
+    let weekly: { computed: boolean; days_included?: number; weekly_hit_rate?: number } =
+      { computed: false };
+
+    try {
+      const weeklyResult = await computeWeeklyRecap(targetDate);
+      weekly = {
+        computed: true,
+        days_included: weeklyResult.dailyTrend.length,
+        weekly_hit_rate: weeklyResult.weeklyHitRate,
+      };
+    } catch (weeklyError) {
+      console.error("Weekly recap computation failed:", weeklyError);
+      weekly = { computed: false };
+    }
+
     return NextResponse.json({
       recap_date: targetDate,
       skipped: false,
@@ -73,6 +118,7 @@ export async function POST(request: NextRequest) {
       total_picks: recapData.totalPicks,
       total_cards: recapData.totalCards,
       computed_at: computedAt,
+      weekly,
     });
   } catch (error) {
     return handleApiError(error, "Recap computation failed");
