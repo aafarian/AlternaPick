@@ -94,15 +94,17 @@ export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) 
         );
 
         return game.game_url ? (
-          <a
+          <button
             key={game.external_event_id}
-            href={game.game_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              window.open(game.game_url, "_blank", "noopener,noreferrer");
+            }}
           >
             {inner}
-          </a>
+          </button>
         ) : (
           <div key={game.external_event_id}>{inner}</div>
         );
