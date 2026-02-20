@@ -65,6 +65,7 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   card_resolved: true,
   achievement_unlocked: true,
   reaction_received: true,
+  daily_recap: true,
 };
 
 interface NotificationPreferencesSectionProps {

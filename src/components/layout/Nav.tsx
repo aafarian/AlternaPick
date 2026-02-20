@@ -22,6 +22,7 @@ import {
   LogOut,
   LogIn,
   BarChart3,
+  Newspaper,
 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 
@@ -39,6 +40,7 @@ const authenticatedLinks: NavLink[] = [
   { href: "/friends", label: "Friends", icon: Users, badgeKey: "friends" },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/recap", label: "Recap", icon: Newspaper },
 ];
 
 const publicLinks: NavLink[] = [

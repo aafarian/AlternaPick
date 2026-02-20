@@ -52,6 +52,7 @@ jobs:
             ODDS_API_KEY=${{ secrets.ODDS_API_KEY }}
             SYNC_SECRET=${{ secrets.SYNC_SECRET }}
             DOMAIN=${{ secrets.DOMAIN }}
+            FOOTBALL_API_KEY=${{ secrets.FOOTBALL_API_KEY }}
             ENVEOF
 
             # Tag current locally-built images so we can rollback if the new build fails health checks
