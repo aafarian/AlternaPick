@@ -99,6 +99,51 @@ export interface PersonalHighlight {
 }
 
 // ---------------------------------------------------------------------------
+// Weekly recap types
+// ---------------------------------------------------------------------------
+
+export interface WeeklyTrendPoint {
+  date: string; // YYYY-MM-DD
+  hitRate: number; // 0-1
+  totalPicks: number;
+  totalCards: number;
+}
+
+export interface WeeklyRecapData {
+  /** 7-day trend: one entry per day, ordered oldest to newest */
+  dailyTrend: WeeklyTrendPoint[];
+  /** Aggregated platform hit rate for the week */
+  weeklyHitRate: number;
+  /** Total picks across all 7 days */
+  totalPicks: number;
+  /** Total cards across all 7 days */
+  totalCards: number;
+  /** Player with highest hit rate across the week (min 10 picks) */
+  topPlayer: {
+    playerName: string;
+    hitRate: number;
+    pickCount: number;
+    sport: string;
+  } | null;
+  /** Prop with lowest hit rate across the week (min 10 picks) -- worst trap */
+  worstTrap: TrapOrLockProp | null;
+  /** Best lock prop of the week */
+  bestLock: TrapOrLockProp | null;
+  /** Date range: start date string */
+  startDate: string;
+  /** Date range: end date string */
+  endDate: string;
+}
+
+export interface WeeklyPersonalStats {
+  weeklyHitRate: number;
+  totalPicks: number;
+  totalCards: number;
+  platformWeeklyHitRate: number;
+  dailyTrend: { date: string; hitRate: number; picks: number }[];
+}
+
+// ---------------------------------------------------------------------------
 // Internal row shapes for the joined query
 // ---------------------------------------------------------------------------
 
