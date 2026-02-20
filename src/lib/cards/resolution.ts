@@ -98,6 +98,12 @@ function normForMatch(name: string): string {
     .trim();
 }
 
+/** Returns true when the game's commence_time is in the past (safe to treat as played). */
+function hasGameStarted(commenceTime: string | null | undefined): boolean {
+  if (!commenceTime) return true; // no time recorded → assume past game
+  return new Date(commenceTime).getTime() <= Date.now();
+}
+
 export function fuzzyMatchPlayer(
   boxscore: PlayerBoxScore[],
   playerName: string
@@ -149,7 +155,8 @@ export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
     const allResolvable = card.picks.every(
       (pick) =>
         pick.props?.games?.status === "final" &&
-        pick.props?.games?.external_event_id
+        pick.props?.games?.external_event_id &&
+        hasGameStarted(pick.props?.games?.commence_time)
     );
     if (!allResolvable) continue;
 
@@ -624,6 +631,8 @@ export async function tryResolveFromLiveData(
     const allFinal = card.picks.every((pick) => {
       const eventId = pick.props?.games?.external_event_id;
       if (!eventId) return false;
+      // Safety: never treat a future game as final
+      if (!hasGameStarted(pick.props?.games?.commence_time)) return false;
       const liveGame = gameStatusMap.get(eventId);
       if (liveGame) return liveGame.status === "final";
       // Game not in today's live data (yesterday's game) — trust DB status.
