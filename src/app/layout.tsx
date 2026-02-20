@@ -9,6 +9,7 @@ import { PlayerProfileProvider } from "@/lib/players/player-profile-context";
 import PlayerProfileSheet from "@/components/players/PlayerProfileSheet";
 import ServiceWorkerRegistration from "@/components/pwa/ServiceWorkerRegistration";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
+import PendingCardHandler from "@/components/cards/PendingCardHandler";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -46,6 +47,7 @@ export default function RootLayout({
         <ServiceWorkerRegistration />
         <ScrollToTop />
         <AuthProvider>
+          <PendingCardHandler />
           <OnboardingProvider>
             <PlayerProfileProvider>
             <Header />

@@ -56,26 +56,6 @@ export default function CardBuilderPanel() {
   const [friendSearch, setFriendSearch] = useState("");
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
 
-  // Auto-create card after guest signs up/in with pending picks
-  useEffect(() => {
-    if (!user) return;
-    const pending = sessionStorage.getItem("pending_card_picks");
-    if (!pending) return;
-
-    sessionStorage.removeItem("pending_card_picks");
-    const { picks: savedPicks, gameMode: savedMode, cardSize } = JSON.parse(pending);
-
-    (async () => {
-      setLocking(true);
-      try {
-        await createCard(savedPicks, undefined, null, savedMode, cardSize);
-        clearCard();
-        router.push("/picks");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to lock in card");
-      }
-    })();
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchFriendsForChallenge = useCallback(async () => {
     setLoadingFriends(true);

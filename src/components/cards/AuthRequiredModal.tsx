@@ -39,7 +39,7 @@ export default function AuthRequiredModal({
         </DialogHeader>
         <div className="mt-5 flex gap-3">
           <Button
-            onClick={() => router.push("/auth/signup?redirectTo=/props")}
+            onClick={() => router.push("/auth/signup?redirectTo=/picks")}
             className="flex-1"
             size="sm"
           >
@@ -47,7 +47,7 @@ export default function AuthRequiredModal({
           </Button>
           <Button
             variant="outline"
-            onClick={() => router.push("/auth/login?redirectTo=/props")}
+            onClick={() => router.push("/auth/login?redirectTo=/picks")}
             className="flex-1"
             size="sm"
           >

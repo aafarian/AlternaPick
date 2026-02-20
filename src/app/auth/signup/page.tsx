@@ -23,6 +23,7 @@ function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const prefersReduced = useReducedMotion();
+  const redirectTo = searchParams.get("redirectTo") ?? "/props";
 
   // Detect referral query param (?ref=username)
   const refParam = searchParams.get("ref");
@@ -95,7 +96,7 @@ function SignupForm() {
     await processReferralIfNeeded();
 
     // Step 5: Navigate — auth context will have the user by now
-    router.push("/props");
+    router.push(redirectTo);
   }
 
   async function handleGoogleSignIn() {
@@ -114,7 +115,7 @@ function SignupForm() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=%2Fprops`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
       },
     });
   }

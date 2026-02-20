@@ -19,10 +19,10 @@ import {
 export default function HeroSection() {
   return (
     <section className="relative flex min-h-[85vh] flex-col items-center justify-center gap-6 px-4 text-center">
-      {/* ── Background glow orbs (no overflow-hidden → no visible box) ── */}
+      {/* ── Background glow orbs ── */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10"
+        className="pointer-events-none absolute inset-0 -z-10 overflow-clip"
       >
         {/* Primary green — centered on content, explicit radius so edges stay within section */}
         <div className="absolute left-1/2 top-[40%] h-[1200px] w-[1200px] -ml-[600px] -mt-[600px] rounded-full bg-[radial-gradient(circle_420px,rgba(0,210,106,0.16)_0%,transparent_100%)] animate-hero-glow-1" />

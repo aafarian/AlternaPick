@@ -10,9 +10,8 @@ export default function AuthLayout({
 }) {
   const { user, loading } = useAuth();
 
-  // Hide the entire auth chrome while checking auth or after sign-in
-  // so the brand heading doesn't flash alone during redirect.
-  if (loading || user) return <>{children}</>;
+  // While checking auth or after sign-in, show nothing — a redirect is imminent.
+  if (loading || user) return null;
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center">

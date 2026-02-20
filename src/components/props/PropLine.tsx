@@ -42,8 +42,8 @@ function PlayerHeadshot({
 
   if (!playerId || imgError) {
     return (
-      <div className="flex h-[100px] w-[130px] items-end justify-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
+      <div className="flex h-[72px] w-[100px] items-end justify-center sm:h-[100px] sm:w-[130px]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary sm:h-16 sm:w-16 sm:text-lg">
           {getInitials(playerName)}
         </div>
       </div>
@@ -53,7 +53,7 @@ function PlayerHeadshot({
   const hs = getHeadshotConfig(sport);
 
   return (
-    <div className="relative h-[100px] w-[130px]">
+    <div className="relative h-[72px] w-[100px] sm:h-[100px] sm:w-[130px]">
       <Image
         src={getPlayerHeadshotUrl(playerId, sport)}
         alt={playerName}
@@ -147,7 +147,7 @@ export default function PropLine({
       )}
     >
       {/* Center: player headshot with team logo background */}
-      <div className="relative flex flex-col items-center px-4 pt-4 pb-2">
+      <div className="relative flex flex-col items-center px-2 pt-3 pb-2 sm:px-4 sm:pt-4">
         {/* Team logo watermark behind player */}
         {bgLogoUrl && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -155,7 +155,7 @@ export default function PropLine({
             <img
               src={bgLogoUrl}
               alt=""
-              className="h-40 w-40 object-contain opacity-[0.14]"
+              className="h-28 w-28 object-contain opacity-[0.14] sm:h-40 sm:w-40"
             />
           </div>
         )}
@@ -189,7 +189,7 @@ export default function PropLine({
           <PlayerHeadshot playerId={playerId} playerName={playerName} sport={sport} />
 
           {/* Player name */}
-          <span className="mt-1 truncate text-center text-sm font-bold leading-tight">
+          <span className="mt-1 max-w-full truncate text-center text-xs font-bold leading-tight sm:text-sm">
             {playerName}
           </span>
 
@@ -205,7 +205,7 @@ export default function PropLine({
       {/* Line number + stat category */}
       <div className="flex flex-col items-center gap-0.5 pb-2">
         <div className="flex items-baseline justify-center gap-1.5">
-          <span className="text-3xl font-black tabular-nums tracking-tight">
+          <span className="text-2xl font-black tabular-nums tracking-tight sm:text-3xl">
             {line}
           </span>
           <span
