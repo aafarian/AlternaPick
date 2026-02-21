@@ -217,26 +217,28 @@ export default async function RecapPage({
       )}
 
       {/* Callout Cards Grid — 2 columns on desktop, 1 on mobile */}
-      <StaggerChildren
-        className="grid gap-4 lg:grid-cols-2"
-        staggerDelay={0.1}
-      >
-        <StaggerItem>
-          <PropCalloutCard props={recapData.trapProps} variant="trap" />
-        </StaggerItem>
-        <StaggerItem>
-          <PropCalloutCard props={recapData.lockProps} variant="lock" />
-        </StaggerItem>
-        <StaggerItem>
-          <PlayerSpotlightCard
-            good={recapData.playerSpotlightsGood}
-            bad={recapData.playerSpotlightsBad}
-          />
-        </StaggerItem>
-        <StaggerItem>
-          <PerfectCardsCard data={recapData.perfectCards} />
-        </StaggerItem>
-      </StaggerChildren>
+      <section aria-label="Callout Cards" data-section="callout-cards">
+        <StaggerChildren
+          className="grid gap-4 lg:grid-cols-2"
+          staggerDelay={0.1}
+        >
+          <StaggerItem>
+            <PropCalloutCard props={recapData.trapProps} variant="trap" />
+          </StaggerItem>
+          <StaggerItem>
+            <PropCalloutCard props={recapData.lockProps} variant="lock" />
+          </StaggerItem>
+          <StaggerItem>
+            <PlayerSpotlightCard
+              good={recapData.playerSpotlightsGood}
+              bad={recapData.playerSpotlightsBad}
+            />
+          </StaggerItem>
+          <StaggerItem>
+            <PerfectCardsCard data={recapData.perfectCards} />
+          </StaggerItem>
+        </StaggerChildren>
+      </section>
 
       {/* Most Picked Section */}
       <ScrollReveal>

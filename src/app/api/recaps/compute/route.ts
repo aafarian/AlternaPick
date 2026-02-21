@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { computeDailyRecap, computeWeeklyRecap } from "@/lib/recaps/compute";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { typedFrom } from "@/lib/supabase/typed-queries";
-import { unauthorized, handleApiError } from "@/lib/api/errors";
+import { unauthorized, handleApiError, logError } from "@/lib/api/errors";
 
 function getYesterdayUTC(): string {
   const d = new Date(Date.now() - 86_400_000);
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
               weekly_hit_rate: weeklyResult.weeklyHitRate,
             };
           } catch (weeklyError) {
-            console.error("Weekly recap computation failed (skipped path):", weeklyError);
+            logError(weeklyError, { route: "POST /api/recaps/compute", metadata: { targetDate, path: "skipped" } });
             weekly = { computed: false };
           }
         } else {
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
         weekly_hit_rate: weeklyResult.weeklyHitRate,
       };
     } catch (weeklyError) {
-      console.error("Weekly recap computation failed:", weeklyError);
+      logError(weeklyError, { route: "POST /api/recaps/compute", metadata: { targetDate, path: "main" } });
       weekly = { computed: false };
     }
 
