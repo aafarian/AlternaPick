@@ -4,6 +4,7 @@ import type {
   RecapData,
   PersonalHighlight,
   WeeklyRecapData,
+  WeeklyPersonalStats,
 } from "@/lib/recaps/compute";
 import {
   SlideUp,
@@ -116,6 +117,82 @@ export default async function RecapPage({
 
   const currentDate = typedRecap.recap_date;
 
+  // ── Compute weekly personal stats for authenticated users ──────────
+  let personalWeekly: WeeklyPersonalStats | null = null;
+
+  if (user && weeklyData) {
+    // Fetch the last 7 daily recaps with personal_highlights
+    const endDate = currentDate;
+    const startDate = new Date(`${endDate}T00:00:00Z`);
+    startDate.setUTCDate(startDate.getUTCDate() - 6);
+    const startStr = startDate.toISOString().slice(0, 10);
+
+    const { data: weekRows } = await typedFrom(supabase, "recaps")
+      .select("recap_date, personal_highlights")
+      .gte("recap_date", startStr)
+      .lte("recap_date", endDate)
+      .order("recap_date", { ascending: true });
+
+    type PersonalRecapRow = {
+      recap_date: string;
+      personal_highlights: Record<string, PersonalHighlight> | null;
+    };
+    const typedWeekRows = (weekRows ?? []) as PersonalRecapRow[];
+
+    let totalHits = 0;
+    let totalPicksCount = 0;
+    let totalCardsCount = 0;
+    const dailyTrend: WeeklyPersonalStats["dailyTrend"] = [];
+
+    for (const row of typedWeekRows) {
+      const userDay = row.personal_highlights?.[user.id];
+      if (!userDay) {
+        dailyTrend.push({ date: row.recap_date, hitRate: 0, picks: 0 });
+        continue;
+      }
+
+      // PersonalHighlight has cardsPlayed and hitRate but not totalPicks.
+      // Use cardsPlayed as the cards metric. For picks, we derive from
+      // the fact that hitRate = hits / picks, but we don't have raw pick
+      // count directly. However, we can use the daily recap's recap_data
+      // to get a per-user pick count from cards. Since we only have
+      // cardsPlayed and hitRate, we use cardsPlayed as the "picks" proxy
+      // for the trend, and sum cardsPlayed for totalCards.
+      const dayCards = userDay.cardsPlayed;
+      const dayHitRate = userDay.hitRate;
+
+      // cardsPlayed is the number of resolved cards the user had that day.
+      // For a reasonable picks estimate, we can't determine exact pick count
+      // from PersonalHighlight alone. We'll use cardsPlayed as the daily
+      // metric (since that's what we have).
+      totalCardsCount += dayCards;
+
+      // For weighted hit-rate, weight by cards played
+      totalHits += Math.round(dayHitRate * dayCards);
+      totalPicksCount += dayCards;
+
+      dailyTrend.push({
+        date: row.recap_date,
+        hitRate: dayHitRate,
+        picks: dayCards,
+      });
+    }
+
+    // Only produce stats if the user had at least one day of activity
+    if (totalPicksCount > 0) {
+      personalWeekly = {
+        weeklyHitRate:
+          totalPicksCount > 0
+            ? Math.round((totalHits / totalPicksCount) * 1000) / 1000
+            : 0,
+        totalPicks: totalPicksCount,
+        totalCards: totalCardsCount,
+        platformWeeklyHitRate: weeklyData.weeklyHitRate,
+        dailyTrend,
+      };
+    }
+  }
+
   // Format the recap date for display (e.g., "Feb 19")
   const recapDate = new Date(`${currentDate}T00:00:00Z`);
   const dateLabel = recapDate.toLocaleDateString("en-US", {
@@ -211,7 +288,7 @@ export default async function RecapPage({
       {weeklyData && (
         <ScrollReveal>
           <section aria-label="This Week" data-section="this-week">
-            <ThisWeek weeklyData={weeklyData} />
+            <ThisWeek weeklyData={weeklyData} personalWeekly={personalWeekly} />
           </section>
         </ScrollReveal>
       )}
