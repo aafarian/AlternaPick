@@ -35,9 +35,9 @@ function sportLabel(sport: string): string {
 }
 
 function formatDateRange(startDate: string, endDate: string): string {
-  const start = new Date(startDate + "T00:00:00");
-  const end = new Date(endDate + "T00:00:00");
-  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+  const start = new Date(startDate + "T00:00:00Z");
+  const end = new Date(endDate + "T00:00:00Z");
+  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", timeZone: "UTC" };
   return `${start.toLocaleDateString("en-US", opts)} - ${end.toLocaleDateString("en-US", opts)}`;
 }
 

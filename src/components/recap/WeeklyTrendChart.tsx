@@ -22,8 +22,8 @@ const HEIGHT = 120;
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function dayLabel(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  return DAY_LABELS[d.getDay()];
+  const d = new Date(dateStr + "T00:00:00Z");
+  return DAY_LABELS[d.getUTCDay()];
 }
 
 /** Single stat fallback when fewer than 2 data points */
@@ -84,7 +84,7 @@ export function WeeklyTrendChart({ data }: WeeklyTrendChartProps) {
   // Parse data
   const parsed = data.map((d) => ({
     ...d,
-    dateObj: new Date(d.date + "T00:00:00"),
+    dateObj: new Date(d.date + "T00:00:00Z"),
     pct: Math.round(d.hitRate * 100),
   }));
 
