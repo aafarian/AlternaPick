@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { handleApiError } from "@/lib/api/errors";
 import { typedFrom } from "@/lib/supabase/typed-queries";
-import type { RecapData, PersonalHighlight } from "@/lib/recaps/compute";
+import type {
+  RecapData,
+  PersonalHighlight,
+  WeeklyRecapData,
+} from "@/lib/recaps/compute";
 
 /**
  * GET /api/recaps
@@ -11,6 +15,8 @@ import type { RecapData, PersonalHighlight } from "@/lib/recaps/compute";
  * Query params:
  *   - date (optional): ISO date string (YYYY-MM-DD). If omitted, returns the
  *     most recent recap.
+ *   - dates_only (optional): If "true", returns only the list of available
+ *     recap dates as { dates: string[] }.
  *
  * Auth is optional:
  *   - Authenticated users receive their personal_highlights for the recap day.
@@ -24,6 +30,7 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const dateParam = request.nextUrl.searchParams.get("date");
+    const datesOnly = request.nextUrl.searchParams.get("dates_only") === "true";
 
     // Validate date format if provided
     if (dateParam && !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
@@ -32,6 +39,36 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // ------------------------------------------------------------------
+    // dates_only mode: return array of available recap dates
+    // ------------------------------------------------------------------
+    if (datesOnly) {
+      const { data: rows, error } = await typedFrom(supabase, "recaps")
+        .select("recap_date")
+        .order("recap_date", { ascending: false });
+
+      if (error) {
+        throw new Error(`Failed to query recap dates: ${error.message}`);
+      }
+
+      const dates = (rows ?? []).map(
+        (r: { recap_date: string }) => r.recap_date
+      );
+
+      return NextResponse.json(
+        { dates },
+        {
+          headers: {
+            "Cache-Control": "public, max-age=300",
+          },
+        }
+      );
+    }
+
+    // ------------------------------------------------------------------
+    // Standard mode: return full recap for a specific date or latest
+    // ------------------------------------------------------------------
 
     // Check if user is authenticated (optional — not required)
     const {
@@ -80,6 +117,7 @@ export async function GET(request: NextRequest) {
         recap_date: recap.recap_date,
         recap_data: recap.recap_data as RecapData,
         personal_highlights: personalHighlights,
+        weekly_data: (recap.weekly_data as WeeklyRecapData) ?? null,
         computed_at: recap.computed_at,
       },
       {

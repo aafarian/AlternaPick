@@ -524,6 +524,7 @@ export interface Database {
           recap_date: string;
           recap_data: Record<string, unknown>;
           personal_highlights: Record<string, unknown>;
+          weekly_data: Record<string, unknown> | null;
           computed_at: string;
           created_at: string;
         };
@@ -532,6 +533,7 @@ export interface Database {
           recap_date: string;
           recap_data: Record<string, unknown>;
           personal_highlights?: Record<string, unknown>;
+          weekly_data?: Record<string, unknown> | null;
           computed_at?: string;
           created_at?: string;
         };
@@ -539,6 +541,7 @@ export interface Database {
           recap_date?: string;
           recap_data?: Record<string, unknown>;
           personal_highlights?: Record<string, unknown>;
+          weekly_data?: Record<string, unknown> | null;
           computed_at?: string;
         };
       };

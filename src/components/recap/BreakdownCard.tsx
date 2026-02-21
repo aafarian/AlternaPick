@@ -6,6 +6,7 @@ import { BarChart3, Layers } from "lucide-react";
 import { isValidSport, SPORT_CONFIG } from "@/lib/sports/config";
 import type { BreakdownEntry } from "@/lib/recaps/compute";
 import type { StatCategory } from "@/lib/supabase/types";
+import { AnimatedNumber } from "@/components/recap/AnimatedNumber";
 
 interface BreakdownCardProps {
   statCategories: BreakdownEntry[];
@@ -60,7 +61,7 @@ function BreakdownRow({
           <span
             className={`text-sm font-bold tabular-nums ${hitRateColor(hitRate)}`}
           >
-            {percent}%
+            <AnimatedNumber value={percent} suffix="%" />
           </span>
         </div>
       </div>

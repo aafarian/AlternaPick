@@ -99,6 +99,51 @@ export interface PersonalHighlight {
 }
 
 // ---------------------------------------------------------------------------
+// Weekly recap types
+// ---------------------------------------------------------------------------
+
+export interface WeeklyTrendPoint {
+  date: string; // YYYY-MM-DD
+  hitRate: number; // 0-1
+  totalPicks: number;
+  totalCards: number;
+}
+
+export interface WeeklyRecapData {
+  /** 7-day trend: one entry per day, ordered oldest to newest */
+  dailyTrend: WeeklyTrendPoint[];
+  /** Aggregated platform hit rate for the week */
+  weeklyHitRate: number;
+  /** Total picks across all 7 days */
+  totalPicks: number;
+  /** Total cards across all 7 days */
+  totalCards: number;
+  /** Player with highest hit rate across the week (min 10 picks) */
+  topPlayer: {
+    playerName: string;
+    hitRate: number;
+    pickCount: number;
+    sport: string;
+  } | null;
+  /** Prop with lowest hit rate across the week (min 10 picks) -- worst trap */
+  worstTrap: TrapOrLockProp | null;
+  /** Best lock prop of the week */
+  bestLock: TrapOrLockProp | null;
+  /** Date range: start date string */
+  startDate: string;
+  /** Date range: end date string */
+  endDate: string;
+}
+
+export interface WeeklyPersonalStats {
+  weeklyHitRate: number;
+  totalPicks: number;
+  totalCards: number;
+  platformWeeklyHitRate: number;
+  dailyTrend: { date: string; hitRate: number; picks: number }[];
+}
+
+// ---------------------------------------------------------------------------
 // Internal row shapes for the joined query
 // ---------------------------------------------------------------------------
 
@@ -496,6 +541,234 @@ export async function computeDailyRecap(
 }
 
 // ---------------------------------------------------------------------------
+// Weekly computation
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute the weekly recap by aggregating the last 7 daily recaps and
+ * querying raw resolved cards/picks for the full window.
+ *
+ * `endDate` defaults to yesterday (UTC). The window covers
+ * [endDate - 6 days, endDate] inclusive (7 days total).
+ *
+ * The result is upserted into the `weekly_data` jsonb column on the
+ * endDate's recap row.
+ */
+export async function computeWeeklyRecap(
+  endDate?: string
+): Promise<WeeklyRecapData> {
+  const end = endDate ?? getYesterdayDateString();
+  const start = getDateMinusDays(end, 6);
+
+  const supabase = createAdminClient();
+
+  // ------------------------------------------------------------------
+  // 1. Fetch daily recaps for the 7-day window
+  // ------------------------------------------------------------------
+  const { data: recapRows, error: recapError } = await typedFrom(
+    supabase,
+    "recaps"
+  )
+    .select("id, recap_date, recap_data")
+    .gte("recap_date", start)
+    .lte("recap_date", end)
+    .order("recap_date", { ascending: true });
+
+  if (recapError) {
+    throw new Error(`Failed to fetch recaps: ${recapError.message}`);
+  }
+
+  const recaps = (recapRows ?? []) as {
+    id: string;
+    recap_date: string;
+    recap_data: RecapData;
+  }[];
+
+  // ------------------------------------------------------------------
+  // 2. Build daily trend from stored recap data
+  // ------------------------------------------------------------------
+  const dailyTrend: WeeklyTrendPoint[] = [];
+  let weekTotalHits = 0;
+  let weekTotalPicks = 0;
+  let weekTotalCards = 0;
+
+  for (const recap of recaps) {
+    const rd = recap.recap_data;
+    if (!rd) continue;
+
+    const dayPicks = rd.totalPicks ?? 0;
+    const dayCards = rd.totalCards ?? 0;
+    const dayHitRate = rd.platformHitRate ?? 0;
+    const dayHits = Math.round(dayHitRate * dayPicks);
+
+    dailyTrend.push({
+      date: recap.recap_date,
+      hitRate: round(dayHitRate, 3),
+      totalPicks: dayPicks,
+      totalCards: dayCards,
+    });
+
+    weekTotalHits += dayHits;
+    weekTotalPicks += dayPicks;
+    weekTotalCards += dayCards;
+  }
+
+  const weeklyHitRate =
+    weekTotalPicks > 0 ? round(weekTotalHits / weekTotalPicks, 3) : 0;
+
+  // ------------------------------------------------------------------
+  // 3. Fetch raw resolved cards/picks for the full 7-day window
+  //    (needed for top player, worst trap, best lock across the week)
+  // ------------------------------------------------------------------
+  const startOfWindow = `${start}T00:00:00Z`;
+  const endOfWindow = getNextDay(end); // start of day after endDate
+
+  const { data: rawCards, error: cardsError } = await typedFrom(
+    supabase,
+    "cards"
+  )
+    .select(
+      "id, user_id, score, total_picks, picks(id, card_id, prop_id, selection, result, actual_value, props:prop_id(id, player_name, stat_category, line, games:game_id(sport)))"
+    )
+    .eq("status", "resolved")
+    .gte("resolved_at", startOfWindow)
+    .lt("resolved_at", endOfWindow);
+
+  if (cardsError) {
+    throw new Error(
+      `Failed to fetch weekly resolved cards: ${cardsError.message}`
+    );
+  }
+
+  const cards = (rawCards ?? []) as unknown as ResolvedCardRow[];
+
+  // Flatten all resolved picks
+  const allPicks: ResolvedPickRow[] = [];
+  for (const card of cards) {
+    for (const pick of card.picks ?? []) {
+      if (pick.result === "hit" || pick.result === "miss") {
+        allPicks.push(pick);
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // 4. Top player of the week (highest hit rate, min 10 picks)
+  // ------------------------------------------------------------------
+  let topPlayer: WeeklyRecapData["topPlayer"] = null;
+
+  if (allPicks.length > 0) {
+    const byPlayer = groupBy(
+      allPicks,
+      (p) => p.props?.player_name ?? "Unknown"
+    );
+
+    let bestRate = -1;
+    for (const [playerName, picks] of Object.entries(byPlayer)) {
+      if (picks.length < 10) continue;
+      const hits = picks.filter((p) => p.result === "hit").length;
+      const rate = hits / picks.length;
+      if (rate > bestRate) {
+        bestRate = rate;
+        topPlayer = {
+          playerName,
+          hitRate: round(rate, 3),
+          pickCount: picks.length,
+          sport: picks[0].props?.games?.sport ?? "unknown",
+        };
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // 5. Worst trap & best lock of the week (by prop, min 10 picks)
+  // ------------------------------------------------------------------
+  let worstTrap: TrapOrLockProp | null = null;
+  let bestLock: TrapOrLockProp | null = null;
+
+  if (allPicks.length > 0) {
+    const byProp = groupBy(allPicks, (p) => p.prop_id);
+
+    let lowestRate = Infinity;
+    let highestRate = -Infinity;
+
+    for (const [propId, picks] of Object.entries(byProp)) {
+      if (picks.length < 10) continue;
+      const hits = picks.filter((p) => p.result === "hit").length;
+      const rate = hits / picks.length;
+      const representative = picks[0];
+      const entry: TrapOrLockProp = {
+        propId,
+        playerName: representative.props?.player_name ?? "Unknown",
+        statCategory: representative.props?.stat_category ?? "points",
+        line: representative.props?.line ?? 0,
+        hitRate: round(rate, 3),
+        pickCount: picks.length,
+      };
+
+      if (rate < lowestRate) {
+        lowestRate = rate;
+        worstTrap = entry;
+      }
+      if (rate > highestRate) {
+        highestRate = rate;
+        bestLock = entry;
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // 6. Assemble the weekly recap data
+  // ------------------------------------------------------------------
+  const weeklyData: WeeklyRecapData = {
+    dailyTrend,
+    weeklyHitRate,
+    totalPicks: weekTotalPicks,
+    totalCards: weekTotalCards,
+    topPlayer,
+    worstTrap,
+    bestLock,
+    startDate: start,
+    endDate: end,
+  };
+
+  // ------------------------------------------------------------------
+  // 7. Upsert weekly_data on the endDate's recap row
+  // ------------------------------------------------------------------
+  const endRecap = recaps.find((r) => r.recap_date === end);
+
+  if (endRecap) {
+    const { error: updateError } = await typedFrom(supabase, "recaps")
+      .update({
+        weekly_data: weeklyData as unknown as Record<string, unknown>,
+      })
+      .eq("id", endRecap.id);
+
+    if (updateError) {
+      throw new Error(
+        `Failed to upsert weekly_data: ${updateError.message}`
+      );
+    }
+  } else {
+    // No recap row for endDate yet — create a minimal one with weekly_data
+    const { error: insertError } = await typedFrom(supabase, "recaps").insert({
+      recap_date: end,
+      recap_data: {} as Record<string, unknown>,
+      weekly_data: weeklyData as unknown as Record<string, unknown>,
+      computed_at: new Date().toISOString(),
+    });
+
+    if (insertError) {
+      throw new Error(
+        `Failed to insert recap with weekly_data: ${insertError.message}`
+      );
+    }
+  }
+
+  return weeklyData;
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -534,6 +807,12 @@ function getNextDay(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + 1);
   return `${d.toISOString().slice(0, 10)}T00:00:00Z`;
+}
+
+function getDateMinusDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
 }
 
 function round(value: number, decimals: number): number {
