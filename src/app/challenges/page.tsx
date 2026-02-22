@@ -322,11 +322,21 @@ export default function ChallengesPage() {
               </Badge>
             </div>
 
-            {/* Incoming cards */}
-            <AnimatePresence>
-              <StaggerChildren staggerDelay={0.06} className="flex flex-col gap-2">
-                {visibleIncoming.map((challenge) => (
-                  <StaggerItem key={challenge.id}>
+            {/* Incoming cards with per-card exit animation */}
+            <div className="flex flex-col gap-2">
+              <AnimatePresence initial={false}>
+                {visibleIncoming.map((challenge, i) => (
+                  <motion.div
+                    key={challenge.id}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    transition={{
+                      duration: prefersReduced ? 0 : 0.3,
+                      delay: prefersReduced ? 0 : i * 0.06,
+                    }}
+                    layout={!prefersReduced}
+                  >
                     <IncomingChallengeCard
                       challenge={challenge}
                       currentUserId={userId}
@@ -334,28 +344,30 @@ export default function ChallengesPage() {
                       onDecline={(id) => handleAction(id, "decline")}
                       actionLoading={actionLoading}
                     />
-                  </StaggerItem>
+                  </motion.div>
                 ))}
-              </StaggerChildren>
-            </AnimatePresence>
+              </AnimatePresence>
+            </div>
 
             {/* "View X more" expander */}
             {hiddenIncomingCount > 0 && (
-              <button
+              <motion.button
                 type="button"
                 onClick={() => setIncomingExpanded(!incomingExpanded)}
                 className="flex items-center gap-1 self-start rounded-md px-2 py-1 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/10 hover:text-amber-300"
+                whileTap={prefersReduced ? undefined : { scale: 0.97 }}
               >
-                <ChevronDown
-                  className={cn(
-                    "h-3.5 w-3.5 transition-transform",
-                    incomingExpanded && "rotate-180"
-                  )}
-                />
+                <motion.span
+                  animate={{ rotate: incomingExpanded ? 180 : 0 }}
+                  transition={{ duration: prefersReduced ? 0 : 0.25 }}
+                  className="inline-flex"
+                >
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </motion.span>
                 {incomingExpanded
                   ? "Show less"
                   : `View ${hiddenIncomingCount} more`}
-              </button>
+              </motion.button>
             )}
           </div>
         </FadeIn>
@@ -373,21 +385,33 @@ export default function ChallengesPage() {
                 {filteredSent.length}
               </Badge>
             </div>
-            <StaggerChildren staggerDelay={0.06} className="flex flex-col gap-2">
-              {filteredSent.map((challenge) => (
-                <StaggerItem key={challenge.id}>
-                  <ChallengeCard
-                    challenge={challenge}
-                    currentUserId={userId}
-                    onAccept={(id) => handleAction(id, "accept")}
-                    onDecline={(id) => handleAction(id, "decline")}
-                    onCancel={(id) => handleAction(id, "cancel")}
-                    actionLoading={actionLoading}
-                    userHasCard={userCardChallengeIds.has(challenge.id)}
-                  />
-                </StaggerItem>
-              ))}
-            </StaggerChildren>
+            <div className="flex flex-col gap-2">
+              <AnimatePresence initial={false}>
+                {filteredSent.map((challenge, i) => (
+                  <motion.div
+                    key={challenge.id}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    transition={{
+                      duration: prefersReduced ? 0 : 0.3,
+                      delay: prefersReduced ? 0 : i * 0.06,
+                    }}
+                    layout={!prefersReduced}
+                  >
+                    <ChallengeCard
+                      challenge={challenge}
+                      currentUserId={userId}
+                      onAccept={(id) => handleAction(id, "accept")}
+                      onDecline={(id) => handleAction(id, "decline")}
+                      onCancel={(id) => handleAction(id, "cancel")}
+                      actionLoading={actionLoading}
+                      userHasCard={userCardChallengeIds.has(challenge.id)}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
           </div>
         </FadeIn>
       )}
