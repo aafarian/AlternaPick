@@ -58,8 +58,9 @@ export default function ChallengesPage() {
   const prefersReduced = useReducedMotion();
   const { showChallengeToast, markReady } = useChallengeToast();
 
-  // Infinite scroll sentinel
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  // Infinite scroll: callback ref connects the observer when the sentinel
+  // mounts (works even when AnimatePresence delays rendering).
+  const observerRef = useRef<IntersectionObserver | null>(null);
   // Version counter: prevents stale fetchCompleted responses from updating state
   // when multiple fetches race (e.g. loadMore vs realtime-triggered reset).
   const fetchCompletedVersionRef = useRef(0);
@@ -140,11 +141,12 @@ export default function ChallengesPage() {
     }, DEBOUNCE_MS);
   }, [fetchCompleted]);
 
-  // Clean up debounce timers on unmount
+  // Clean up debounce timers and observer on unmount
   useEffect(() => {
     return () => {
       if (debounceCoreRef.current) clearTimeout(debounceCoreRef.current);
       if (debounceCompletedRef.current) clearTimeout(debounceCompletedRef.current);
+      if (observerRef.current) observerRef.current.disconnect();
     };
   }, []);
 
@@ -263,24 +265,31 @@ export default function ChallengesPage() {
     }
   }, [hasMoreCompleted, completedChallenges.length, fetchCompleted]);
 
-  // IntersectionObserver for infinite scroll (active only on history tab)
-  useEffect(() => {
-    if (activeTab !== "history" || !hasMoreCompleted) return;
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
+  // Callback ref for infinite scroll sentinel. Connects the observer exactly
+  // when the sentinel mounts (immune to AnimatePresence delaying the DOM).
+  const loadMoreRef = useRef(loadMore);
+  loadMoreRef.current = loadMore;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          loadMore();
-        }
-      },
-      { rootMargin: "200px" }
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [activeTab, hasMoreCompleted, loadMore]);
+  const sentinelRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
+      }
+      if (!node) return;
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting) {
+            loadMoreRef.current();
+          }
+        },
+        { rootMargin: "200px" }
+      );
+      observer.observe(node);
+      observerRef.current = observer;
+    },
+    [] // stable — loadMore accessed via ref
+  );
 
   const handleAction = async (
     challengeId: string,
