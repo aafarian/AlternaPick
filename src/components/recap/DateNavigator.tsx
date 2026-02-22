@@ -1,13 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface DateNavigatorProps {
-  currentDate: string; // YYYY-MM-DD of currently displayed recap
-  availableDates: string[]; // All dates that have recaps, sorted ascending
+  currentDate: string;
+  availableDates: string[];
 }
 
 function getYesterday(): string {
@@ -16,10 +14,9 @@ function getYesterday(): string {
   return d.toISOString().slice(0, 10);
 }
 
-function formatDate(dateStr: string): string {
+function formatPillDate(dateStr: string): string {
   const date = new Date(`${dateStr}T00:00:00Z`);
   return date.toLocaleDateString("en-US", {
-    weekday: "short",
     month: "short",
     day: "numeric",
     timeZone: "UTC",
@@ -32,6 +29,8 @@ export function DateNavigator({
 }: DateNavigatorProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const activeRef = useRef<HTMLButtonElement>(null);
 
   const currentIndex = useMemo(
     () => availableDates.indexOf(currentDate),
@@ -75,43 +74,46 @@ export function DateNavigator({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [goPrev, goNext]);
 
-  const isYesterday = currentDate === getYesterday();
-  const dateLabel = formatDate(currentDate);
+  // Auto-scroll active pill into view on mount
+  useEffect(() => {
+    if (activeRef.current && scrollRef.current) {
+      activeRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  }, [currentDate]);
+
+  const yesterday = getYesterday();
+
+  // Show dates in reverse chronological order (newest first)
+  const reversedDates = [...availableDates].reverse();
 
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border bg-card px-2 py-1.5">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-11 w-11 shrink-0"
-        disabled={!hasPrev}
-        onClick={goPrev}
-        aria-label="Previous recap date"
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </Button>
+    <div
+      ref={scrollRef}
+      className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-0.5"
+    >
+      {reversedDates.map((date) => {
+        const isActive = date === currentDate;
+        const isYesterday = date === yesterday;
 
-      <div className="flex flex-col items-center min-w-0">
-        <span className="text-sm font-semibold text-foreground truncate">
-          {dateLabel}
-        </span>
-        {isYesterday && (
-          <span className="text-[10px] font-medium text-muted-foreground">
-            Yesterday
-          </span>
-        )}
-      </div>
-
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-11 w-11 shrink-0"
-        disabled={!hasNext}
-        onClick={goNext}
-        aria-label="Next recap date"
-      >
-        <ChevronRight className="h-5 w-5" />
-      </Button>
+        return (
+          <button
+            key={date}
+            ref={isActive ? activeRef : undefined}
+            onClick={() => navigate(date)}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+              isActive
+                ? "bg-primary text-primary-foreground"
+                : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {isYesterday ? "Yesterday" : formatPillDate(date)}
+          </button>
+        );
+      })}
     </div>
   );
 }
