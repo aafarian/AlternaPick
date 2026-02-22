@@ -7,6 +7,8 @@ import type {
   SpotlightType,
   BreakdownEntry,
 } from "@/lib/recaps/compute";
+import { StaggerChildren, StaggerItem } from "@/components/motion";
+import { teamFullName } from "@/lib/constants";
 import { catLabel } from "./tiles/shared";
 import { SpotlightTile } from "./tiles/SpotlightTile";
 import { MostPickedPlayersTile } from "./tiles/MostPickedPlayersTile";
@@ -102,106 +104,124 @@ export function RecapTileGrid({ recapData }: { recapData: RecapData }) {
   if (!hasAnyContent) return null;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="region" aria-label="Recap insights">
+    <StaggerChildren className="grid grid-cols-1 sm:grid-cols-2 gap-3" staggerDelay={0.06}>
       {/* Individual spotlight tiles */}
       {spotlights.map((s) => (
-        <SpotlightTile
-          key={`spot-${s.type}-${s.subject ?? ""}-${s.value}`}
-          spotlight={s}
-        />
+        <StaggerItem key={`spot-${s.type}-${s.subject ?? ""}-${s.value}`}>
+          <SpotlightTile spotlight={s} />
+        </StaggerItem>
       ))}
 
       {/* Most Picked Players */}
-      <MostPickedPlayersTile players={recapData.mostPickedPlayers ?? []} />
+      <StaggerItem><MostPickedPlayersTile players={recapData.mostPickedPlayers ?? []} /></StaggerItem>
 
       {/* Top Props */}
-      <MostPickedPropsTile props={recapData.mostPickedProps ?? []} />
+      <StaggerItem><MostPickedPropsTile props={recapData.mostPickedProps ?? []} /></StaggerItem>
 
       {/* Consensus Trap */}
-      <ConsensusTile picks={consensusTrap} variant="trap" />
+      <StaggerItem><ConsensusTile picks={consensusTrap} variant="trap" /></StaggerItem>
 
       {/* Consensus Win */}
-      <ConsensusTile picks={consensusWin} variant="win" />
+      <StaggerItem><ConsensusTile picks={consensusWin} variant="win" /></StaggerItem>
 
       {/* Unanimous Props */}
-      <UnanimousPropsTile picks={unanimousProps} />
+      <StaggerItem><UnanimousPropsTile picks={unanimousProps} /></StaggerItem>
 
       {/* Traps */}
-      <TrapLockTile items={recapData.trapProps ?? []} variant="trap" />
+      <StaggerItem><TrapLockTile items={recapData.trapProps ?? []} variant="trap" /></StaggerItem>
 
       {/* Locks */}
-      <TrapLockTile items={recapData.lockProps ?? []} variant="lock" />
+      <StaggerItem><TrapLockTile items={recapData.lockProps ?? []} variant="lock" /></StaggerItem>
 
       {/* Perfect Cards */}
-      <PerfectCardsTile
-        count={recapData.perfectCards?.count ?? 0}
-        usernames={recapData.perfectCards?.usernames ?? []}
-        entries={recapData.perfectCards?.entries}
-      />
+      <StaggerItem>
+        <PerfectCardsTile
+          count={recapData.perfectCards?.count ?? 0}
+          usernames={recapData.perfectCards?.usernames ?? []}
+          entries={recapData.perfectCards?.entries}
+        />
+      </StaggerItem>
 
       {/* Best Team */}
-      {bestTeam && <TeamCalloutTile team={bestTeam} variant="best" />}
+      {bestTeam && <StaggerItem><TeamCalloutTile team={bestTeam} variant="best" /></StaggerItem>}
 
       {/* Worst Team */}
-      {worstTeam && <TeamCalloutTile team={worstTeam} variant="worst" />}
+      {worstTeam && <StaggerItem><TeamCalloutTile team={worstTeam} variant="worst" /></StaggerItem>}
 
       {/* Prop Difficulty */}
-      <PropDifficultyTile
-        lockCount={(recapData.lockProps ?? []).length}
-        trapCount={(recapData.trapProps ?? []).length}
-      />
+      <StaggerItem>
+        <PropDifficultyTile
+          lockCount={(recapData.lockProps ?? []).length}
+          trapCount={(recapData.trapProps ?? []).length}
+        />
+      </StaggerItem>
 
       {/* Over/Under Skew */}
-      <OverUnderTile
-        overCount={recapData.overCount ?? 0}
-        underCount={recapData.underCount ?? 0}
-      />
+      <StaggerItem>
+        <OverUnderTile
+          overCount={recapData.overCount ?? 0}
+          underCount={recapData.underCount ?? 0}
+        />
+      </StaggerItem>
 
       {/* Card Scoreboard */}
-      <CardScoreboardTile
-        totalPicks={recapData.totalPicks}
-        totalCards={recapData.totalCards}
-        platformHitRate={avgRate}
-      />
+      <StaggerItem>
+        <CardScoreboardTile
+          totalPicks={recapData.totalPicks}
+          totalCards={recapData.totalCards}
+          platformHitRate={avgRate}
+        />
+      </StaggerItem>
 
       {/* Player Hero/Villain */}
-      <PlayerHeroVillainTile
-        good={recapData.playerSpotlightsGood ?? []}
-        bad={recapData.playerSpotlightsBad ?? []}
-        platformHitRate={avgRate}
-      />
+      <StaggerItem>
+        <PlayerHeroVillainTile
+          good={recapData.playerSpotlightsGood ?? []}
+          bad={recapData.playerSpotlightsBad ?? []}
+          platformHitRate={avgRate}
+        />
+      </StaggerItem>
 
       {/* Most Popular Stat */}
-      <MostPopularStatTile
-        breakdown={recapData.statCategoryBreakdown ?? []}
-        platformHitRate={avgRate}
-      />
+      <StaggerItem>
+        <MostPopularStatTile
+          breakdown={recapData.statCategoryBreakdown ?? []}
+          platformHitRate={avgRate}
+        />
+      </StaggerItem>
 
       {/* By Category */}
-      <BreakdownTile
-        title="By Category"
-        icon={BarChart3}
-        items={recapData.statCategoryBreakdown ?? []}
-        avgRate={avgRate}
-        formatKey={catLabel}
-      />
+      <StaggerItem>
+        <BreakdownTile
+          title="By Category"
+          icon={BarChart3}
+          items={recapData.statCategoryBreakdown ?? []}
+          avgRate={avgRate}
+          formatKey={catLabel}
+        />
+      </StaggerItem>
 
       {/* By Sport */}
-      <BreakdownTile
-        title="By Sport"
-        icon={BarChart3}
-        items={recapData.sportBreakdown ?? []}
-        avgRate={avgRate}
-        formatKey={(k) => k.toUpperCase()}
-      />
+      <StaggerItem>
+        <BreakdownTile
+          title="By Sport"
+          icon={BarChart3}
+          items={recapData.sportBreakdown ?? []}
+          avgRate={avgRate}
+          formatKey={(k) => k.toUpperCase()}
+        />
+      </StaggerItem>
 
       {/* By Team */}
-      <BreakdownTile
-        title="By Team"
-        icon={Shield}
-        items={recapData.teamBreakdown ?? []}
-        avgRate={avgRate}
-      />
-    </div>
+      <StaggerItem>
+        <BreakdownTile
+          title="By Team"
+          icon={Shield}
+          items={recapData.teamBreakdown ?? []}
+          avgRate={avgRate}
+          formatKey={teamFullName}
+        />
+      </StaggerItem>
+    </StaggerChildren>
   );
 }

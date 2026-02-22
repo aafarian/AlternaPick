@@ -223,9 +223,11 @@ export default async function RecapPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Fetch available recap dates for the DateNavigator
+  // Fetch available recap dates for the DateNavigator.
+  // Exclude weekly-only stub rows that have no real daily recap data.
   const { data: dateRows } = await typedFrom(supabase, "recaps")
     .select("recap_date")
+    .not("recap_data", "eq", "{}")
     .order("recap_date", { ascending: true });
 
   const availableDates: string[] = (dateRows ?? []).map(
@@ -372,8 +374,11 @@ export default async function RecapPage({
 
   // ── DAILY MODE ──
 
-  // Fetch the recap for the requested date, or fall back to the most recent
-  let query = typedFrom(supabase, "recaps").select("*");
+  // Fetch the recap for the requested date, or fall back to the most recent.
+  // Filter out weekly-only rows (empty recap_data) that have no daily recap.
+  let query = typedFrom(supabase, "recaps")
+    .select("*")
+    .not("recap_data", "eq", "{}");
 
   if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
     query = query.eq("recap_date", dateParam);
@@ -389,8 +394,8 @@ export default async function RecapPage({
 
   const typedRecap = recap as RecapRow | null;
 
-  // Empty state — no recap available
-  if (!typedRecap) {
+  // Empty state — no recap available (or weekly-only row with no daily data)
+  if (!typedRecap || !typedRecap.recap_data?.totalPicks) {
     return (
       <div className="flex flex-col gap-6 py-8">
         <SlideUp>

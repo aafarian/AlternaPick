@@ -159,7 +159,7 @@ export function ThisWeek({ weeklyData, personalWeekly }: ThisWeekProps) {
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {worstTrap.line}{" "}
-                    {CATEGORY_LABELS[worstTrap.statCategory] ??
+                    {CATEGORY_LABELS[worstTrap.statCategory.toLowerCase() as keyof typeof CATEGORY_LABELS] ??
                       worstTrap.statCategory}{" "}
                     &mdash; {Math.round(worstTrap.hitRate * 100)}% hit rate
                   </p>
@@ -180,7 +180,7 @@ export function ThisWeek({ weeklyData, personalWeekly }: ThisWeekProps) {
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {bestLock.line}{" "}
-                    {CATEGORY_LABELS[bestLock.statCategory] ??
+                    {CATEGORY_LABELS[bestLock.statCategory.toLowerCase() as keyof typeof CATEGORY_LABELS] ??
                       bestLock.statCategory}{" "}
                     &mdash; {Math.round(bestLock.hitRate * 100)}% hit rate
                   </p>
