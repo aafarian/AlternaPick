@@ -129,6 +129,14 @@ export default function HistoryChallengeCard({
                     {resultLabel}
                   </span>
                 </ScaleIn>
+                {challenge.challenger_score != null &&
+                  challenge.opponent_score != null && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {isChallenger
+                        ? `${challenge.challenger_score}-${challenge.opponent_score}`
+                        : `${challenge.opponent_score}-${challenge.challenger_score}`}
+                    </span>
+                  )}
               </div>
 
               {/* Mode + date row */}
