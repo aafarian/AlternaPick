@@ -382,19 +382,30 @@ async function buildRecapData(
 
   // Fetch usernames for perfect card users
   let perfectUsernames: string[] = [];
+  const usernameMap = new Map<string, string>();
   if (perfectCardUserIds.length > 0) {
     const { data: profileRows } = await typedFrom(supabase, "profiles")
       .select("id, username")
       .in("id", perfectCardUserIds);
-    perfectUsernames = (profileRows ?? []).map(
-      (p: { id: string; username: string }) => p.username
-    );
+    for (const r of (profileRows ?? []) as { id: string; username: string }[]) {
+      if (r.username) usernameMap.set(r.id, r.username);
+    }
+    perfectUsernames = [...usernameMap.values()];
   }
 
   const perfectCards: PerfectCards = {
     count: perfectCardEntries.length,
     userIds: perfectCardUserIds,
     usernames: perfectUsernames,
+    entries: perfectCardEntries
+      .filter((c) => c.user_id && usernameMap.has(c.user_id))
+      .map((c) => ({
+        userId: c.user_id!,
+        username: usernameMap.get(c.user_id!)!,
+        cardId: c.id,
+        score: c.score,
+        totalPicks: c.total_picks,
+      })),
   };
 
   // --- Stat Category Breakdown ---

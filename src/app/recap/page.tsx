@@ -122,7 +122,7 @@ async function patchPerfectCards(
   if (
     !recapData.perfectCards?.count ||
     recapData.perfectCards.count === 0 ||
-    (recapData.perfectCards.usernames && recapData.perfectCards.usernames.length > 0)
+    (recapData.perfectCards.entries && recapData.perfectCards.entries.length > 0)
   ) {
     return;
   }
