@@ -16,6 +16,7 @@ export interface LeaderboardEntryWithProfile {
     username: string;
     display_name: string | null;
     avatar_url: string | null;
+    icon_config: Record<string, unknown> | null;
   };
   stats: {
     total_cards: number;
@@ -122,6 +123,7 @@ export async function GET(request: NextRequest) {
         username: row.profile.username,
         display_name: row.profile.display_name,
         avatar_url: row.profile.avatar_url,
+        icon_config: row.profile.icon_config,
       },
       stats: rowToEntry(row),
     }));

@@ -7,10 +7,11 @@ import type { StatCategory } from "@/lib/supabase/types";
 import type { CardWithPicks } from "@/lib/cards/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import type { IconConfig } from "@/lib/icons/types";
+import UserAvatar from "@/components/icons/UserAvatar";
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
 
@@ -20,7 +21,10 @@ import PlayerAvatar from "@/components/players/PlayerAvatar";
 
 interface SharedCardData {
   card: CardWithPicks;
+  userId: string | null;
   username: string;
+  avatarUrl: string | null;
+  iconConfig: IconConfig | null;
 }
 
 async function getSharedCard(token: string): Promise<SharedCardData | null> {
@@ -36,21 +40,28 @@ async function getSharedCard(token: string): Promise<SharedCardData | null> {
 
   const typedCard = card as CardWithPicks;
 
-  // Fetch username from profiles if user_id exists
+  // Fetch profile data if user_id exists
   let username = "Anonymous";
-  if (typedCard.user_id) {
+  let avatarUrl: string | null = null;
+  let iconConfig: IconConfig | null = null;
+  const userId = typedCard.user_id ?? null;
+
+  if (userId) {
     const { data: profile } = await admin
       .from("profiles")
-      .select("username")
-      .eq("id", typedCard.user_id)
+      .select("username, avatar_url, icon_config")
+      .eq("id", userId)
       .single();
 
     if (profile) {
-      username = (profile as { username: string }).username;
+      const p = profile as { username: string; avatar_url: string | null; icon_config: Record<string, unknown> | null };
+      username = p.username;
+      avatarUrl = p.avatar_url;
+      iconConfig = p.icon_config as IconConfig | null;
     }
   }
 
-  return { card: typedCard, username };
+  return { card: typedCard, userId, username, avatarUrl, iconConfig };
 }
 
 // ---------------------------------------------------------------------------
@@ -122,7 +133,7 @@ export default async function ShareCardPage({ params }: PageProps) {
     notFound();
   }
 
-  const { card, username } = data;
+  const { card, userId, username, avatarUrl, iconConfig } = data;
   const date = new Date(card.created_at).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -149,11 +160,13 @@ export default async function ShareCardPage({ params }: PageProps) {
         <CardContent className="flex flex-col gap-2 border-b border-border px-5 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
-                  {username.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar
+                avatarUrl={avatarUrl}
+                iconConfig={iconConfig}
+                userId={userId ?? "anonymous"}
+                username={username}
+                size={32}
+              />
               <span className="font-semibold">{username}</span>
             </div>
             <span className="text-xs text-muted-foreground">{date}</span>
