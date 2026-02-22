@@ -6,18 +6,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import Image from "next/image";
+import UserAvatar from "@/components/icons/UserAvatar";
+import type { IconConfig } from "@/lib/icons/types";
 import { CheckCircle2, AlertCircle, Pencil, X, Loader2 } from "lucide-react";
 import { updateUsername } from "@/lib/auth/actions";
 
 interface ProfileSectionProps {
   avatarUrl: string | null;
+  iconConfig: IconConfig | null;
+  userId: string;
   username: string;
 }
 
 export default function ProfileSection({
   avatarUrl,
+  iconConfig,
+  userId,
   username,
 }: ProfileSectionProps) {
   const { supabase, user } = useAuth();
@@ -101,7 +105,6 @@ export default function ProfileSection({
     setUsernameError(null);
   }
 
-  const initial = currentUsername.charAt(0).toUpperCase();
   const previewUrl = avatar || avatarUrl;
 
   async function handleSave(e: React.FormEvent) {
@@ -153,20 +156,13 @@ export default function ProfileSection({
         )}
 
         <div className="mb-6 flex items-center gap-4">
-          <Avatar className="h-16 w-16">
-            {previewUrl && (
-              <Image
-                src={previewUrl}
-                alt={currentUsername}
-                width={64}
-                height={64}
-                className="aspect-square size-full object-cover"
-              />
-            )}
-            <AvatarFallback className="bg-primary/10 text-2xl font-bold text-primary">
-              {initial}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar
+            avatarUrl={previewUrl || null}
+            iconConfig={iconConfig}
+            userId={userId}
+            username={currentUsername}
+            size={64}
+          />
           <div>
             <p className="font-medium">{currentUsername}</p>
             {editingUsername ? (

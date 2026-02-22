@@ -1,7 +1,7 @@
-import Image from "next/image";
 import type { Profile, LeaderboardEntry } from "@/lib/supabase/types";
+import type { IconConfig } from "@/lib/icons/types";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import UserAvatar from "@/components/icons/UserAvatar";
 import { ProfileStatsGrid, ProfileStatCard } from "@/components/profile/ProfileStatsGrid";
 
 interface ProfileCardProps {
@@ -16,26 +16,17 @@ export default function ProfileCard({ profile, email, stats }: ProfileCardProps)
     year: "numeric",
   });
 
-  const initial = profile.username.charAt(0).toUpperCase();
-
   return (
     <Card className="border-border bg-card">
       <CardContent className="p-6">
         <div className="flex items-center gap-4">
-          <Avatar className="h-16 w-16">
-            {profile.avatar_url && (
-              <Image
-                src={profile.avatar_url}
-                alt={profile.username}
-                width={64}
-                height={64}
-                className="aspect-square size-full object-cover"
-              />
-            )}
-            <AvatarFallback className="bg-primary/10 text-2xl font-bold text-primary">
-              {initial}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar
+            avatarUrl={profile.avatar_url}
+            iconConfig={profile.icon_config as IconConfig | null}
+            userId={profile.id}
+            username={profile.username}
+            size={64}
+          />
           <div>
             <h2 className="text-xl font-bold">{profile.username}</h2>
             <p className="text-sm text-muted-foreground">@{profile.username}</p>
