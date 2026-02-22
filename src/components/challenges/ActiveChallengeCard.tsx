@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedButton } from "@/components/ui/animated-button";
@@ -34,6 +35,7 @@ export default function ActiveChallengeCard({
   userHasCard = false,
   actionLoading,
 }: ActiveChallengeCardProps) {
+  const router = useRouter();
   const prefersReduced = useReducedMotion();
   const isLoading = actionLoading === challenge.id;
 
@@ -151,7 +153,7 @@ export default function ActiveChallengeCard({
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      window.location.href = `/props?challenge_id=${challenge.id}`;
+                      router.push(`/props?challenge_id=${challenge.id}`);
                     }}
                   >
                     Make Picks
