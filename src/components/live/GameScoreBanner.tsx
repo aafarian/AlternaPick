@@ -42,9 +42,10 @@ export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) 
 
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-      {games.map((game) => {
+      {games.map((game, idx) => {
         const isScheduled = game.status === "scheduled";
         const isLive = game.status === "live";
+        const key = `${game.external_event_id}-${idx}`;
 
         const inner = (
           <div
@@ -95,7 +96,7 @@ export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) 
 
         return game.game_url ? (
           <button
-            key={game.external_event_id}
+            key={key}
             type="button"
             onClick={(e) => {
               e.preventDefault();
@@ -106,7 +107,7 @@ export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) 
             {inner}
           </button>
         ) : (
-          <div key={game.external_event_id}>{inner}</div>
+          <div key={key}>{inner}</div>
         );
       })}
     </div>

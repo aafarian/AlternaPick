@@ -4,27 +4,30 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import ChallengeCard from "@/components/challenges/ChallengeCard";
+import IncomingChallengeCard from "@/components/challenges/IncomingChallengeCard";
+import ActiveChallengeCard from "@/components/challenges/ActiveChallengeCard";
+import HistoryChallengeCard from "@/components/challenges/HistoryChallengeCard";
 import CreateChallengeModal from "@/components/challenges/CreateChallengeModal";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, AlertCircle, Loader2, Search, X, Inbox, Send } from "lucide-react";
+import { Plus, AlertCircle, Loader2, Search, X, Inbox, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 import { SlideUp, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { AnimatedSkeleton } from "@/components/ui/animated-skeleton";
 
-type Tab = "feed" | "inbox" | "sent";
+type Tab = "active" | "history";
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: "feed", label: "Feed" },
-  { key: "inbox", label: "Inbox" },
-  { key: "sent", label: "Sent" },
+  { key: "active", label: "Active" },
+  { key: "history", label: "History" },
 ];
 
 const COMPLETED_PAGE_SIZE = 15;
+const INCOMING_COLLAPSED_LIMIT = 3;
 
 export default function ChallengesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -39,7 +42,7 @@ export default function ChallengesPage() {
   const [loadingMoreCompleted, setLoadingMoreCompleted] = useState(false);
 
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>("feed");
+  const [activeTab, setActiveTab] = useState<Tab>("active");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +50,7 @@ export default function ChallengesPage() {
   const [userCardChallengeIds, setUserCardChallengeIds] = useState<Set<string>>(
     new Set()
   );
+  const [incomingExpanded, setIncomingExpanded] = useState(false);
 
   const prefersReduced = useReducedMotion();
 
@@ -124,9 +128,9 @@ export default function ChallengesPage() {
     }
   }, [loadingMoreCompleted, hasMoreCompleted, completedChallenges.length, fetchCompleted]);
 
-  // IntersectionObserver for infinite scroll
+  // IntersectionObserver for infinite scroll (active only on history tab)
   useEffect(() => {
-    if (activeTab !== "feed" || !hasMoreCompleted) return;
+    if (activeTab !== "history" || !hasMoreCompleted) return;
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
 
@@ -209,9 +213,14 @@ export default function ChallengesPage() {
   const filteredInbox = inboxChallenges.filter(matchesSearch);
   const filteredSent = sentChallenges.filter(matchesSearch);
 
-  const feedEmpty = filteredActive.length === 0 && filteredCompleted.length === 0;
-  const inboxCount = inboxChallenges.length;
-  const sentCount = sentChallenges.length;
+  // Incoming section: cap at 3 when collapsed
+  const visibleIncoming = incomingExpanded
+    ? filteredInbox
+    : filteredInbox.slice(0, INCOMING_COLLAPSED_LIMIT);
+  const hiddenIncomingCount = filteredInbox.length - INCOMING_COLLAPSED_LIMIT;
+
+  // Tab badge count
+  const activeTabCount = filteredActive.length + filteredSent.length;
 
   if (authLoading) {
     return (
@@ -298,24 +307,133 @@ export default function ChallengesPage() {
         )}
       </AnimatePresence>
 
-      {/* Tabs */}
+      {/* Pinned Incoming Section (always visible, outside tabs) */}
+      {!loading && filteredInbox.length > 0 && (
+        <FadeIn>
+          <div className="flex flex-col gap-2">
+            {/* Section header */}
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-amber-500" />
+              <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                Incoming
+              </h3>
+              <Badge className="bg-amber-500 text-white h-4.5 min-w-4.5 px-1.5 text-[10px]">
+                {filteredInbox.length}
+              </Badge>
+            </div>
+
+            {/* Incoming cards with per-card exit animation */}
+            <div className="flex flex-col gap-2">
+              <AnimatePresence initial={false}>
+                {visibleIncoming.map((challenge, i) => (
+                  <motion.div
+                    key={challenge.id}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    transition={{
+                      duration: prefersReduced ? 0 : 0.3,
+                      delay: prefersReduced ? 0 : i * 0.06,
+                    }}
+                    layout={!prefersReduced}
+                  >
+                    <IncomingChallengeCard
+                      challenge={challenge}
+                      currentUserId={userId}
+                      onAccept={(id) => handleAction(id, "accept")}
+                      onDecline={(id) => handleAction(id, "decline")}
+                      actionLoading={actionLoading}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+
+            {/* "View X more" expander */}
+            {hiddenIncomingCount > 0 && (
+              <motion.button
+                type="button"
+                onClick={() => setIncomingExpanded(!incomingExpanded)}
+                className="flex items-center gap-1 self-start rounded-md px-2 py-1 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/10 hover:text-amber-300"
+                whileTap={prefersReduced ? undefined : { scale: 0.97 }}
+              >
+                <motion.span
+                  animate={{ rotate: incomingExpanded ? 180 : 0 }}
+                  transition={{ duration: prefersReduced ? 0 : 0.25 }}
+                  className="inline-flex"
+                >
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </motion.span>
+                {incomingExpanded
+                  ? "Show less"
+                  : `View ${hiddenIncomingCount} more`}
+              </motion.button>
+            )}
+          </div>
+        </FadeIn>
+      )}
+
+      {/* Pinned Sent Section (outside tabs, below incoming) */}
+      {!loading && filteredSent.length > 0 && (
+        <FadeIn delay={filteredInbox.length > 0 ? 0.1 : 0}>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                Sent
+              </h3>
+              <Badge className="bg-muted text-muted-foreground h-4.5 min-w-4.5 px-1.5 text-[10px]">
+                {filteredSent.length}
+              </Badge>
+            </div>
+            <div className="flex flex-col gap-2">
+              <AnimatePresence initial={false}>
+                {filteredSent.map((challenge, i) => (
+                  <motion.div
+                    key={challenge.id}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    transition={{
+                      duration: prefersReduced ? 0 : 0.3,
+                      delay: prefersReduced ? 0 : i * 0.06,
+                    }}
+                    layout={!prefersReduced}
+                  >
+                    <ChallengeCard
+                      challenge={challenge}
+                      currentUserId={userId}
+                      onAccept={(id) => handleAction(id, "accept")}
+                      onDecline={(id) => handleAction(id, "decline")}
+                      onCancel={(id) => handleAction(id, "cancel")}
+                      actionLoading={actionLoading}
+                      userHasCard={userCardChallengeIds.has(challenge.id)}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          </div>
+        </FadeIn>
+      )}
+
+      {/* Tabs: Active / History */}
       <FadeIn delay={0.2}>
         <div className="flex items-center gap-1 rounded-lg bg-secondary/50 p-1">
           {TABS.map((tab) => {
-            const count = tab.key === "inbox" ? inboxCount : tab.key === "sent" ? sentCount : 0;
-            const isActive = activeTab === tab.key;
+            const count = tab.key === "active" ? activeTabCount : 0;
+            const isTabActive = activeTab === tab.key;
             return (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={cn(
                   "relative flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
-                  isActive
+                  isTabActive
                     ? "text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                {isActive && (
+                {isTabActive && (
                   <motion.div
                     layoutId="challenge-tab-indicator"
                     className="absolute inset-0 rounded-md bg-background shadow-sm"
@@ -328,14 +446,7 @@ export default function ChallengesPage() {
                 )}
                 <span className="relative z-10">{tab.label}</span>
                 {count > 0 && (
-                  <Badge
-                    className={cn(
-                      "relative z-10 h-4.5 min-w-4.5 px-1.5 text-[10px]",
-                      tab.key === "inbox"
-                        ? "bg-amber-500 text-white"
-                        : "bg-muted text-muted-foreground"
-                    )}
-                  >
+                  <Badge className="relative z-10 h-4.5 min-w-4.5 px-1.5 text-[10px] bg-muted text-muted-foreground">
                     {count}
                   </Badge>
                 )}
@@ -357,11 +468,11 @@ export default function ChallengesPage() {
             exit={{ opacity: 0 }}
             transition={{ duration: prefersReduced ? 0 : 0.2 }}
           >
-            {activeTab === "feed" ? (
-              feedEmpty ? (
+            {activeTab === "active" ? (
+              filteredActive.length === 0 ? (
                 <AnimatedEmptyState
                   icon={<Inbox className="h-8 w-8" />}
-                  title="No challenges yet"
+                  title="No active challenges"
                   action={
                     <Button
                       variant="link"
@@ -373,125 +484,49 @@ export default function ChallengesPage() {
                   }
                 />
               ) : (
-                <div className="flex flex-col gap-5">
-                  {/* Active section */}
-                  {filteredActive.length > 0 && (
-                    <FadeIn>
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                          <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                            Active
-                          </h3>
-                        </div>
-                        <StaggerChildren staggerDelay={0.06} className="flex flex-col gap-2">
-                          {filteredActive.map((challenge) => (
-                            <StaggerItem key={challenge.id}>
-                              <ChallengeCard
-                                challenge={challenge}
-                                currentUserId={userId}
-                                onAccept={(id) => handleAction(id, "accept")}
-                                onDecline={(id) => handleAction(id, "decline")}
-                                onCancel={(id) => handleAction(id, "cancel")}
-                                actionLoading={actionLoading}
-                                userHasCard={userCardChallengeIds.has(challenge.id)}
-                              />
-                            </StaggerItem>
-                          ))}
-                        </StaggerChildren>
-                      </div>
-                    </FadeIn>
-                  )}
-
-                  {/* Completed section */}
-                  {filteredCompleted.length > 0 && (
-                    <FadeIn delay={filteredActive.length > 0 ? 0.15 : 0}>
-                      <div className="flex flex-col gap-2">
-                        <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                          Completed
-                        </h3>
-                        <StaggerChildren staggerDelay={0.06} className="flex flex-col gap-2">
-                          {filteredCompleted.map((challenge) => (
-                            <StaggerItem key={challenge.id}>
-                              <ChallengeCard
-                                challenge={challenge}
-                                currentUserId={userId}
-                                onAccept={(id) => handleAction(id, "accept")}
-                                onDecline={(id) => handleAction(id, "decline")}
-                                onCancel={(id) => handleAction(id, "cancel")}
-                                actionLoading={actionLoading}
-                                userHasCard={userCardChallengeIds.has(challenge.id)}
-                              />
-                            </StaggerItem>
-                          ))}
-                        </StaggerChildren>
-
-                        {/* Infinite scroll sentinel */}
-                        {hasMoreCompleted && (
-                          <div ref={sentinelRef} className="flex justify-center py-4">
-                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                          </div>
-                        )}
-                      </div>
-                    </FadeIn>
-                  )}
-                </div>
-              )
-            ) : activeTab === "inbox" ? (
-              filteredInbox.length === 0 ? (
-                <AnimatedEmptyState
-                  icon={<Inbox className="h-8 w-8" />}
-                  title="No incoming challenges"
-                  description="When someone challenges you, it'll show up here"
-                />
-              ) : (
-                <StaggerChildren staggerDelay={0.06} className="flex flex-col gap-2">
-                  {filteredInbox.map((challenge) => (
+                <StaggerChildren staggerDelay={0.06} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {filteredActive.map((challenge) => (
                     <StaggerItem key={challenge.id}>
-                      <ChallengeCard
+                      <ActiveChallengeCard
                         challenge={challenge}
                         currentUserId={userId}
-                        onAccept={(id) => handleAction(id, "accept")}
-                        onDecline={(id) => handleAction(id, "decline")}
-                        onCancel={(id) => handleAction(id, "cancel")}
-                        actionLoading={actionLoading}
                         userHasCard={userCardChallengeIds.has(challenge.id)}
+                        actionLoading={actionLoading}
                       />
                     </StaggerItem>
                   ))}
                 </StaggerChildren>
               )
             ) : (
-              filteredSent.length === 0 ? (
+              /* History tab */
+              filteredCompleted.length === 0 ? (
                 <AnimatedEmptyState
-                  icon={<Send className="h-8 w-8" />}
-                  title="No pending sent challenges"
-                  action={
-                    <Button
-                      variant="link"
-                      onClick={() => setModalOpen(true)}
-                      className="text-primary"
-                    >
-                      Challenge a friend!
-                    </Button>
-                  }
+                  icon={<Inbox className="h-8 w-8" />}
+                  title="No challenge history yet"
                 />
               ) : (
-                <StaggerChildren staggerDelay={0.06} className="flex flex-col gap-2">
-                  {filteredSent.map((challenge) => (
-                    <StaggerItem key={challenge.id}>
-                      <ChallengeCard
-                        challenge={challenge}
-                        currentUserId={userId}
-                        onAccept={(id) => handleAction(id, "accept")}
-                        onDecline={(id) => handleAction(id, "decline")}
-                        onCancel={(id) => handleAction(id, "cancel")}
-                        actionLoading={actionLoading}
-                        userHasCard={userCardChallengeIds.has(challenge.id)}
-                      />
-                    </StaggerItem>
-                  ))}
-                </StaggerChildren>
+                <div className="flex flex-col gap-2">
+                  <StaggerChildren
+                    staggerDelay={0.06}
+                    className="grid grid-cols-1 md:grid-cols-2 gap-3"
+                  >
+                    {filteredCompleted.map((challenge) => (
+                      <StaggerItem key={challenge.id} className="h-full">
+                        <HistoryChallengeCard
+                          challenge={challenge}
+                          currentUserId={userId}
+                        />
+                      </StaggerItem>
+                    ))}
+                  </StaggerChildren>
+
+                  {/* Infinite scroll sentinel */}
+                  {hasMoreCompleted && (
+                    <div ref={sentinelRef} className="flex justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
               )
             )}
           </motion.div>

@@ -20,13 +20,15 @@ export function formatTimeAgo(timestamp: string, compact = false): string {
   if (compact) {
     if (diffMins < 60) return `${diffMins}m`;
     if (diffHours < 24) return `${diffHours}h`;
-    return `${diffDays}d`;
+    if (diffDays < 7) return `${diffDays}d`;
+    return new Date(then).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   }
 
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays === 1) return "yesterday";
-  return `${diffDays}d ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return new Date(then).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 /**
