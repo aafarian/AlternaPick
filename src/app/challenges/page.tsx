@@ -484,20 +484,18 @@ export default function ChallengesPage() {
                   }
                 />
               ) : (
-                <div className="flex flex-col gap-2">
-                  <StaggerChildren staggerDelay={0.06} className="flex flex-col gap-2">
-                    {filteredActive.map((challenge) => (
-                      <StaggerItem key={challenge.id}>
-                        <ActiveChallengeCard
-                          challenge={challenge}
-                          currentUserId={userId}
-                          userHasCard={userCardChallengeIds.has(challenge.id)}
-                          actionLoading={actionLoading}
-                        />
-                      </StaggerItem>
-                    ))}
-                  </StaggerChildren>
-                </div>
+                <StaggerChildren staggerDelay={0.06} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {filteredActive.map((challenge) => (
+                    <StaggerItem key={challenge.id}>
+                      <ActiveChallengeCard
+                        challenge={challenge}
+                        currentUserId={userId}
+                        userHasCard={userCardChallengeIds.has(challenge.id)}
+                        actionLoading={actionLoading}
+                      />
+                    </StaggerItem>
+                  ))}
+                </StaggerChildren>
               )
             ) : (
               /* History tab */

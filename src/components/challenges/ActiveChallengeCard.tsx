@@ -19,11 +19,11 @@ interface ActiveChallengeCardProps {
 }
 
 /**
- * A mini-matchup card for active/accepted challenges.
+ * A compact matchup card for active/accepted challenges.
  *
- * Shows both players' avatars facing each other with a "VS" indicator,
- * game mode badge, status text, and a "Make Picks" CTA when the user
- * hasn't submitted a card yet.
+ * Horizontal layout: avatars + names inline with VS indicator,
+ * game mode badge, status, and "Make Picks" CTA. Designed for
+ * 2-column grid display with minimal dead space.
  *
  * Applies pulsing glow animation via `animate-active-glow` and a hover
  * lift effect. Both respect `prefers-reduced-motion`.
@@ -74,8 +74,8 @@ export default function ActiveChallengeCard({
             !prefersReduced && "animate-active-glow"
           )}
         >
-          <CardContent className="flex flex-col gap-3 px-4 py-3">
-            {/* Top row: game mode badge + relative time */}
+          <CardContent className="flex flex-col gap-2 px-3 py-2.5">
+            {/* Top row: game mode badge + live indicator + relative time */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {challenge.game_mode && (
@@ -92,44 +92,44 @@ export default function ActiveChallengeCard({
                   </span>
                 </div>
               </div>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-[11px] text-muted-foreground">
                 {relativeTime}
               </span>
             </div>
 
-            {/* Matchup row: avatar VS avatar */}
-            <div className="flex items-center justify-center gap-3">
+            {/* Matchup row: inline horizontal — avatar name VS name avatar */}
+            <div className="flex items-center justify-between">
               {/* Current user - left side */}
-              <div className="flex flex-col items-center gap-1">
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <Avatar className="h-7 w-7 shrink-0">
+                  <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                     {currentUserInitial}
                   </AvatarFallback>
                 </Avatar>
-                <span className="max-w-[80px] truncate text-xs font-semibold">
+                <span className="truncate text-sm font-semibold">
                   {currentUser.username}
                 </span>
               </div>
 
               {/* VS indicator */}
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
                 VS
               </div>
 
               {/* Opponent - right side */}
-              <div className="flex flex-col items-center gap-1">
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate text-sm font-semibold text-right">
+                  {opponent.username}
+                </span>
+                <Avatar className="h-7 w-7 shrink-0">
+                  <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                     {opponentInitial}
                   </AvatarFallback>
                 </Avatar>
-                <span className="max-w-[80px] truncate text-xs font-semibold">
-                  {opponent.username}
-                </span>
               </div>
             </div>
 
-            {/* Status text + Make Picks CTA */}
+            {/* Bottom row: status text + Make Picks CTA */}
             <div className="flex items-center justify-between">
               <span
                 className={cn(
@@ -147,6 +147,7 @@ export default function ActiveChallengeCard({
                     disabled={isLoading}
                     loading={isLoading}
                     loadingText="..."
+                    className="h-7 px-2.5 text-xs"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
