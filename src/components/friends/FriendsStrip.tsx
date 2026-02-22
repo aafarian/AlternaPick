@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 import type { FriendRequest } from "./FriendRequestCard";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import UserAvatar from "@/components/icons/UserAvatar";
+import { parseIconConfig } from "@/lib/icons/parse";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,9 +46,6 @@ export default function FriendsStrip({ friends, onUnfriend }: FriendsStripProps)
       <AnimatePresence mode="popLayout">
         {friends.map((friend, index) => {
           const profile = friend.friend_profile;
-          const initials = profile.username
-            .slice(0, 2)
-            .toUpperCase();
           const firstName = profile.username;
 
           return (
@@ -70,14 +68,15 @@ export default function FriendsStrip({ friends, onUnfriend }: FriendsStripProps)
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="group flex w-16 shrink-0 flex-col items-center gap-1.5 outline-none">
-                    <Avatar className="h-12 w-12 ring-2 ring-transparent transition-all duration-200 group-hover:ring-primary/40 group-hover:shadow-[0_0_12px_rgba(0,210,106,0.2)] group-focus-visible:ring-primary">
-                      {profile.avatar_url && (
-                        <AvatarImage src={profile.avatar_url} alt={profile.username} />
-                      )}
-                      <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="rounded-full ring-2 ring-transparent transition-all duration-200 group-hover:ring-primary/40 group-hover:shadow-[0_0_12px_rgba(0,210,106,0.2)] group-focus-visible:ring-primary">
+                      <UserAvatar
+                        avatarUrl={profile.avatar_url}
+                        iconConfig={parseIconConfig(profile.icon_config)}
+                        userId={profile.id}
+                        username={profile.username}
+                        size={48}
+                      />
+                    </div>
                     <span className="w-full truncate text-center text-[11px] text-muted-foreground group-hover:text-foreground">
                       {firstName}
                     </span>

@@ -14,6 +14,7 @@ interface UserSearchResult {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
+  icon_config: Record<string, unknown> | null;
   friendship_status: FriendshipStatusLabel;
 }
 
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     const { data: profiles, error: searchError } = await (
       supabase.from("profiles") as any
     )
-      .select("id, username, display_name, avatar_url")
+      .select("id, username, display_name, avatar_url, icon_config")
       .ilike("username", `%${query}%`)
       .neq("id", user.id)
       .limit(10);
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
 
     const matchedProfiles = (profiles ?? []) as Pick<
       Profile,
-      "id" | "username" | "display_name" | "avatar_url"
+      "id" | "username" | "display_name" | "avatar_url" | "icon_config"
     >[];
 
     if (matchedProfiles.length === 0) {
@@ -112,6 +113,7 @@ export async function GET(request: NextRequest) {
       username: p.username,
       display_name: p.display_name,
       avatar_url: p.avatar_url,
+      icon_config: p.icon_config,
       friendship_status: statusMap.get(p.id) ?? "none",
     }));
 

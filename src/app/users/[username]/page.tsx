@@ -7,6 +7,7 @@ import type {
   Achievement,
   UserAchievement,
 } from "@/lib/supabase/types";
+import { parseIconConfig } from "@/lib/icons/parse";
 import BadgeGrid from "@/components/profile/BadgeGrid";
 import { AnimatedUserProfile } from "./AnimatedUserProfile";
 
@@ -94,6 +95,7 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
           id: profile.id,
           username: profile.username,
           avatar_url: profile.avatar_url,
+          icon_config: parseIconConfig(profile.icon_config),
         }}
         memberSince={memberSince}
         initial={initial}

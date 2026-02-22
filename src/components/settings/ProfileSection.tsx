@@ -1,32 +1,32 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useAuth } from "@/lib/auth/auth-context";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import Image from "next/image";
+import UserAvatar from "@/components/icons/UserAvatar";
+import IconBuilder from "@/components/icons/builder/IconBuilder";
+import type { IconConfig } from "@/lib/icons/types";
 import { CheckCircle2, AlertCircle, Pencil, X, Loader2 } from "lucide-react";
 import { updateUsername } from "@/lib/auth/actions";
+import { toast } from "sonner";
 
 interface ProfileSectionProps {
   avatarUrl: string | null;
+  iconConfig: IconConfig | null;
+  userId: string;
   username: string;
 }
 
 export default function ProfileSection({
   avatarUrl,
+  iconConfig,
+  userId,
   username,
 }: ProfileSectionProps) {
-  const { supabase, user } = useAuth();
-  const [avatar, setAvatar] = useState(avatarUrl ?? "");
+  const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
+  const [savedIconConfig, setSavedIconConfig] = useState<IconConfig | null>(null);
 
   // Username editing state
   const [currentUsername, setCurrentUsername] = useState(username);
@@ -91,7 +91,7 @@ export default function ProfileSection({
     setCurrentUsername(newUsername);
     setEditingUsername(false);
     setUsernameSaving(false);
-    setMessage({ type: "success", text: "Username updated!" });
+    toast.success("Username updated!");
   }
 
   function handleUsernameCancel() {
@@ -101,28 +101,33 @@ export default function ProfileSection({
     setUsernameError(null);
   }
 
-  const initial = currentUsername.charAt(0).toUpperCase();
-  const previewUrl = avatar || avatarUrl;
+  // The active icon config: saved config takes priority, then the prop from the server
+  const activeIconConfig = savedIconConfig ?? iconConfig;
+  // After saving an icon, avatarUrl is cleared server-side; reflect that locally too
+  const activeAvatarUrl = savedIconConfig ? null : avatarUrl;
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    if (!user) return;
-
+  async function handleIconSave(config: IconConfig) {
     setSaving(true);
-    setMessage(null);
 
-    const { error } = await (supabase.from("profiles") as any)
-      .update({
-        avatar_url: avatar || null,
-      })
-      .eq("id", user.id);
+    try {
+      const res = await fetch("/api/profile/icon", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      });
 
-    setSaving(false);
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Failed to save icon");
+      }
 
-    if (error) {
-      setMessage({ type: "error", text: error.message });
-    } else {
-      setMessage({ type: "success", text: "Profile updated!" });
+      setSavedIconConfig(config);
+      toast.success("Icon saved!");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save icon");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -130,43 +135,18 @@ export default function ProfileSection({
     <div className="rounded-xl border border-border bg-card p-6">
       <h2 className="text-lg font-semibold">Profile Settings</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Manage your avatar and public profile information.
+        Manage your icon and public profile information.
       </p>
 
       <div className="mt-6">
-        {message && (
-          <Alert
-            variant={message.type === "error" ? "destructive" : "default"}
-            className={
-              message.type === "success"
-                ? "mb-4 border-neon-green/30 bg-neon-green/10 text-neon-green"
-                : "mb-4"
-            }
-          >
-            {message.type === "success" ? (
-              <CheckCircle2 className="h-4 w-4" />
-            ) : (
-              <AlertCircle className="h-4 w-4" />
-            )}
-            <AlertDescription>{message.text}</AlertDescription>
-          </Alert>
-        )}
-
         <div className="mb-6 flex items-center gap-4">
-          <Avatar className="h-16 w-16">
-            {previewUrl && (
-              <Image
-                src={previewUrl}
-                alt={currentUsername}
-                width={64}
-                height={64}
-                className="aspect-square size-full object-cover"
-              />
-            )}
-            <AvatarFallback className="bg-primary/10 text-2xl font-bold text-primary">
-              {initial}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar
+            avatarUrl={activeAvatarUrl}
+            iconConfig={activeIconConfig}
+            userId={userId}
+            username={currentUsername}
+            size={64}
+          />
           <div>
             <p className="font-medium">{currentUsername}</p>
             {editingUsername ? (
@@ -235,23 +215,12 @@ export default function ProfileSection({
           </div>
         </div>
 
-        <form onSubmit={handleSave} className="flex flex-col gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="settings_avatar_url">Avatar URL</Label>
-            <Input
-              id="settings_avatar_url"
-              type="url"
-              value={avatar}
-              onChange={(e) => setAvatar(e.target.value)}
-              placeholder="https://..."
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button type="submit" disabled={saving} size="sm">
-              {saving ? "Saving..." : "Save Changes"}
-            </Button>
-          </div>
-        </form>
+        <IconBuilder
+          initialConfig={activeIconConfig}
+          userId={userId}
+          onSave={handleIconSave}
+          saving={saving}
+        />
       </div>
     </div>
   );

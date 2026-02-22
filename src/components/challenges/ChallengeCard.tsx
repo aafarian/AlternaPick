@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedButton } from "@/components/ui/animated-button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import UserAvatar from "@/components/icons/UserAvatar";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import { useCardHover } from "@/components/challenges/useCardHover";
+import { parseIconConfig } from "@/lib/icons/parse";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
@@ -36,7 +37,6 @@ export default function ChallengeCard({
   const isChallenger = challenge.challenger_id === currentUserId;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
   const displayName = opponent.display_name || opponent.username;
-  const avatarInitial = displayName.charAt(0).toUpperCase();
   const isLoading = actionLoading === challenge.id;
   const { hoverProps, prefersReduced } = useCardHover();
 
@@ -84,18 +84,15 @@ export default function ChallengeCard({
         >
           <CardContent className="flex items-center gap-3 px-4 py-2.5">
             {/* Avatar */}
-            <Avatar className="h-9 w-9 shrink-0">
-              <AvatarFallback
-                className={cn(
-                  "text-sm font-bold",
-                  isIncoming
-                    ? "bg-amber-500/15 text-amber-400"
-                    : "bg-primary/10 text-primary"
-                )}
-              >
-                {avatarInitial}
-              </AvatarFallback>
-            </Avatar>
+            <div className="shrink-0">
+              <UserAvatar
+                avatarUrl={opponent.avatar_url}
+                iconConfig={parseIconConfig(opponent.icon_config)}
+                userId={opponent.id}
+                username={opponent.username}
+                size={36}
+              />
+            </div>
 
             {/* Info — name row has inline status */}
             <div className="min-w-0 flex-1">

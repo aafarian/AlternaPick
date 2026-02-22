@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedButton } from "@/components/ui/animated-button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import UserAvatar from "@/components/icons/UserAvatar";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import { useCardHover } from "@/components/challenges/useCardHover";
+import { parseIconConfig } from "@/lib/icons/parse";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
@@ -46,8 +47,6 @@ export default function ActiveChallengeCard({
 
   const currentUserName = currentUser.display_name || currentUser.username;
   const opponentName = opponent.display_name || opponent.username;
-  const currentUserInitial = currentUserName.charAt(0).toUpperCase();
-  const opponentInitial = opponentName.charAt(0).toUpperCase();
 
   // Determine status text
   const isActive = challenge.status === "active";
@@ -91,11 +90,15 @@ export default function ActiveChallengeCard({
             <div className="flex items-center justify-between">
               {/* Current user - left side */}
               <div className="flex min-w-0 items-center gap-1.5">
-                <Avatar className="h-7 w-7 shrink-0">
-                  <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
-                    {currentUserInitial}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="shrink-0">
+                  <UserAvatar
+                    avatarUrl={currentUser.avatar_url}
+                    iconConfig={parseIconConfig(currentUser.icon_config)}
+                    userId={currentUser.id}
+                    username={currentUser.username}
+                    size={28}
+                  />
+                </div>
                 <span className="truncate text-sm font-semibold">
                   {currentUserName}
                 </span>
@@ -111,11 +114,15 @@ export default function ActiveChallengeCard({
                 <span className="truncate text-sm font-semibold text-right">
                   {opponentName}
                 </span>
-                <Avatar className="h-7 w-7 shrink-0">
-                  <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
-                    {opponentInitial}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="shrink-0">
+                  <UserAvatar
+                    avatarUrl={opponent.avatar_url}
+                    iconConfig={parseIconConfig(opponent.icon_config)}
+                    userId={opponent.id}
+                    username={opponent.username}
+                    size={28}
+                  />
+                </div>
               </div>
             </div>
 

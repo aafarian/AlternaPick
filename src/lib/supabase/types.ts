@@ -91,6 +91,7 @@ export interface Database {
           streak_freezes_available: number;
           last_streak_freeze_reset: string | null;
           referred_by: string | null;
+          icon_config: Record<string, unknown> | null;
           created_at: string;
           updated_at: string;
         };
@@ -105,6 +106,7 @@ export interface Database {
           streak_freezes_available?: number;
           last_streak_freeze_reset?: string | null;
           referred_by?: string | null;
+          icon_config?: Record<string, unknown> | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -119,6 +121,7 @@ export interface Database {
           streak_freezes_available?: number;
           last_streak_freeze_reset?: string | null;
           referred_by?: string | null;
+          icon_config?: Record<string, unknown> | null;
           updated_at?: string;
         };
       };

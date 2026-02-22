@@ -411,11 +411,12 @@ async function _cachePropsInternal(
   // Step 1: Find prop IDs referenced by picks — must NOT be deleted
   const allPropsResult = await supabase
     .from("props")
-    .select("id, game_id, player_name, stat_category, line, line_history")
+    .select("id, game_id, player_name, stat_category, line, line_history, player_id, player_team, player_position")
     .in("game_id", gameIds);
   const allProps = (allPropsResult.data ?? []) as {
     id: string; game_id: string; player_name: string; stat_category: string;
     line: number; line_history: Array<{ t: string; l: number }> | null;
+    player_id: string | null; player_team: string | null; player_position: string | null;
   }[];
 
   const allPropIds = allProps.map((p) => p.id);
@@ -430,6 +431,19 @@ async function _cachePropsInternal(
     pickedPropIds = new Set(
       ((picksResult.data ?? []) as { prop_id: string }[]).map((r) => r.prop_id)
     );
+  }
+
+  // Build a lookup of existing enrichment data so a failed stats-service sync
+  // doesn't wipe player_id/team/position on re-inserted props.
+  const oldEnrichment = new Map<string, { player_id: string | null; player_team: string | null; player_position: string | null }>();
+  for (const p of allProps) {
+    if (p.player_id || p.player_team || p.player_position) {
+      oldEnrichment.set(`${p.game_id}|${p.player_name.toLowerCase()}|${p.stat_category}`, {
+        player_id: p.player_id,
+        player_team: p.player_team,
+        player_position: p.player_position,
+      });
+    }
   }
 
   // Step 2: Delete only props that have NO picks
@@ -465,12 +479,18 @@ async function _cachePropsInternal(
       // Skip props with invalid lines (e.g. NaN from missing point values)
       if (prop.line == null || Number.isNaN(prop.line)) continue;
 
+      // Carry over old enrichment when the stats service is down
+      const freshId = lookupPlayer(prop.player_name, playerIdMap);
+      const freshTeam = lookupPlayer(prop.player_name, playerTeamMap);
+      const freshPosition = lookupPlayer(prop.player_name, playerPositionMap);
+      const old = oldEnrichment.get(`${gameId}|${prop.player_name.toLowerCase()}|${prop.stat_category}`);
+
       propRows.push({
         game_id: gameId,
         player_name: prop.player_name,
-        player_id: lookupPlayer(prop.player_name, playerIdMap),
-        player_team: lookupPlayer(prop.player_name, playerTeamMap),
-        player_position: lookupPlayer(prop.player_name, playerPositionMap),
+        player_id: freshId ?? old?.player_id ?? null,
+        player_team: freshTeam ?? old?.player_team ?? null,
+        player_position: freshPosition ?? old?.player_position ?? null,
         stat_category: prop.stat_category,
         line: prop.line,
         over_odds: prop.over_odds,

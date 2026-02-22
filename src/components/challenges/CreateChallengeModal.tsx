@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import UserAvatar from "@/components/icons/UserAvatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
@@ -21,6 +21,7 @@ import {
   isValidGameMode,
 } from "@/lib/modes";
 import type { GameMode, CardSize } from "@/lib/modes";
+import { parseIconConfig } from "@/lib/icons/parse";
 import MirrorPropPicker from "./MirrorPropPicker";
 import UserSearchBar from "@/components/friends/UserSearchBar";
 import { useRouter } from "next/navigation";
@@ -39,6 +40,7 @@ interface Friend {
     id: string;
     username: string;
     avatar_url: string | null;
+    icon_config: Record<string, unknown> | null;
   };
 }
 
@@ -370,11 +372,13 @@ export default function CreateChallengeModal({
                             : "border-transparent hover:bg-secondary"
                         )}
                       >
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
-                            {name.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
+                        <UserAvatar
+                          avatarUrl={profile.avatar_url}
+                          iconConfig={parseIconConfig(profile.icon_config)}
+                          userId={profile.id}
+                          username={name}
+                          size={32}
+                        />
                         <div>
                           <div className="text-sm font-bold">{name}</div>
                           </div>

@@ -24,6 +24,7 @@ export interface LeaderboardRow {
     username: string;
     display_name: string | null;
     avatar_url: string | null;
+    icon_config: Record<string, unknown> | null;
   };
 }
 
@@ -87,7 +88,7 @@ async function getGlobalLeaderboardInternal(
 ): Promise<LeaderboardRow[]> {
   const supabase = createAdminClient();
   const query = typedFrom(supabase, "leaderboard_entries").select(
-    "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url)"
+    "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url, icon_config)"
   );
 
   const { data, error } = await applySortOrder(query, sort).range(
@@ -124,7 +125,7 @@ export async function getFriendsLeaderboard(
   // Step 2: Fetch leaderboard entries for these users with profile join
   const query = typedFrom(supabase, "leaderboard_entries")
     .select(
-      "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url)"
+      "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url, icon_config)"
     )
     .in("user_id", userIds);
 
@@ -153,7 +154,7 @@ export async function getUserRank(
     "leaderboard_entries"
   )
     .select(
-      "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url)"
+      "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url, icon_config)"
     )
     .eq("user_id", userId)
     .maybeSingle();

@@ -9,8 +9,8 @@ import { typedFrom } from "@/lib/supabase/typed-queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface ChallengeWithProfiles extends Challenge {
-  challenger: { id: string; username: string; display_name: string | null; avatar_url: string | null };
-  opponent: { id: string; username: string; display_name: string | null; avatar_url: string | null };
+  challenger: { id: string; username: string; display_name: string | null; avatar_url: string | null; icon_config: Record<string, unknown> | null };
+  opponent: { id: string; username: string; display_name: string | null; avatar_url: string | null; icon_config: Record<string, unknown> | null };
   /** Populated for resolved challenges — challenger's card score */
   challenger_score?: number | null;
   /** Populated for resolved challenges — opponent's card score */
@@ -66,7 +66,7 @@ export async function getChallenges(
 
   let query = typedFrom(supabase, "challenges")
     .select(
-      "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url)"
+      "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url, icon_config), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url, icon_config)"
     )
     .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
     .order("created_at", { ascending: false });
@@ -109,7 +109,7 @@ export async function getChallenge(
     "challenges"
   )
     .select(
-      "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url)"
+      "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url, icon_config), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url, icon_config)"
     )
     .eq("id", challengeId)
     .single();
@@ -248,7 +248,7 @@ export async function createChallenge(
   )
     .insert(insertPayload)
     .select(
-      "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url)"
+      "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url, icon_config), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url, icon_config)"
     )
     .single();
 
@@ -343,7 +343,7 @@ export async function respondToChallenge(
     .update({ status: newStatus })
     .eq("id", challengeId)
     .select(
-      "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url)"
+      "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url, icon_config), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url, icon_config)"
     )
     .single();
 

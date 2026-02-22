@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import RankBadge from "./RankBadge";
 import type { LeaderboardEntryWithProfile } from "@/app/api/leaderboard/route";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { parseIconConfig } from "@/lib/icons/parse";
+import UserAvatar from "@/components/icons/UserAvatar";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -32,9 +32,6 @@ export default function LeaderboardRow({
   sort,
 }: LeaderboardRowProps) {
   const { rank, user, stats } = entry;
-  const initials = user.username
-    .slice(0, 2)
-    .toUpperCase();
   const prefersReduced = useReducedMotion();
   const rowRef = useRef<HTMLDivElement | null>(null);
   const trRef = useRef<HTMLTableRowElement | null>(null);
@@ -78,20 +75,14 @@ export default function LeaderboardRow({
               href={isCurrentUser ? "/profile" : `/users/${user.username}`}
               className="flex min-w-0 flex-1 items-center gap-3"
             >
-              <Avatar className="h-10 w-10 shrink-0">
-                {user.avatar_url && (
-                  <Image
-                    src={user.avatar_url}
-                    alt={user.username}
-                    width={40}
-                    height={40}
-                    className="aspect-square size-full object-cover"
-                  />
-                )}
-                <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar
+                avatarUrl={user.avatar_url}
+                iconConfig={parseIconConfig(user.icon_config)}
+                userId={user.id}
+                username={user.username}
+                size={40}
+                className="shrink-0"
+              />
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold">
@@ -138,20 +129,14 @@ export default function LeaderboardRow({
           href={isCurrentUser ? "/profile" : `/users/${user.username}`}
           className="flex items-center gap-3"
         >
-          <Avatar className="h-9 w-9 shrink-0">
-            {user.avatar_url && (
-              <Image
-                src={user.avatar_url}
-                alt={user.username}
-                width={36}
-                height={36}
-                className="aspect-square size-full object-cover"
-              />
-            )}
-            <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar
+            avatarUrl={user.avatar_url}
+            iconConfig={parseIconConfig(user.icon_config)}
+            userId={user.id}
+            username={user.username}
+            size={36}
+            className="shrink-0"
+          />
           <div className="min-w-0">
             <p className="truncate text-sm font-bold">
               {user.username}

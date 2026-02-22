@@ -5,7 +5,8 @@ import Link from "next/link";
 import type { FriendRequest } from "./FriendRequestCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import UserAvatar from "@/components/icons/UserAvatar";
+import { parseIconConfig } from "@/lib/icons/parse";
 
 interface FriendsListProps {
   friends: FriendRequest[];
@@ -44,9 +45,6 @@ export default function FriendsList({ friends, onUnfriend }: FriendsListProps) {
     <div className="grid gap-3 sm:grid-cols-2">
       {friends.map((friend) => {
         const profile = friend.friend_profile;
-        const initials = profile.username
-          .slice(0, 2)
-          .toUpperCase();
         const isConfirming = confirmId === friend.id;
         const isLoading = loading === friend.id;
 
@@ -54,14 +52,14 @@ export default function FriendsList({ friends, onUnfriend }: FriendsListProps) {
           <Card key={friend.id} className="border-border bg-card">
             <CardContent className="flex items-center gap-4 p-4">
               <Link href={`/users/${profile.username}`} className="flex items-center gap-4 min-w-0 flex-1">
-                <Avatar className="h-12 w-12 shrink-0">
-                  {profile.avatar_url && (
-                    <AvatarImage src={profile.avatar_url} alt={profile.username} />
-                  )}
-                  <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar
+                  avatarUrl={profile.avatar_url}
+                  iconConfig={parseIconConfig(profile.icon_config)}
+                  userId={profile.id}
+                  username={profile.username}
+                  size={48}
+                  className="shrink-0"
+                />
 
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-bold hover:text-primary transition-colors">

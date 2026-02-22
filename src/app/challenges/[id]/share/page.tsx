@@ -8,7 +8,8 @@ import {
   CardContent,
   CardFooter,
 } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { parseIconConfig } from "@/lib/icons/parse";
+import UserAvatar from "@/components/icons/UserAvatar";
 import { ArrowRight } from "lucide-react";
 
 // ---------- Helpers ----------
@@ -33,6 +34,8 @@ interface ChallengeData {
 interface ProfileData {
   id: string;
   username: string;
+  avatar_url: string | null;
+  icon_config: Record<string, unknown> | null;
 }
 
 interface CardData {
@@ -44,6 +47,8 @@ interface CardData {
 
 async function fetchChallenge(challengeId: string): Promise<{
   challenge: ChallengeData;
+  challengerProfile: ProfileData | null;
+  opponentProfile: ProfileData | null;
   challengerName: string;
   opponentName: string;
   challengerCard: CardData | null;
@@ -63,7 +68,7 @@ async function fetchChallenge(challengeId: string): Promise<{
   // Fetch profiles
   const { data: profiles } = await admin
     .from("profiles")
-    .select("id, username")
+    .select("id, username, avatar_url, icon_config")
     .in("id", [ch.challenger_id, ch.opponent_id]);
 
   const profileMap = new Map<string, ProfileData>();
@@ -88,7 +93,7 @@ async function fetchChallenge(challengeId: string): Promise<{
   const opponentCard =
     cardsList.find((c) => c.user_id === ch.opponent_id) ?? null;
 
-  return { challenge: ch, challengerName, opponentName, challengerCard, opponentCard };
+  return { challenge: ch, challengerProfile: challengerProfile ?? null, opponentProfile: opponentProfile ?? null, challengerName, opponentName, challengerCard, opponentCard };
 }
 
 // ---------- Metadata ----------
@@ -166,35 +171,26 @@ export async function generateMetadata({
 // ---------- Page Component ----------
 
 function PlayerSide({
+  profile,
   name,
   score,
   isWinner,
 }: {
+  profile: ProfileData | null;
   name: string;
   score: string;
   isWinner: boolean;
 }) {
-  const initial = name.charAt(0).toUpperCase();
-
   return (
     <div className="flex flex-1 flex-col items-center gap-3">
-      <Avatar
-        className={
-          isWinner
-            ? "h-16 w-16 ring-2 ring-neon-green"
-            : "h-16 w-16"
-        }
-      >
-        <AvatarFallback
-          className={
-            isWinner
-              ? "bg-neon-green/20 text-neon-green text-xl font-bold"
-              : "bg-primary/10 text-primary text-xl font-bold"
-          }
-        >
-          {initial}
-        </AvatarFallback>
-      </Avatar>
+      <UserAvatar
+        avatarUrl={profile?.avatar_url ?? null}
+        iconConfig={parseIconConfig(profile?.icon_config)}
+        userId={profile?.id ?? name}
+        username={name}
+        size={64}
+        className={isWinner ? "animate-winner-ring" : undefined}
+      />
       <span className="text-sm font-semibold">{name}</span>
       <span className="text-3xl font-black tabular-nums">{score}</span>
       {isWinner && (
@@ -231,7 +227,7 @@ export default async function ChallengeSharePage({
     );
   }
 
-  const { challenge, challengerName, opponentName, challengerCard, opponentCard } = result;
+  const { challenge, challengerProfile, opponentProfile, challengerName, opponentName, challengerCard, opponentCard } = result;
 
   const challengerScore = challengerCard
     ? `${challengerCard.score}/${challengerCard.total_picks}`
@@ -268,6 +264,7 @@ export default async function ChallengeSharePage({
           {/* Players */}
           <div className="flex items-start gap-4">
             <PlayerSide
+              profile={challengerProfile}
               name={challengerName}
               score={challengerScore}
               isWinner={challengerWon}
@@ -280,6 +277,7 @@ export default async function ChallengeSharePage({
             </div>
 
             <PlayerSide
+              profile={opponentProfile}
               name={opponentName}
               score={opponentScore}
               isWinner={opponentWon}

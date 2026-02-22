@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { SlideUp, ScaleIn, StaggerChildren, StaggerItem } from "@/components/motion";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { AnimatedButton } from "@/components/ui/animated-button";
+import UserAvatar from "@/components/icons/UserAvatar";
+import type { IconConfig } from "@/lib/icons/types";
 import { Swords, UserPlus } from "lucide-react";
 import { motion, useReducedMotion } from "@/lib/motion";
 
@@ -21,6 +21,7 @@ interface AnimatedUserProfileProps {
     id: string;
     username: string;
     avatar_url: string | null;
+    icon_config: IconConfig | null;
   };
   memberSince: string;
   initial: string;
@@ -51,20 +52,13 @@ export function AnimatedUserProfile({
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
             <ScaleIn delay={0.1}>
-              <Avatar className="h-16 w-16">
-                {profile.avatar_url && (
-                  <Image
-                    src={profile.avatar_url}
-                    alt={profile.username}
-                    width={64}
-                    height={64}
-                    className="aspect-square size-full object-cover"
-                  />
-                )}
-                <AvatarFallback className="bg-primary/10 text-2xl font-bold text-primary">
-                  {initial}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar
+                avatarUrl={profile.avatar_url}
+                iconConfig={profile.icon_config}
+                userId={profile.id}
+                username={profile.username}
+                size={64}
+              />
             </ScaleIn>
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-xl font-bold">
