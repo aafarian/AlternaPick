@@ -82,11 +82,11 @@ export default function EmblemPicker({
                           aria-label={emblem.label}
                           onClick={() => onSelect(emblem.id)}
                           className={cn(
-                            "flex items-center justify-center rounded-md p-1 transition-colors",
+                            "flex items-center justify-center rounded-md p-1 transition-all duration-150",
                             "min-h-[44px] min-w-[44px]",
-                            "hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            "hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                             isSelected
-                              ? "ring-2 ring-primary bg-accent"
+                              ? "ring-2 ring-primary ring-offset-2 ring-offset-background bg-accent"
                               : "bg-transparent"
                           )}
                         >

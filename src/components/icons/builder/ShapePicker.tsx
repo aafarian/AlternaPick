@@ -53,6 +53,7 @@ const ShapePicker = memo(function ShapePicker({
                 min-w-[44px] min-h-[44px]
                 cursor-pointer
                 bg-muted/50 hover:bg-muted
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
                 ${isSelected ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "ring-1 ring-border"}
               `}
               onClick={() => onSelect(shape)}

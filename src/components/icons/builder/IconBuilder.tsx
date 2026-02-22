@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Shuffle, Loader2 } from "lucide-react";
 
 import type { IconConfig, IconShape, EmblemId } from "@/lib/icons/types";
@@ -47,27 +47,56 @@ export default function IconBuilder({
     () => initialConfig ?? generateRandomIcon(userId)
   );
 
+  /** Tracks whether the preview should flash (opacity dip) on changes */
+  const [previewFlash, setPreviewFlash] = useState(false);
+  const flashTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Trigger a brief opacity flash on the preview */
+  const triggerFlash = useCallback(() => {
+    setPreviewFlash(true);
+    if (flashTimeout.current) clearTimeout(flashTimeout.current);
+    flashTimeout.current = setTimeout(() => setPreviewFlash(false), 150);
+  }, []);
+
+  /** Clean up timeout on unmount */
+  useEffect(() => {
+    return () => {
+      if (flashTimeout.current) clearTimeout(flashTimeout.current);
+    };
+  }, []);
+
   /* --- Individual field updaters --- */
 
-  const setShape = (shape: IconShape) =>
+  const setShape = (shape: IconShape) => {
     setConfig((prev) => ({ ...prev, shape }));
+    triggerFlash();
+  };
 
-  const setBgColor = (bgColor: string) =>
+  const setBgColor = (bgColor: string) => {
     setConfig((prev) => ({ ...prev, bgColor }));
+    triggerFlash();
+  };
 
-  const setBorderColor = (borderColor: string) =>
+  const setBorderColor = (borderColor: string) => {
     setConfig((prev) => ({ ...prev, borderColor }));
+    triggerFlash();
+  };
 
-  const setEmblemId = (emblemId: EmblemId) =>
+  const setEmblemId = (emblemId: EmblemId) => {
     setConfig((prev) => ({ ...prev, emblemId }));
+    triggerFlash();
+  };
 
-  const setEmblemColor = (emblemColor: string) =>
+  const setEmblemColor = (emblemColor: string) => {
     setConfig((prev) => ({ ...prev, emblemColor }));
+    triggerFlash();
+  };
 
   /* --- Randomize handler --- */
 
   const handleRandomize = () => {
     setConfig(generateRandomIconPure());
+    triggerFlash();
   };
 
   /* --- Save handler --- */
@@ -83,17 +112,24 @@ export default function IconBuilder({
       {/* Live preview + Randomize */}
       <div className="flex items-center gap-4">
         <div className="shrink-0">
-          <UserIcon config={config} size={128} />
+          <UserIcon
+            config={config}
+            size={128}
+            className={`transition-opacity duration-150 ${previewFlash ? "opacity-70" : "opacity-100"}`}
+          />
         </div>
         <div className="flex flex-col gap-2">
-          <p className="text-sm text-muted-foreground">Live Preview</p>
+          <p className="text-sm text-muted-foreground" id="icon-preview-label">
+            Live Preview
+          </p>
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handleRandomize}
+            aria-label="Randomize icon configuration"
           >
-            <Shuffle className="size-4" />
+            <Shuffle className="size-4" aria-hidden="true" />
             Randomize
           </Button>
         </div>
@@ -117,6 +153,7 @@ export default function IconBuilder({
         selected={config.bgColor}
         onSelect={setBgColor}
         label="Background Color"
+        collapsible
       />
 
       <Separator />
@@ -127,6 +164,7 @@ export default function IconBuilder({
         selected={config.borderColor}
         onSelect={setBorderColor}
         label="Border Color"
+        collapsible
       />
 
       <Separator />
@@ -149,6 +187,7 @@ export default function IconBuilder({
         selected={config.emblemColor}
         onSelect={setEmblemColor}
         label="Emblem Color"
+        collapsible
       />
 
       <Separator />
@@ -159,8 +198,9 @@ export default function IconBuilder({
         className="w-full"
         onClick={handleSave}
         disabled={saving}
+        aria-label={saving ? "Saving icon" : "Save icon"}
       >
-        {saving && <Loader2 className="size-4 animate-spin" />}
+        {saving && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
         {saving ? "Saving..." : "Save Icon"}
       </Button>
     </div>
