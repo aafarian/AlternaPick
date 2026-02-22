@@ -11,6 +11,7 @@ import CreateChallengeModal from "@/components/challenges/CreateChallengeModal";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import type { Challenge } from "@/lib/supabase/types";
 import { useChallengesRealtime } from "@/hooks/useChallengesRealtime";
+import { useChallengeToast } from "@/hooks/useChallengeToast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -55,6 +56,7 @@ export default function ChallengesPage() {
   const [incomingExpanded, setIncomingExpanded] = useState(false);
 
   const prefersReduced = useReducedMotion();
+  const { showChallengeToast, markReady } = useChallengeToast();
 
   // Infinite scroll sentinel
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -111,6 +113,8 @@ export default function ChallengesPage() {
   // Debounce: batch rapid-fire Realtime events into a single refetch cycle.
   const debounceCoreRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceCompletedRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Challenge IDs pending toast display (processed after coreChallenges updates)
+  const pendingToastIdsRef = useRef<Set<string>>(new Set());
   const DEBOUNCE_MS = 500;
 
   const debouncedFetchCore = useCallback(() => {
@@ -135,6 +139,20 @@ export default function ChallengesPage() {
     };
   }, []);
 
+  // Fire pending toasts once coreChallenges has been updated by fetchCore.
+  // This runs after the debounced fetchCore sets state, so we can look up
+  // challenger profile data from the freshly-fetched coreChallenges.
+  useEffect(() => {
+    if (pendingToastIdsRef.current.size === 0) return;
+    const uid = user?.id;
+    if (!uid) return;
+    const ids = Array.from(pendingToastIdsRef.current);
+    pendingToastIdsRef.current.clear();
+    for (const id of ids) {
+      showChallengeToast(id, coreChallenges, uid);
+    }
+  }, [coreChallenges, user?.id, showChallengeToast]);
+
   // Realtime callbacks — memoised so the hook's ref-tracking stays stable.
   const handleRealtimeInsert = useCallback(
     (challenge: Challenge) => {
@@ -145,8 +163,15 @@ export default function ChallengesPage() {
       // Whether the current user is the opponent (incoming) or the challenger
       // (sent), refreshing core covers both sections.
       debouncedFetchCore();
+
+      // Queue toast for incoming challenges (where current user is the opponent).
+      // The toast will fire once the debounced fetchCore updates coreChallenges,
+      // giving us access to the challenger's profile info.
+      if (challenge.opponent_id === user?.id) {
+        pendingToastIdsRef.current.add(challenge.id);
+      }
     },
-    [debouncedFetchCore]
+    [debouncedFetchCore, user?.id]
   );
 
   const handleRealtimeUpdate = useCallback(
@@ -171,7 +196,7 @@ export default function ChallengesPage() {
 
   // Subscribe to Realtime (graceful no-op when userId is undefined or
   // supabase is unavailable — page continues to work via manual refresh).
-  useChallengesRealtime({
+  const { isConnected } = useChallengesRealtime({
     userId: user?.id,
     supabase,
     onInsert: handleRealtimeInsert,
@@ -189,8 +214,11 @@ export default function ChallengesPage() {
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Failed to load challenges");
       })
-      .finally(() => setLoading(false));
-  }, [user, authLoading, fetchCore, fetchCompleted]);
+      .finally(() => {
+        setLoading(false);
+        markReady();
+      });
+  }, [user, authLoading, fetchCore, fetchCompleted, markReady]);
 
   // Load more completed challenges
   const loadMore = useCallback(async () => {
@@ -326,7 +354,25 @@ export default function ChallengesPage() {
       {/* Header */}
       <SlideUp>
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight">Challenges</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight">Challenges</h1>
+            {/* Connection status indicator — visible only when disconnected */}
+            <AnimatePresence>
+              {!isConnected && !loading && (
+                <motion.span
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0 }}
+                  transition={{ duration: prefersReduced ? 0 : 0.2 }}
+                  title="Reconnecting to live updates..."
+                  className={cn(
+                    "inline-block h-2 w-2 rounded-full bg-amber-500",
+                    !prefersReduced && "animate-pulse"
+                  )}
+                />
+              )}
+            </AnimatePresence>
+          </div>
           <Button onClick={() => setModalOpen(true)} size="sm">
             <Plus className="mr-1.5 h-4 w-4" />
             New Challenge
