@@ -35,3 +35,14 @@ jobs:
           if [ "$HTTP_CODE" != "200" ]; then
             echo "::warning::Challenge expiry returned HTTP $HTTP_CODE: $BODY"
           fi
+      - name: Compute daily recaps
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.APP_URL }}/api/recaps/compute" \
+            -H "Authorization: Bearer ${{ secrets.SYNC_SECRET }}" \
+            -H "Content-Type: application/json") || true
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "Recap compute response (HTTP $HTTP_CODE): $BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::warning::Recap compute returned HTTP $HTTP_CODE: $BODY"
+          fi

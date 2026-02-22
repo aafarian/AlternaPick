@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import CardDetail from "@/components/cards/CardDetail";
 import { CARD_SELECT, type CardWithPicks } from "@/lib/cards/api";
 import { FadeIn } from "@/components/motion";
@@ -20,10 +21,11 @@ export default async function CardDetailPage({
     redirect("/auth/login");
   }
 
-  const { data } = await (supabase.from("cards") as any)
+  // Use admin client to bypass RLS so any user can view any card
+  const admin = createAdminClient();
+  const { data } = await (admin.from("cards") as any)
     .select(CARD_SELECT)
     .eq("id", id)
-    .eq("user_id", user.id)
     .single();
 
   if (!data) {

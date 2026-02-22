@@ -451,14 +451,20 @@ export async function fetchSoccerBoxscoreLive(
 export async function fetchPlayerGamelog(
   playerId: string,
   sport: string = "nba",
-  lastN: number = 5
+  lastN: number = 5,
+  playerName?: string
 ): Promise<PlayerGamelogData> {
   const cacheKey = `gamelog:${sport}:${playerId}:${lastN}`;
   const cached = getCached<PlayerGamelogData>(cacheKey);
   if (cached) return cached;
 
+  let url = `${STATS_SERVICE_URL}/players/${encodeURIComponent(playerId)}/gamelog?sport=${encodeURIComponent(sport)}&last_n=${lastN}`;
+  if (playerName) {
+    url += `&player_name=${encodeURIComponent(playerName)}`;
+  }
+
   const response = await fetchWithRetry(
-    `${STATS_SERVICE_URL}/players/${encodeURIComponent(playerId)}/gamelog?sport=${encodeURIComponent(sport)}&last_n=${lastN}`,
+    url,
     0,
     10_000
   );

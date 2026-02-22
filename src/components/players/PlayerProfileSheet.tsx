@@ -206,7 +206,7 @@ export default function PlayerProfileSheet() {
     setAverages(null);
 
     fetch(
-      `/api/players/${encodeURIComponent(target.playerId)}/gamelog?sport=${encodeURIComponent(target.sport ?? "nba")}&last_n=5`
+      `/api/players/${encodeURIComponent(target.playerId)}/gamelog?sport=${encodeURIComponent(target.sport ?? "nba")}&last_n=5&name=${encodeURIComponent(target.playerName)}`
     )
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load game log");
@@ -238,7 +238,7 @@ export default function PlayerProfileSheet() {
     setError(null);
 
     fetch(
-      `/api/players/${encodeURIComponent(target.playerId)}/gamelog?sport=${encodeURIComponent(target.sport ?? "nba")}&last_n=5`
+      `/api/players/${encodeURIComponent(target.playerId)}/gamelog?sport=${encodeURIComponent(target.sport ?? "nba")}&last_n=5&name=${encodeURIComponent(target.playerName)}`
     )
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load game log");

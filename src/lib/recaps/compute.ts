@@ -12,10 +12,6 @@ import { typedFrom } from "@/lib/supabase/typed-queries";
 import type {
   StatCategory,
   PickSelection,
-  Card,
-  Pick,
-  Prop,
-  Game,
 } from "@/lib/supabase/types";
 
 // ---------------------------------------------------------------------------
@@ -29,6 +25,9 @@ export interface TrapOrLockProp {
   line: number;
   hitRate: number;
   pickCount: number;
+  playerId: string | null;
+  team: string | null;
+  sport: string;
 }
 
 export interface PlayerSpotlight {
@@ -36,12 +35,17 @@ export interface PlayerSpotlight {
   hitRate: number;
   pickCount: number;
   sport: string;
+  playerId: string | null;
+  team: string | null;
 }
 
 export interface MostPickedPlayer {
   playerName: string;
   pickCount: number;
   hitRate: number;
+  playerId: string | null;
+  team: string | null;
+  sport: string;
 }
 
 export interface MostPickedProp {
@@ -52,17 +56,70 @@ export interface MostPickedProp {
   selectionBreakdown: { over: number; under: number };
   pickCount: number;
   hitRate: number;
+  playerId: string | null;
+  team: string | null;
+  sport: string;
+}
+
+export interface PerfectCardEntry {
+  userId: string;
+  username: string;
+  cardId: string;
+  score: number;
+  totalPicks: number;
 }
 
 export interface PerfectCards {
   count: number;
   userIds: string[];
+  usernames: string[];
+  entries?: PerfectCardEntry[];
 }
 
 export interface BreakdownEntry {
   key: string;
   hitRate: number;
   pickCount: number;
+}
+
+export interface ConsensusPick {
+  propId: string;
+  playerName: string;
+  statCategory: StatCategory;
+  line: number;
+  pickCount: number;
+  dominantSide: "over" | "under";
+  dominantPct: number;
+  wasCorrect: boolean;
+  sport: string;
+}
+
+export type SpotlightType =
+  | "player_trap"      // player who fooled pickers
+  | "player_lock"      // player everyone got right
+  | "prop_unanimous"   // everyone picked the same side
+  | "category_hot"     // stat category with extreme hit rate
+  | "category_cold"    // stat category that burned everyone
+  | "team_hot"         // team with high hit rate
+  | "team_cold"        // team that burned pickers
+  | "over_under_skew"  // heavy lean to one side
+  | "perfect_cards"    // perfect card count
+  | "consensus_upset"  // crowd agreed but was wrong
+  | "most_picked"      // most picked player or prop
+  | "sport_hot"        // sport with high hit rate
+  | "sport_cold"       // sport that burned pickers
+
+export interface Spotlight {
+  type: SpotlightType;
+  sentiment: "positive" | "negative" | "neutral";
+  headline: string;
+  detail: string;
+  value: number;         // the key number (percentage, count)
+  valueSuffix: string;   // "%", " picks", "x", etc.
+  subject?: string;      // player name, team name, category, etc.
+  sport?: string;        // sport key for player/team spotlights
+  playerId?: string;     // player external ID for headshot rendering
+  team?: string;         // team name
 }
 
 export interface RecapData {
@@ -75,9 +132,14 @@ export interface RecapData {
   perfectCards: PerfectCards;
   statCategoryBreakdown: BreakdownEntry[];
   sportBreakdown: BreakdownEntry[];
+  teamBreakdown: BreakdownEntry[];
+  consensusPicks: ConsensusPick[];
+  spotlights: Spotlight[];
   platformHitRate: number;
   totalPicks: number;
   totalCards: number;
+  overCount: number;
+  underCount: number;
 }
 
 export interface PickHighlight {
@@ -133,6 +195,14 @@ export interface WeeklyRecapData {
   startDate: string;
   /** Date range: end date string */
   endDate: string;
+  /** Team breakdown aggregated across the week */
+  teamBreakdown: BreakdownEntry[];
+  /** Consensus picks with 70%+ agreement across the week */
+  consensusPicks: ConsensusPick[];
+  /** Auto-generated weekly fun facts */
+  spotlights: Spotlight[];
+  /** Full RecapData aggregated across the week, for tile grid rendering */
+  recapData: RecapData | null;
 }
 
 export interface WeeklyPersonalStats {
@@ -156,7 +226,9 @@ interface ResolvedPickRow {
   actual_value: number | null;
   props: {
     id: string;
+    player_id: string | null;
     player_name: string;
+    player_team: string | null;
     stat_category: StatCategory;
     line: number;
     games: { sport: string } | null;
@@ -169,6 +241,275 @@ interface ResolvedCardRow {
   score: number;
   total_picks: number;
   picks: ResolvedPickRow[];
+}
+
+// ---------------------------------------------------------------------------
+// Shared aggregation helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Core aggregation logic: given flattened picks and cards, compute all
+ * RecapData fields (trap/lock props, spotlights, breakdowns, etc.).
+ */
+async function buildRecapData(
+  allPicks: ResolvedPickRow[],
+  cards: ResolvedCardRow[],
+  supabase: ReturnType<typeof createAdminClient>,
+): Promise<RecapData> {
+  // Platform-level hit rate
+  const totalHits = allPicks.filter((p) => p.result === "hit").length;
+  const totalPicks = allPicks.length;
+  const platformHitRate = totalPicks > 0 ? totalHits / totalPicks : 0;
+
+  // Group picks by prop_id
+  const byProp = groupBy(allPicks, (p) => p.prop_id);
+
+  // Group picks by player name
+  const byPlayer = groupBy(allPicks, (p) => p.props?.player_name ?? "Unknown");
+
+  // Group picks by stat category
+  const byCategory = groupBy(
+    allPicks,
+    (p) => p.props?.stat_category ?? "unknown"
+  );
+
+  // Group picks by sport
+  const bySport = groupBy(
+    allPicks,
+    (p) => p.props?.games?.sport ?? "unknown"
+  );
+
+  // --- Adaptive thresholds ---
+  const trapLockMin = Math.max(2, Math.floor(totalPicks / 20));
+  const spotlightMin = Math.max(2, Math.floor(totalPicks / 25));
+
+  // --- Trap Props (hit rate < 0.30) ---
+  const trapProps: TrapOrLockProp[] = [];
+  const lockProps: TrapOrLockProp[] = [];
+
+  for (const [propId, picks] of Object.entries(byProp)) {
+    if (picks.length < trapLockMin) continue;
+    const hits = picks.filter((p) => p.result === "hit").length;
+    const rate = hits / picks.length;
+    const representative = picks[0];
+    const entry: TrapOrLockProp = {
+      propId,
+      playerName: representative.props?.player_name ?? "Unknown",
+      statCategory: representative.props?.stat_category ?? "points",
+      line: representative.props?.line ?? 0,
+      hitRate: round(rate, 3),
+      pickCount: picks.length,
+      playerId: representative.props?.player_id ?? null,
+      team: representative.props?.player_team ?? null,
+      sport: representative.props?.games?.sport ?? "unknown",
+    };
+    if (rate < 0.3) trapProps.push(entry);
+    if (rate > 0.75) lockProps.push(entry);
+  }
+
+  // Sort trap by lowest hit rate, lock by highest
+  trapProps.sort((a, b) => a.hitRate - b.hitRate);
+  lockProps.sort((a, b) => b.hitRate - a.hitRate);
+
+  // --- Player Spotlights ---
+  const playerSpotlightsGood: PlayerSpotlight[] = [];
+  const playerSpotlightsBad: PlayerSpotlight[] = [];
+
+  for (const [playerName, picks] of Object.entries(byPlayer)) {
+    if (picks.length < spotlightMin) continue;
+    const hits = picks.filter((p) => p.result === "hit").length;
+    const rate = hits / picks.length;
+    const sport = picks[0].props?.games?.sport ?? "unknown";
+    const entry: PlayerSpotlight = {
+      playerName,
+      hitRate: round(rate, 3),
+      pickCount: picks.length,
+      sport,
+      playerId: picks[0].props?.player_id ?? null,
+      team: picks[0].props?.player_team ?? null,
+    };
+    if (rate > 0.8) playerSpotlightsGood.push(entry);
+    if (rate < 0.25) playerSpotlightsBad.push(entry);
+  }
+
+  playerSpotlightsGood.sort((a, b) => b.hitRate - a.hitRate);
+  playerSpotlightsBad.sort((a, b) => a.hitRate - b.hitRate);
+
+  // --- Most Picked Players (top 5) ---
+  const mostPickedPlayers: MostPickedPlayer[] = Object.entries(byPlayer)
+    .map(([playerName, picks]) => ({
+      playerName,
+      pickCount: picks.length,
+      hitRate: round(
+        picks.filter((p) => p.result === "hit").length / picks.length,
+        3
+      ),
+      playerId: picks[0].props?.player_id ?? null,
+      team: picks[0].props?.player_team ?? null,
+      sport: picks[0].props?.games?.sport ?? "unknown",
+    }))
+    .sort((a, b) => b.pickCount - a.pickCount)
+    .slice(0, 5);
+
+  // --- Most Picked Props (top 5) ---
+  const mostPickedProps: MostPickedProp[] = Object.entries(byProp)
+    .map(([propId, picks]) => {
+      const overCount = picks.filter((p) => p.selection === "over").length;
+      const underCount = picks.filter((p) => p.selection === "under").length;
+      const hits = picks.filter((p) => p.result === "hit").length;
+      const representative = picks[0];
+      return {
+        propId,
+        playerName: representative.props?.player_name ?? "Unknown",
+        statCategory:
+          representative.props?.stat_category ?? ("points" as StatCategory),
+        line: representative.props?.line ?? 0,
+        selectionBreakdown: { over: overCount, under: underCount },
+        pickCount: picks.length,
+        hitRate: round(hits / picks.length, 3),
+        playerId: representative.props?.player_id ?? null,
+        team: representative.props?.player_team ?? null,
+        sport: representative.props?.games?.sport ?? "unknown",
+      };
+    })
+    .sort((a, b) => b.pickCount - a.pickCount)
+    .slice(0, 5);
+
+  // --- Perfect Cards (require 3+ picks to count) ---
+  const perfectCardEntries = cards.filter(
+    (c) => c.total_picks >= 3 && c.score === c.total_picks
+  );
+  const perfectCardUserIds = [
+    ...new Set(
+      perfectCardEntries
+        .map((c) => c.user_id)
+        .filter((id): id is string => id !== null)
+    ),
+  ];
+
+  // Fetch usernames for perfect card users
+  let perfectUsernames: string[] = [];
+  if (perfectCardUserIds.length > 0) {
+    const { data: profileRows } = await typedFrom(supabase, "profiles")
+      .select("id, username")
+      .in("id", perfectCardUserIds);
+    perfectUsernames = (profileRows ?? []).map(
+      (p: { id: string; username: string }) => p.username
+    );
+  }
+
+  const perfectCards: PerfectCards = {
+    count: perfectCardEntries.length,
+    userIds: perfectCardUserIds,
+    usernames: perfectUsernames,
+  };
+
+  // --- Stat Category Breakdown ---
+  const statCategoryBreakdown: BreakdownEntry[] = Object.entries(byCategory)
+    .map(([key, picks]) => ({
+      key,
+      hitRate: round(
+        picks.filter((p) => p.result === "hit").length / picks.length,
+        3
+      ),
+      pickCount: picks.length,
+    }))
+    .sort((a, b) => b.pickCount - a.pickCount);
+
+  // --- Sport Breakdown ---
+  const sportBreakdown: BreakdownEntry[] = Object.entries(bySport)
+    .map(([key, picks]) => ({
+      key,
+      hitRate: round(
+        picks.filter((p) => p.result === "hit").length / picks.length,
+        3
+      ),
+      pickCount: picks.length,
+    }))
+    .sort((a, b) => b.pickCount - a.pickCount);
+
+  // --- Team Breakdown ---
+  const byTeam = groupBy(
+    allPicks.filter((p) => p.props?.player_team),
+    (p) => p.props!.player_team!
+  );
+  const teamBreakdown: BreakdownEntry[] = Object.entries(byTeam)
+    .map(([key, picks]) => ({
+      key,
+      hitRate: round(
+        picks.filter((p) => p.result === "hit").length / picks.length,
+        3
+      ),
+      pickCount: picks.length,
+    }))
+    .sort((a, b) => b.pickCount - a.pickCount);
+
+  // --- Consensus Picks (67%+ one side, 2+ picks) ---
+  const consensusPicks: ConsensusPick[] = [];
+  for (const [propId, picks] of Object.entries(byProp)) {
+    if (picks.length < 2) continue;
+    const overCount = picks.filter((p) => p.selection === "over").length;
+    const underCount = picks.length - overCount;
+    const dominant = overCount >= underCount ? "over" : "under";
+    const dominantCount = dominant === "over" ? overCount : underCount;
+    const dominantPct = dominantCount / picks.length;
+    if (dominantPct < 0.67) continue;
+
+    const dominantPicks = picks.filter((p) => p.selection === dominant);
+    const dominantHits = dominantPicks.filter((p) => p.result === "hit").length;
+    const wasCorrect = dominantHits / dominantPicks.length > 0.5;
+    const representative = picks[0];
+
+    consensusPicks.push({
+      propId,
+      playerName: representative.props?.player_name ?? "Unknown",
+      statCategory: representative.props?.stat_category ?? "points",
+      line: representative.props?.line ?? 0,
+      pickCount: picks.length,
+      dominantSide: dominant,
+      dominantPct: round(dominantPct, 2),
+      wasCorrect,
+      sport: representative.props?.games?.sport ?? "unknown",
+    });
+  }
+  consensusPicks.sort((a, b) => b.dominantPct - a.dominantPct || b.pickCount - a.pickCount);
+  consensusPicks.splice(10); // cap at 10
+
+  // --- Spotlights ---
+  const spotlights = generateSpotlights({
+    allPicks,
+    byProp,
+    byPlayer,
+    bySport,
+    byTeam,
+    consensusPicks,
+    perfectCards: { count: perfectCardEntries.length, userIds: perfectCardUserIds, usernames: perfectUsernames },
+    platformHitRate,
+    totalPicks,
+    sportBreakdown,
+    statCategoryBreakdown,
+    teamBreakdown,
+  });
+
+  return {
+    trapProps,
+    lockProps,
+    playerSpotlightsGood,
+    playerSpotlightsBad,
+    mostPickedPlayers,
+    mostPickedProps,
+    perfectCards,
+    statCategoryBreakdown,
+    sportBreakdown,
+    teamBreakdown,
+    consensusPicks,
+    spotlights,
+    platformHitRate: round(platformHitRate, 3),
+    totalPicks,
+    totalCards: cards.length,
+    overCount: allPicks.filter((p) => p.selection === "over").length,
+    underCount: allPicks.filter((p) => p.selection === "under").length,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -201,7 +542,7 @@ export async function computeDailyRecap(
   // ------------------------------------------------------------------
   const { data: rawCards, error } = await typedFrom(supabase, "cards")
     .select(
-      "id, user_id, score, total_picks, picks(id, card_id, prop_id, selection, result, actual_value, props:prop_id(id, player_name, stat_category, line, games:game_id(sport)))"
+      "id, user_id, score, total_picks, picks(id, card_id, prop_id, selection, result, actual_value, props:prop_id(id, player_id, player_name, player_team, stat_category, line, games:game_id(sport)))"
     )
     .eq("status", "resolved")
     .gte("resolved_at", startOfDay)
@@ -233,167 +574,9 @@ export async function computeDailyRecap(
   }
 
   // ------------------------------------------------------------------
-  // 2. Compute aggregations
+  // 2. Compute aggregations via shared helper
   // ------------------------------------------------------------------
-
-  // Platform-level hit rate
-  const totalHits = allPicks.filter((p) => p.result === "hit").length;
-  const totalPicks = allPicks.length;
-  const platformHitRate = totalPicks > 0 ? totalHits / totalPicks : 0;
-
-  // Group picks by prop_id
-  const byProp = groupBy(allPicks, (p) => p.prop_id);
-
-  // Group picks by player name
-  const byPlayer = groupBy(allPicks, (p) => p.props?.player_name ?? "Unknown");
-
-  // Group picks by stat category
-  const byCategory = groupBy(
-    allPicks,
-    (p) => p.props?.stat_category ?? "unknown"
-  );
-
-  // Group picks by sport
-  const bySport = groupBy(
-    allPicks,
-    (p) => p.props?.games?.sport ?? "unknown"
-  );
-
-  // --- Trap Props (hit rate < 0.30, min 5 picks) ---
-  const trapProps: TrapOrLockProp[] = [];
-  const lockProps: TrapOrLockProp[] = [];
-
-  for (const [propId, picks] of Object.entries(byProp)) {
-    if (picks.length < 5) continue;
-    const hits = picks.filter((p) => p.result === "hit").length;
-    const rate = hits / picks.length;
-    const representative = picks[0];
-    const entry: TrapOrLockProp = {
-      propId,
-      playerName: representative.props?.player_name ?? "Unknown",
-      statCategory: representative.props?.stat_category ?? "points",
-      line: representative.props?.line ?? 0,
-      hitRate: round(rate, 3),
-      pickCount: picks.length,
-    };
-    if (rate < 0.3) trapProps.push(entry);
-    if (rate > 0.75) lockProps.push(entry);
-  }
-
-  // Sort trap by lowest hit rate, lock by highest
-  trapProps.sort((a, b) => a.hitRate - b.hitRate);
-  lockProps.sort((a, b) => b.hitRate - a.hitRate);
-
-  // --- Player Spotlights ---
-  const playerSpotlightsGood: PlayerSpotlight[] = [];
-  const playerSpotlightsBad: PlayerSpotlight[] = [];
-
-  for (const [playerName, picks] of Object.entries(byPlayer)) {
-    if (picks.length < 3) continue;
-    const hits = picks.filter((p) => p.result === "hit").length;
-    const rate = hits / picks.length;
-    const sport = picks[0].props?.games?.sport ?? "unknown";
-    const entry: PlayerSpotlight = {
-      playerName,
-      hitRate: round(rate, 3),
-      pickCount: picks.length,
-      sport,
-    };
-    if (rate > 0.8) playerSpotlightsGood.push(entry);
-    if (rate < 0.25) playerSpotlightsBad.push(entry);
-  }
-
-  playerSpotlightsGood.sort((a, b) => b.hitRate - a.hitRate);
-  playerSpotlightsBad.sort((a, b) => a.hitRate - b.hitRate);
-
-  // --- Most Picked Players (top 5) ---
-  const mostPickedPlayers: MostPickedPlayer[] = Object.entries(byPlayer)
-    .map(([playerName, picks]) => ({
-      playerName,
-      pickCount: picks.length,
-      hitRate: round(
-        picks.filter((p) => p.result === "hit").length / picks.length,
-        3
-      ),
-    }))
-    .sort((a, b) => b.pickCount - a.pickCount)
-    .slice(0, 5);
-
-  // --- Most Picked Props (top 5) ---
-  const mostPickedProps: MostPickedProp[] = Object.entries(byProp)
-    .map(([propId, picks]) => {
-      const overCount = picks.filter((p) => p.selection === "over").length;
-      const underCount = picks.filter((p) => p.selection === "under").length;
-      const hits = picks.filter((p) => p.result === "hit").length;
-      const representative = picks[0];
-      return {
-        propId,
-        playerName: representative.props?.player_name ?? "Unknown",
-        statCategory:
-          representative.props?.stat_category ?? ("points" as StatCategory),
-        line: representative.props?.line ?? 0,
-        selectionBreakdown: { over: overCount, under: underCount },
-        pickCount: picks.length,
-        hitRate: round(hits / picks.length, 3),
-      };
-    })
-    .sort((a, b) => b.pickCount - a.pickCount)
-    .slice(0, 5);
-
-  // --- Perfect Cards ---
-  const perfectCardEntries = cards.filter(
-    (c) => c.total_picks > 0 && c.score === c.total_picks
-  );
-  const perfectCardUserIds = [
-    ...new Set(
-      perfectCardEntries
-        .map((c) => c.user_id)
-        .filter((id): id is string => id !== null)
-    ),
-  ];
-  const perfectCards: PerfectCards = {
-    count: perfectCardEntries.length,
-    userIds: perfectCardUserIds,
-  };
-
-  // --- Stat Category Breakdown ---
-  const statCategoryBreakdown: BreakdownEntry[] = Object.entries(byCategory)
-    .map(([key, picks]) => ({
-      key,
-      hitRate: round(
-        picks.filter((p) => p.result === "hit").length / picks.length,
-        3
-      ),
-      pickCount: picks.length,
-    }))
-    .sort((a, b) => b.pickCount - a.pickCount);
-
-  // --- Sport Breakdown ---
-  const sportBreakdown: BreakdownEntry[] = Object.entries(bySport)
-    .map(([key, picks]) => ({
-      key,
-      hitRate: round(
-        picks.filter((p) => p.result === "hit").length / picks.length,
-        3
-      ),
-      pickCount: picks.length,
-    }))
-    .sort((a, b) => b.pickCount - a.pickCount);
-
-  const recapData: RecapData = {
-    trapProps,
-    lockProps,
-    playerSpotlightsGood,
-    playerSpotlightsBad,
-    mostPickedPlayers,
-    mostPickedProps,
-    perfectCards,
-    statCategoryBreakdown,
-    sportBreakdown,
-    platformHitRate: round(platformHitRate, 3),
-    totalPicks,
-    totalCards: cards.length,
-  };
+  const recapData = await buildRecapData(allPicks, cards, supabase);
 
   // ------------------------------------------------------------------
   // 3. Compute personal highlights per user
@@ -454,7 +637,7 @@ export async function computeDailyRecap(
 
     // Determine which callouts this user appears in
     const featuredIn: string[] = [];
-    if (perfectCardUserIds.includes(userId)) {
+    if (recapData.perfectCards.userIds.includes(userId)) {
       featuredIn.push("perfectCards");
     }
 
@@ -463,7 +646,7 @@ export async function computeDailyRecap(
       hitRate: userHitRate,
       bestPick,
       worstPick,
-      platformAvgHitRate: round(platformHitRate, 3),
+      platformAvgHitRate: recapData.platformHitRate,
       featuredIn,
     };
   }
@@ -473,7 +656,7 @@ export async function computeDailyRecap(
   // ------------------------------------------------------------------
   const featuredUserIds = [
     ...new Set([
-      ...perfectCardUserIds,
+      ...recapData.perfectCards.userIds,
       // Users in personal highlights who are featured
       ...Object.entries(personalHighlights)
         .filter(([, h]) => h.featuredIn.length > 0)
@@ -526,7 +709,7 @@ export async function computeDailyRecap(
       user_id: userId,
       type: "daily_recap",
       title: "Daily Recap Available",
-      body: perfectCardUserIds.includes(userId)
+      body: recapData.perfectCards.userIds.includes(userId)
         ? "You hit a perfect card yesterday! Check out the daily recap."
         : "The daily recap is ready. See how you and everyone else did.",
       metadata: { recap_date: date },
@@ -555,10 +738,11 @@ export async function computeDailyRecap(
  * endDate's recap row.
  */
 export async function computeWeeklyRecap(
-  endDate?: string
+  endDate?: string,
+  startDate?: string,
 ): Promise<WeeklyRecapData> {
   const end = endDate ?? getYesterdayDateString();
-  const start = getDateMinusDays(end, 6);
+  const start = startDate ?? getDateMinusDays(end, 6);
 
   const supabase = createAdminClient();
 
@@ -628,7 +812,7 @@ export async function computeWeeklyRecap(
     "cards"
   )
     .select(
-      "id, user_id, score, total_picks, picks(id, card_id, prop_id, selection, result, actual_value, props:prop_id(id, player_name, stat_category, line, games:game_id(sport)))"
+      "id, user_id, score, total_picks, picks(id, card_id, prop_id, selection, result, actual_value, props:prop_id(id, player_id, player_name, player_team, stat_category, line, games:game_id(sport)))"
     )
     .eq("status", "resolved")
     .gte("resolved_at", startOfWindow)
@@ -653,19 +837,30 @@ export async function computeWeeklyRecap(
   }
 
   // ------------------------------------------------------------------
-  // 4. Top player of the week (highest hit rate, min 10 picks)
+  // 4. Build full RecapData via shared helper (breakdowns, spotlights, etc.)
   // ------------------------------------------------------------------
+  let weeklyRecapData: RecapData | null = null;
+  if (allPicks.length > 0) {
+    weeklyRecapData = await buildRecapData(allPicks, cards, supabase);
+  }
+
+  // ------------------------------------------------------------------
+  // 5. Derive topPlayer / worstTrap / bestLock from raw picks
+  //    (these use different thresholds than buildRecapData)
+  // ------------------------------------------------------------------
+  const weeklyTopMin = Math.max(3, Math.floor(weekTotalPicks / 30));
   let topPlayer: WeeklyRecapData["topPlayer"] = null;
+  let worstTrap: TrapOrLockProp | null = null;
+  let bestLock: TrapOrLockProp | null = null;
 
   if (allPicks.length > 0) {
-    const byPlayer = groupBy(
-      allPicks,
-      (p) => p.props?.player_name ?? "Unknown"
-    );
+    const weekByPlayer = groupBy(allPicks, (p) => p.props?.player_name ?? "Unknown");
+    const weekByProp = groupBy(allPicks, (p) => p.prop_id);
 
+    // Top player: highest hit rate with min picks
     let bestRate = -1;
-    for (const [playerName, picks] of Object.entries(byPlayer)) {
-      if (picks.length < 10) continue;
+    for (const [playerName, picks] of Object.entries(weekByPlayer)) {
+      if (picks.length < weeklyTopMin) continue;
       const hits = picks.filter((p) => p.result === "hit").length;
       const rate = hits / picks.length;
       if (rate > bestRate) {
@@ -678,22 +873,12 @@ export async function computeWeeklyRecap(
         };
       }
     }
-  }
 
-  // ------------------------------------------------------------------
-  // 5. Worst trap & best lock of the week (by prop, min 10 picks)
-  // ------------------------------------------------------------------
-  let worstTrap: TrapOrLockProp | null = null;
-  let bestLock: TrapOrLockProp | null = null;
-
-  if (allPicks.length > 0) {
-    const byProp = groupBy(allPicks, (p) => p.prop_id);
-
+    // Worst trap & best lock: extreme hit rates with min picks
     let lowestRate = Infinity;
     let highestRate = -Infinity;
-
-    for (const [propId, picks] of Object.entries(byProp)) {
-      if (picks.length < 10) continue;
+    for (const [propId, picks] of Object.entries(weekByProp)) {
+      if (picks.length < weeklyTopMin) continue;
       const hits = picks.filter((p) => p.result === "hit").length;
       const rate = hits / picks.length;
       const representative = picks[0];
@@ -704,16 +889,12 @@ export async function computeWeeklyRecap(
         line: representative.props?.line ?? 0,
         hitRate: round(rate, 3),
         pickCount: picks.length,
+        playerId: representative.props?.player_id ?? null,
+        team: representative.props?.player_team ?? null,
+        sport: representative.props?.games?.sport ?? "unknown",
       };
-
-      if (rate < lowestRate) {
-        lowestRate = rate;
-        worstTrap = entry;
-      }
-      if (rate > highestRate) {
-        highestRate = rate;
-        bestLock = entry;
-      }
+      if (rate < lowestRate) { lowestRate = rate; worstTrap = entry; }
+      if (rate > highestRate) { highestRate = rate; bestLock = entry; }
     }
   }
 
@@ -730,6 +911,10 @@ export async function computeWeeklyRecap(
     bestLock,
     startDate: start,
     endDate: end,
+    teamBreakdown: weeklyRecapData?.teamBreakdown ?? [],
+    consensusPicks: weeklyRecapData?.consensusPicks ?? [],
+    spotlights: weeklyRecapData?.spotlights ?? [],
+    recapData: weeklyRecapData,
   };
 
   // ------------------------------------------------------------------
@@ -769,6 +954,265 @@ export async function computeWeeklyRecap(
 }
 
 // ---------------------------------------------------------------------------
+// Spotlight Generator — finds anomalies and trends worth calling out
+// ---------------------------------------------------------------------------
+
+interface SpotlightInput {
+  allPicks: ResolvedPickRow[];
+  byProp: Record<string, ResolvedPickRow[]>;
+  byPlayer: Record<string, ResolvedPickRow[]>;
+  bySport: Record<string, ResolvedPickRow[]>;
+  byTeam: Record<string, ResolvedPickRow[]>;
+  consensusPicks: ConsensusPick[];
+  perfectCards: PerfectCards;
+  platformHitRate: number;
+  totalPicks: number;
+  sportBreakdown: BreakdownEntry[];
+  statCategoryBreakdown: BreakdownEntry[];
+  teamBreakdown: BreakdownEntry[];
+}
+
+function generateSpotlights(input: SpotlightInput): Spotlight[] {
+  const {
+    allPicks,
+    byProp,
+    byPlayer,
+    consensusPicks,
+    perfectCards,
+    platformHitRate,
+    totalPicks,
+    statCategoryBreakdown,
+    teamBreakdown,
+  } = input;
+
+  const spotlights: Spotlight[] = [];
+  const avgRate = platformHitRate;
+
+  // Build player entries with computed rates (min 2 picks)
+  const playerEntries = Object.entries(byPlayer)
+    .filter(([, picks]) => picks.length >= 2)
+    .map(([name, picks]) => {
+      const hits = picks.filter((p) => p.result === "hit").length;
+      const rate = hits / picks.length;
+      return { name, picks, rate, delta: rate - avgRate };
+    })
+    .sort((a, b) => b.picks.length - a.picks.length);
+
+  // 1. Player locks — best performers (above avg, or top by delta)
+  const locks = [...playerEntries]
+    .filter((e) => e.delta > 0)
+    .sort((a, b) => b.delta - a.delta || b.picks.length - a.picks.length);
+
+  for (const entry of locks.slice(0, 2)) {
+    spotlights.push({
+      type: "player_lock",
+      sentiment: "positive",
+      headline: `${entry.name} was money`,
+      detail: `${entry.picks.length} picks — ${Math.round(entry.rate * 100)}% hit`,
+      value: Math.round(entry.rate * 100),
+      valueSuffix: "% hit",
+      subject: entry.name,
+      sport: entry.picks[0].props?.games?.sport ?? undefined,
+      playerId: entry.picks[0].props?.player_id ?? undefined,
+      team: entry.picks[0].props?.player_team ?? undefined,
+    });
+  }
+
+  // 2. Player traps — worst performers (below avg, or bottom by delta)
+  const traps = [...playerEntries]
+    .filter((e) => e.delta < 0)
+    .sort((a, b) => a.delta - b.delta || b.picks.length - a.picks.length);
+
+  for (const entry of traps.slice(0, 2)) {
+    spotlights.push({
+      type: "player_trap",
+      sentiment: "negative",
+      headline: `${entry.name} fooled everyone`,
+      detail: `${entry.picks.length} picks — only ${Math.round(entry.rate * 100)}% hit`,
+      value: Math.round(entry.rate * 100),
+      valueSuffix: "% hit",
+      subject: entry.name,
+      sport: entry.picks[0].props?.games?.sport ?? undefined,
+      playerId: entry.picks[0].props?.player_id ?? undefined,
+      team: entry.picks[0].props?.player_team ?? undefined,
+    });
+  }
+
+  // 3. Unanimous props — everyone picked the same side
+  const unanimousProps = Object.entries(byProp)
+    .filter(([, picks]) => picks.length >= 2)
+    .filter(([, picks]) => {
+      const overCount = picks.filter((p) => p.selection === "over").length;
+      return overCount === 0 || overCount === picks.length;
+    })
+    .sort((a, b) => b[1].length - a[1].length);
+
+  for (const [, picks] of unanimousProps.slice(0, 3)) {
+    const overCount = picks.filter((p) => p.selection === "over").length;
+    const side = overCount > 0 ? "OVER" : "UNDER";
+    const allHit = picks.every((p) => p.result === "hit");
+    const allMiss = picks.every((p) => p.result === "miss");
+    const rep = picks[0];
+    const name = rep.props?.player_name ?? "Unknown";
+    const line = rep.props?.line ?? 0;
+    const stat = rep.props?.stat_category ?? "points";
+    spotlights.push({
+      type: "prop_unanimous",
+      sentiment: allHit ? "positive" : allMiss ? "negative" : "neutral",
+      headline: `Unanimous ${side} on ${name}`,
+      detail: `All ${picks.length} chose ${side} on ${line} ${stat}${allHit ? " — all correct" : allMiss ? " — all wrong" : ""}`,
+      value: picks.length,
+      valueSuffix: ` picked ${side}`,
+      subject: name,
+      sport: rep.props?.games?.sport ?? undefined,
+      playerId: rep.props?.player_id ?? undefined,
+      team: rep.props?.player_team ?? undefined,
+    });
+  }
+
+  // 4. Stat category extremes — always show best and worst
+  const sortedCategories = [...statCategoryBreakdown]
+    .filter((e) => e.pickCount >= 1)
+    .sort((a, b) => b.hitRate - a.hitRate);
+
+  if (sortedCategories.length >= 1) {
+    const best = sortedCategories[0];
+    spotlights.push({
+      type: "category_hot",
+      sentiment: "positive",
+      headline: `${best.key.charAt(0).toUpperCase() + best.key.slice(1)} was on fire`,
+      detail: `${Math.round(best.hitRate * 100)}% hit rate across ${best.pickCount} picks`,
+      value: Math.round(best.hitRate * 100),
+      valueSuffix: "%",
+      subject: best.key,
+    });
+  }
+  if (sortedCategories.length >= 2) {
+    const worst = sortedCategories[sortedCategories.length - 1];
+    if (worst.key !== sortedCategories[0].key) {
+      spotlights.push({
+        type: "category_cold",
+        sentiment: "negative",
+        headline: `${worst.key.charAt(0).toUpperCase() + worst.key.slice(1)} burned pickers`,
+        detail: `Only ${Math.round(worst.hitRate * 100)}% hit rate across ${worst.pickCount} picks`,
+        value: Math.round(worst.hitRate * 100),
+        valueSuffix: "%",
+        subject: worst.key,
+      });
+    }
+  }
+
+  // 5. Team extremes — always show best and worst
+  const sortedTeams = [...teamBreakdown]
+    .filter((e) => e.pickCount >= 2)
+    .sort((a, b) => b.hitRate - a.hitRate);
+
+  if (sortedTeams.length >= 1) {
+    const best = sortedTeams[0];
+    spotlights.push({
+      type: "team_hot",
+      sentiment: "positive",
+      headline: `${best.key} props were cash`,
+      detail: `${Math.round(best.hitRate * 100)}% hit rate across ${best.pickCount} picks`,
+      value: Math.round(best.hitRate * 100),
+      valueSuffix: "%",
+      subject: best.key,
+    });
+  }
+  if (sortedTeams.length >= 2) {
+    const worst = sortedTeams[sortedTeams.length - 1];
+    if (worst.key !== sortedTeams[0].key) {
+      spotlights.push({
+        type: "team_cold",
+        sentiment: "negative",
+        headline: `${worst.key} was a trap`,
+        detail: `Only ${Math.round(worst.hitRate * 100)}% hit rate across ${worst.pickCount} picks`,
+        value: Math.round(worst.hitRate * 100),
+        valueSuffix: "%",
+        subject: worst.key,
+      });
+    }
+  }
+
+  // 6. Consensus upset — crowd agreed but was wrong
+  const wrongConsensus = consensusPicks.filter((c) => !c.wasCorrect);
+  for (const entry of wrongConsensus.slice(0, 2)) {
+    spotlights.push({
+      type: "consensus_upset",
+      sentiment: "negative",
+      headline: `Crowd got burned on ${entry.playerName}`,
+      detail: `${Math.round(entry.dominantPct * 100)}% picked ${entry.dominantSide.toUpperCase()} on ${entry.line} ${entry.statCategory} — wrong`,
+      value: Math.round(entry.dominantPct * 100),
+      valueSuffix: `% ${entry.dominantSide}`,
+      subject: entry.playerName,
+      sport: entry.sport,
+    });
+  }
+
+  // 7. Over/under split — always show the skew
+  if (totalPicks > 0) {
+    const overTotal = allPicks.filter((p) => p.selection === "over").length;
+    const overPct = overTotal / totalPicks;
+    if (overPct >= 0.5) {
+      spotlights.push({
+        type: "over_under_skew",
+        sentiment: "neutral",
+        headline: overPct >= 0.55 ? "Overs were popular" : "Even over/under split",
+        detail: `${Math.round(overPct * 100)}% of all picks were OVER`,
+        value: Math.round(overPct * 100),
+        valueSuffix: "% over",
+      });
+    } else {
+      spotlights.push({
+        type: "over_under_skew",
+        sentiment: "neutral",
+        headline: "Unders were popular",
+        detail: `${Math.round((1 - overPct) * 100)}% of all picks were UNDER`,
+        value: Math.round((1 - overPct) * 100),
+        valueSuffix: "% under",
+      });
+    }
+  }
+
+  // 8. Perfect cards (with usernames)
+  if (perfectCards.count > 0) {
+    const names = perfectCards.usernames.length > 0
+      ? perfectCards.usernames.map((u) => `@${u}`).join(", ")
+      : `${perfectCards.count} ${perfectCards.count === 1 ? "player" : "players"}`;
+    spotlights.push({
+      type: "perfect_cards",
+      sentiment: "positive",
+      headline: `${perfectCards.count} perfect ${perfectCards.count === 1 ? "card" : "cards"}`,
+      detail: names,
+      value: perfectCards.count,
+      valueSuffix: "",
+    });
+  }
+
+  // 9. Most picked player — always include if not already spotlighted
+  if (playerEntries.length > 0) {
+    const top = playerEntries[0]; // already sorted by pick count desc
+    const alreadySpotlit = spotlights.some((s) => s.subject === top.name);
+    if (!alreadySpotlit) {
+      spotlights.push({
+        type: top.rate >= 0.5 ? "player_lock" : "player_trap",
+        sentiment: top.rate >= 0.5 ? "positive" : "negative",
+        headline: `${top.name} was most picked`,
+        detail: `${top.picks.length} picks — ${Math.round(top.rate * 100)}% hit rate`,
+        value: top.picks.length,
+        valueSuffix: " picks",
+        subject: top.name,
+        sport: top.picks[0].props?.games?.sport ?? undefined,
+        playerId: top.picks[0].props?.player_id ?? undefined,
+        team: top.picks[0].props?.player_team ?? undefined,
+      });
+    }
+  }
+
+  return spotlights.slice(0, 12);
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -785,12 +1229,17 @@ function emptyResult(): {
       playerSpotlightsBad: [],
       mostPickedPlayers: [],
       mostPickedProps: [],
-      perfectCards: { count: 0, userIds: [] },
+      perfectCards: { count: 0, userIds: [], usernames: [] },
       statCategoryBreakdown: [],
       sportBreakdown: [],
+      teamBreakdown: [],
+      consensusPicks: [],
+      spotlights: [],
       platformHitRate: 0,
       totalPicks: 0,
       totalCards: 0,
+      overCount: 0,
+      underCount: 0,
     },
     personalHighlights: {},
     featuredUserIds: [],
@@ -814,6 +1263,9 @@ function getDateMinusDays(dateStr: string, days: number): string {
   d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString().slice(0, 10);
 }
+
+// Re-export date utilities (canonical source: ./dates.ts)
+export { getMondayOfWeek, getSundayOfWeek } from "./dates";
 
 function round(value: number, decimals: number): number {
   const factor = Math.pow(10, decimals);

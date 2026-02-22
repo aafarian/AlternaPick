@@ -16,6 +16,7 @@ import type {
   WeeklyRecapData,
   WeeklyPersonalStats,
 } from "@/lib/recaps/compute";
+import { SpotlightsCard } from "@/components/recap/FunFactsCard";
 import { AnimatedNumber } from "@/components/recap/AnimatedNumber";
 
 interface ThisWeekProps {
@@ -187,6 +188,14 @@ export function ThisWeek({ weeklyData, personalWeekly }: ThisWeekProps) {
               </div>
             )}
           </div>
+        )}
+
+        {/* Weekly Spotlights */}
+        {weeklyData.spotlights && weeklyData.spotlights.length > 0 && (
+          <>
+            <div className="my-4 border-t border-border/40" />
+            <SpotlightsCard spotlights={weeklyData.spotlights} />
+          </>
         )}
 
         {/* Personal Weekly Stats */}

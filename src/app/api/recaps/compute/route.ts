@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { computeDailyRecap, computeWeeklyRecap } from "@/lib/recaps/compute";
+import {
+  computeDailyRecap,
+  computeWeeklyRecap,
+  getMondayOfWeek,
+  getSundayOfWeek,
+} from "@/lib/recaps/compute";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { unauthorized, handleApiError, logError } from "@/lib/api/errors";
@@ -22,6 +27,54 @@ export async function POST(request: NextRequest) {
   try {
     // Parse optional date from request body
     const body = await request.json().catch(() => ({}));
+
+    // ── Backfill weekly recaps across all existing dates ──
+    if (body.type === "backfill-weekly") {
+      const adminClient = createAdminClient();
+      const { data: allRecaps, error: fetchError } = await typedFrom(adminClient, "recaps")
+        .select("recap_date")
+        .order("recap_date", { ascending: true });
+
+      if (fetchError) {
+        return NextResponse.json(
+          { error: `Failed to fetch recap dates: ${fetchError.message}` },
+          { status: 500 },
+        );
+      }
+
+      const dates = (allRecaps ?? []).map((r: { recap_date: string }) => r.recap_date);
+
+      // Group dates into Mon-Sun weeks
+      const weekMap = new Map<string, string>(); // monday -> sunday
+      for (const date of dates) {
+        const monday = getMondayOfWeek(date);
+        const sunday = getSundayOfWeek(monday);
+        if (!weekMap.has(monday)) {
+          weekMap.set(monday, sunday);
+        }
+      }
+
+      const results: { week: string; success: boolean; error?: string }[] = [];
+      for (const [monday, sunday] of weekMap.entries()) {
+        try {
+          await computeWeeklyRecap(sunday, monday);
+          results.push({ week: `${monday} to ${sunday}`, success: true });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          logError(err, { route: "POST /api/recaps/compute", metadata: { type: "backfill-weekly", monday, sunday } });
+          results.push({ week: `${monday} to ${sunday}`, success: false, error: msg });
+        }
+      }
+
+      return NextResponse.json({
+        type: "backfill-weekly",
+        weeks_processed: results.length,
+        succeeded: results.filter((r) => r.success).length,
+        failed: results.filter((r) => !r.success).length,
+        results,
+      });
+    }
+
     const targetDate: string = body.date || getYesterdayUTC();
 
     // Idempotency check: skip if recap was computed within the last hour

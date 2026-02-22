@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import type {
   RecapData,
@@ -6,29 +7,26 @@ import type {
   WeeklyRecapData,
   WeeklyPersonalStats,
 } from "@/lib/recaps/compute";
+import { getMondayOfWeek, getSundayOfWeek } from "@/lib/recaps/dates";
 import {
   SlideUp,
   FadeIn,
   ScrollReveal,
-  StaggerChildren,
-  StaggerItem,
 } from "@/components/motion";
-import { AnimatedNumber } from "@/components/recap/AnimatedNumber";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { YourDay } from "@/components/recap/YourDay";
-import { PropCalloutCard } from "@/components/recap/PropCalloutCard";
-import { PlayerSpotlightCard } from "@/components/recap/PlayerSpotlightCard";
-import { PerfectCardsCard } from "@/components/recap/PerfectCardsCard";
-import { MostPickedCard } from "@/components/recap/MostPickedCard";
-import { BreakdownCard } from "@/components/recap/BreakdownCard";
 import { DateNavigator } from "@/components/recap/DateNavigator";
+import { ModeToggle } from "@/components/recap/ModeToggle";
+import { PlatformStats } from "@/components/recap/PlatformStats";
 import { ThisWeek } from "@/components/recap/ThisWeek";
-import { Newspaper, BarChart3, Hash, Target } from "lucide-react";
+import { RecapTileGrid } from "@/components/recap/RecapTileGrid";
+import { ConsensusCard } from "@/components/recap/ConsensusCard";
+import { Newspaper } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Daily Recap | Sports Tower",
-  description: "Yesterday's prop pick highlights and platform stats.",
+  title: "Recap | Sports Tower",
+  description: "Prop pick highlights and platform stats.",
 };
 
 interface RecapRow {
@@ -40,15 +38,187 @@ interface RecapRow {
   computed_at: string;
 }
 
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+/** Patch missing player IDs / sport / team from props table for old stored recaps */
+async function patchPlayerIds(
+  recapData: RecapData,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+) {
+  const playerNames = new Set<string>();
+  const allPlayerArrays = [
+    recapData.mostPickedPlayers ?? [],
+    recapData.mostPickedProps ?? [],
+    recapData.trapProps ?? [],
+    recapData.lockProps ?? [],
+    recapData.playerSpotlightsGood ?? [],
+    recapData.playerSpotlightsBad ?? [],
+  ];
+  for (const arr of allPlayerArrays) {
+    for (const p of arr) {
+      if (!p.playerId || !p.sport || p.sport === "unknown") {
+        playerNames.add(p.playerName);
+      }
+    }
+  }
+  for (const s of recapData.spotlights ?? []) {
+    if (s.subject && !s.playerId) playerNames.add(s.subject);
+  }
+
+  if (playerNames.size === 0) return;
+
+  type PropLookup = {
+    player_name: string;
+    player_id: string | null;
+    player_team: string | null;
+    games: { sport: string } | null;
+  };
+  const { data: propRows } = await typedFrom(supabase, "props")
+    .select("player_name, player_id, player_team, games:game_id(sport)")
+    .in("player_name", [...playerNames])
+    .not("player_id", "is", null)
+    .limit(200);
+
+  const playerLookup = new Map<string, { playerId: string; team: string | null; sport: string }>();
+  for (const row of (propRows ?? []) as PropLookup[]) {
+    if (row.player_id && !playerLookup.has(row.player_name)) {
+      playerLookup.set(row.player_name, {
+        playerId: row.player_id,
+        team: row.player_team,
+        sport: row.games?.sport ?? "unknown",
+      });
+    }
+  }
+
+  for (const arr of allPlayerArrays) {
+    for (const p of arr) {
+      const info = playerLookup.get(p.playerName);
+      if (!info) continue;
+      if (!p.playerId) p.playerId = info.playerId;
+      if (!p.team) p.team = info.team;
+      if (!p.sport || p.sport === "unknown") p.sport = info.sport;
+    }
+  }
+  for (const s of recapData.spotlights ?? []) {
+    if (s.subject && !s.playerId) {
+      const info = playerLookup.get(s.subject);
+      if (info) {
+        s.playerId = info.playerId;
+        if (!s.team) s.team = info.team ?? undefined;
+        if (!s.sport) s.sport = info.sport;
+      }
+    }
+  }
+}
+
+/** Patch missing perfect card usernames for old stored recaps */
+async function patchPerfectCards(
+  recapData: RecapData,
+  currentDate: string,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+) {
+  if (
+    !recapData.perfectCards?.count ||
+    recapData.perfectCards.count === 0 ||
+    (recapData.perfectCards.usernames && recapData.perfectCards.usernames.length > 0)
+  ) {
+    return;
+  }
+
+  const dayStart = `${currentDate}T00:00:00Z`;
+  const nextDay = new Date(`${currentDate}T00:00:00Z`);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  const dayEnd = nextDay.toISOString();
+
+  const adminClient = createAdminClient();
+  const { data: cardRows } = await typedFrom(adminClient, "cards")
+    .select("id, user_id, score, total_picks")
+    .eq("status", "resolved")
+    .gte("resolved_at", dayStart)
+    .lt("resolved_at", dayEnd)
+    .gte("total_picks", 3);
+
+  type CardRow = { id: string; user_id: string | null; score: number; total_picks: number };
+  const perfectCards = ((cardRows ?? []) as CardRow[]).filter(
+    (c) => c.user_id && c.score === c.total_picks,
+  );
+  const perfectUserIds = [...new Set(perfectCards.map((c) => c.user_id!))];
+
+  if (perfectUserIds.length > 0) {
+    const { data: profileRows } = await typedFrom(supabase, "profiles")
+      .select("id, username")
+      .in("id", perfectUserIds);
+
+    const usernameMap = new Map<string, string>();
+    for (const r of (profileRows ?? []) as { id: string; username: string | null }[]) {
+      if (r.username) usernameMap.set(r.id, r.username);
+    }
+
+    recapData.perfectCards.userIds = perfectUserIds;
+    recapData.perfectCards.usernames = [...usernameMap.values()];
+    recapData.perfectCards.entries = perfectCards
+      .filter((c) => usernameMap.has(c.user_id!))
+      .map((c) => ({
+        userId: c.user_id!,
+        username: usernameMap.get(c.user_id!)!,
+        cardId: c.id,
+        score: c.score,
+        totalPicks: c.total_picks,
+      }));
+  }
+}
+
+/** Build personal weekly stats from recap rows for a given user */
+function buildPersonalWeekly(
+  rows: { recap_date: string; personal_highlights: Record<string, PersonalHighlight> | null }[],
+  userId: string,
+  platformWeeklyHitRate: number,
+): WeeklyPersonalStats | null {
+  let totalHits = 0;
+  let totalPicksCount = 0;
+  let totalCardsCount = 0;
+  const dailyTrend: WeeklyPersonalStats["dailyTrend"] = [];
+
+  for (const row of rows) {
+    const userDay = row.personal_highlights?.[userId];
+    if (!userDay) {
+      dailyTrend.push({ date: row.recap_date, hitRate: 0, picks: 0 });
+      continue;
+    }
+    const dayCards = userDay.cardsPlayed;
+    const dayHitRate = userDay.hitRate;
+    totalCardsCount += dayCards;
+    totalHits += Math.round(dayHitRate * dayCards);
+    totalPicksCount += dayCards;
+    dailyTrend.push({ date: row.recap_date, hitRate: dayHitRate, picks: dayCards });
+  }
+
+  if (totalPicksCount === 0) return null;
+
+  return {
+    weeklyHitRate: Math.round((totalHits / totalPicksCount) * 1000) / 1000,
+    totalPicks: totalPicksCount,
+    totalCards: totalCardsCount,
+    platformWeeklyHitRate,
+    dailyTrend,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
 export default async function RecapPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; mode?: string }>;
 }) {
-  const { date: dateParam } = await searchParams;
+  const { date: dateParam, mode: modeParam } = await searchParams;
+  const mode = modeParam === "weekly" ? "weekly" : "daily";
   const supabase = await createClient();
 
-  // Auth is optional — show global data to everyone, personal section only for logged-in users
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -61,6 +231,146 @@ export default async function RecapPage({
   const availableDates: string[] = (dateRows ?? []).map(
     (r: { recap_date: string }) => r.recap_date,
   );
+
+  // ── WEEKLY MODE ──
+  if (mode === "weekly") {
+    // Compute Mon-Sun boundaries from selected date
+    const selectedDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
+      ? dateParam
+      : (availableDates.length > 0 ? availableDates[availableDates.length - 1] : new Date().toISOString().slice(0, 10));
+
+    const monday = getMondayOfWeek(selectedDate);
+    const sunday = getSundayOfWeek(monday);
+
+    // Fetch all recap rows in the week range
+    const { data: weekRecapRows } = await typedFrom(supabase, "recaps")
+      .select("*")
+      .gte("recap_date", monday)
+      .lte("recap_date", sunday)
+      .order("recap_date", { ascending: true });
+
+    const typedWeekRows = (weekRecapRows ?? []) as RecapRow[];
+
+    // Find the row that has weekly_data (typically the Sunday row, or any row in the range)
+    const weeklyRow = typedWeekRows.find((r) => r.weekly_data) ?? null;
+    const weeklyData = weeklyRow?.weekly_data ?? null;
+
+    // Format week range for display
+    const monDate = new Date(`${monday}T00:00:00Z`);
+    const sunDate = new Date(`${sunday}T00:00:00Z`);
+    const monLabel = monDate.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+    const sunLabel = sunDate.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+    const weekLabel = `${monLabel} - ${sunLabel}`;
+
+    if (!weeklyData) {
+      return (
+        <div className="flex flex-col gap-6 py-8">
+          <SlideUp>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">
+                  Weekly Recap
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {weekLabel}
+                </p>
+              </div>
+              <ModeToggle mode="weekly" />
+            </div>
+          </SlideUp>
+          {availableDates.length > 0 && (
+            <FadeIn delay={0.05}>
+              <DateNavigator
+                currentDate={monday}
+                availableDates={availableDates}
+                mode="weekly"
+              />
+            </FadeIn>
+          )}
+          <FadeIn delay={0.2}>
+            <AnimatedEmptyState
+              icon={<Newspaper className="h-8 w-8" />}
+              title="No weekly recap available"
+              description="Check back after the week wraps up!"
+            />
+          </FadeIn>
+        </div>
+      );
+    }
+
+    const weeklyRecapData = weeklyData.recapData ?? null;
+
+    if (weeklyRecapData) {
+      await patchPlayerIds(weeklyRecapData, supabase);
+    }
+
+    const weeklyHitPercent = Math.round(weeklyData.weeklyHitRate * 100);
+    const personalWeekly = user
+      ? buildPersonalWeekly(typedWeekRows, user.id, weeklyData.weeklyHitRate)
+      : null;
+
+    return (
+      <div className="flex flex-col gap-6 py-8">
+        {/* Header + Mode Toggle */}
+        <SlideUp>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">
+                Weekly Recap &mdash; {weekLabel}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {weeklyData.totalPicks.toLocaleString()} pick
+                {weeklyData.totalPicks !== 1 ? "s" : ""} across{" "}
+                {weeklyData.totalCards.toLocaleString()} card
+                {weeklyData.totalCards !== 1 ? "s" : ""}
+              </p>
+            </div>
+            <ModeToggle mode="weekly" />
+          </div>
+        </SlideUp>
+
+        {/* Date Navigator (weekly pills) */}
+        {availableDates.length > 0 && (
+          <FadeIn delay={0.05}>
+            <DateNavigator
+              currentDate={monday}
+              availableDates={availableDates}
+              mode="weekly"
+            />
+          </FadeIn>
+        )}
+
+        {/* Platform Overview Stats */}
+        <FadeIn delay={0.08}>
+          <section aria-label="Platform Overview" data-section="platform-overview">
+            <PlatformStats
+              totalPicks={weeklyData.totalPicks}
+              totalCards={weeklyData.totalCards}
+              hitRatePercent={weeklyHitPercent}
+            />
+          </section>
+        </FadeIn>
+
+        {/* This Week — trend chart */}
+        <ScrollReveal>
+          <section aria-label="This Week" data-section="this-week">
+            <ThisWeek weeklyData={weeklyData} personalWeekly={personalWeekly} />
+          </section>
+        </ScrollReveal>
+
+        {/* Tile Grid — weekly aggregated data */}
+        {weeklyRecapData && (
+          <FadeIn delay={0.15}>
+            <section aria-label="Highlights" data-section="highlights">
+              <RecapTileGrid recapData={weeklyRecapData} />
+            </section>
+          </FadeIn>
+        )}
+      </div>
+    );
+  }
+
+  // ── DAILY MODE ──
 
   // Fetch the recap for the requested date, or fall back to the most recent
   let query = typedFrom(supabase, "recaps").select("*");
@@ -84,10 +394,15 @@ export default async function RecapPage({
     return (
       <div className="flex flex-col gap-6 py-8">
         <SlideUp>
-          <h1 className="text-2xl font-bold tracking-tight">Daily Recap</h1>
-          <p className="text-sm text-muted-foreground">
-            Yesterday&apos;s prop pick highlights and platform stats
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Daily Recap</h1>
+              <p className="text-sm text-muted-foreground">
+                Yesterday&apos;s prop pick highlights and platform stats
+              </p>
+            </div>
+            <ModeToggle mode="daily" />
+          </div>
         </SlideUp>
         {availableDates.length > 0 && dateParam && (
           <FadeIn delay={0.1}>
@@ -117,11 +432,14 @@ export default async function RecapPage({
 
   const currentDate = typedRecap.recap_date;
 
-  // ── Compute weekly personal stats for authenticated users ──────────
+  // Patch missing data from old stored recaps
+  await patchPlayerIds(recapData, supabase);
+  await patchPerfectCards(recapData, currentDate, supabase);
+
+  // Compute weekly personal stats for authenticated users
   let personalWeekly: WeeklyPersonalStats | null = null;
 
   if (user && weeklyData) {
-    // Fetch the last 7 daily recaps with personal_highlights
     const endDate = currentDate;
     const startDate = new Date(`${endDate}T00:00:00Z`);
     startDate.setUTCDate(startDate.getUTCDate() - 6);
@@ -133,69 +451,16 @@ export default async function RecapPage({
       .lte("recap_date", endDate)
       .order("recap_date", { ascending: true });
 
-    type PersonalRecapRow = {
+    const typedWeekRows = (weekRows ?? []) as {
       recap_date: string;
       personal_highlights: Record<string, PersonalHighlight> | null;
-    };
-    const typedWeekRows = (weekRows ?? []) as PersonalRecapRow[];
+    }[];
 
-    let totalHits = 0;
-    let totalPicksCount = 0;
-    let totalCardsCount = 0;
-    const dailyTrend: WeeklyPersonalStats["dailyTrend"] = [];
-
-    for (const row of typedWeekRows) {
-      const userDay = row.personal_highlights?.[user.id];
-      if (!userDay) {
-        dailyTrend.push({ date: row.recap_date, hitRate: 0, picks: 0 });
-        continue;
-      }
-
-      // PersonalHighlight has cardsPlayed and hitRate but not totalPicks.
-      // Use cardsPlayed as the cards metric. For picks, we derive from
-      // the fact that hitRate = hits / picks, but we don't have raw pick
-      // count directly. However, we can use the daily recap's recap_data
-      // to get a per-user pick count from cards. Since we only have
-      // cardsPlayed and hitRate, we use cardsPlayed as the "picks" proxy
-      // for the trend, and sum cardsPlayed for totalCards.
-      const dayCards = userDay.cardsPlayed;
-      const dayHitRate = userDay.hitRate;
-
-      // cardsPlayed is the number of resolved cards the user had that day.
-      // For a reasonable picks estimate, we can't determine exact pick count
-      // from PersonalHighlight alone. We'll use cardsPlayed as the daily
-      // metric (since that's what we have).
-      totalCardsCount += dayCards;
-
-      // For weighted hit-rate, weight by cards played
-      totalHits += Math.round(dayHitRate * dayCards);
-      totalPicksCount += dayCards;
-
-      dailyTrend.push({
-        date: row.recap_date,
-        hitRate: dayHitRate,
-        picks: dayCards,
-      });
-    }
-
-    // Only produce stats if the user had at least one day of activity
-    if (totalPicksCount > 0) {
-      personalWeekly = {
-        weeklyHitRate:
-          totalPicksCount > 0
-            ? Math.round((totalHits / totalPicksCount) * 1000) / 1000
-            : 0,
-        totalPicks: totalPicksCount,
-        totalCards: totalCardsCount,
-        platformWeeklyHitRate: weeklyData.weeklyHitRate,
-        dailyTrend,
-      };
-    }
+    personalWeekly = buildPersonalWeekly(typedWeekRows, user.id, weeklyData.weeklyHitRate);
   }
 
-  // Format the recap date for display (e.g., "Feb 19")
-  const recapDate = new Date(`${currentDate}T00:00:00Z`);
-  const dateLabel = recapDate.toLocaleDateString("en-US", {
+  // Format the recap date for display
+  const dateLabel = new Date(`${currentDate}T00:00:00Z`).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     timeZone: "UTC",
@@ -205,21 +470,25 @@ export default async function RecapPage({
 
   return (
     <div className="flex flex-col gap-6 py-8">
-      {/* Page Header */}
+      {/* 1. Header + Mode Toggle + Date Navigator */}
       <SlideUp>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Daily Recap &mdash; {dateLabel}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {recapData.totalPicks.toLocaleString()} pick
-          {recapData.totalPicks !== 1 ? "s" : ""} across{" "}
-          {recapData.totalCards.toLocaleString()} card
-          {recapData.totalCards !== 1 ? "s" : ""}
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Daily Recap &mdash; {dateLabel}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {recapData.totalPicks.toLocaleString()} pick
+              {recapData.totalPicks !== 1 ? "s" : ""} across{" "}
+              {recapData.totalCards.toLocaleString()} card
+              {recapData.totalCards !== 1 ? "s" : ""}
+            </p>
+          </div>
+          <ModeToggle mode="daily" />
+        </div>
       </SlideUp>
 
-      {/* Date Navigator */}
-      {availableDates.length > 1 && (
+      {availableDates.length > 0 && (
         <FadeIn delay={0.05}>
           <DateNavigator
             currentDate={currentDate}
@@ -228,63 +497,43 @@ export default async function RecapPage({
         </FadeIn>
       )}
 
-      {/* Personal Highlights — Your Day (logged-in users only) */}
+      {/* 2. Platform Overview Stats */}
+      <FadeIn delay={0.08}>
+        <section aria-label="Platform Overview" data-section="platform-overview">
+          <PlatformStats
+            totalPicks={recapData.totalPicks}
+            totalCards={recapData.totalCards}
+            hitRatePercent={platformHitPercent}
+          />
+        </section>
+      </FadeIn>
+
+      {/* 3. Your Day (logged-in users only) */}
       {personalHighlights && (
-        <FadeIn delay={0.1}>
+        <FadeIn delay={0.12}>
           <section aria-label="Your Day" data-section="your-day">
             <YourDay highlight={personalHighlights} />
           </section>
         </FadeIn>
       )}
 
-      {/* Platform Overview Stats */}
+      {/* 4. Consensus Picks */}
+      {recapData.consensusPicks?.length > 0 && (
+        <ScrollReveal>
+          <section aria-label="Consensus Picks" data-section="consensus-picks">
+            <ConsensusCard picks={recapData.consensusPicks} />
+          </section>
+        </ScrollReveal>
+      )}
+
+      {/* 5. Tile Grid — spotlights, most picked, breakdowns, traps, locks, etc. */}
       <FadeIn delay={0.15}>
-        <section aria-label="Platform Overview" data-section="platform-overview">
-          <StaggerChildren className="grid grid-cols-3 gap-3" staggerDelay={0.1}>
-            <StaggerItem>
-              <div className="rounded-xl border border-border bg-card p-4">
-                <div className="flex items-center gap-1.5">
-                  <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Total Picks
-                  </p>
-                </div>
-                <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-                  <AnimatedNumber value={recapData.totalPicks} />
-                </p>
-              </div>
-            </StaggerItem>
-            <StaggerItem>
-              <div className="rounded-xl border border-border bg-card p-4">
-                <div className="flex items-center gap-1.5">
-                  <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Total Cards
-                  </p>
-                </div>
-                <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-                  <AnimatedNumber value={recapData.totalCards} />
-                </p>
-              </div>
-            </StaggerItem>
-            <StaggerItem>
-              <div className="rounded-xl border border-border bg-card p-4">
-                <div className="flex items-center gap-1.5">
-                  <Target className="h-3.5 w-3.5 text-muted-foreground" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Hit Rate
-                  </p>
-                </div>
-                <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-                  <AnimatedNumber value={platformHitPercent} suffix="%" />
-                </p>
-              </div>
-            </StaggerItem>
-          </StaggerChildren>
+        <section aria-label="Highlights" data-section="highlights">
+          <RecapTileGrid recapData={recapData} />
         </section>
       </FadeIn>
 
-      {/* This Week — weekly summary section */}
+      {/* 6. This Week — weekly summary section */}
       {weeklyData && (
         <ScrollReveal>
           <section aria-label="This Week" data-section="this-week">
@@ -292,50 +541,6 @@ export default async function RecapPage({
           </section>
         </ScrollReveal>
       )}
-
-      {/* Callout Cards Grid — 2 columns on desktop, 1 on mobile */}
-      <section aria-label="Callout Cards" data-section="callout-cards">
-        <StaggerChildren
-          className="grid gap-4 lg:grid-cols-2"
-          staggerDelay={0.1}
-        >
-          <StaggerItem>
-            <PropCalloutCard props={recapData.trapProps} variant="trap" />
-          </StaggerItem>
-          <StaggerItem>
-            <PropCalloutCard props={recapData.lockProps} variant="lock" />
-          </StaggerItem>
-          <StaggerItem>
-            <PlayerSpotlightCard
-              good={recapData.playerSpotlightsGood}
-              bad={recapData.playerSpotlightsBad}
-            />
-          </StaggerItem>
-          <StaggerItem>
-            <PerfectCardsCard data={recapData.perfectCards} />
-          </StaggerItem>
-        </StaggerChildren>
-      </section>
-
-      {/* Most Picked Section */}
-      <ScrollReveal>
-        <section aria-label="Most Picked" data-section="most-picked">
-          <MostPickedCard
-            players={recapData.mostPickedPlayers}
-            props={recapData.mostPickedProps}
-          />
-        </section>
-      </ScrollReveal>
-
-      {/* Breakdowns Section */}
-      <ScrollReveal>
-        <section aria-label="Breakdowns" data-section="breakdowns">
-          <BreakdownCard
-            statCategories={recapData.statCategoryBreakdown}
-            sports={recapData.sportBreakdown}
-          />
-        </section>
-      </ScrollReveal>
     </div>
   );
 }

@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { getMondayOfWeek, getSundayOfWeek } from "@/lib/recaps/dates";
 
 interface DateNavigatorProps {
-  currentDate: string; // YYYY-MM-DD of currently displayed recap
-  availableDates: string[]; // All dates that have recaps, sorted ascending
+  currentDate: string;
+  availableDates: string[];
+  mode?: "daily" | "weekly";
 }
 
 function getYesterday(): string {
@@ -16,30 +16,72 @@ function getYesterday(): string {
   return d.toISOString().slice(0, 10);
 }
 
-function formatDate(dateStr: string): string {
+function formatPillDate(dateStr: string): string {
   const date = new Date(`${dateStr}T00:00:00Z`);
   return date.toLocaleDateString("en-US", {
-    weekday: "short",
     month: "short",
     day: "numeric",
     timeZone: "UTC",
   });
 }
 
+/** Format a Mon-Sun week range, e.g. "Feb 10 - 16" or "Jan 27 - Feb 2" */
+function formatWeekRange(monday: string): string {
+  const sunday = getSundayOfWeek(monday);
+  const monDate = new Date(`${monday}T00:00:00Z`);
+  const sunDate = new Date(`${sunday}T00:00:00Z`);
+
+  const monMonth = monDate.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+  const sunMonth = sunDate.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+  const monDay = monDate.getUTCDate();
+  const sunDay = sunDate.getUTCDate();
+
+  if (monMonth === sunMonth) {
+    return `${monMonth} ${monDay} - ${sunDay}`;
+  }
+  return `${monMonth} ${monDay} - ${sunMonth} ${sunDay}`;
+}
+
+/** Group available dates into Mon-Sun weeks, returning Monday of each week */
+function groupIntoWeeks(dates: string[]): string[] {
+  const mondays = new Set<string>();
+  for (const date of dates) {
+    mondays.add(getMondayOfWeek(date));
+  }
+  return [...mondays].sort();
+}
+
 export function DateNavigator({
   currentDate,
   availableDates,
+  mode = "daily",
 }: DateNavigatorProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const activeRef = useRef<HTMLButtonElement>(null);
+
+  const isWeekly = mode === "weekly";
+
+  // For weekly mode, group dates into weeks
+  const weekMondays = useMemo(
+    () => (isWeekly ? groupIntoWeeks(availableDates) : []),
+    [isWeekly, availableDates],
+  );
+
+  // The list of navigable items (dates or week-mondays)
+  const items = isWeekly ? weekMondays : availableDates;
+
+  // For weekly mode, the active item is the Monday of the current date's week
+  const activeItem = isWeekly ? getMondayOfWeek(currentDate) : currentDate;
 
   const currentIndex = useMemo(
-    () => availableDates.indexOf(currentDate),
-    [availableDates, currentDate],
+    () => items.indexOf(activeItem),
+    [items, activeItem],
   );
 
   const hasPrev = currentIndex > 0;
-  const hasNext = currentIndex < availableDates.length - 1;
+  const hasNext = currentIndex < items.length - 1;
 
   const navigate = useCallback(
     (date: string) => {
@@ -51,12 +93,12 @@ export function DateNavigator({
   );
 
   const goPrev = useCallback(() => {
-    if (hasPrev) navigate(availableDates[currentIndex - 1]);
-  }, [hasPrev, navigate, availableDates, currentIndex]);
+    if (hasPrev) navigate(items[currentIndex - 1]);
+  }, [hasPrev, navigate, items, currentIndex]);
 
   const goNext = useCallback(() => {
-    if (hasNext) navigate(availableDates[currentIndex + 1]);
-  }, [hasNext, navigate, availableDates, currentIndex]);
+    if (hasNext) navigate(items[currentIndex + 1]);
+  }, [hasNext, navigate, items, currentIndex]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -75,43 +117,63 @@ export function DateNavigator({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [goPrev, goNext]);
 
-  const isYesterday = currentDate === getYesterday();
-  const dateLabel = formatDate(currentDate);
+  // Auto-scroll active pill into view on mount
+  useEffect(() => {
+    if (activeRef.current && scrollRef.current) {
+      activeRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  }, [activeItem]);
+
+  const yesterday = getYesterday();
+
+  // Show items in reverse chronological order (newest first)
+  const reversedItems = [...items].reverse();
 
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border bg-card px-2 py-1.5">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-11 w-11 shrink-0"
-        disabled={!hasPrev}
-        onClick={goPrev}
-        aria-label="Previous recap date"
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </Button>
+    <div
+      ref={scrollRef}
+      className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-0.5"
+    >
+      {reversedItems.map((item) => {
+        const isActive = item === activeItem;
 
-      <div className="flex flex-col items-center min-w-0">
-        <span className="text-sm font-semibold text-foreground truncate">
-          {dateLabel}
-        </span>
-        {isYesterday && (
-          <span className="text-[10px] font-medium text-muted-foreground">
-            Yesterday
-          </span>
-        )}
-      </div>
+        if (isWeekly) {
+          return (
+            <button
+              key={item}
+              ref={isActive ? activeRef : undefined}
+              onClick={() => navigate(item)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                isActive
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              {formatWeekRange(item)}
+            </button>
+          );
+        }
 
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-11 w-11 shrink-0"
-        disabled={!hasNext}
-        onClick={goNext}
-        aria-label="Next recap date"
-      >
-        <ChevronRight className="h-5 w-5" />
-      </Button>
+        const isYesterday = item === yesterday;
+        return (
+          <button
+            key={item}
+            ref={isActive ? activeRef : undefined}
+            onClick={() => navigate(item)}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+              isActive
+                ? "bg-primary text-primary-foreground"
+                : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {isYesterday ? "Yesterday" : formatPillDate(item)}
+          </button>
+        );
+      })}
     </div>
   );
 }
