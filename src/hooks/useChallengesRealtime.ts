@@ -51,6 +51,8 @@ export function useChallengesRealtime({
     function subscribe() {
       if (cancelled) return;
 
+      // Supabase Realtime doesn't support multi-column OR filters,
+      // so we subscribe unfiltered and filter client-side.
       const channel = supabase
         .channel(`challenges-realtime-${Date.now()}`)
         .on(
@@ -59,10 +61,12 @@ export function useChallengesRealtime({
             event: "INSERT",
             schema: "public",
             table: "challenges",
-            filter: `challenger_id=eq.${userId},opponent_id=eq.${userId}`,
           },
           (payload) => {
-            onInsertRef.current?.(payload.new as Challenge);
+            const row = payload.new as Challenge;
+            if (row.challenger_id === userId || row.opponent_id === userId) {
+              onInsertRef.current?.(row);
+            }
           }
         )
         .on(
@@ -71,10 +75,12 @@ export function useChallengesRealtime({
             event: "UPDATE",
             schema: "public",
             table: "challenges",
-            filter: `challenger_id=eq.${userId},opponent_id=eq.${userId}`,
           },
           (payload) => {
-            onUpdateRef.current?.(payload.new as Challenge);
+            const row = payload.new as Challenge;
+            if (row.challenger_id === userId || row.opponent_id === userId) {
+              onUpdateRef.current?.(row);
+            }
           }
         )
         .subscribe((status) => {
