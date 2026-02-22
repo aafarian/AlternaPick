@@ -23,7 +23,6 @@ export default async function CardDetailPage({
   const { data } = await (supabase.from("cards") as any)
     .select(CARD_SELECT)
     .eq("id", id)
-    .eq("user_id", user.id)
     .single();
 
   if (!data) {

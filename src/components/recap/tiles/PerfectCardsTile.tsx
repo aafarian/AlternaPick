@@ -28,7 +28,7 @@ export function PerfectCardsTile({
           {entries.map((entry) => (
             <Link
               key={entry.cardId}
-              href={`/users/${entry.username}`}
+              href={`/cards/${entry.cardId}`}
               className="flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 hover:bg-amber-500/20 transition-colors"
             >
               <div className="min-w-0 flex-1">
