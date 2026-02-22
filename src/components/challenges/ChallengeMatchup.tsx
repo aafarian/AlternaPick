@@ -13,7 +13,7 @@ import LivePickCard from "@/components/live/LivePickCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import UserAvatar from "@/components/icons/UserAvatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,6 +23,7 @@ import TrashTalkBubble from "@/components/challenges/TrashTalkBubble";
 import QuickActions from "@/components/challenges/QuickActions";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import ShareButton from "@/components/ui/ShareButton";
+import type { IconConfig } from "@/lib/icons/types";
 import type { GameMode } from "@/lib/modes/types";
 import { SlideUp, ScaleIn, FadeIn } from "@/components/motion";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
@@ -38,6 +39,8 @@ function PlayerSide({
   label,
   name,
   avatarUrl,
+  iconConfig,
+  userId,
   card,
   isWinner,
   showPicks,
@@ -49,6 +52,8 @@ function PlayerSide({
   label: string;
   name: string;
   avatarUrl: string | null;
+  iconConfig: IconConfig | null;
+  userId: string;
   card: ChallengeDetail["challenger_card"];
   isWinner: boolean;
   showPicks: boolean;
@@ -57,7 +62,6 @@ function PlayerSide({
   liveLoading: boolean;
   side: "left" | "right";
 }) {
-  const initial = name.charAt(0).toUpperCase();
   const prefersReduced = useReducedMotion();
 
   // Build LivePickData[] — always render picks immediately using fallback, overlay live data when available
@@ -105,24 +109,18 @@ function PlayerSide({
     <div className="flex flex-1 flex-col gap-3 rounded-xl">
       {/* Player identity */}
       <div className="flex flex-col items-center gap-2">
-        <Avatar
-          className={cn(
-            "h-14 w-14",
-            isWinner && "animate-winner-ring"
-          )}
-        >
-          {avatarUrl && <AvatarImage src={avatarUrl} alt={name} />}
-          <AvatarFallback
-            className={cn(
-              "text-lg font-bold",
-              isWinner
-                ? "bg-neon-green/20 text-neon-green"
-                : "bg-primary/10 text-primary"
-            )}
-          >
-            {initial}
-          </AvatarFallback>
-        </Avatar>
+        <div className={cn(
+          "rounded-full",
+          isWinner && "animate-winner-ring"
+        )}>
+          <UserAvatar
+            avatarUrl={avatarUrl}
+            iconConfig={iconConfig}
+            userId={userId}
+            username={name}
+            size={56}
+          />
+        </div>
         <span className="text-sm font-semibold">
           {isWinner && <Crown className="mr-1 inline h-4 w-4 text-neon-green" />}
           {name}
@@ -362,6 +360,8 @@ export default function ChallengeMatchup({
           message={challenge.message}
           senderName={challengerName}
           senderAvatar={challenge.challenger.avatar_url}
+          senderIconConfig={challenge.challenger.icon_config as IconConfig | null}
+          senderId={challenge.challenger.id}
         />
       )}
 
@@ -449,6 +449,8 @@ export default function ChallengeMatchup({
           label={isChallenger ? "You" : "Opponent"}
           name={challengerName}
           avatarUrl={challenge.challenger.avatar_url}
+          iconConfig={challenge.challenger.icon_config as IconConfig | null}
+          userId={challenge.challenger.id}
           card={challenge.challenger_card}
           isWinner={challengerIsWinner}
           showPicks={isChallenger ? showMyPicks : showTheirPicks}
@@ -482,6 +484,8 @@ export default function ChallengeMatchup({
           label={isChallenger ? "Opponent" : "You"}
           name={opponentName}
           avatarUrl={challenge.opponent.avatar_url}
+          iconConfig={challenge.opponent.icon_config as IconConfig | null}
+          userId={challenge.opponent.id}
           card={challenge.opponent_card}
           isWinner={opponentIsWinner}
           showPicks={isChallenger ? showTheirPicks : showMyPicks}

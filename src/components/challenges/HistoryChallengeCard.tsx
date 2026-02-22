@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import UserAvatar from "@/components/icons/UserAvatar";
 import {
   Tooltip,
   TooltipContent,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import { formatTimeAgo } from "@/lib/format";
 import { GAME_MODES } from "@/lib/modes/definitions";
+import type { IconConfig } from "@/lib/icons/types";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
@@ -61,19 +62,16 @@ function getResultColors(result: ChallengeResult) {
       return {
         border: "border-l-neon-green",
         text: "text-neon-green",
-        avatarBg: "bg-neon-green/15 text-neon-green",
       };
     case "loss":
       return {
         border: "border-l-bold-red",
         text: "text-bold-red",
-        avatarBg: "bg-bold-red/15 text-bold-red",
       };
     default:
       return {
         border: "border-l-muted-foreground/30",
         text: "text-muted-foreground",
-        avatarBg: "bg-muted text-muted-foreground",
       };
   }
 }
@@ -85,7 +83,6 @@ export default function HistoryChallengeCard({
   const isChallenger = challenge.challenger_id === currentUserId;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
   const displayName = opponent.display_name || opponent.username;
-  const avatarInitial = displayName.charAt(0).toUpperCase();
   const { hoverProps, prefersReduced } = useCardHover();
 
   const result = getResult(challenge, currentUserId);
@@ -107,13 +104,15 @@ export default function HistoryChallengeCard({
         >
           <CardContent className="flex h-full items-center gap-3 px-3 py-2.5">
             {/* Avatar */}
-            <Avatar className="h-8 w-8 shrink-0">
-              <AvatarFallback
-                className={cn("text-xs font-bold", colors.avatarBg)}
-              >
-                {avatarInitial}
-              </AvatarFallback>
-            </Avatar>
+            <div className="shrink-0">
+              <UserAvatar
+                avatarUrl={opponent.avatar_url}
+                iconConfig={opponent.icon_config as IconConfig | null}
+                userId={opponent.id}
+                username={opponent.username}
+                size={32}
+              />
+            </div>
 
             {/* Info column */}
             <div className="min-w-0 flex-1">

@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedButton } from "@/components/ui/animated-button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import UserAvatar from "@/components/icons/UserAvatar";
 import {
   Tooltip,
   TooltipContent,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/tooltip";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import { useCardHover } from "@/components/challenges/useCardHover";
+import type { IconConfig } from "@/lib/icons/types";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
@@ -43,7 +44,6 @@ export default function IncomingChallengeCard({
   const isChallenger = challenge.challenger_id === currentUserId;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
   const displayName = opponent.display_name || opponent.username;
-  const avatarInitial = displayName.charAt(0).toUpperCase();
   const isLoading = actionLoading === challenge.id;
   const { hoverProps, prefersReduced } = useCardHover(
     -2,
@@ -63,11 +63,15 @@ export default function IncomingChallengeCard({
         >
           <CardContent className="flex items-center gap-3 px-4 py-3">
             {/* Challenger avatar */}
-            <Avatar className="h-10 w-10 shrink-0">
-              <AvatarFallback className="bg-amber-500/15 text-amber-400 text-sm font-bold">
-                {avatarInitial}
-              </AvatarFallback>
-            </Avatar>
+            <div className="shrink-0">
+              <UserAvatar
+                avatarUrl={opponent.avatar_url}
+                iconConfig={opponent.icon_config as IconConfig | null}
+                userId={opponent.id}
+                username={opponent.username}
+                size={40}
+              />
+            </div>
 
             {/* Info block */}
             <div className="min-w-0 flex-1">

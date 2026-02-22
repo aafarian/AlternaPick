@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import UserAvatar from "@/components/icons/UserAvatar";
+import type { IconConfig } from "@/lib/icons/types";
 import { X, MessageCircle } from "lucide-react";
 
 interface TrashTalkBubbleProps {
   message: string;
   senderName: string;
   senderAvatar?: string | null;
+  senderIconConfig?: IconConfig | null;
+  senderId?: string;
 }
 
 /**
@@ -18,12 +21,12 @@ export default function TrashTalkBubble({
   message,
   senderName,
   senderAvatar,
+  senderIconConfig,
+  senderId,
 }: TrashTalkBubbleProps) {
   const [dismissed, setDismissed] = useState(false);
 
   if (!message) return null;
-
-  const initial = senderName.charAt(0).toUpperCase();
 
   // Collapsed state — small floating pill to re-open
   if (dismissed) {
@@ -51,12 +54,15 @@ export default function TrashTalkBubble({
 
       <div className="flex items-start gap-3 pr-6">
         {/* Sender avatar */}
-        <Avatar className="h-8 w-8 shrink-0">
-          {senderAvatar && <AvatarImage src={senderAvatar} alt={senderName} />}
-          <AvatarFallback className="bg-amber-500/20 text-xs font-bold text-amber-400">
-            {initial}
-          </AvatarFallback>
-        </Avatar>
+        <div className="shrink-0">
+          <UserAvatar
+            avatarUrl={senderAvatar ?? null}
+            iconConfig={senderIconConfig ?? null}
+            userId={senderId ?? senderName}
+            username={senderName}
+            size={32}
+          />
+        </div>
 
         {/* Message content */}
         <div className="flex-1 min-w-0">
