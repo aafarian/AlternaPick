@@ -9,6 +9,8 @@ import ActiveChallengeCard from "@/components/challenges/ActiveChallengeCard";
 import HistoryChallengeCard from "@/components/challenges/HistoryChallengeCard";
 import CreateChallengeModal from "@/components/challenges/CreateChallengeModal";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
+import type { Challenge } from "@/lib/supabase/types";
+import { useChallengesRealtime } from "@/hooks/useChallengesRealtime";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -30,7 +32,7 @@ const COMPLETED_PAGE_SIZE = 15;
 const INCOMING_COLLAPSED_LIMIT = 3;
 
 export default function ChallengesPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, supabase } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -100,6 +102,81 @@ export default function ChallengesPage() {
     }
     setHasMoreCompleted(data.hasMore ?? false);
   }, []);
+
+  // --- Realtime integration ---
+  // Dedup: track processed event keys (challengeId + eventType) to prevent
+  // double-processing on reconnection catch-up.
+  const processedEventsRef = useRef<Set<string>>(new Set());
+
+  // Debounce: batch rapid-fire Realtime events into a single refetch cycle.
+  const debounceCoreRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceCompletedRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const DEBOUNCE_MS = 500;
+
+  const debouncedFetchCore = useCallback(() => {
+    if (debounceCoreRef.current) clearTimeout(debounceCoreRef.current);
+    debounceCoreRef.current = setTimeout(() => {
+      fetchCore().catch(() => {});
+    }, DEBOUNCE_MS);
+  }, [fetchCore]);
+
+  const debouncedFetchCompleted = useCallback(() => {
+    if (debounceCompletedRef.current) clearTimeout(debounceCompletedRef.current);
+    debounceCompletedRef.current = setTimeout(() => {
+      fetchCompleted(0, false).catch(() => {});
+    }, DEBOUNCE_MS);
+  }, [fetchCompleted]);
+
+  // Clean up debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceCoreRef.current) clearTimeout(debounceCoreRef.current);
+      if (debounceCompletedRef.current) clearTimeout(debounceCompletedRef.current);
+    };
+  }, []);
+
+  // Realtime callbacks — memoised so the hook's ref-tracking stays stable.
+  const handleRealtimeInsert = useCallback(
+    (challenge: Challenge) => {
+      const dedupKey = `${challenge.id}:INSERT`;
+      if (processedEventsRef.current.has(dedupKey)) return;
+      processedEventsRef.current.add(dedupKey);
+
+      // Whether the current user is the opponent (incoming) or the challenger
+      // (sent), refreshing core covers both sections.
+      debouncedFetchCore();
+    },
+    [debouncedFetchCore]
+  );
+
+  const handleRealtimeUpdate = useCallback(
+    (challenge: Challenge) => {
+      const dedupKey = `${challenge.id}:UPDATE:${challenge.status}`;
+      if (processedEventsRef.current.has(dedupKey)) return;
+      processedEventsRef.current.add(dedupKey);
+
+      debouncedFetchCore();
+
+      // Terminal statuses also affect the history tab.
+      if (
+        challenge.status === "resolved" ||
+        challenge.status === "declined" ||
+        challenge.status === "cancelled"
+      ) {
+        debouncedFetchCompleted();
+      }
+    },
+    [debouncedFetchCore, debouncedFetchCompleted]
+  );
+
+  // Subscribe to Realtime (graceful no-op when userId is undefined or
+  // supabase is unavailable — page continues to work via manual refresh).
+  useChallengesRealtime({
+    userId: user?.id,
+    supabase,
+    onInsert: handleRealtimeInsert,
+    onUpdate: handleRealtimeUpdate,
+  });
 
   // Initial load
   useEffect(() => {
