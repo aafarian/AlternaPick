@@ -40,7 +40,7 @@ export function ConsensusCard({ picks }: ConsensusCardProps) {
           {displayPicks.map((pick) => {
             const pct = Math.round(pick.dominantPct * 100);
             const categoryLabel =
-              CATEGORY_LABELS[pick.statCategory as StatCategory] ??
+              CATEGORY_LABELS[pick.statCategory.toLowerCase() as StatCategory] ??
               pick.statCategory;
 
             return (

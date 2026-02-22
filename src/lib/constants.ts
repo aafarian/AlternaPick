@@ -200,6 +200,19 @@ for (const [name, tricode] of Object.entries(TEAM_TRICODES)) {
   TRICODE_TO_NAMES[tricode].push(name.toLowerCase());
 }
 
+// Reverse lookup: tricode → canonical full team name (picks the first/shortest entry)
+const TRICODE_TO_FULL: Record<string, string> = {};
+for (const [name, tricode] of Object.entries(TEAM_TRICODES)) {
+  if (!TRICODE_TO_FULL[tricode] || name.length < TRICODE_TO_FULL[tricode].length) {
+    TRICODE_TO_FULL[tricode] = name;
+  }
+}
+
+/** Convert a team tricode (e.g. "DAL") to its full name (e.g. "Dallas Mavericks"). Returns the input if no match. */
+export function teamFullName(tricodeOrName: string): string {
+  return TRICODE_TO_FULL[tricodeOrName] ?? tricodeOrName;
+}
+
 /** Check if a player's team tricode matches a search query (by tricode or full team name). */
 export function teamMatchesQuery(tricode: string | null, query: string): boolean {
   if (!tricode || !query) return false;

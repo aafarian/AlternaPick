@@ -195,22 +195,15 @@ export interface WeeklyRecapData {
   startDate: string;
   /** Date range: end date string */
   endDate: string;
-  /** Team breakdown aggregated across the week */
-  teamBreakdown: BreakdownEntry[];
-  /** Consensus picks with 70%+ agreement across the week */
-  consensusPicks: ConsensusPick[];
-  /** Auto-generated weekly fun facts */
-  spotlights: Spotlight[];
   /** Full RecapData aggregated across the week, for tile grid rendering */
   recapData: RecapData | null;
 }
 
 export interface WeeklyPersonalStats {
   weeklyHitRate: number;
-  totalPicks: number;
   totalCards: number;
   platformWeeklyHitRate: number;
-  dailyTrend: { date: string; hitRate: number; picks: number }[];
+  dailyTrend: { date: string; hitRate: number; cards: number }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -911,9 +904,6 @@ export async function computeWeeklyRecap(
     bestLock,
     startDate: start,
     endDate: end,
-    teamBreakdown: weeklyRecapData?.teamBreakdown ?? [],
-    consensusPicks: weeklyRecapData?.consensusPicks ?? [],
-    spotlights: weeklyRecapData?.spotlights ?? [],
     recapData: weeklyRecapData,
   };
 
