@@ -511,7 +511,7 @@ export default function ChallengesPage() {
                     className="grid grid-cols-1 md:grid-cols-2 gap-3"
                   >
                     {filteredCompleted.map((challenge) => (
-                      <StaggerItem key={challenge.id}>
+                      <StaggerItem key={challenge.id} className="h-full">
                         <HistoryChallengeCard
                           challenge={challenge}
                           currentUserId={userId}

@@ -4,6 +4,12 @@ import Link from "next/link";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { GAME_MODES } from "@/lib/modes/definitions";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
@@ -128,15 +134,15 @@ export default function HistoryChallengeCard({
       };
 
   return (
-    <Link href={`/challenges/${challenge.id}`}>
-      <motion.div {...hoverProps}>
+    <Link href={`/challenges/${challenge.id}`} className="h-full">
+      <motion.div {...hoverProps} className="h-full">
         <Card
           className={cn(
-            "border-border border-l-2 bg-card transition-all hover:bg-secondary/50",
+            "h-full border-border border-l-2 bg-card transition-all hover:bg-secondary/50",
             colors.border
           )}
         >
-          <CardContent className="flex items-center gap-3 px-3 py-2.5">
+          <CardContent className="flex h-full items-center gap-3 px-3 py-2.5">
             {/* Avatar */}
             <Avatar className="h-8 w-8 shrink-0">
               <AvatarFallback
@@ -176,13 +182,18 @@ export default function HistoryChallengeCard({
 
               {/* Trash talk preview */}
               {challenge.message && (
-                <p className="mt-0.5 max-w-full truncate text-xs italic text-muted-foreground/60">
-                  &ldquo;
-                  {challenge.message.length > 60
-                    ? challenge.message.slice(0, 60) + "..."
-                    : challenge.message}
-                  &rdquo;
-                </p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="mt-0.5 max-w-full truncate text-xs italic text-muted-foreground/60">
+                        &ldquo;{challenge.message}&rdquo;
+                      </p>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-64">
+                      <p className="italic">&ldquo;{challenge.message}&rdquo;</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
           </CardContent>
