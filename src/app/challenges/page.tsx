@@ -42,7 +42,7 @@ export default function ChallengesPage() {
   // Completed challenges (paginated)
   const [completedChallenges, setCompletedChallenges] = useState<ChallengeWithProfiles[]>([]);
   const [hasMoreCompleted, setHasMoreCompleted] = useState(false);
-  const [loadingMoreCompleted, setLoadingMoreCompleted] = useState(false);
+  const loadingMoreRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("active");
@@ -244,16 +244,17 @@ export default function ChallengesPage() {
 
   // Load more completed challenges
   const loadMore = useCallback(async () => {
-    if (loadingMoreCompleted || !hasMoreCompleted) return;
-    setLoadingMoreCompleted(true);
+    if (loadingMoreRef.current || !hasMoreCompleted) return;
+    loadingMoreRef.current = true;
     try {
       await fetchCompleted(completedChallenges.length, true);
     } catch {
-      // Silently fail — user can scroll again
+      // Stop retrying on error — prevents infinite spinner
+      setHasMoreCompleted(false);
     } finally {
-      setLoadingMoreCompleted(false);
+      loadingMoreRef.current = false;
     }
-  }, [loadingMoreCompleted, hasMoreCompleted, completedChallenges.length, fetchCompleted]);
+  }, [hasMoreCompleted, completedChallenges.length, fetchCompleted]);
 
   // IntersectionObserver for infinite scroll (active only on history tab)
   useEffect(() => {
@@ -651,19 +652,16 @@ export default function ChallengesPage() {
                 />
               ) : (
                 <div className="flex flex-col gap-2">
-                  <StaggerChildren
-                    staggerDelay={0.06}
-                    className="grid grid-cols-1 md:grid-cols-2 gap-3"
-                  >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {filteredCompleted.map((challenge) => (
-                      <StaggerItem key={challenge.id} className="h-full">
+                      <div key={challenge.id} className="h-full">
                         <HistoryChallengeCard
                           challenge={challenge}
                           currentUserId={userId}
                         />
-                      </StaggerItem>
+                      </div>
                     ))}
-                  </StaggerChildren>
+                  </div>
 
                   {/* Infinite scroll sentinel */}
                   {hasMoreCompleted && (
