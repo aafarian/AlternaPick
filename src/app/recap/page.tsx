@@ -403,7 +403,6 @@ export default async function RecapPage({
   }
 
   const recapData = typedRecap.recap_data;
-  const weeklyData = typedRecap.weekly_data ?? null;
   const personalHighlights: PersonalHighlight | null =
     user && typedRecap.personal_highlights
       ? (typedRecap.personal_highlights[user.id] ?? null)
@@ -414,29 +413,6 @@ export default async function RecapPage({
   // Patch missing data from old stored recaps
   await patchPlayerIds(recapData, supabase);
   await patchPerfectCards(recapData, currentDate, supabase);
-
-  // Compute weekly personal stats for authenticated users
-  let personalWeekly: WeeklyPersonalStats | null = null;
-
-  if (user && weeklyData) {
-    const endDate = currentDate;
-    const startDate = new Date(`${endDate}T00:00:00Z`);
-    startDate.setUTCDate(startDate.getUTCDate() - 6);
-    const startStr = startDate.toISOString().slice(0, 10);
-
-    const { data: weekRows } = await typedFrom(supabase, "recaps")
-      .select("recap_date, personal_highlights")
-      .gte("recap_date", startStr)
-      .lte("recap_date", endDate)
-      .order("recap_date", { ascending: true });
-
-    const typedWeekRows = (weekRows ?? []) as {
-      recap_date: string;
-      personal_highlights: Record<string, PersonalHighlight> | null;
-    }[];
-
-    personalWeekly = buildPersonalWeekly(typedWeekRows, user.id, weeklyData.weeklyHitRate);
-  }
 
   // Format the recap date for display
   const dateLabel = new Date(`${currentDate}T00:00:00Z`).toLocaleDateString("en-US", {
@@ -503,14 +479,6 @@ export default async function RecapPage({
         </section>
       </FadeIn>
 
-      {/* 6. This Week — weekly summary section */}
-      {weeklyData && (
-        <ScrollReveal>
-          <section aria-label="This Week" data-section="this-week">
-            <ThisWeek weeklyData={weeklyData} personalWeekly={personalWeekly} />
-          </section>
-        </ScrollReveal>
-      )}
     </div>
   );
 }
