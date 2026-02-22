@@ -1,0 +1,150 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database, Challenge } from "@/lib/supabase/types";
+
+interface UseChallengesRealtimeParams {
+  userId: string | undefined;
+  supabase: SupabaseClient<Database>;
+  onInsert?: (challenge: Challenge) => void;
+  onUpdate?: (challenge: Challenge) => void;
+  /** Called after a reconnection so the consumer can refetch missed data. */
+  onReconnect?: () => void;
+}
+
+/**
+ * Subscribes to Supabase Realtime `postgres_changes` on the `challenges` table,
+ * filtered client-side to rows where `challenger_id` or `opponent_id` equals the
+ * current user.
+ *
+ * Implements exponential backoff retry (up to 10 retries) on CHANNEL_ERROR/TIMED_OUT.
+ * Mirrors the retry/cleanup pattern from Header.tsx.
+ *
+ * Returns `{ isConnected, hasEverConnected }` for an optional UI connection indicator.
+ */
+export function useChallengesRealtime({
+  userId,
+  supabase,
+  onInsert,
+  onUpdate,
+  onReconnect,
+}: UseChallengesRealtimeParams): {
+  isConnected: boolean;
+  hasEverConnected: boolean;
+} {
+  const [isConnected, setIsConnected] = useState(false);
+  const hasEverConnectedRef = useRef(false);
+  const [hasEverConnected, setHasEverConnected] = useState(false);
+
+  // Keep callbacks in refs so the channel subscription doesn't re-create
+  // every time the consumer's callbacks change identity.
+  const onInsertRef = useRef(onInsert);
+  const onUpdateRef = useRef(onUpdate);
+  const onReconnectRef = useRef(onReconnect);
+  useEffect(() => {
+    onInsertRef.current = onInsert;
+  }, [onInsert]);
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  }, [onUpdate]);
+  useEffect(() => {
+    onReconnectRef.current = onReconnect;
+  }, [onReconnect]);
+
+  useEffect(() => {
+    if (!userId || !supabase) return;
+
+    let retryTimeout: ReturnType<typeof setTimeout>;
+    let retryCount = 0;
+    let channelRef: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+    const MAX_RETRIES = 10;
+
+    function subscribe() {
+      if (cancelled) return;
+
+      // Supabase Realtime doesn't support multi-column OR filters,
+      // so we subscribe unfiltered and filter client-side.
+      const channel = supabase
+        .channel(`challenges-realtime-${Date.now()}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "challenges",
+          },
+          (payload) => {
+            const row = payload.new as Challenge;
+            if (row.challenger_id === userId || row.opponent_id === userId) {
+              onInsertRef.current?.(row);
+            }
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "challenges",
+          },
+          (payload) => {
+            const row = payload.new as Challenge;
+            if (row.challenger_id === userId || row.opponent_id === userId) {
+              onUpdateRef.current?.(row);
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (cancelled) return;
+
+          if (status === "SUBSCRIBED") {
+            setIsConnected(true);
+
+            if (!hasEverConnectedRef.current) {
+              hasEverConnectedRef.current = true;
+              setHasEverConnected(true);
+            }
+
+            // On reconnection, catch up on missed events
+            if (retryCount > 0) {
+              onReconnectRef.current?.();
+            }
+
+            retryCount = 0;
+          }
+
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            setIsConnected(false);
+            // Remove broken channel and retry with exponential backoff
+            supabase.removeChannel(channel);
+            channelRef = null;
+
+            if (!cancelled && retryCount < MAX_RETRIES) {
+              const delay = Math.min(1000 * Math.pow(2, retryCount), 30000);
+              retryTimeout = setTimeout(() => {
+                retryCount++;
+                subscribe();
+              }, delay);
+            }
+          }
+        });
+
+      channelRef = channel;
+    }
+
+    subscribe();
+
+    return () => {
+      cancelled = true;
+      setIsConnected(false);
+      clearTimeout(retryTimeout);
+      if (channelRef) {
+        supabase.removeChannel(channelRef);
+      }
+    };
+  }, [userId, supabase]);
+
+  return { isConnected, hasEverConnected };
+}

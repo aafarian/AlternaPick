@@ -9,6 +9,9 @@ import ActiveChallengeCard from "@/components/challenges/ActiveChallengeCard";
 import HistoryChallengeCard from "@/components/challenges/HistoryChallengeCard";
 import CreateChallengeModal from "@/components/challenges/CreateChallengeModal";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
+import type { Challenge } from "@/lib/supabase/types";
+import { useChallengesRealtime } from "@/hooks/useChallengesRealtime";
+import { useChallengeToast } from "@/hooks/useChallengeToast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -30,7 +33,7 @@ const COMPLETED_PAGE_SIZE = 15;
 const INCOMING_COLLAPSED_LIMIT = 3;
 
 export default function ChallengesPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, supabase } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -39,7 +42,7 @@ export default function ChallengesPage() {
   // Completed challenges (paginated)
   const [completedChallenges, setCompletedChallenges] = useState<ChallengeWithProfiles[]>([]);
   const [hasMoreCompleted, setHasMoreCompleted] = useState(false);
-  const [loadingMoreCompleted, setLoadingMoreCompleted] = useState(false);
+  const loadingMoreRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("active");
@@ -53,9 +56,14 @@ export default function ChallengesPage() {
   const [incomingExpanded, setIncomingExpanded] = useState(false);
 
   const prefersReduced = useReducedMotion();
+  const { showChallengeToast, markReady } = useChallengeToast();
 
-  // Infinite scroll sentinel
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  // Infinite scroll: callback ref connects the observer when the sentinel
+  // mounts (works even when AnimatePresence delays rendering).
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  // Version counter: prevents stale fetchCompleted responses from updating state
+  // when multiple fetches race (e.g. loadMore vs realtime-triggered reset).
+  const fetchCompletedVersionRef = useRef(0);
 
   // Rematch: auto-open modal with pre-filled opponent from URL params.
   // Capture values in a ref so they survive the URL cleanup below.
@@ -86,12 +94,16 @@ export default function ChallengesPage() {
 
   // Fetch completed challenges (paginated)
   const fetchCompleted = useCallback(async (offset: number, append: boolean) => {
+    const version = ++fetchCompletedVersionRef.current;
     const res = await fetch(
       `/api/challenges?status=resolved,declined,cancelled&limit=${COMPLETED_PAGE_SIZE}&offset=${offset}`
     );
     if (!res.ok) throw new Error("Failed to load challenges");
     const data = await res.json();
     const fetched: ChallengeWithProfiles[] = data.challenges ?? [];
+
+    // A newer fetch was started while this one was in flight — discard stale result
+    if (fetchCompletedVersionRef.current !== version) return;
 
     if (append) {
       setCompletedChallenges((prev) => [...prev, ...fetched]);
@@ -100,6 +112,127 @@ export default function ChallengesPage() {
     }
     setHasMoreCompleted(data.hasMore ?? false);
   }, []);
+
+  // --- Realtime integration ---
+  // Dedup: track processed event keys (challengeId + eventType) to prevent
+  // double-processing on reconnection catch-up.
+  // Bounded to MAX_PROCESSED_EVENTS to prevent memory growth.
+  const processedEventsRef = useRef<Set<string>>(new Set());
+  const MAX_PROCESSED_EVENTS = 500;
+
+  // Debounce: batch rapid-fire Realtime events into a single refetch cycle.
+  const debounceCoreRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceCompletedRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Challenge IDs pending toast display (processed after coreChallenges updates)
+  const pendingToastIdsRef = useRef<Set<string>>(new Set());
+  const DEBOUNCE_MS = 500;
+
+  const debouncedFetchCore = useCallback(() => {
+    if (debounceCoreRef.current) clearTimeout(debounceCoreRef.current);
+    debounceCoreRef.current = setTimeout(() => {
+      fetchCore().catch(() => {});
+    }, DEBOUNCE_MS);
+  }, [fetchCore]);
+
+  const debouncedFetchCompleted = useCallback(() => {
+    if (debounceCompletedRef.current) clearTimeout(debounceCompletedRef.current);
+    debounceCompletedRef.current = setTimeout(() => {
+      fetchCompleted(0, false).catch(() => {});
+    }, DEBOUNCE_MS);
+  }, [fetchCompleted]);
+
+  // Clean up debounce timers and observer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceCoreRef.current) clearTimeout(debounceCoreRef.current);
+      if (debounceCompletedRef.current) clearTimeout(debounceCompletedRef.current);
+      if (observerRef.current) observerRef.current.disconnect();
+    };
+  }, []);
+
+  // Fire pending toasts once coreChallenges has been updated by fetchCore.
+  // This runs after the debounced fetchCore sets state, so we can look up
+  // challenger profile data from the freshly-fetched coreChallenges.
+  useEffect(() => {
+    if (pendingToastIdsRef.current.size === 0) return;
+    const uid = user?.id;
+    if (!uid) return;
+    const ids = Array.from(pendingToastIdsRef.current);
+    // Only remove IDs that are present in the fetched data.
+    // If a challenge hasn't arrived yet, keep it pending for the next cycle.
+    for (const id of ids) {
+      if (coreChallenges.some((c) => c.id === id)) {
+        showChallengeToast(id, coreChallenges, uid);
+        pendingToastIdsRef.current.delete(id);
+      }
+    }
+  }, [coreChallenges, user?.id, showChallengeToast]);
+
+  // Realtime callbacks — memoised so the hook's ref-tracking stays stable.
+  const handleRealtimeInsert = useCallback(
+    (challenge: Challenge) => {
+      const dedupKey = `${challenge.id}:INSERT`;
+      if (processedEventsRef.current.has(dedupKey)) return;
+      processedEventsRef.current.add(dedupKey);
+      if (processedEventsRef.current.size > MAX_PROCESSED_EVENTS) {
+        const entries = Array.from(processedEventsRef.current);
+        processedEventsRef.current = new Set(entries.slice(-250));
+      }
+
+      // Whether the current user is the opponent (incoming) or the challenger
+      // (sent), refreshing core covers both sections.
+      debouncedFetchCore();
+
+      // Queue toast for incoming challenges (where current user is the opponent).
+      // The toast will fire once the debounced fetchCore updates coreChallenges,
+      // giving us access to the challenger's profile info.
+      if (challenge.opponent_id === user?.id) {
+        pendingToastIdsRef.current.add(challenge.id);
+      }
+    },
+    [debouncedFetchCore, user?.id]
+  );
+
+  const handleRealtimeUpdate = useCallback(
+    (challenge: Challenge) => {
+      const dedupKey = `${challenge.id}:UPDATE:${challenge.status}`;
+      if (processedEventsRef.current.has(dedupKey)) return;
+      processedEventsRef.current.add(dedupKey);
+      if (processedEventsRef.current.size > MAX_PROCESSED_EVENTS) {
+        const entries = Array.from(processedEventsRef.current);
+        processedEventsRef.current = new Set(entries.slice(-250));
+      }
+
+      debouncedFetchCore();
+
+      // Terminal statuses also affect the history tab.
+      if (
+        challenge.status === "resolved" ||
+        challenge.status === "declined" ||
+        challenge.status === "cancelled"
+      ) {
+        debouncedFetchCompleted();
+      }
+    },
+    [debouncedFetchCore, debouncedFetchCompleted]
+  );
+
+  // Subscribe to Realtime (graceful no-op when userId is undefined or
+  // supabase is unavailable — page continues to work via manual refresh).
+  // On reconnection, refetch both core and completed to catch up on events
+  // that arrived while the channel was down.
+  const handleReconnect = useCallback(() => {
+    fetchCore().catch(() => {});
+    fetchCompleted(0, false).catch(() => {});
+  }, [fetchCore, fetchCompleted]);
+
+  const { isConnected, hasEverConnected } = useChallengesRealtime({
+    userId: user?.id,
+    supabase,
+    onInsert: handleRealtimeInsert,
+    onUpdate: handleRealtimeUpdate,
+    onReconnect: handleReconnect,
+  });
 
   // Initial load
   useEffect(() => {
@@ -112,40 +245,51 @@ export default function ChallengesPage() {
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Failed to load challenges");
       })
-      .finally(() => setLoading(false));
-  }, [user, authLoading, fetchCore, fetchCompleted]);
+      .finally(() => {
+        setLoading(false);
+        markReady();
+      });
+  }, [user, authLoading, fetchCore, fetchCompleted, markReady]);
 
   // Load more completed challenges
   const loadMore = useCallback(async () => {
-    if (loadingMoreCompleted || !hasMoreCompleted) return;
-    setLoadingMoreCompleted(true);
+    if (loadingMoreRef.current || !hasMoreCompleted) return;
+    loadingMoreRef.current = true;
     try {
       await fetchCompleted(completedChallenges.length, true);
     } catch {
-      // Silently fail — user can scroll again
+      // Stop retrying on error — prevents infinite spinner
+      setHasMoreCompleted(false);
     } finally {
-      setLoadingMoreCompleted(false);
+      loadingMoreRef.current = false;
     }
-  }, [loadingMoreCompleted, hasMoreCompleted, completedChallenges.length, fetchCompleted]);
+  }, [hasMoreCompleted, completedChallenges.length, fetchCompleted]);
 
-  // IntersectionObserver for infinite scroll (active only on history tab)
-  useEffect(() => {
-    if (activeTab !== "history" || !hasMoreCompleted) return;
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
+  // Callback ref for infinite scroll sentinel. Connects the observer exactly
+  // when the sentinel mounts (immune to AnimatePresence delaying the DOM).
+  const loadMoreRef = useRef(loadMore);
+  loadMoreRef.current = loadMore;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          loadMore();
-        }
-      },
-      { rootMargin: "200px" }
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [activeTab, hasMoreCompleted, loadMore]);
+  const sentinelRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
+      }
+      if (!node) return;
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting) {
+            loadMoreRef.current();
+          }
+        },
+        { rootMargin: "200px" }
+      );
+      observer.observe(node);
+      observerRef.current = observer;
+    },
+    [] // stable — loadMore accessed via ref
+  );
 
   const handleAction = async (
     challengeId: string,
@@ -204,7 +348,7 @@ export default function ChallengesPage() {
   const matchesSearch = (c: ChallengeWithProfiles) => {
     if (!sq) return true;
     const opp = c.challenger_id === userId ? c.opponent : c.challenger;
-    const name = opp.username.toLowerCase();
+    const name = (opp.display_name || opp.username).toLowerCase();
     return name.includes(sq);
   };
 
@@ -220,7 +364,7 @@ export default function ChallengesPage() {
   const hiddenIncomingCount = filteredInbox.length - INCOMING_COLLAPSED_LIMIT;
 
   // Tab badge count
-  const activeTabCount = filteredActive.length + filteredSent.length;
+  const activeTabCount = filteredActive.length;
 
   if (authLoading) {
     return (
@@ -249,7 +393,25 @@ export default function ChallengesPage() {
       {/* Header */}
       <SlideUp>
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight">Challenges</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight">Challenges</h1>
+            {/* Connection status indicator — visible only after initial connection lost */}
+            <AnimatePresence>
+              {hasEverConnected && !isConnected && !loading && (
+                <motion.span
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0 }}
+                  transition={{ duration: prefersReduced ? 0 : 0.2 }}
+                  title="Reconnecting to live updates..."
+                  className={cn(
+                    "inline-block h-2 w-2 rounded-full bg-amber-500",
+                    !prefersReduced && "animate-pulse"
+                  )}
+                />
+              )}
+            </AnimatePresence>
+          </div>
           <Button onClick={() => setModalOpen(true)} size="sm">
             <Plus className="mr-1.5 h-4 w-4" />
             New Challenge
@@ -486,7 +648,7 @@ export default function ChallengesPage() {
               ) : (
                 <StaggerChildren staggerDelay={0.06} className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {filteredActive.map((challenge) => (
-                    <StaggerItem key={challenge.id}>
+                    <StaggerItem key={challenge.id} className="h-full">
                       <ActiveChallengeCard
                         challenge={challenge}
                         currentUserId={userId}
@@ -506,19 +668,16 @@ export default function ChallengesPage() {
                 />
               ) : (
                 <div className="flex flex-col gap-2">
-                  <StaggerChildren
-                    staggerDelay={0.06}
-                    className="grid grid-cols-1 md:grid-cols-2 gap-3"
-                  >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {filteredCompleted.map((challenge) => (
-                      <StaggerItem key={challenge.id} className="h-full">
+                      <div key={challenge.id} className="h-full">
                         <HistoryChallengeCard
                           challenge={challenge}
                           currentUserId={userId}
                         />
-                      </StaggerItem>
+                      </div>
                     ))}
-                  </StaggerChildren>
+                  </div>
 
                   {/* Infinite scroll sentinel */}
                   {hasMoreCompleted && (

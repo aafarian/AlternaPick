@@ -74,6 +74,39 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Fetch card scores for resolved challenges (admin client bypasses RLS for opponent cards)
+    const resolvedIds = challenges
+      .filter((c) => c.status === "resolved")
+      .map((c) => c.id);
+
+    if (resolvedIds.length > 0) {
+      const admin = createAdminClient();
+      const { data: cards } = await (admin.from("cards") as any)
+        .select("challenge_id, user_id, score")
+        .in("challenge_id", resolvedIds);
+
+      const scoreMap = new Map<string, { challengerScore: number; opponentScore: number }>();
+      for (const card of (cards ?? []) as Array<{ challenge_id: string; user_id: string; score: number }>) {
+        const ch = challenges.find((c) => c.id === card.challenge_id);
+        if (!ch) continue;
+        const entry = scoreMap.get(card.challenge_id) ?? { challengerScore: 0, opponentScore: 0 };
+        if (card.user_id === ch.challenger_id) {
+          entry.challengerScore = card.score;
+        } else {
+          entry.opponentScore = card.score;
+        }
+        scoreMap.set(card.challenge_id, entry);
+      }
+
+      for (const ch of challenges) {
+        const scores = scoreMap.get(ch.id);
+        if (scores) {
+          ch.challenger_score = scores.challengerScore;
+          ch.opponent_score = scores.opponentScore;
+        }
+      }
+    }
+
     return NextResponse.json({ challenges, userCardChallengeIds, hasMore });
   } catch (error) {
     return handleApiError(error, "Failed to fetch challenges");

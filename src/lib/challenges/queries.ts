@@ -11,6 +11,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export interface ChallengeWithProfiles extends Challenge {
   challenger: { id: string; username: string; display_name: string | null; avatar_url: string | null };
   opponent: { id: string; username: string; display_name: string | null; avatar_url: string | null };
+  /** Populated for resolved challenges — challenger's card score */
+  challenger_score?: number | null;
+  /** Populated for resolved challenges — opponent's card score */
+  opponent_score?: number | null;
 }
 
 export interface ChallengeDetail extends ChallengeWithProfiles {
