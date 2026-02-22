@@ -22,6 +22,8 @@ import { AnimatedNumber } from "@/components/recap/AnimatedNumber";
 interface ThisWeekProps {
   weeklyData: WeeklyRecapData;
   personalWeekly?: WeeklyPersonalStats | null;
+  /** Hide the stats grid when PlatformStats is already shown above */
+  hideStats?: boolean;
 }
 
 function hitRateColor(rate: number): string {
@@ -42,7 +44,7 @@ function formatDateRange(startDate: string, endDate: string): string {
   return `${start.toLocaleDateString("en-US", opts)} - ${end.toLocaleDateString("en-US", opts)}`;
 }
 
-export function ThisWeek({ weeklyData, personalWeekly }: ThisWeekProps) {
+export function ThisWeek({ weeklyData, personalWeekly, hideStats }: ThisWeekProps) {
   const {
     dailyTrend,
     weeklyHitRate,
@@ -83,40 +85,37 @@ export function ThisWeek({ weeklyData, personalWeekly }: ThisWeekProps) {
           </div>
         )}
 
-        {/* Stats Grid */}
-        <div className="mt-4 grid grid-cols-3 gap-3">
-          {/* Total Picks */}
-          <div className="rounded-lg border border-border/50 bg-background/50 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Total Picks
-            </p>
-            <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-              <AnimatedNumber value={totalPicks} />
-            </p>
+        {/* Stats Grid — hidden when PlatformStats is already rendered */}
+        {!hideStats && (
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="rounded-lg border border-border/50 bg-background/50 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Total Picks
+              </p>
+              <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
+                <AnimatedNumber value={totalPicks} />
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-background/50 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Total Cards
+              </p>
+              <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
+                <AnimatedNumber value={totalCards} />
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-background/50 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Hit Rate
+              </p>
+              <p
+                className={`mt-1 text-2xl font-black tabular-nums ${hitRateColor(weeklyHitRate)}`}
+              >
+                <AnimatedNumber value={hitPercent} suffix="%" />
+              </p>
+            </div>
           </div>
-
-          {/* Total Cards */}
-          <div className="rounded-lg border border-border/50 bg-background/50 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Total Cards
-            </p>
-            <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-              <AnimatedNumber value={totalCards} />
-            </p>
-          </div>
-
-          {/* Weekly Hit Rate */}
-          <div className="rounded-lg border border-border/50 bg-background/50 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Hit Rate
-            </p>
-            <p
-              className={`mt-1 text-2xl font-black tabular-nums ${hitRateColor(weeklyHitRate)}`}
-            >
-              <AnimatedNumber value={hitPercent} suffix="%" />
-            </p>
-          </div>
-        </div>
+        )}
 
         {/* Highlights Row */}
         {(topPlayer || worstTrap || bestLock) && (
@@ -159,7 +158,7 @@ export function ThisWeek({ weeklyData, personalWeekly }: ThisWeekProps) {
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {worstTrap.line}{" "}
-                    {CATEGORY_LABELS[worstTrap.statCategory] ??
+                    {CATEGORY_LABELS[worstTrap.statCategory.toLowerCase() as keyof typeof CATEGORY_LABELS] ??
                       worstTrap.statCategory}{" "}
                     &mdash; {Math.round(worstTrap.hitRate * 100)}% hit rate
                   </p>
@@ -180,7 +179,7 @@ export function ThisWeek({ weeklyData, personalWeekly }: ThisWeekProps) {
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {bestLock.line}{" "}
-                    {CATEGORY_LABELS[bestLock.statCategory] ??
+                    {CATEGORY_LABELS[bestLock.statCategory.toLowerCase() as keyof typeof CATEGORY_LABELS] ??
                       bestLock.statCategory}{" "}
                     &mdash; {Math.round(bestLock.hitRate * 100)}% hit rate
                   </p>
@@ -191,10 +190,10 @@ export function ThisWeek({ weeklyData, personalWeekly }: ThisWeekProps) {
         )}
 
         {/* Weekly Spotlights */}
-        {weeklyData.spotlights && weeklyData.spotlights.length > 0 && (
+        {weeklyData.recapData?.spotlights && weeklyData.recapData.spotlights.length > 0 && (
           <>
             <div className="my-4 border-t border-border/40" />
-            <SpotlightsCard spotlights={weeklyData.spotlights} />
+            <SpotlightsCard spotlights={weeklyData.recapData.spotlights} />
           </>
         )}
 
@@ -235,8 +234,8 @@ function PersonalWeeklyRow({ stats }: { stats: WeeklyPersonalStats }) {
         <span className={`font-bold tabular-nums ${hitRateColor(stats.weeklyHitRate)}`}>
           {userPercent}%
         </span>{" "}
-        hit rate across {stats.totalPicks} pick
-        {stats.totalPicks !== 1 ? "s" : ""}{" "}
+        hit rate across {stats.totalCards} card
+        {stats.totalCards !== 1 ? "s" : ""}{" "}
         <span className={`text-xs font-semibold ${deltaColor}`}>
           ({deltaSign}{delta}% vs platform)
         </span>
@@ -248,7 +247,7 @@ function PersonalWeeklyRow({ stats }: { stats: WeeklyPersonalStats }) {
           {stats.dailyTrend.map((day) => {
             const pct = Math.round(day.hitRate * 100);
             const dotColor =
-              day.picks === 0
+              day.cards === 0
                 ? "bg-border/50"
                 : pct >= 60
                   ? "bg-neon-green"
@@ -260,9 +259,9 @@ function PersonalWeeklyRow({ stats }: { stats: WeeklyPersonalStats }) {
                 key={day.date}
                 className={`h-2 w-2 rounded-full ${dotColor}`}
                 title={
-                  day.picks === 0
-                    ? `${day.date}: no picks`
-                    : `${day.date}: ${pct}% (${day.picks} picks)`
+                  day.cards === 0
+                    ? `${day.date}: no cards`
+                    : `${day.date}: ${pct}% (${day.cards} cards)`
                 }
               />
             );

@@ -17,11 +17,10 @@ function getYesterdayUTC(): string {
 export async function POST(request: NextRequest) {
   // Auth: require SYNC_SECRET bearer token
   const syncSecret = process.env.SYNC_SECRET;
-  if (syncSecret) {
-    const authHeader = request.headers.get("authorization");
-    if (authHeader !== `Bearer ${syncSecret}`) {
-      return unauthorized();
-    }
+  if (!syncSecret) return unauthorized();
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${syncSecret}`) {
+    return unauthorized();
   }
 
   try {
@@ -98,7 +97,9 @@ export async function POST(request: NextRequest) {
 
         if (!existingRecap.weekly_data) {
           try {
-            const weeklyResult = await computeWeeklyRecap(targetDate);
+            const mon = getMondayOfWeek(targetDate);
+            const sun = getSundayOfWeek(mon);
+            const weeklyResult = await computeWeeklyRecap(sun, mon);
             weekly = {
               computed: true,
               days_included: weeklyResult.dailyTrend.length,
@@ -152,7 +153,9 @@ export async function POST(request: NextRequest) {
       { computed: false };
 
     try {
-      const weeklyResult = await computeWeeklyRecap(targetDate);
+      const mon = getMondayOfWeek(targetDate);
+      const sun = getSundayOfWeek(mon);
+      const weeklyResult = await computeWeeklyRecap(sun, mon);
       weekly = {
         computed: true,
         days_included: weeklyResult.dailyTrend.length,

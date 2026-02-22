@@ -18,7 +18,7 @@ import type { SpotlightType } from "@/lib/recaps/compute";
 /* ─── Constants ─── */
 
 export const TILE =
-  "rounded-xl border p-4 flex flex-col justify-between min-h-[160px]";
+  "rounded-xl border p-4 flex flex-col justify-between min-h-[160px] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/20";
 
 export const MAX_TILE_ITEMS = 3;
 export const MAX_TILE_ITEMS_LARGE = 5;
@@ -203,5 +203,6 @@ export function SportBadge({ sport }: { sport: string }) {
 /* ─── Helpers ─── */
 
 export function catLabel(key: string): string {
-  return (CATEGORY_LABELS as Record<string, string>)[key] ?? key;
+  const lower = key.toLowerCase();
+  return (CATEGORY_LABELS as Record<string, string>)[lower] ?? key;
 }

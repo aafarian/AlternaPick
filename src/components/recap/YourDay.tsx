@@ -19,7 +19,7 @@ function hitRateColor(rate: number): string {
 
 function formatPickRow(pick: PickHighlight): string {
   const categoryLabel =
-    CATEGORY_LABELS[pick.statCategory] ?? pick.statCategory;
+    CATEGORY_LABELS[pick.statCategory.toLowerCase() as keyof typeof CATEGORY_LABELS] ?? pick.statCategory;
   const selectionLabel = pick.selection === "over" ? "Over" : "Under";
   const actualLabel =
     pick.actualValue !== null ? ` — actual ${pick.actualValue}` : "";
