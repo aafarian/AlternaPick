@@ -4,15 +4,17 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, Search } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
+import UserAvatar from "@/components/icons/UserAvatar";
+import type { IconConfig } from "@/lib/icons/types";
 
 interface SearchResult {
   id: string;
   username: string;
   display_name: string | null;
   avatar_url: string | null;
+  icon_config: Record<string, unknown> | null;
   friendship_status: "none" | "pending_sent" | "pending_received" | "friends";
 }
 
@@ -151,12 +153,7 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="absolute z-10 mt-2 w-full rounded-xl border border-border bg-card shadow-lg"
           >
-            {results.map((user, index) => {
-              const initials = user.username
-                .slice(0, 2)
-                .toUpperCase();
-
-              return (
+            {results.map((user, index) => (
                 <motion.div
                   key={user.id}
                   initial={prefersReduced ? false : { opacity: 0, y: 8 }}
@@ -168,14 +165,13 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
                   }
                   className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
                 >
-                  <Avatar className="h-8 w-8">
-                    {user.avatar_url && (
-                      <AvatarImage src={user.avatar_url} alt={user.username} />
-                    )}
-                    <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
+                  <UserAvatar
+                    avatarUrl={user.avatar_url}
+                    iconConfig={user.icon_config as IconConfig | null}
+                    userId={user.id}
+                    username={user.username}
+                    size={32}
+                  />
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold">
@@ -188,8 +184,7 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
 
                   {getStatusButton(user)}
                 </motion.div>
-              );
-            })}
+            ))}
           </motion.div>
         )}
 

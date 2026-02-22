@@ -2,9 +2,10 @@
 
 import { useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { motion, useReducedMotion } from "@/lib/motion";
+import UserAvatar from "@/components/icons/UserAvatar";
+import type { IconConfig } from "@/lib/icons/types";
 
 export interface FriendRequest {
   id: string;
@@ -18,6 +19,7 @@ export interface FriendRequest {
     username: string;
     display_name: string | null;
     avatar_url: string | null;
+    icon_config: Record<string, unknown> | null;
     created_at: string;
     updated_at: string;
   };
@@ -83,9 +85,6 @@ export default function FriendRequestCard({
   }, [exitAction, onAccept, onDecline, request.id]);
 
   const profile = request.friend_profile;
-  const initials = profile.username
-    .slice(0, 2)
-    .toUpperCase();
 
   /* ---- Exit animation variants ---- */
   const acceptExitAnimation = {
@@ -111,14 +110,13 @@ export default function FriendRequestCard({
     return (
       <Card className="border-border bg-card">
         <CardContent className="flex items-center gap-4 p-4">
-          <Avatar className="h-12 w-12">
-            {profile.avatar_url && (
-              <AvatarImage src={profile.avatar_url} alt={profile.username} />
-            )}
-            <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar
+            avatarUrl={profile.avatar_url}
+            iconConfig={profile.icon_config as IconConfig | null}
+            userId={profile.id}
+            username={profile.username}
+            size={48}
+          />
 
           <div className="min-w-0 flex-1">
             <p className="truncate font-bold">
@@ -172,14 +170,13 @@ export default function FriendRequestCard({
     >
       <Card className="border-border bg-card">
         <CardContent className="flex items-center gap-4 p-4">
-          <Avatar className="h-12 w-12">
-            {profile.avatar_url && (
-              <AvatarImage src={profile.avatar_url} alt={profile.username} />
-            )}
-            <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar
+            avatarUrl={profile.avatar_url}
+            iconConfig={profile.icon_config as IconConfig | null}
+            userId={profile.id}
+            username={profile.username}
+            size={48}
+          />
 
           <div className="min-w-0 flex-1">
             <p className="truncate font-bold">
