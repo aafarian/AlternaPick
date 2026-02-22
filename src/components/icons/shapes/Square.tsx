@@ -1,10 +1,6 @@
-import React, { memo } from "react";
+import { memo } from "react";
 
-interface ShapeProps {
-  bgColor: string;
-  borderColor: string;
-  children?: React.ReactNode;
-}
+import type { ShapeProps } from "./types";
 
 /**
  * Rounded square centered in a 64x64 coordinate system.

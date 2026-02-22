@@ -1,8 +1,6 @@
 import { memo } from "react";
 
-interface EmblemProps {
-  color: string;
-}
+import type { EmblemProps } from "./types";
 
 /**
  * Baseball emblem — ball with curved stitching, recognizable at 12px.

@@ -1,8 +1,6 @@
 import { memo } from "react";
 
-interface EmblemProps {
-  color: string;
-}
+import type { EmblemProps } from "./types";
 
 /**
  * Shield emblem — heraldic shield with chevron detail, recognizable at 12px.

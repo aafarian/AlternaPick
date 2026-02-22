@@ -1,8 +1,6 @@
 import { memo } from "react";
 
-interface EmblemProps {
-  color: string;
-}
+import type { EmblemProps } from "./types";
 
 /**
  * Sword emblem — vertical blade with crossguard, recognizable at 12px.

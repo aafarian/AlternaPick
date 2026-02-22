@@ -1,8 +1,6 @@
 import { memo } from "react";
 
-interface EmblemProps {
-  color: string;
-}
+import type { EmblemProps } from "./types";
 
 /**
  * Wolf emblem — howling wolf head silhouette, recognizable at 12px.
@@ -10,7 +8,7 @@ interface EmblemProps {
  */
 const Wolf = memo(function Wolf({ color }: EmblemProps) {
   return (
-    <g fill={color} strokeLinejoin="round">
+    <g fill={color} strokeLinejoin="round" transform="translate(0,3)">
       {/* Head + ears */}
       <path d="M22 22 L20 14 L26 20 L32 16 L38 20 L44 14 L42 22 L46 28 L44 36 L38 42 L32 44 L26 42 L20 36 L18 28 Z" />
       {/* Snout detail */}

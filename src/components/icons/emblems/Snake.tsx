@@ -1,8 +1,6 @@
 import { memo } from "react";
 
-interface EmblemProps {
-  color: string;
-}
+import type { EmblemProps } from "./types";
 
 /**
  * Snake emblem — coiled serpent with raised head, recognizable at 12px.
@@ -10,7 +8,7 @@ interface EmblemProps {
  */
 const Snake = memo(function Snake({ color }: EmblemProps) {
   return (
-    <g fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <g fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" transform="translate(0,4)">
       {/* Coiled body */}
       <path d="M38 42 Q46 42 46 36 Q46 30 38 30 Q26 30 26 36 Q26 42 34 42" />
       {/* Rising neck and head */}

@@ -1,8 +1,6 @@
 import { memo } from "react";
 
-interface EmblemProps {
-  color: string;
-}
+import type { EmblemProps } from "./types";
 
 /**
  * Hawk emblem — diving bird of prey silhouette, recognizable at 12px.
@@ -10,7 +8,7 @@ interface EmblemProps {
  */
 const Hawk = memo(function Hawk({ color }: EmblemProps) {
   return (
-    <g fill={color} strokeLinejoin="round">
+    <g fill={color} strokeLinejoin="round" transform="translate(0,2)">
       {/* Body and swept-back wings in dive pose */}
       <path d="M32 16 L28 20 L14 22 L18 26 L12 30 L22 30 L26 36 L30 32 L32 44 L34 32 L38 36 L42 30 L52 30 L46 26 L50 22 L36 20 Z" />
       {/* Eye */}

@@ -1,8 +1,6 @@
 import { memo } from "react";
 
-interface EmblemProps {
-  color: string;
-}
+import type { EmblemProps } from "./types";
 
 /**
  * Bear emblem — bold bear face with round ears, recognizable at 12px.
@@ -10,7 +8,7 @@ interface EmblemProps {
  */
 const Bear = memo(function Bear({ color }: EmblemProps) {
   return (
-    <g fill={color}>
+    <g fill={color} transform="translate(0,4)">
       {/* Left ear */}
       <circle cx="21" cy="18" r="5" />
       {/* Right ear */}

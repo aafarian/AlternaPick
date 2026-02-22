@@ -13,28 +13,30 @@ export const SHAPES: readonly IconShape[] = [
 /* ---------- Emblems ---------- */
 
 export const EMBLEMS: readonly EmblemMeta[] = [
-  // Animals
-  { id: "lion", label: "Lion", category: "animals" },
-  { id: "eagle", label: "Eagle", category: "animals" },
-  { id: "wolf", label: "Wolf", category: "animals" },
-  { id: "bear", label: "Bear", category: "animals" },
-  { id: "hawk", label: "Hawk", category: "animals" },
-  { id: "snake", label: "Snake", category: "animals" },
-  { id: "dragon", label: "Dragon", category: "animals" },
-  // Sports
-  { id: "basketball", label: "Basketball", category: "sports" },
-  { id: "football", label: "Football", category: "sports" },
-  { id: "baseball", label: "Baseball", category: "sports" },
-  { id: "soccer", label: "Soccer", category: "sports" },
-  { id: "trophy", label: "Trophy", category: "sports" },
-  { id: "lightning", label: "Lightning", category: "sports" },
-  { id: "flame", label: "Flame", category: "sports" },
-  // Symbols
-  { id: "star", label: "Star", category: "symbols" },
-  { id: "crown", label: "Crown", category: "symbols" },
-  { id: "sword", label: "Sword", category: "symbols" },
-  { id: "shield-emblem", label: "Shield", category: "symbols" },
-  { id: "bolt", label: "Bolt", category: "symbols" },
+  { id: "lion", label: "Lion" },
+  { id: "eagle", label: "Eagle" },
+  { id: "wolf", label: "Wolf" },
+  { id: "bear", label: "Bear" },
+  { id: "hawk", label: "Hawk" },
+  { id: "snake", label: "Snake" },
+  { id: "dragon", label: "Dragon" },
+  { id: "paw", label: "Paw" },
+  { id: "basketball", label: "Basketball" },
+  { id: "football", label: "Football" },
+  { id: "baseball", label: "Baseball" },
+  { id: "soccer", label: "Soccer" },
+  { id: "trophy", label: "Trophy" },
+  { id: "lightning", label: "Lightning" },
+  { id: "flame", label: "Flame" },
+  { id: "star", label: "Star" },
+  { id: "crown", label: "Crown" },
+  { id: "sword", label: "Sword" },
+  { id: "shield-emblem", label: "Shield" },
+  { id: "bolt", label: "Bolt" },
+  { id: "mountain", label: "Mountain" },
+  { id: "anchor", label: "Anchor" },
+  { id: "rocket", label: "Rocket" },
+  { id: "gem", label: "Gem" },
 ] as const;
 
 /** Set of all valid emblem IDs for runtime validation */

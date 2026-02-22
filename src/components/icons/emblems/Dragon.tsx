@@ -1,8 +1,6 @@
 import { memo } from "react";
 
-interface EmblemProps {
-  color: string;
-}
+import type { EmblemProps } from "./types";
 
 /**
  * Dragon emblem — stylized dragon head with horns, recognizable at 12px.
@@ -10,7 +8,7 @@ interface EmblemProps {
  */
 const Dragon = memo(function Dragon({ color }: EmblemProps) {
   return (
-    <g fill={color} strokeLinejoin="round">
+    <g fill={color} strokeLinejoin="round" transform="translate(0,7)">
       {/* Head */}
       <path d="M32 18 L24 16 L20 20 L18 28 L22 34 L28 38 L36 38 L42 34 L46 28 L44 20 L40 16 Z" />
       {/* Left horn */}

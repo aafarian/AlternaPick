@@ -3,12 +3,8 @@
 /** Background shape for the icon */
 export type IconShape = "circle" | "shield" | "hexagon" | "diamond" | "square";
 
-/** Emblem category groupings */
-export type EmblemCategory = "animals" | "sports" | "symbols";
-
 /** All available emblem identifiers */
 export type EmblemId =
-  // Animals
   | "lion"
   | "eagle"
   | "wolf"
@@ -16,7 +12,6 @@ export type EmblemId =
   | "hawk"
   | "snake"
   | "dragon"
-  // Sports
   | "basketball"
   | "football"
   | "baseball"
@@ -24,12 +19,16 @@ export type EmblemId =
   | "trophy"
   | "lightning"
   | "flame"
-  // Symbols
   | "star"
   | "crown"
   | "sword"
   | "shield-emblem"
-  | "bolt";
+  | "bolt"
+  | "mountain"
+  | "anchor"
+  | "rocket"
+  | "gem"
+  | "paw";
 
 /**
  * Icon configuration — serializes to JSON for JSONB storage in Supabase.
@@ -47,5 +46,4 @@ export interface IconConfig {
 export interface EmblemMeta {
   id: EmblemId;
   label: string;
-  category: EmblemCategory;
 }
