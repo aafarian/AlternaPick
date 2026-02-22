@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, NotificationPreferences } from "@/lib/supabase/types";
-import type { IconConfig } from "@/lib/icons/types";
+import { parseIconConfig } from "@/lib/icons/parse";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Bell, Shield } from "lucide-react";
 import ProfileSection from "@/components/settings/ProfileSection";
@@ -63,7 +63,7 @@ export default async function SettingsPage() {
             <FadeIn delay={0.15}>
               <ProfileSection
                 avatarUrl={typedProfile?.avatar_url ?? null}
-                iconConfig={(typedProfile?.icon_config as IconConfig | null) ?? null}
+                iconConfig={parseIconConfig(typedProfile?.icon_config)}
                 userId={user.id}
                 username={typedProfile?.username ?? user.email?.split("@")[0] ?? "user"}
               />

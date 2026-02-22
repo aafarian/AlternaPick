@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { motion, useReducedMotion } from "@/lib/motion";
 import UserAvatar from "@/components/icons/UserAvatar";
-import type { IconConfig } from "@/lib/icons/types";
+import { parseIconConfig } from "@/lib/icons/parse";
 
 export interface FriendRequest {
   id: string;
@@ -112,7 +112,7 @@ export default function FriendRequestCard({
         <CardContent className="flex items-center gap-4 p-4">
           <UserAvatar
             avatarUrl={profile.avatar_url}
-            iconConfig={profile.icon_config as IconConfig | null}
+            iconConfig={parseIconConfig(profile.icon_config)}
             userId={profile.id}
             username={profile.username}
             size={48}
@@ -172,7 +172,7 @@ export default function FriendRequestCard({
         <CardContent className="flex items-center gap-4 p-4">
           <UserAvatar
             avatarUrl={profile.avatar_url}
-            iconConfig={profile.icon_config as IconConfig | null}
+            iconConfig={parseIconConfig(profile.icon_config)}
             userId={profile.id}
             username={profile.username}
             size={48}

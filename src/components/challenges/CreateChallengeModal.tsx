@@ -21,7 +21,7 @@ import {
   isValidGameMode,
 } from "@/lib/modes";
 import type { GameMode, CardSize } from "@/lib/modes";
-import type { IconConfig } from "@/lib/icons/types";
+import { parseIconConfig } from "@/lib/icons/parse";
 import MirrorPropPicker from "./MirrorPropPicker";
 import UserSearchBar from "@/components/friends/UserSearchBar";
 import { useRouter } from "next/navigation";
@@ -374,7 +374,7 @@ export default function CreateChallengeModal({
                       >
                         <UserAvatar
                           avatarUrl={profile.avatar_url}
-                          iconConfig={profile.icon_config as IconConfig | null}
+                          iconConfig={parseIconConfig(profile.icon_config)}
                           userId={profile.id}
                           username={name}
                           size={32}

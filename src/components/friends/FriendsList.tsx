@@ -6,7 +6,7 @@ import type { FriendRequest } from "./FriendRequestCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import UserAvatar from "@/components/icons/UserAvatar";
-import type { IconConfig } from "@/lib/icons/types";
+import { parseIconConfig } from "@/lib/icons/parse";
 
 interface FriendsListProps {
   friends: FriendRequest[];
@@ -54,7 +54,7 @@ export default function FriendsList({ friends, onUnfriend }: FriendsListProps) {
               <Link href={`/users/${profile.username}`} className="flex items-center gap-4 min-w-0 flex-1">
                 <UserAvatar
                   avatarUrl={profile.avatar_url}
-                  iconConfig={profile.icon_config as IconConfig | null}
+                  iconConfig={parseIconConfig(profile.icon_config)}
                   userId={profile.id}
                   username={profile.username}
                   size={48}

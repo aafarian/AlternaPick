@@ -101,8 +101,8 @@ export default function IconBuilder({
 
   /* --- Save handler --- */
 
-  const handleSave = () => {
-    onSave(config);
+  const handleSave = async () => {
+    await onSave(config);
   };
 
   /* --- Render --- */

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 import type { FriendRequest } from "./FriendRequestCard";
 import UserAvatar from "@/components/icons/UserAvatar";
-import type { IconConfig } from "@/lib/icons/types";
+import { parseIconConfig } from "@/lib/icons/parse";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,7 +71,7 @@ export default function FriendsStrip({ friends, onUnfriend }: FriendsStripProps)
                     <div className="rounded-full ring-2 ring-transparent transition-all duration-200 group-hover:ring-primary/40 group-hover:shadow-[0_0_12px_rgba(0,210,106,0.2)] group-focus-visible:ring-primary">
                       <UserAvatar
                         avatarUrl={profile.avatar_url}
-                        iconConfig={profile.icon_config as IconConfig | null}
+                        iconConfig={parseIconConfig(profile.icon_config)}
                         userId={profile.id}
                         username={profile.username}
                         size={48}

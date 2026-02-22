@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/tooltip";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import { useCardHover } from "@/components/challenges/useCardHover";
-import type { IconConfig } from "@/lib/icons/types";
+import { parseIconConfig } from "@/lib/icons/parse";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
@@ -66,7 +66,7 @@ export default function IncomingChallengeCard({
             <div className="shrink-0">
               <UserAvatar
                 avatarUrl={opponent.avatar_url}
-                iconConfig={opponent.icon_config as IconConfig | null}
+                iconConfig={parseIconConfig(opponent.icon_config)}
                 userId={opponent.id}
                 username={opponent.username}
                 size={40}

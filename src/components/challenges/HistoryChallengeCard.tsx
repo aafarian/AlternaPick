@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import { formatTimeAgo } from "@/lib/format";
 import { GAME_MODES } from "@/lib/modes/definitions";
-import type { IconConfig } from "@/lib/icons/types";
+import { parseIconConfig } from "@/lib/icons/parse";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
@@ -107,7 +107,7 @@ export default function HistoryChallengeCard({
             <div className="shrink-0">
               <UserAvatar
                 avatarUrl={opponent.avatar_url}
-                iconConfig={opponent.icon_config as IconConfig | null}
+                iconConfig={parseIconConfig(opponent.icon_config)}
                 userId={opponent.id}
                 username={opponent.username}
                 size={32}

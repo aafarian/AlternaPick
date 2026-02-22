@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
-import { SHAPES, EMBLEM_IDS } from "@/lib/icons/constants";
+import { typedFrom } from "@/lib/supabase/typed-queries";
+import { SHAPES, EMBLEM_IDS, BG_COLORS, BORDER_COLORS, EMBLEM_COLORS } from "@/lib/icons/constants";
 import type { IconConfig, IconShape, EmblemId } from "@/lib/icons/types";
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
@@ -41,7 +42,7 @@ function validateIconConfig(
     };
   }
 
-  // -- colors --
+  // -- colors (hex format check) --
   for (const field of ["bgColor", "borderColor", "emblemColor"] as const) {
     const val = obj[field];
     if (typeof val !== "string" || !HEX_COLOR_RE.test(val)) {
@@ -50,6 +51,17 @@ function validateIconConfig(
         error: `Invalid ${field}. Must be a hex color string (e.g. "#1a1a2e")`,
       };
     }
+  }
+
+  // -- colors (palette membership check) --
+  if (!BG_COLORS.includes(obj.bgColor as string)) {
+    return { ok: false, error: "bgColor is not in the allowed palette" };
+  }
+  if (!BORDER_COLORS.includes(obj.borderColor as string)) {
+    return { ok: false, error: "borderColor is not in the allowed palette" };
+  }
+  if (!EMBLEM_COLORS.includes(obj.emblemColor as string)) {
+    return { ok: false, error: "emblemColor is not in the allowed palette" };
   }
 
   return {
@@ -92,8 +104,7 @@ export async function PUT(request: NextRequest) {
 
     const { config } = result;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError } = await (supabase.from("profiles") as any)
+    const { error: updateError } = await typedFrom(supabase, "profiles")
       .update({
         icon_config: config as unknown as Record<string, unknown>,
         avatar_url: null,

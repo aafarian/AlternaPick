@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import RankBadge from "./RankBadge";
 import type { LeaderboardEntryWithProfile } from "@/app/api/leaderboard/route";
-import type { IconConfig } from "@/lib/icons/types";
+import { parseIconConfig } from "@/lib/icons/parse";
 import UserAvatar from "@/components/icons/UserAvatar";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
@@ -77,7 +77,7 @@ export default function LeaderboardRow({
             >
               <UserAvatar
                 avatarUrl={user.avatar_url}
-                iconConfig={user.icon_config as IconConfig | null}
+                iconConfig={parseIconConfig(user.icon_config)}
                 userId={user.id}
                 username={user.username}
                 size={40}
@@ -131,7 +131,7 @@ export default function LeaderboardRow({
         >
           <UserAvatar
             avatarUrl={user.avatar_url}
-            iconConfig={user.icon_config as IconConfig | null}
+            iconConfig={parseIconConfig(user.icon_config)}
             userId={user.id}
             username={user.username}
             size={36}

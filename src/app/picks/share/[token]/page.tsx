@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { IconConfig } from "@/lib/icons/types";
+import { parseIconConfig } from "@/lib/icons/parse";
 import UserAvatar from "@/components/icons/UserAvatar";
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
@@ -57,7 +58,7 @@ async function getSharedCard(token: string): Promise<SharedCardData | null> {
       const p = profile as { username: string; avatar_url: string | null; icon_config: Record<string, unknown> | null };
       username = p.username;
       avatarUrl = p.avatar_url;
-      iconConfig = p.icon_config as IconConfig | null;
+      iconConfig = parseIconConfig(p.icon_config);
     }
   }
 

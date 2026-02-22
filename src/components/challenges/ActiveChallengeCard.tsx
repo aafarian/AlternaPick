@@ -8,7 +8,7 @@ import { AnimatedButton } from "@/components/ui/animated-button";
 import UserAvatar from "@/components/icons/UserAvatar";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import { useCardHover } from "@/components/challenges/useCardHover";
-import type { IconConfig } from "@/lib/icons/types";
+import { parseIconConfig } from "@/lib/icons/parse";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
@@ -93,7 +93,7 @@ export default function ActiveChallengeCard({
                 <div className="shrink-0">
                   <UserAvatar
                     avatarUrl={currentUser.avatar_url}
-                    iconConfig={currentUser.icon_config as IconConfig | null}
+                    iconConfig={parseIconConfig(currentUser.icon_config)}
                     userId={currentUser.id}
                     username={currentUser.username}
                     size={28}
@@ -117,7 +117,7 @@ export default function ActiveChallengeCard({
                 <div className="shrink-0">
                   <UserAvatar
                     avatarUrl={opponent.avatar_url}
-                    iconConfig={opponent.icon_config as IconConfig | null}
+                    iconConfig={parseIconConfig(opponent.icon_config)}
                     userId={opponent.id}
                     username={opponent.username}
                     size={28}

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Search } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 import UserAvatar from "@/components/icons/UserAvatar";
-import type { IconConfig } from "@/lib/icons/types";
+import { parseIconConfig } from "@/lib/icons/parse";
 
 interface SearchResult {
   id: string;
@@ -167,7 +167,7 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
                 >
                   <UserAvatar
                     avatarUrl={user.avatar_url}
-                    iconConfig={user.icon_config as IconConfig | null}
+                    iconConfig={parseIconConfig(user.icon_config)}
                     userId={user.id}
                     username={user.username}
                     size={32}

@@ -8,7 +8,7 @@ import {
   CardContent,
   CardFooter,
 } from "@/components/ui/card";
-import type { IconConfig } from "@/lib/icons/types";
+import { parseIconConfig } from "@/lib/icons/parse";
 import UserAvatar from "@/components/icons/UserAvatar";
 import { ArrowRight } from "lucide-react";
 
@@ -185,11 +185,11 @@ function PlayerSide({
     <div className="flex flex-1 flex-col items-center gap-3">
       <UserAvatar
         avatarUrl={profile?.avatar_url ?? null}
-        iconConfig={(profile?.icon_config as IconConfig | null) ?? null}
+        iconConfig={parseIconConfig(profile?.icon_config)}
         userId={profile?.id ?? name}
         username={name}
         size={64}
-        className={isWinner ? "ring-2 ring-neon-green rounded-full" : ""}
+        className={isWinner ? "animate-winner-ring" : undefined}
       />
       <span className="text-sm font-semibold">{name}</span>
       <span className="text-3xl font-black tabular-nums">{score}</span>

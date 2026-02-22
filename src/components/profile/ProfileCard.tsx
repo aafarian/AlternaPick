@@ -1,5 +1,5 @@
 import type { Profile, LeaderboardEntry } from "@/lib/supabase/types";
-import type { IconConfig } from "@/lib/icons/types";
+import { parseIconConfig } from "@/lib/icons/parse";
 import { Card, CardContent } from "@/components/ui/card";
 import UserAvatar from "@/components/icons/UserAvatar";
 import { ProfileStatsGrid, ProfileStatCard } from "@/components/profile/ProfileStatsGrid";
@@ -22,7 +22,7 @@ export default function ProfileCard({ profile, email, stats }: ProfileCardProps)
         <div className="flex items-center gap-4">
           <UserAvatar
             avatarUrl={profile.avatar_url}
-            iconConfig={profile.icon_config as IconConfig | null}
+            iconConfig={parseIconConfig(profile.icon_config)}
             userId={profile.id}
             username={profile.username}
             size={64}
