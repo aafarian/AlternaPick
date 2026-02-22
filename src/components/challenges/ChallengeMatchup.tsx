@@ -24,6 +24,7 @@ import QuickActions from "@/components/challenges/QuickActions";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import ShareButton from "@/components/ui/ShareButton";
 import type { IconConfig } from "@/lib/icons/types";
+import { parseIconConfig } from "@/lib/icons/parse";
 import type { GameMode } from "@/lib/modes/types";
 import { SlideUp, ScaleIn, FadeIn } from "@/components/motion";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
@@ -109,18 +110,14 @@ function PlayerSide({
     <div className="flex flex-1 flex-col gap-3 rounded-xl">
       {/* Player identity */}
       <div className="flex flex-col items-center gap-2">
-        <div className={cn(
-          "rounded-full",
-          isWinner && "animate-winner-ring"
-        )}>
-          <UserAvatar
-            avatarUrl={avatarUrl}
-            iconConfig={iconConfig}
-            userId={userId}
-            username={name}
-            size={56}
-          />
-        </div>
+        <UserAvatar
+          avatarUrl={avatarUrl}
+          iconConfig={iconConfig}
+          userId={userId}
+          username={name}
+          size={56}
+          className={isWinner ? "animate-winner-ring" : undefined}
+        />
         <span className="text-sm font-semibold">
           {isWinner && <Crown className="mr-1 inline h-4 w-4 text-neon-green" />}
           {name}
@@ -360,7 +357,7 @@ export default function ChallengeMatchup({
           message={challenge.message}
           senderName={challengerName}
           senderAvatar={challenge.challenger.avatar_url}
-          senderIconConfig={challenge.challenger.icon_config as IconConfig | null}
+          senderIconConfig={parseIconConfig(challenge.challenger.icon_config)}
           senderId={challenge.challenger.id}
         />
       )}
@@ -449,7 +446,7 @@ export default function ChallengeMatchup({
           label={isChallenger ? "You" : "Opponent"}
           name={challengerName}
           avatarUrl={challenge.challenger.avatar_url}
-          iconConfig={challenge.challenger.icon_config as IconConfig | null}
+          iconConfig={parseIconConfig(challenge.challenger.icon_config)}
           userId={challenge.challenger.id}
           card={challenge.challenger_card}
           isWinner={challengerIsWinner}
@@ -484,7 +481,7 @@ export default function ChallengeMatchup({
           label={isChallenger ? "Opponent" : "You"}
           name={opponentName}
           avatarUrl={challenge.opponent.avatar_url}
-          iconConfig={challenge.opponent.icon_config as IconConfig | null}
+          iconConfig={parseIconConfig(challenge.opponent.icon_config)}
           userId={challenge.opponent.id}
           card={challenge.opponent_card}
           isWinner={opponentIsWinner}
