@@ -60,6 +60,9 @@ export default function ChallengesPage() {
 
   // Infinite scroll sentinel
   const sentinelRef = useRef<HTMLDivElement>(null);
+  // Version counter: prevents stale fetchCompleted responses from updating state
+  // when multiple fetches race (e.g. loadMore vs realtime-triggered reset).
+  const fetchCompletedVersionRef = useRef(0);
 
   // Rematch: auto-open modal with pre-filled opponent from URL params.
   // Capture values in a ref so they survive the URL cleanup below.
@@ -90,12 +93,16 @@ export default function ChallengesPage() {
 
   // Fetch completed challenges (paginated)
   const fetchCompleted = useCallback(async (offset: number, append: boolean) => {
+    const version = ++fetchCompletedVersionRef.current;
     const res = await fetch(
       `/api/challenges?status=resolved,declined,cancelled&limit=${COMPLETED_PAGE_SIZE}&offset=${offset}`
     );
     if (!res.ok) throw new Error("Failed to load challenges");
     const data = await res.json();
     const fetched: ChallengeWithProfiles[] = data.challenges ?? [];
+
+    // A newer fetch was started while this one was in flight — discard stale result
+    if (fetchCompletedVersionRef.current !== version) return;
 
     if (append) {
       setCompletedChallenges((prev) => [...prev, ...fetched]);
