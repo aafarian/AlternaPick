@@ -45,7 +45,10 @@ export default function ChallengesPage() {
   const loadingMoreRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>("active");
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const tab = searchParams.get("tab");
+    return tab === "history" ? "history" : "active";
+  });
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -587,7 +590,17 @@ export default function ChallengesPage() {
             return (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => {
+                  setActiveTab(tab.key);
+                  const params = new URLSearchParams(searchParams.toString());
+                  if (tab.key === "active") {
+                    params.delete("tab");
+                  } else {
+                    params.set("tab", tab.key);
+                  }
+                  const qs = params.toString();
+                  router.replace(`/challenges${qs ? `?${qs}` : ""}`, { scroll: false });
+                }}
                 className={cn(
                   "relative flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
                   isTabActive
