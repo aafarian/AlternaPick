@@ -9,35 +9,48 @@ interface UseChallengesRealtimeParams {
   supabase: SupabaseClient<Database>;
   onInsert?: (challenge: Challenge) => void;
   onUpdate?: (challenge: Challenge) => void;
+  /** Called after a reconnection so the consumer can refetch missed data. */
+  onReconnect?: () => void;
 }
 
 /**
  * Subscribes to Supabase Realtime `postgres_changes` on the `challenges` table,
- * filtered to rows where `challenger_id` or `opponent_id` equals the current user.
+ * filtered client-side to rows where `challenger_id` or `opponent_id` equals the
+ * current user.
  *
  * Implements exponential backoff retry (up to 10 retries) on CHANNEL_ERROR/TIMED_OUT.
  * Mirrors the retry/cleanup pattern from Header.tsx.
  *
- * Returns `{ isConnected }` for an optional UI connection indicator.
+ * Returns `{ isConnected, hasEverConnected }` for an optional UI connection indicator.
  */
 export function useChallengesRealtime({
   userId,
   supabase,
   onInsert,
   onUpdate,
-}: UseChallengesRealtimeParams): { isConnected: boolean } {
+  onReconnect,
+}: UseChallengesRealtimeParams): {
+  isConnected: boolean;
+  hasEverConnected: boolean;
+} {
   const [isConnected, setIsConnected] = useState(false);
+  const hasEverConnectedRef = useRef(false);
+  const [hasEverConnected, setHasEverConnected] = useState(false);
 
   // Keep callbacks in refs so the channel subscription doesn't re-create
   // every time the consumer's callbacks change identity.
   const onInsertRef = useRef(onInsert);
   const onUpdateRef = useRef(onUpdate);
+  const onReconnectRef = useRef(onReconnect);
   useEffect(() => {
     onInsertRef.current = onInsert;
   }, [onInsert]);
   useEffect(() => {
     onUpdateRef.current = onUpdate;
   }, [onUpdate]);
+  useEffect(() => {
+    onReconnectRef.current = onReconnect;
+  }, [onReconnect]);
 
   useEffect(() => {
     if (!userId || !supabase) return;
@@ -88,6 +101,17 @@ export function useChallengesRealtime({
 
           if (status === "SUBSCRIBED") {
             setIsConnected(true);
+
+            if (!hasEverConnectedRef.current) {
+              hasEverConnectedRef.current = true;
+              setHasEverConnected(true);
+            }
+
+            // On reconnection, catch up on missed events
+            if (retryCount > 0) {
+              onReconnectRef.current?.();
+            }
+
             retryCount = 0;
           }
 
@@ -122,5 +146,5 @@ export function useChallengesRealtime({
     };
   }, [userId, supabase]);
 
-  return { isConnected };
+  return { isConnected, hasEverConnected };
 }

@@ -4,6 +4,8 @@ import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 
+const MAX_TOASTED_IDS = 200;
+
 /**
  * Hook that provides a `showChallengeToast` function for displaying toast
  * notifications when new incoming challenges arrive via Realtime.
@@ -12,17 +14,7 @@ import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
  * - Deduplicates by challenge ID (same challenge won't toast twice)
  * - Suppresses toasts during initial page load (call `markReady()` after first fetch)
  * - Uses `toast.custom()` styled identically to Header.tsx notification toasts
- *
- * Usage in page.tsx:
- * ```ts
- * const { showChallengeToast, markReady } = useChallengeToast();
- *
- * // After initial fetch completes:
- * markReady();
- *
- * // In the onInsert callback (after fetchCore resolves):
- * showChallengeToast(newChallengeId, coreChallenges, userId);
- * ```
+ * - Bounded dedup set (max 200 entries) to prevent memory growth
  */
 export function useChallengeToast() {
   // Dedup set so the same challenge is never toasted twice.
@@ -61,6 +53,12 @@ export function useChallengeToast() {
       // Dedup — same challenge ID should not trigger multiple toasts
       if (toastedIdsRef.current.has(challengeId)) return;
       toastedIdsRef.current.add(challengeId);
+
+      // Prune if the set gets too large
+      if (toastedIdsRef.current.size > MAX_TOASTED_IDS) {
+        const entries = Array.from(toastedIdsRef.current);
+        toastedIdsRef.current = new Set(entries.slice(-100));
+      }
 
       // Find the challenge in the refetched data so we have profile info
       const challenge = challenges.find((c) => c.id === challengeId);

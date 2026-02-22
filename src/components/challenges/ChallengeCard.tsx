@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
+import { useCardHover } from "@/components/challenges/useCardHover";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
-import { motion, useReducedMotion } from "@/lib/motion";
+import { motion } from "@/lib/motion";
 import { ScaleIn } from "@/components/motion";
 
 interface ChallengeCardProps {
@@ -30,12 +32,13 @@ export default function ChallengeCard({
   actionLoading,
   userHasCard = false,
 }: ChallengeCardProps) {
+  const router = useRouter();
   const isChallenger = challenge.challenger_id === currentUserId;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
-  const displayName = opponent.username;
+  const displayName = opponent.display_name || opponent.username;
   const avatarInitial = displayName.charAt(0).toUpperCase();
   const isLoading = actionLoading === challenge.id;
-  const prefersReduced = useReducedMotion();
+  const { hoverProps, prefersReduced } = useCardHover();
 
   const isActive =
     challenge.status === "active" || challenge.status === "accepted";
@@ -64,21 +67,6 @@ export default function ChallengeCard({
     month: "short",
     day: "numeric",
   });
-
-  // Hover lift animation (card lifts -1px with shadow increase)
-  const hoverProps = prefersReduced
-    ? {}
-    : {
-        whileHover: {
-          y: -1,
-          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-        },
-        transition: {
-          type: "spring" as const,
-          stiffness: 400,
-          damping: 30,
-        },
-      };
 
   return (
     <Link href={`/challenges/${challenge.id}`}>
@@ -219,7 +207,7 @@ export default function ChallengeCard({
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        window.location.href = `/props?challenge_id=${challenge.id}`;
+                        router.push(`/props?challenge_id=${challenge.id}`);
                       }}
                     >
                       Make Picks

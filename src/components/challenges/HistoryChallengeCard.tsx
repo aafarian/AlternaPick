@@ -14,8 +14,9 @@ import { formatTimeAgo } from "@/lib/format";
 import { GAME_MODES } from "@/lib/modes/definitions";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
-import { motion, useReducedMotion } from "@/lib/motion";
+import { motion } from "@/lib/motion";
 import { ScaleIn } from "@/components/motion";
+import { useCardHover } from "@/components/challenges/useCardHover";
 
 interface HistoryChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -77,16 +78,15 @@ function getResultColors(result: ChallengeResult) {
   }
 }
 
-
 export default function HistoryChallengeCard({
   challenge,
   currentUserId,
 }: HistoryChallengeCardProps) {
   const isChallenger = challenge.challenger_id === currentUserId;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
-  const displayName = opponent.username;
+  const displayName = opponent.display_name || opponent.username;
   const avatarInitial = displayName.charAt(0).toUpperCase();
-  const prefersReduced = useReducedMotion();
+  const { hoverProps, prefersReduced } = useCardHover();
 
   const result = getResult(challenge, currentUserId);
   const resultLabel = getResultLabel(result);
@@ -95,21 +95,6 @@ export default function HistoryChallengeCard({
   const dateLabel = formatTimeAgo(
     challenge.resolved_at ?? challenge.created_at
   );
-
-  // Hover lift animation
-  const hoverProps = prefersReduced
-    ? {}
-    : {
-        whileHover: {
-          y: -1,
-          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-        },
-        transition: {
-          type: "spring" as const,
-          stiffness: 400,
-          damping: 30,
-        },
-      };
 
   return (
     <Link href={`/challenges/${challenge.id}`} className="h-full">

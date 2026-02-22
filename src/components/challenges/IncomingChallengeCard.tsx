@@ -5,10 +5,17 @@ import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
+import { useCardHover } from "@/components/challenges/useCardHover";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
-import { motion, useReducedMotion } from "@/lib/motion";
+import { motion } from "@/lib/motion";
 import { formatTimeAgo } from "@/lib/format";
 
 interface IncomingChallengeCardProps {
@@ -35,27 +42,15 @@ export default function IncomingChallengeCard({
 }: IncomingChallengeCardProps) {
   const isChallenger = challenge.challenger_id === currentUserId;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
-  const displayName = opponent.username;
+  const displayName = opponent.display_name || opponent.username;
   const avatarInitial = displayName.charAt(0).toUpperCase();
   const isLoading = actionLoading === challenge.id;
-  const prefersReduced = useReducedMotion();
+  const { hoverProps, prefersReduced } = useCardHover(
+    -2,
+    "0 6px 16px rgba(245, 158, 11, 0.15)"
+  );
 
   const relativeTime = formatTimeAgo(challenge.created_at);
-
-  // Hover lift animation
-  const hoverProps = prefersReduced
-    ? {}
-    : {
-        whileHover: {
-          y: -2,
-          boxShadow: "0 6px 16px rgba(245, 158, 11, 0.15)",
-        },
-        transition: {
-          type: "spring" as const,
-          stiffness: 400,
-          damping: 30,
-        },
-      };
 
   return (
     <Link href={`/challenges/${challenge.id}`}>
@@ -100,13 +95,20 @@ export default function IncomingChallengeCard({
 
               {/* Trash talk preview */}
               {challenge.message && (
-                <p className="mt-0.5 max-w-[280px] truncate text-xs italic text-amber-400/70">
-                  &ldquo;
-                  {challenge.message.length > 60
-                    ? challenge.message.slice(0, 60) + "..."
-                    : challenge.message}
-                  &rdquo;
-                </p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="mt-0.5 max-w-[280px] truncate text-xs italic text-amber-400/70">
+                        &ldquo;{challenge.message}&rdquo;
+                      </p>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-64">
+                      <p className="italic">
+                        &ldquo;{challenge.message}&rdquo;
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
 

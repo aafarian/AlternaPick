@@ -7,9 +7,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedButton } from "@/components/ui/animated-button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
+import { useCardHover } from "@/components/challenges/useCardHover";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
-import { motion, useReducedMotion } from "@/lib/motion";
+import { motion } from "@/lib/motion";
 import { formatTimeAgo } from "@/lib/format";
 
 interface ActiveChallengeCardProps {
@@ -36,36 +37,23 @@ export default function ActiveChallengeCard({
   actionLoading,
 }: ActiveChallengeCardProps) {
   const router = useRouter();
-  const prefersReduced = useReducedMotion();
+  const { hoverProps, prefersReduced } = useCardHover();
   const isLoading = actionLoading === challenge.id;
 
   const isChallenger = challenge.challenger_id === currentUserId;
   const currentUser = isChallenger ? challenge.challenger : challenge.opponent;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
 
-  const currentUserInitial = currentUser.username.charAt(0).toUpperCase();
-  const opponentInitial = opponent.username.charAt(0).toUpperCase();
+  const currentUserName = currentUser.display_name || currentUser.username;
+  const opponentName = opponent.display_name || opponent.username;
+  const currentUserInitial = currentUserName.charAt(0).toUpperCase();
+  const opponentInitial = opponentName.charAt(0).toUpperCase();
 
   // Determine status text
   const isActive = challenge.status === "active";
   const statusText = isActive ? "Challenge is live!" : "Waiting for picks";
 
   const relativeTime = formatTimeAgo(challenge.created_at);
-
-  // Hover lift animation
-  const hoverProps = prefersReduced
-    ? {}
-    : {
-        whileHover: {
-          y: -1,
-          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-        },
-        transition: {
-          type: "spring" as const,
-          stiffness: 400,
-          damping: 30,
-        },
-      };
 
   return (
     <Link href={`/challenges/${challenge.id}`}>
@@ -109,7 +97,7 @@ export default function ActiveChallengeCard({
                   </AvatarFallback>
                 </Avatar>
                 <span className="truncate text-sm font-semibold">
-                  {currentUser.username}
+                  {currentUserName}
                 </span>
               </div>
 
@@ -121,7 +109,7 @@ export default function ActiveChallengeCard({
               {/* Opponent - right side */}
               <div className="flex min-w-0 items-center gap-1.5">
                 <span className="truncate text-sm font-semibold text-right">
-                  {opponent.username}
+                  {opponentName}
                 </span>
                 <Avatar className="h-7 w-7 shrink-0">
                   <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">

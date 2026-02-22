@@ -108,7 +108,9 @@ export default function ChallengesPage() {
   // --- Realtime integration ---
   // Dedup: track processed event keys (challengeId + eventType) to prevent
   // double-processing on reconnection catch-up.
+  // Bounded to MAX_PROCESSED_EVENTS to prevent memory growth.
   const processedEventsRef = useRef<Set<string>>(new Set());
+  const MAX_PROCESSED_EVENTS = 500;
 
   // Debounce: batch rapid-fire Realtime events into a single refetch cycle.
   const debounceCoreRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -147,9 +149,13 @@ export default function ChallengesPage() {
     const uid = user?.id;
     if (!uid) return;
     const ids = Array.from(pendingToastIdsRef.current);
-    pendingToastIdsRef.current.clear();
+    // Only remove IDs that are present in the fetched data.
+    // If a challenge hasn't arrived yet, keep it pending for the next cycle.
     for (const id of ids) {
-      showChallengeToast(id, coreChallenges, uid);
+      if (coreChallenges.some((c) => c.id === id)) {
+        showChallengeToast(id, coreChallenges, uid);
+        pendingToastIdsRef.current.delete(id);
+      }
     }
   }, [coreChallenges, user?.id, showChallengeToast]);
 
@@ -159,6 +165,10 @@ export default function ChallengesPage() {
       const dedupKey = `${challenge.id}:INSERT`;
       if (processedEventsRef.current.has(dedupKey)) return;
       processedEventsRef.current.add(dedupKey);
+      if (processedEventsRef.current.size > MAX_PROCESSED_EVENTS) {
+        const entries = Array.from(processedEventsRef.current);
+        processedEventsRef.current = new Set(entries.slice(-250));
+      }
 
       // Whether the current user is the opponent (incoming) or the challenger
       // (sent), refreshing core covers both sections.
@@ -179,6 +189,10 @@ export default function ChallengesPage() {
       const dedupKey = `${challenge.id}:UPDATE:${challenge.status}`;
       if (processedEventsRef.current.has(dedupKey)) return;
       processedEventsRef.current.add(dedupKey);
+      if (processedEventsRef.current.size > MAX_PROCESSED_EVENTS) {
+        const entries = Array.from(processedEventsRef.current);
+        processedEventsRef.current = new Set(entries.slice(-250));
+      }
 
       debouncedFetchCore();
 
@@ -196,11 +210,19 @@ export default function ChallengesPage() {
 
   // Subscribe to Realtime (graceful no-op when userId is undefined or
   // supabase is unavailable — page continues to work via manual refresh).
-  const { isConnected } = useChallengesRealtime({
+  // On reconnection, refetch both core and completed to catch up on events
+  // that arrived while the channel was down.
+  const handleReconnect = useCallback(() => {
+    fetchCore().catch(() => {});
+    fetchCompleted(0, false).catch(() => {});
+  }, [fetchCore, fetchCompleted]);
+
+  const { isConnected, hasEverConnected } = useChallengesRealtime({
     userId: user?.id,
     supabase,
     onInsert: handleRealtimeInsert,
     onUpdate: handleRealtimeUpdate,
+    onReconnect: handleReconnect,
   });
 
   // Initial load
@@ -309,7 +331,7 @@ export default function ChallengesPage() {
   const matchesSearch = (c: ChallengeWithProfiles) => {
     if (!sq) return true;
     const opp = c.challenger_id === userId ? c.opponent : c.challenger;
-    const name = opp.username.toLowerCase();
+    const name = (opp.display_name || opp.username).toLowerCase();
     return name.includes(sq);
   };
 
@@ -325,7 +347,7 @@ export default function ChallengesPage() {
   const hiddenIncomingCount = filteredInbox.length - INCOMING_COLLAPSED_LIMIT;
 
   // Tab badge count
-  const activeTabCount = filteredActive.length + filteredSent.length;
+  const activeTabCount = filteredActive.length;
 
   if (authLoading) {
     return (
@@ -356,9 +378,9 @@ export default function ChallengesPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">Challenges</h1>
-            {/* Connection status indicator — visible only when disconnected */}
+            {/* Connection status indicator — visible only after initial connection lost */}
             <AnimatePresence>
-              {!isConnected && !loading && (
+              {hasEverConnected && !isConnected && !loading && (
                 <motion.span
                   initial={{ opacity: 0, scale: 0 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -609,7 +631,7 @@ export default function ChallengesPage() {
               ) : (
                 <StaggerChildren staggerDelay={0.06} className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {filteredActive.map((challenge) => (
-                    <StaggerItem key={challenge.id}>
+                    <StaggerItem key={challenge.id} className="h-full">
                       <ActiveChallengeCard
                         challenge={challenge}
                         currentUserId={userId}
