@@ -10,6 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { formatTimeAgo } from "@/lib/format";
 import { GAME_MODES } from "@/lib/modes/definitions";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
@@ -76,29 +77,6 @@ function getResultColors(result: ChallengeResult) {
   }
 }
 
-/**
- * Format a date as a relative time string.
- * - < 1h: "Xm ago"
- * - < 24h: "Xh ago"
- * - Yesterday: "Yesterday"
- * - < 7d: "X days ago"
- * - Otherwise: "Jan 15" format
- */
-function formatRelativeDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMin = Math.floor(diffMs / (1000 * 60));
-  const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffMin < 60) return `${Math.max(1, diffMin)}m ago`;
-  if (diffHrs < 24) return `${diffHrs}h ago`;
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays}d ago`;
-
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
 
 export default function HistoryChallengeCard({
   challenge,
@@ -114,7 +92,7 @@ export default function HistoryChallengeCard({
   const resultLabel = getResultLabel(result);
   const colors = getResultColors(result);
   const modeConfig = GAME_MODES[challenge.game_mode as GameMode];
-  const dateLabel = formatRelativeDate(
+  const dateLabel = formatTimeAgo(
     challenge.resolved_at ?? challenge.created_at
   );
 

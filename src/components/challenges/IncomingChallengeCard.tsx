@@ -9,6 +9,7 @@ import GameModeBadge from "@/components/challenges/GameModeBadge";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion, useReducedMotion } from "@/lib/motion";
+import { formatTimeAgo } from "@/lib/format";
 
 interface IncomingChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -39,8 +40,7 @@ export default function IncomingChallengeCard({
   const isLoading = actionLoading === challenge.id;
   const prefersReduced = useReducedMotion();
 
-  // Relative time formatting
-  const relativeTime = formatRelativeTime(new Date(challenge.created_at));
+  const relativeTime = formatTimeAgo(challenge.created_at);
 
   // Hover lift animation
   const hoverProps = prefersReduced
@@ -138,22 +138,4 @@ export default function IncomingChallengeCard({
       </motion.div>
     </Link>
   );
-}
-
-/**
- * Format a date as a relative time string (e.g. "2h ago", "3d ago").
- */
-function formatRelativeTime(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSeconds = Math.floor(diffMs / 1000);
-  const diffMinutes = Math.floor(diffSeconds / 60);
-  const diffHours = Math.floor(diffMinutes / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffSeconds < 60) return "Just now";
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
