@@ -103,6 +103,19 @@ export function RecapTileGrid({ recapData }: { recapData: RecapData }) {
 
   if (!hasAnyContent) return null;
 
+  const players = recapData.mostPickedPlayers ?? [];
+  const props = recapData.mostPickedProps ?? [];
+  const traps = recapData.trapProps ?? [];
+  const locks = recapData.lockProps ?? [];
+  const perfectCount = recapData.perfectCards?.count ?? 0;
+  const overCount = recapData.overCount ?? 0;
+  const underCount = recapData.underCount ?? 0;
+  const catBreakdown = recapData.statCategoryBreakdown ?? [];
+  const sportBreakdown = recapData.sportBreakdown ?? [];
+  const teamBreakdown = recapData.teamBreakdown ?? [];
+  const good = recapData.playerSpotlightsGood ?? [];
+  const bad = recapData.playerSpotlightsBad ?? [];
+
   return (
     <StaggerChildren className="grid grid-cols-1 sm:grid-cols-2 gap-3" staggerDelay={0.06}>
       {/* Individual spotlight tiles */}
@@ -113,115 +126,138 @@ export function RecapTileGrid({ recapData }: { recapData: RecapData }) {
       ))}
 
       {/* Most Picked Players */}
-      <StaggerItem><MostPickedPlayersTile players={recapData.mostPickedPlayers ?? []} /></StaggerItem>
+      {players.length > 0 && (
+        <StaggerItem><MostPickedPlayersTile players={players} /></StaggerItem>
+      )}
 
       {/* Top Props */}
-      <StaggerItem><MostPickedPropsTile props={recapData.mostPickedProps ?? []} /></StaggerItem>
+      {props.length > 0 && (
+        <StaggerItem><MostPickedPropsTile props={props} /></StaggerItem>
+      )}
 
       {/* Consensus Trap */}
-      <StaggerItem><ConsensusTile picks={consensusTrap} variant="trap" /></StaggerItem>
+      {consensusTrap.length > 0 && (
+        <StaggerItem><ConsensusTile picks={consensusTrap} variant="trap" /></StaggerItem>
+      )}
 
       {/* Consensus Win */}
-      <StaggerItem><ConsensusTile picks={consensusWin} variant="win" /></StaggerItem>
+      {consensusWin.length > 0 && (
+        <StaggerItem><ConsensusTile picks={consensusWin} variant="win" /></StaggerItem>
+      )}
 
       {/* Unanimous Props */}
-      <StaggerItem><UnanimousPropsTile picks={unanimousProps} /></StaggerItem>
+      {unanimousProps.length > 0 && (
+        <StaggerItem><UnanimousPropsTile picks={unanimousProps} /></StaggerItem>
+      )}
 
       {/* Traps */}
-      <StaggerItem><TrapLockTile items={recapData.trapProps ?? []} variant="trap" /></StaggerItem>
+      {traps.length > 0 && (
+        <StaggerItem><TrapLockTile items={traps} variant="trap" /></StaggerItem>
+      )}
 
       {/* Locks */}
-      <StaggerItem><TrapLockTile items={recapData.lockProps ?? []} variant="lock" /></StaggerItem>
+      {locks.length > 0 && (
+        <StaggerItem><TrapLockTile items={locks} variant="lock" /></StaggerItem>
+      )}
 
       {/* Perfect Cards */}
-      <StaggerItem>
-        <PerfectCardsTile
-          count={recapData.perfectCards?.count ?? 0}
-          usernames={recapData.perfectCards?.usernames ?? []}
-          entries={recapData.perfectCards?.entries}
-        />
-      </StaggerItem>
+      {perfectCount > 0 && (
+        <StaggerItem>
+          <PerfectCardsTile
+            count={perfectCount}
+            usernames={recapData.perfectCards?.usernames ?? []}
+            entries={recapData.perfectCards?.entries}
+          />
+        </StaggerItem>
+      )}
 
       {/* Best Team */}
-      {bestTeam && <StaggerItem><TeamCalloutTile team={bestTeam} variant="best" /></StaggerItem>}
+      {bestTeam && (
+        <StaggerItem><TeamCalloutTile team={bestTeam} variant="best" /></StaggerItem>
+      )}
 
       {/* Worst Team */}
-      {worstTeam && <StaggerItem><TeamCalloutTile team={worstTeam} variant="worst" /></StaggerItem>}
+      {worstTeam && (
+        <StaggerItem><TeamCalloutTile team={worstTeam} variant="worst" /></StaggerItem>
+      )}
 
       {/* Prop Difficulty */}
-      <StaggerItem>
-        <PropDifficultyTile
-          lockCount={(recapData.lockProps ?? []).length}
-          trapCount={(recapData.trapProps ?? []).length}
-        />
-      </StaggerItem>
+      {traps.length + locks.length >= 2 && (
+        <StaggerItem>
+          <PropDifficultyTile lockCount={locks.length} trapCount={traps.length} />
+        </StaggerItem>
+      )}
 
       {/* Over/Under Skew */}
-      <StaggerItem>
-        <OverUnderTile
-          overCount={recapData.overCount ?? 0}
-          underCount={recapData.underCount ?? 0}
-        />
-      </StaggerItem>
+      {overCount + underCount > 0 && (
+        <StaggerItem>
+          <OverUnderTile overCount={overCount} underCount={underCount} />
+        </StaggerItem>
+      )}
 
       {/* Card Scoreboard */}
-      <StaggerItem>
-        <CardScoreboardTile
-          totalPicks={recapData.totalPicks}
-          totalCards={recapData.totalCards}
-          platformHitRate={avgRate}
-        />
-      </StaggerItem>
+      {recapData.totalCards >= 3 && (
+        <StaggerItem>
+          <CardScoreboardTile
+            totalPicks={recapData.totalPicks}
+            totalCards={recapData.totalCards}
+            platformHitRate={avgRate}
+          />
+        </StaggerItem>
+      )}
 
       {/* Player Hero/Villain */}
-      <StaggerItem>
-        <PlayerHeroVillainTile
-          good={recapData.playerSpotlightsGood ?? []}
-          bad={recapData.playerSpotlightsBad ?? []}
-          platformHitRate={avgRate}
-        />
-      </StaggerItem>
+      {(good.length > 0 || bad.length > 0) && (
+        <StaggerItem>
+          <PlayerHeroVillainTile good={good} bad={bad} platformHitRate={avgRate} />
+        </StaggerItem>
+      )}
 
       {/* Most Popular Stat */}
-      <StaggerItem>
-        <MostPopularStatTile
-          breakdown={recapData.statCategoryBreakdown ?? []}
-          platformHitRate={avgRate}
-        />
-      </StaggerItem>
+      {catBreakdown.length > 0 && (
+        <StaggerItem>
+          <MostPopularStatTile breakdown={catBreakdown} platformHitRate={avgRate} />
+        </StaggerItem>
+      )}
 
       {/* By Category */}
-      <StaggerItem>
-        <BreakdownTile
-          title="By Category"
-          icon={BarChart3}
-          items={recapData.statCategoryBreakdown ?? []}
-          avgRate={avgRate}
-          formatKey={catLabel}
-        />
-      </StaggerItem>
+      {catBreakdown.length > 0 && (
+        <StaggerItem>
+          <BreakdownTile
+            title="By Category"
+            icon={BarChart3}
+            items={catBreakdown}
+            avgRate={avgRate}
+            formatKey={catLabel}
+          />
+        </StaggerItem>
+      )}
 
       {/* By Sport */}
-      <StaggerItem>
-        <BreakdownTile
-          title="By Sport"
-          icon={BarChart3}
-          items={recapData.sportBreakdown ?? []}
-          avgRate={avgRate}
-          formatKey={(k) => k.toUpperCase()}
-        />
-      </StaggerItem>
+      {sportBreakdown.length > 0 && (
+        <StaggerItem>
+          <BreakdownTile
+            title="By Sport"
+            icon={BarChart3}
+            items={sportBreakdown}
+            avgRate={avgRate}
+            formatKey={(k) => k.toUpperCase()}
+          />
+        </StaggerItem>
+      )}
 
       {/* By Team */}
-      <StaggerItem>
-        <BreakdownTile
-          title="By Team"
-          icon={Shield}
-          items={recapData.teamBreakdown ?? []}
-          avgRate={avgRate}
-          formatKey={teamFullName}
-        />
-      </StaggerItem>
+      {teamBreakdown.length > 0 && (
+        <StaggerItem>
+          <BreakdownTile
+            title="By Team"
+            icon={Shield}
+            items={teamBreakdown}
+            avgRate={avgRate}
+            formatKey={teamFullName}
+          />
+        </StaggerItem>
+      )}
     </StaggerChildren>
   );
 }
