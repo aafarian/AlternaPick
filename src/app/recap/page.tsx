@@ -16,7 +16,7 @@ import {
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { YourDay } from "@/components/recap/YourDay";
 import { DateNavigator } from "@/components/recap/DateNavigator";
-import { ModeToggle } from "@/components/recap/ModeToggle";
+import { RecapHeader } from "@/components/recap/RecapHeader";
 import { PlatformStats } from "@/components/recap/PlatformStats";
 import { ThisWeek } from "@/components/recap/ThisWeek";
 import { RecapTileGrid } from "@/components/recap/RecapTileGrid";
@@ -176,31 +176,28 @@ function buildPersonalWeekly(
   userId: string,
   platformWeeklyHitRate: number,
 ): WeeklyPersonalStats | null {
-  let totalHits = 0;
-  let totalPicksCount = 0;
-  let totalCardsCount = 0;
+  let hitCards = 0;
+  let totalCards = 0;
   const dailyTrend: WeeklyPersonalStats["dailyTrend"] = [];
 
   for (const row of rows) {
     const userDay = row.personal_highlights?.[userId];
     if (!userDay) {
-      dailyTrend.push({ date: row.recap_date, hitRate: 0, picks: 0 });
+      dailyTrend.push({ date: row.recap_date, hitRate: 0, cards: 0 });
       continue;
     }
     const dayCards = userDay.cardsPlayed;
     const dayHitRate = userDay.hitRate;
-    totalCardsCount += dayCards;
-    totalHits += Math.round(dayHitRate * dayCards);
-    totalPicksCount += dayCards;
-    dailyTrend.push({ date: row.recap_date, hitRate: dayHitRate, picks: dayCards });
+    totalCards += dayCards;
+    hitCards += Math.round(dayHitRate * dayCards);
+    dailyTrend.push({ date: row.recap_date, hitRate: dayHitRate, cards: dayCards });
   }
 
-  if (totalPicksCount === 0) return null;
+  if (totalCards === 0) return null;
 
   return {
-    weeklyHitRate: Math.round((totalHits / totalPicksCount) * 1000) / 1000,
-    totalPicks: totalPicksCount,
-    totalCards: totalCardsCount,
+    weeklyHitRate: Math.round((hitCards / totalCards) * 1000) / 1000,
+    totalCards,
     platformWeeklyHitRate,
     dailyTrend,
   };
@@ -268,17 +265,7 @@ export default async function RecapPage({
       return (
         <div className="flex flex-col gap-6 py-8">
           <SlideUp>
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">
-                  Weekly Recap
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  {weekLabel}
-                </p>
-              </div>
-              <ModeToggle mode="weekly" />
-            </div>
+            <RecapHeader title="Weekly Recap" subtitle={weekLabel} mode="weekly" />
           </SlideUp>
           {availableDates.length > 0 && (
             <FadeIn delay={0.05}>
@@ -315,20 +302,11 @@ export default async function RecapPage({
       <div className="flex flex-col gap-6 py-8">
         {/* Header + Mode Toggle */}
         <SlideUp>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">
-                Weekly Recap &mdash; {weekLabel}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {weeklyData.totalPicks.toLocaleString()} pick
-                {weeklyData.totalPicks !== 1 ? "s" : ""} across{" "}
-                {weeklyData.totalCards.toLocaleString()} card
-                {weeklyData.totalCards !== 1 ? "s" : ""}
-              </p>
-            </div>
-            <ModeToggle mode="weekly" />
-          </div>
+          <RecapHeader
+            title={`Weekly Recap \u2014 ${weekLabel}`}
+            subtitle={`${weeklyData.totalPicks.toLocaleString()} pick${weeklyData.totalPicks !== 1 ? "s" : ""} across ${weeklyData.totalCards.toLocaleString()} card${weeklyData.totalCards !== 1 ? "s" : ""}`}
+            mode="weekly"
+          />
         </SlideUp>
 
         {/* Date Navigator (weekly pills) */}
@@ -356,7 +334,7 @@ export default async function RecapPage({
         {/* This Week — trend chart */}
         <ScrollReveal>
           <section aria-label="This Week" data-section="this-week">
-            <ThisWeek weeklyData={weeklyData} personalWeekly={personalWeekly} />
+            <ThisWeek weeklyData={weeklyData} personalWeekly={personalWeekly} hideStats />
           </section>
         </ScrollReveal>
 
@@ -399,15 +377,11 @@ export default async function RecapPage({
     return (
       <div className="flex flex-col gap-6 py-8">
         <SlideUp>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Daily Recap</h1>
-              <p className="text-sm text-muted-foreground">
-                Yesterday&apos;s prop pick highlights and platform stats
-              </p>
-            </div>
-            <ModeToggle mode="daily" />
-          </div>
+          <RecapHeader
+            title="Daily Recap"
+            subtitle="Yesterday's prop pick highlights and platform stats"
+            mode="daily"
+          />
         </SlideUp>
         {availableDates.length > 0 && dateParam && (
           <FadeIn delay={0.1}>
@@ -477,20 +451,11 @@ export default async function RecapPage({
     <div className="flex flex-col gap-6 py-8">
       {/* 1. Header + Mode Toggle + Date Navigator */}
       <SlideUp>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Daily Recap &mdash; {dateLabel}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {recapData.totalPicks.toLocaleString()} pick
-              {recapData.totalPicks !== 1 ? "s" : ""} across{" "}
-              {recapData.totalCards.toLocaleString()} card
-              {recapData.totalCards !== 1 ? "s" : ""}
-            </p>
-          </div>
-          <ModeToggle mode="daily" />
-        </div>
+        <RecapHeader
+          title={`Daily Recap \u2014 ${dateLabel}`}
+          subtitle={`${recapData.totalPicks.toLocaleString()} pick${recapData.totalPicks !== 1 ? "s" : ""} across ${recapData.totalCards.toLocaleString()} card${recapData.totalCards !== 1 ? "s" : ""}`}
+          mode="daily"
+        />
       </SlideUp>
 
       {availableDates.length > 0 && (
