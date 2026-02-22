@@ -12,10 +12,6 @@ import { typedFrom } from "@/lib/supabase/typed-queries";
 import type {
   StatCategory,
   PickSelection,
-  Card,
-  Pick,
-  Prop,
-  Game,
 } from "@/lib/supabase/types";
 
 // ---------------------------------------------------------------------------
@@ -205,6 +201,8 @@ export interface WeeklyRecapData {
   consensusPicks: ConsensusPick[];
   /** Auto-generated weekly fun facts */
   spotlights: Spotlight[];
+  /** Full RecapData aggregated across the week, for tile grid rendering */
+  recapData: RecapData | null;
 }
 
 export interface WeeklyPersonalStats {
@@ -246,70 +244,18 @@ interface ResolvedCardRow {
 }
 
 // ---------------------------------------------------------------------------
-// Main computation
+// Shared aggregation helper
 // ---------------------------------------------------------------------------
 
 /**
- * Compute the daily recap for a given date string (YYYY-MM-DD).
- *
- * Returns the structured recap data, per-user personal highlights, and
- * a list of user IDs featured in callouts (for notification targeting).
- *
- * If no date is provided, defaults to yesterday (UTC).
+ * Core aggregation logic: given flattened picks and cards, compute all
+ * RecapData fields (trap/lock props, spotlights, breakdowns, etc.).
  */
-export async function computeDailyRecap(
-  targetDate?: string
-): Promise<{
-  recapData: RecapData;
-  personalHighlights: Record<string, PersonalHighlight>;
-  featuredUserIds: string[];
-}> {
-  const date = targetDate ?? getYesterdayDateString();
-  const startOfDay = `${date}T00:00:00Z`;
-  const startOfNextDay = getNextDay(date);
-
-  const supabase = createAdminClient();
-
-  // ------------------------------------------------------------------
-  // 1. Fetch all resolved cards for the date, with picks + props + games
-  // ------------------------------------------------------------------
-  const { data: rawCards, error } = await typedFrom(supabase, "cards")
-    .select(
-      "id, user_id, score, total_picks, picks(id, card_id, prop_id, selection, result, actual_value, props:prop_id(id, player_id, player_name, player_team, stat_category, line, games:game_id(sport)))"
-    )
-    .eq("status", "resolved")
-    .gte("resolved_at", startOfDay)
-    .lt("resolved_at", startOfNextDay);
-
-  if (error) {
-    throw new Error(`Failed to fetch resolved cards: ${error.message}`);
-  }
-
-  const cards = (rawCards ?? []) as unknown as ResolvedCardRow[];
-
-  // Handle empty day
-  if (cards.length === 0) {
-    return emptyResult();
-  }
-
-  // Flatten all resolved picks (hit/miss only)
-  const allPicks: ResolvedPickRow[] = [];
-  for (const card of cards) {
-    for (const pick of card.picks ?? []) {
-      if (pick.result === "hit" || pick.result === "miss") {
-        allPicks.push(pick);
-      }
-    }
-  }
-
-  if (allPicks.length === 0) {
-    return emptyResult();
-  }
-
-  // ------------------------------------------------------------------
-  // 2. Compute aggregations
-  // ------------------------------------------------------------------
-
+async function buildRecapData(
+  allPicks: ResolvedPickRow[],
+  cards: ResolvedCardRow[],
+  supabase: ReturnType<typeof createAdminClient>,
+): Promise<RecapData> {
   // Platform-level hit rate
   const totalHits = allPicks.filter((p) => p.result === "hit").length;
   const totalPicks = allPicks.length;
@@ -545,7 +491,7 @@ export async function computeDailyRecap(
     teamBreakdown,
   });
 
-  const recapData: RecapData = {
+  return {
     trapProps,
     lockProps,
     playerSpotlightsGood,
@@ -564,6 +510,73 @@ export async function computeDailyRecap(
     overCount: allPicks.filter((p) => p.selection === "over").length,
     underCount: allPicks.filter((p) => p.selection === "under").length,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Main computation
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute the daily recap for a given date string (YYYY-MM-DD).
+ *
+ * Returns the structured recap data, per-user personal highlights, and
+ * a list of user IDs featured in callouts (for notification targeting).
+ *
+ * If no date is provided, defaults to yesterday (UTC).
+ */
+export async function computeDailyRecap(
+  targetDate?: string
+): Promise<{
+  recapData: RecapData;
+  personalHighlights: Record<string, PersonalHighlight>;
+  featuredUserIds: string[];
+}> {
+  const date = targetDate ?? getYesterdayDateString();
+  const startOfDay = `${date}T00:00:00Z`;
+  const startOfNextDay = getNextDay(date);
+
+  const supabase = createAdminClient();
+
+  // ------------------------------------------------------------------
+  // 1. Fetch all resolved cards for the date, with picks + props + games
+  // ------------------------------------------------------------------
+  const { data: rawCards, error } = await typedFrom(supabase, "cards")
+    .select(
+      "id, user_id, score, total_picks, picks(id, card_id, prop_id, selection, result, actual_value, props:prop_id(id, player_id, player_name, player_team, stat_category, line, games:game_id(sport)))"
+    )
+    .eq("status", "resolved")
+    .gte("resolved_at", startOfDay)
+    .lt("resolved_at", startOfNextDay);
+
+  if (error) {
+    throw new Error(`Failed to fetch resolved cards: ${error.message}`);
+  }
+
+  const cards = (rawCards ?? []) as unknown as ResolvedCardRow[];
+
+  // Handle empty day
+  if (cards.length === 0) {
+    return emptyResult();
+  }
+
+  // Flatten all resolved picks (hit/miss only)
+  const allPicks: ResolvedPickRow[] = [];
+  for (const card of cards) {
+    for (const pick of card.picks ?? []) {
+      if (pick.result === "hit" || pick.result === "miss") {
+        allPicks.push(pick);
+      }
+    }
+  }
+
+  if (allPicks.length === 0) {
+    return emptyResult();
+  }
+
+  // ------------------------------------------------------------------
+  // 2. Compute aggregations via shared helper
+  // ------------------------------------------------------------------
+  const recapData = await buildRecapData(allPicks, cards, supabase);
 
   // ------------------------------------------------------------------
   // 3. Compute personal highlights per user
@@ -624,7 +637,7 @@ export async function computeDailyRecap(
 
     // Determine which callouts this user appears in
     const featuredIn: string[] = [];
-    if (perfectCardUserIds.includes(userId)) {
+    if (recapData.perfectCards.userIds.includes(userId)) {
       featuredIn.push("perfectCards");
     }
 
@@ -633,7 +646,7 @@ export async function computeDailyRecap(
       hitRate: userHitRate,
       bestPick,
       worstPick,
-      platformAvgHitRate: round(platformHitRate, 3),
+      platformAvgHitRate: recapData.platformHitRate,
       featuredIn,
     };
   }
@@ -643,7 +656,7 @@ export async function computeDailyRecap(
   // ------------------------------------------------------------------
   const featuredUserIds = [
     ...new Set([
-      ...perfectCardUserIds,
+      ...recapData.perfectCards.userIds,
       // Users in personal highlights who are featured
       ...Object.entries(personalHighlights)
         .filter(([, h]) => h.featuredIn.length > 0)
@@ -696,7 +709,7 @@ export async function computeDailyRecap(
       user_id: userId,
       type: "daily_recap",
       title: "Daily Recap Available",
-      body: perfectCardUserIds.includes(userId)
+      body: recapData.perfectCards.userIds.includes(userId)
         ? "You hit a perfect card yesterday! Check out the daily recap."
         : "The daily recap is ready. See how you and everyone else did.",
       metadata: { recap_date: date },
@@ -725,10 +738,11 @@ export async function computeDailyRecap(
  * endDate's recap row.
  */
 export async function computeWeeklyRecap(
-  endDate?: string
+  endDate?: string,
+  startDate?: string,
 ): Promise<WeeklyRecapData> {
   const end = endDate ?? getYesterdayDateString();
-  const start = getDateMinusDays(end, 6);
+  const start = startDate ?? getDateMinusDays(end, 6);
 
   const supabase = createAdminClient();
 
@@ -823,28 +837,27 @@ export async function computeWeeklyRecap(
   }
 
   // ------------------------------------------------------------------
-  // 4. Top player of the week (adaptive min)
+  // 4. Build full RecapData via shared helper (breakdowns, spotlights, etc.)
+  // ------------------------------------------------------------------
+  let weeklyRecapData: RecapData | null = null;
+  if (allPicks.length > 0) {
+    weeklyRecapData = await buildRecapData(allPicks, cards, supabase);
+  }
+
+  // ------------------------------------------------------------------
+  // 5. Derive topPlayer / worstTrap / bestLock from raw picks
+  //    (these use different thresholds than buildRecapData)
   // ------------------------------------------------------------------
   const weeklyTopMin = Math.max(3, Math.floor(weekTotalPicks / 30));
   let topPlayer: WeeklyRecapData["topPlayer"] = null;
-
-  const weekByPlayer = allPicks.length > 0
-    ? groupBy(allPicks, (p) => p.props?.player_name ?? "Unknown")
-    : {};
-  const weekByProp = allPicks.length > 0
-    ? groupBy(allPicks, (p) => p.prop_id)
-    : {};
-  const weekBySport = allPicks.length > 0
-    ? groupBy(allPicks, (p) => p.props?.games?.sport ?? "unknown")
-    : {};
-  const weekByTeam = allPicks.length > 0
-    ? groupBy(
-        allPicks.filter((p) => p.props?.player_team),
-        (p) => p.props!.player_team!
-      )
-    : {};
+  let worstTrap: TrapOrLockProp | null = null;
+  let bestLock: TrapOrLockProp | null = null;
 
   if (allPicks.length > 0) {
+    const weekByPlayer = groupBy(allPicks, (p) => p.props?.player_name ?? "Unknown");
+    const weekByProp = groupBy(allPicks, (p) => p.prop_id);
+
+    // Top player: highest hit rate with min picks
     let bestRate = -1;
     for (const [playerName, picks] of Object.entries(weekByPlayer)) {
       if (picks.length < weeklyTopMin) continue;
@@ -860,18 +873,10 @@ export async function computeWeeklyRecap(
         };
       }
     }
-  }
 
-  // ------------------------------------------------------------------
-  // 5. Worst trap & best lock of the week (adaptive min)
-  // ------------------------------------------------------------------
-  let worstTrap: TrapOrLockProp | null = null;
-  let bestLock: TrapOrLockProp | null = null;
-
-  if (allPicks.length > 0) {
+    // Worst trap & best lock: extreme hit rates with min picks
     let lowestRate = Infinity;
     let highestRate = -Infinity;
-
     for (const [propId, picks] of Object.entries(weekByProp)) {
       if (picks.length < weeklyTopMin) continue;
       const hits = picks.filter((p) => p.result === "hit").length;
@@ -888,100 +893,10 @@ export async function computeWeeklyRecap(
         team: representative.props?.player_team ?? null,
         sport: representative.props?.games?.sport ?? "unknown",
       };
-
-      if (rate < lowestRate) {
-        lowestRate = rate;
-        worstTrap = entry;
-      }
-      if (rate > highestRate) {
-        highestRate = rate;
-        bestLock = entry;
-      }
+      if (rate < lowestRate) { lowestRate = rate; worstTrap = entry; }
+      if (rate > highestRate) { highestRate = rate; bestLock = entry; }
     }
   }
-
-  // ------------------------------------------------------------------
-  // 5b. Weekly team breakdown
-  // ------------------------------------------------------------------
-  const weeklyTeamBreakdown: BreakdownEntry[] = Object.entries(weekByTeam)
-    .map(([key, picks]) => ({
-      key,
-      hitRate: round(
-        picks.filter((p) => p.result === "hit").length / picks.length,
-        3
-      ),
-      pickCount: picks.length,
-    }))
-    .sort((a, b) => b.pickCount - a.pickCount);
-
-  // ------------------------------------------------------------------
-  // 5c. Weekly consensus picks (70%+ threshold for weekly)
-  // ------------------------------------------------------------------
-  const weeklyConsensusPicks: ConsensusPick[] = [];
-  for (const [propId, picks] of Object.entries(weekByProp)) {
-    if (picks.length < 2) continue;
-    const overCount = picks.filter((p) => p.selection === "over").length;
-    const underCount = picks.length - overCount;
-    const dominant: "over" | "under" = overCount >= underCount ? "over" : "under";
-    const dominantCount = dominant === "over" ? overCount : underCount;
-    const dominantPct = dominantCount / picks.length;
-    if (dominantPct < 0.7) continue;
-
-    const dominantPicks = picks.filter((p) => p.selection === dominant);
-    const dominantHits = dominantPicks.filter((p) => p.result === "hit").length;
-    const wasCorrect = dominantHits / dominantPicks.length > 0.5;
-    const representative = picks[0];
-
-    weeklyConsensusPicks.push({
-      propId,
-      playerName: representative.props?.player_name ?? "Unknown",
-      statCategory: representative.props?.stat_category ?? "points",
-      line: representative.props?.line ?? 0,
-      pickCount: picks.length,
-      dominantSide: dominant,
-      dominantPct: round(dominantPct, 2),
-      wasCorrect,
-      sport: representative.props?.games?.sport ?? "unknown",
-    });
-  }
-  weeklyConsensusPicks.sort((a, b) => b.dominantPct - a.dominantPct || b.pickCount - a.pickCount);
-  weeklyConsensusPicks.splice(10);
-
-  // ------------------------------------------------------------------
-  // 5d. Weekly fun facts
-  // ------------------------------------------------------------------
-  const weeklyByCategory = allPicks.length > 0
-    ? groupBy(allPicks, (p) => p.props?.stat_category ?? "unknown")
-    : {};
-  const weeklySportBreakdown: BreakdownEntry[] = Object.entries(weekBySport)
-    .map(([key, picks]) => ({
-      key,
-      hitRate: round(picks.filter((p) => p.result === "hit").length / picks.length, 3),
-      pickCount: picks.length,
-    }))
-    .sort((a, b) => b.pickCount - a.pickCount);
-  const weeklyCategoryBreakdown: BreakdownEntry[] = Object.entries(weeklyByCategory)
-    .map(([key, picks]) => ({
-      key,
-      hitRate: round(picks.filter((p) => p.result === "hit").length / picks.length, 3),
-      pickCount: picks.length,
-    }))
-    .sort((a, b) => b.pickCount - a.pickCount);
-
-  const weeklySpotlights = generateSpotlights({
-    allPicks,
-    byProp: weekByProp,
-    byPlayer: weekByPlayer,
-    bySport: weekBySport,
-    byTeam: weekByTeam,
-    consensusPicks: weeklyConsensusPicks,
-    perfectCards: { count: 0, userIds: [], usernames: [] },
-    platformHitRate: weeklyHitRate,
-    totalPicks: weekTotalPicks,
-    sportBreakdown: weeklySportBreakdown,
-    statCategoryBreakdown: weeklyCategoryBreakdown,
-    teamBreakdown: weeklyTeamBreakdown,
-  });
 
   // ------------------------------------------------------------------
   // 6. Assemble the weekly recap data
@@ -996,9 +911,10 @@ export async function computeWeeklyRecap(
     bestLock,
     startDate: start,
     endDate: end,
-    teamBreakdown: weeklyTeamBreakdown,
-    consensusPicks: weeklyConsensusPicks,
-    spotlights: weeklySpotlights,
+    teamBreakdown: weeklyRecapData?.teamBreakdown ?? [],
+    consensusPicks: weeklyRecapData?.consensusPicks ?? [],
+    spotlights: weeklyRecapData?.spotlights ?? [],
+    recapData: weeklyRecapData,
   };
 
   // ------------------------------------------------------------------
@@ -1347,6 +1263,9 @@ function getDateMinusDays(dateStr: string, days: number): string {
   d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString().slice(0, 10);
 }
+
+// Re-export date utilities (canonical source: ./dates.ts)
+export { getMondayOfWeek, getSundayOfWeek } from "./dates";
 
 function round(value: number, decimals: number): number {
   const factor = Math.pow(10, decimals);

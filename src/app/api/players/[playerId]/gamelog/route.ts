@@ -10,6 +10,7 @@ export async function GET(
   const { playerId } = await params;
   const { searchParams } = new URL(request.url);
   const sport = searchParams.get("sport") ?? "nba";
+  const playerName = searchParams.get("name") ?? undefined;
   const lastN = Math.min(
     Math.max(parseInt(searchParams.get("last_n") ?? "5", 10) || 5, 1),
     20
@@ -20,7 +21,7 @@ export async function GET(
   }
 
   try {
-    const data = await fetchPlayerGamelog(playerId, sport, lastN);
+    const data = await fetchPlayerGamelog(playerId, sport, lastN, playerName);
 
     return NextResponse.json(
       { data },

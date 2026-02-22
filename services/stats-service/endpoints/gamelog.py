@@ -1,12 +1,8 @@
-import asyncio
 import logging
 import time
-from datetime import datetime
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
-
-from utils.rate_limiter import nba_rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +12,10 @@ router = APIRouter(prefix="/players", tags=["gamelog"])
 _cache: dict[str, tuple[float, object]] = {}
 _CACHE_TTL = 3600  # 1 hour
 _CACHE_MAX_SIZE = 500
+
+# Separate cache for ESPN athlete ID resolution (24h TTL)
+_espn_id_cache: dict[str, tuple[float, str]] = {}
+_ESPN_ID_CACHE_TTL = 86400  # 24 hours
 
 
 def _get_cached(key: str):
@@ -35,87 +35,18 @@ def _set_cached(key: str, value):
     _cache[key] = (time.monotonic(), value)
 
 
-def _current_nba_season() -> str:
-    """Auto-detect NBA season string: if month >= October use current year, else previous."""
-    now = datetime.now()
-    if now.month >= 10:
-        return f"{now.year}-{str(now.year + 1)[-2:]}"
-    return f"{now.year - 1}-{str(now.year)[-2:]}"
+async def _resolve_espn_nba_athlete_id(player_name: str) -> str:
+    """Resolve an ESPN athlete ID from a player name using ESPN search API."""
+    cache_key = player_name.lower().strip()
+    entry = _espn_id_cache.get(cache_key)
+    if entry and (time.monotonic() - entry[0]) < _ESPN_ID_CACHE_TTL:
+        return entry[1]
+    if entry:
+        del _espn_id_cache[cache_key]
 
-
-async def _fetch_nba_gamelog(player_id: str, last_n: int) -> dict:
-    """Fetch NBA game log via nba_api."""
-    await nba_rate_limiter.acquire()
-
-    season = _current_nba_season()
-
-    def _call():
-        from nba_api.stats.endpoints.playergamelog import PlayerGameLog
-
-        gl = PlayerGameLog(player_id=player_id, season=season, timeout=10)
-        return gl.get_normalized_dict()
-
-    loop = asyncio.get_event_loop()
-    data = await loop.run_in_executor(None, _call)
-
-    rows = data.get("PlayerGameLog", [])
-
-    games = []
-    for row in rows[:last_n]:
-        games.append({
-            "game_date": row.get("GAME_DATE", ""),
-            "matchup": row.get("MATCHUP", ""),
-            "result": row.get("WL", ""),
-            "minutes": row.get("MIN", 0),
-            "points": row.get("PTS", 0),
-            "rebounds": row.get("REB", 0),
-            "assists": row.get("AST", 0),
-            "steals": row.get("STL", 0),
-            "blocks": row.get("BLK", 0),
-            "turnovers": row.get("TOV", 0),
-            "threes_made": row.get("FG3M", 0),
-            "field_goals": f"{row.get('FGM', 0)}-{row.get('FGA', 0)}",
-            "free_throws": f"{row.get('FTM', 0)}-{row.get('FTA', 0)}",
-            "plus_minus": row.get("PLUS_MINUS", 0),
-        })
-
-    # Compute season averages from the full log
-    total_games = len(rows)
-    averages = {
-        "games_played": total_games,
-        "minutes": 0,
-        "points": 0,
-        "rebounds": 0,
-        "assists": 0,
-        "steals": 0,
-        "blocks": 0,
-        "turnovers": 0,
-        "threes_made": 0,
-    }
-
-    if total_games > 0:
-        for row in rows:
-            averages["minutes"] += row.get("MIN", 0) or 0
-            averages["points"] += row.get("PTS", 0) or 0
-            averages["rebounds"] += row.get("REB", 0) or 0
-            averages["assists"] += row.get("AST", 0) or 0
-            averages["steals"] += row.get("STL", 0) or 0
-            averages["blocks"] += row.get("BLK", 0) or 0
-            averages["turnovers"] += row.get("TOV", 0) or 0
-            averages["threes_made"] += row.get("FG3M", 0) or 0
-
-        for key in averages:
-            if key != "games_played":
-                averages[key] = round(averages[key] / total_games, 1)
-
-    return {"games": games, "season_averages": averages}
-
-
-async def _fetch_ncaab_gamelog(player_id: str, last_n: int) -> dict:
-    """Fetch NCAAB game log via ESPN v3 athlete gamelog API."""
     url = (
-        f"https://site.web.api.espn.com/apis/common/v3/sports/basketball"
-        f"/mens-college-basketball/athletes/{player_id}/gamelog"
+        "https://site.api.espn.com/apis/common/v3/search"
+        f"?query={player_name}&type=player&sport=basketball&league=nba"
     )
 
     async with httpx.AsyncClient(timeout=10) as client:
@@ -123,12 +54,26 @@ async def _fetch_ncaab_gamelog(player_id: str, last_n: int) -> dict:
         resp.raise_for_status()
         data = resp.json()
 
-    # ESPN v3 structure:
-    #   labels: ["MIN", "FG", "FG%", "3PT", "3P%", "FT", "FT%", "REB", "AST", "BLK", "STL", "PF", "TO", "PTS"]
-    #   events: { "<eventId>": { gameDate, gameResult, atVs, opponent: { abbreviation }, ... } }
-    #   seasonTypes[0].categories[0].events: [ { eventId, stats: ["31", "7-16", ...] } ]
-    #   totals: ["666", "104-253", ...] (season totals matching labels)
+    # Response: { "items": [ { "id": "12345", ... }, ... ] }
+    items = data.get("items", [])
+    if not items:
+        raise ValueError(f"ESPN search returned no results for '{player_name}'")
 
+    athlete_id = str(items[0].get("id", ""))
+    if not athlete_id:
+        raise ValueError(f"ESPN search result missing ID for '{player_name}'")
+
+    # Evict oldest if cache is full
+    if len(_espn_id_cache) >= _CACHE_MAX_SIZE:
+        oldest = min(_espn_id_cache, key=lambda k: _espn_id_cache[k][0])
+        del _espn_id_cache[oldest]
+    _espn_id_cache[cache_key] = (time.monotonic(), athlete_id)
+
+    return athlete_id
+
+
+def _parse_espn_gamelog(data: dict, last_n: int) -> dict:
+    """Shared parser for ESPN v3 athlete gamelog responses (NBA + NCAAB)."""
     labels = data.get("labels", [])
     events_dict = data.get("events", {})
     season_types = data.get("seasonTypes", [])
@@ -137,7 +82,6 @@ async def _fetch_ncaab_gamelog(player_id: str, last_n: int) -> dict:
     if not season_types or not labels:
         return {"games": [], "season_averages": {"games_played": 0}}
 
-    # Get stat events from the first category
     categories = season_types[0].get("categories", [])
     if not categories:
         return {"games": [], "season_averages": {"games_played": 0}}
@@ -216,7 +160,7 @@ async def _fetch_ncaab_gamelog(player_id: str, last_n: int) -> dict:
     }
 
     if total_games > 0 and totals:
-        # Use totals array (matches labels order) for accuracy
+        # Use pre-computed totals when available (NCAAB provides these)
         averages["minutes"] = round(_safe_int(totals, "MIN") / total_games, 1)
         averages["points"] = round(_safe_int(totals, "PTS") / total_games, 1)
         averages["rebounds"] = round(_safe_int(totals, "REB") / total_games, 1)
@@ -225,8 +169,55 @@ async def _fetch_ncaab_gamelog(player_id: str, last_n: int) -> dict:
         averages["blocks"] = round(_safe_int(totals, "BLK") / total_games, 1)
         averages["turnovers"] = round(_safe_int(totals, "TO") / total_games, 1)
         averages["threes_made"] = round(_safe_3pm(totals) / total_games, 1)
+    elif total_games > 0:
+        # Fallback: compute averages from individual game stats (NBA doesn't provide totals)
+        for se in stat_events:
+            stats = se.get("stats", [])
+            averages["minutes"] += _safe_int(stats, "MIN")
+            averages["points"] += _safe_int(stats, "PTS")
+            averages["rebounds"] += _safe_int(stats, "REB")
+            averages["assists"] += _safe_int(stats, "AST")
+            averages["steals"] += _safe_int(stats, "STL")
+            averages["blocks"] += _safe_int(stats, "BLK")
+            averages["turnovers"] += _safe_int(stats, "TO")
+            averages["threes_made"] += _safe_3pm(stats)
+        for key in averages:
+            if key != "games_played":
+                averages[key] = round(averages[key] / total_games, 1)
 
     return {"games": games, "season_averages": averages}
+
+
+async def _fetch_espn_gamelog(league_path: str, athlete_id: str, last_n: int) -> dict:
+    """Fetch game log from ESPN v3 gamelog endpoint for a given league path."""
+    url = (
+        f"https://site.web.api.espn.com/apis/common/v3/sports/basketball"
+        f"/{league_path}/athletes/{athlete_id}/gamelog"
+    )
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        data = resp.json()
+
+    return _parse_espn_gamelog(data, last_n)
+
+
+async def _fetch_nba_gamelog(player_id: str, last_n: int, player_name: str | None = None) -> dict:
+    """Fetch NBA game log via ESPN v3 API.
+
+    Requires player_name to resolve the ESPN athlete ID (NBA.com IDs differ from ESPN IDs).
+    """
+    if not player_name:
+        raise ValueError("player_name is required for NBA game log lookups")
+
+    espn_id = await _resolve_espn_nba_athlete_id(player_name)
+    return await _fetch_espn_gamelog("nba", espn_id, last_n)
+
+
+async def _fetch_ncaab_gamelog(player_id: str, last_n: int) -> dict:
+    """Fetch NCAAB game log via ESPN v3 athlete gamelog API."""
+    return await _fetch_espn_gamelog("mens-college-basketball", player_id, last_n)
 
 
 @router.get("/{player_id}/gamelog")
@@ -234,6 +225,7 @@ async def player_gamelog(
     player_id: str,
     sport: str = Query(default="nba"),
     last_n: int = Query(default=5, ge=1, le=20),
+    player_name: str = Query(default=None),
 ):
     """Fetch recent game log and season averages for a player."""
     cache_key = f"gamelog:{sport}:{player_id}:{last_n}"
@@ -243,7 +235,7 @@ async def player_gamelog(
 
     try:
         if sport == "nba":
-            result = await _fetch_nba_gamelog(player_id, last_n)
+            result = await _fetch_nba_gamelog(player_id, last_n, player_name)
         elif sport == "ncaab":
             result = await _fetch_ncaab_gamelog(player_id, last_n)
         else:
