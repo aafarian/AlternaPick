@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { isAdminEmail } from "@/lib/auth/admin";
 
 const PROTECTED_ROUTES = ["/picks", "/profile", "/friends", "/notifications", "/live", "/settings", "/analytics"];
 const PUBLIC_EXCEPTIONS = ["/picks/share/"];
@@ -8,6 +9,14 @@ const AUTH_ROUTES = ["/auth/login", "/auth/signup"];
 export async function middleware(request: NextRequest) {
   const { response, user } = await updateSession(request);
   const { pathname } = request.nextUrl;
+
+  // Admin routes: return 404 for non-admins (hides the admin surface entirely)
+  if (pathname.startsWith("/admin")) {
+    if (!user || !isAdminEmail(user.email ?? "")) {
+      return NextResponse.rewrite(new URL("/not-found", request.url));
+    }
+    return response;
+  }
 
   // Allow public exception paths even if they match a protected route prefix
   const isPublicException = PUBLIC_EXCEPTIONS.some((ex) => pathname.startsWith(ex));
