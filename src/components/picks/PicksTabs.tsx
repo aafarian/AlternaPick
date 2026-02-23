@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
@@ -27,18 +28,22 @@ export default function PicksTabs({
   const searchParams = useSearchParams();
   const prefersReduced = useReducedMotion();
 
-  const tabParam = searchParams.get("tab");
-  const activeTab: TabKey = isValidTab(tabParam) ? tabParam : "live";
+  // Local state drives the UI; URL is updated as a side effect via
+  // replaceState to avoid re-invoking the server component.
+  const [activeTab, setActiveTab] = useState<TabKey>(
+    () => (isValidTab(searchParams.get("tab")) ? searchParams.get("tab") as TabKey : "live"),
+  );
 
   function handleTabChange(value: string) {
+    const tab = value as TabKey;
+    setActiveTab(tab);
+
     const params = new URLSearchParams(searchParams.toString());
-    if (value === "live") {
+    if (tab === "live") {
       params.delete("tab");
     } else {
-      params.set("tab", value);
+      params.set("tab", tab);
     }
-    // Use replaceState instead of router.replace to avoid re-invoking the
-    // server component (which would re-fetch cards on every tab switch).
     const url = `/picks${params.size ? `?${params}` : ""}`;
     window.history.replaceState(window.history.state, "", url);
   }
