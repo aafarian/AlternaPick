@@ -11,7 +11,12 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Admin routes: return 404 for non-admins (hides the admin surface entirely)
-  if (pathname.startsWith("/admin")) {
+  // Guard both UI (/admin) and API (/api/admin) routes, but exclude
+  // /api/admin/check so non-admins can determine whether to show the admin nav link.
+  if (
+    pathname.startsWith("/admin") ||
+    (pathname.startsWith("/api/admin") && !pathname.startsWith("/api/admin/check"))
+  ) {
     if (!user || !isAdminEmail(user.email ?? "")) {
       return NextResponse.rewrite(new URL("/not-found", request.url));
     }

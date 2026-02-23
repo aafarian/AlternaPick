@@ -34,6 +34,11 @@ const VALID_SORT_COLUMNS = new Set([
 
 const MAX_PAGE_SIZE = 100;
 
+/** Strip PostgREST-meaningful characters to prevent filter injection. */
+function sanitizeSearch(s: string): string {
+  return s.replace(/[,.()*]/g, "");
+}
+
 /**
  * GET /api/admin/users
  * Returns a paginated, searchable, sortable list of users for the admin dashboard.
@@ -62,7 +67,8 @@ export async function GET(request: NextRequest) {
       MAX_PAGE_SIZE,
       Math.max(1, parseInt(searchParams.get("pageSize") ?? "25", 10))
     );
-    const search = searchParams.get("search")?.trim() || null;
+    const rawSearch = searchParams.get("search")?.trim() || null;
+    const search = rawSearch ? sanitizeSearch(rawSearch) || null : null;
     const sortBy = (searchParams.get("sortBy") ?? "created_at") as SortBy;
     const sortOrder = (searchParams.get("sortOrder") ?? "desc") as SortOrder;
 
@@ -124,69 +130,124 @@ export async function GET(request: NextRequest) {
       users = profiles.map((p) => mapToAdminUserRow(p, leaderboardMap));
     } else {
       // ---------------------------------------------------------------
-      // Leaderboard-column sort: fetch all matching profiles + leaderboard,
-      // merge, sort in JS, then paginate
+      // Leaderboard-column sort: query leaderboard_entries directly with
+      // server-side ordering and pagination, then batch-fetch profiles.
       // ---------------------------------------------------------------
-      const profileSelect =
-        "id, username, email, display_name, avatar_url, is_deactivated, created_at";
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let profileQuery: any = supabase.from("profiles").select(profileSelect);
+      // Map frontend sort column names to leaderboard_entries column names
+      const lbColumnMap: Record<string, string> = {
+        total_cards: "total_cards",
+        win_rate: "win_rate",
+        last_active: "last_played_date",
+      };
+      const lbColumn = lbColumnMap[sortBy] ?? "total_cards";
 
       if (search) {
-        profileQuery = profileQuery.or(
-          `username.ilike.%${search}%,email.ilike.%${search}%`
+        // When searching + sorting by leaderboard column, we first need to find
+        // the matching profile IDs, then paginate within leaderboard_entries for
+        // those IDs. Fetch matching profile IDs (capped for safety).
+        const profileSelect = "id";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const matchQuery: any = supabase
+          .from("profiles")
+          .select(profileSelect)
+          .or(`username.ilike.%${search}%,email.ilike.%${search}%`);
+
+        const matchResult = await matchQuery;
+        const matchedIds = ((matchResult.data as { id: string }[]) ?? []).map(
+          (p) => p.id
         );
-      }
+        total = matchedIds.length;
 
-      const profileResult = await profileQuery;
-      const allProfiles = (profileResult.data as ProfileRow[] | null) ?? [];
-      total = allProfiles.length;
+        if (matchedIds.length === 0) {
+          users = [];
+        } else {
+          // Paginate leaderboard_entries filtered to matched IDs
+          const from = (page - 1) * pageSize;
+          const to = from + pageSize - 1;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const lbQuery: any = supabase
+            .from("leaderboard_entries")
+            .select("user_id, total_cards, win_rate, last_played_date")
+            .in("user_id", matchedIds)
+            .order(lbColumn, { ascending: sortOrder === "asc" })
+            .range(from, to);
 
-      // Fetch all leaderboard entries for matched profiles
-      const allIds = allProfiles.map((p) => p.id);
-      const leaderboardMap = await fetchLeaderboardMap(supabase, allIds);
+          const lbResult = await lbQuery;
+          const lbRows = (lbResult.data as LeaderboardRow[] | null) ?? [];
+          const pageUserIds = lbRows.map((r) => r.user_id);
 
-      // Merge and sort
-      const merged = allProfiles.map((p) => ({
-        row: mapToAdminUserRow(p, leaderboardMap),
-        profile: p,
-      }));
+          // Batch-fetch profiles for this page
+          const profileFull =
+            "id, username, email, display_name, avatar_url, is_deactivated, created_at";
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const profileResult = await (supabase.from("profiles") as any)
+            .select(profileFull)
+            .in("id", pageUserIds);
+          const profiles = (profileResult.data as ProfileRow[] | null) ?? [];
+          const profileMap = new Map(profiles.map((p) => [p.id, p]));
 
-      merged.sort((a, b) => {
-        let aVal: number | string | null;
-        let bVal: number | string | null;
+          // Build leaderboard map from the page rows
+          const leaderboardMap = new Map<string, LeaderboardRow>();
+          for (const row of lbRows) {
+            leaderboardMap.set(row.user_id, row);
+          }
 
-        switch (sortBy) {
-          case "total_cards":
-            aVal = a.row.totalCards;
-            bVal = b.row.totalCards;
-            break;
-          case "win_rate":
-            aVal = a.row.winRate;
-            bVal = b.row.winRate;
-            break;
-          case "last_active":
-            aVal = a.row.lastActive;
-            bVal = b.row.lastActive;
-            break;
-          default:
-            aVal = 0;
-            bVal = 0;
+          // Maintain the sorted order from leaderboard query
+          users = lbRows
+            .map((lb) => {
+              const p = profileMap.get(lb.user_id);
+              if (!p) return null;
+              return mapToAdminUserRow(p, leaderboardMap);
+            })
+            .filter((u): u is AdminUserRow => u !== null);
+        }
+      } else {
+        // No search filter — paginate leaderboard_entries directly
+        // Get total count
+        const countResult = await supabase
+          .from("leaderboard_entries")
+          .select("*", { count: "exact", head: true });
+        total = countResult.count ?? 0;
+
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const lbQuery: any = supabase
+          .from("leaderboard_entries")
+          .select("user_id, total_cards, win_rate, last_played_date")
+          .order(lbColumn, { ascending: sortOrder === "asc" })
+          .range(from, to);
+
+        const lbResult = await lbQuery;
+        const lbRows = (lbResult.data as LeaderboardRow[] | null) ?? [];
+        const pageUserIds = lbRows.map((r) => r.user_id);
+
+        // Batch-fetch profiles for this page
+        const profileFull =
+          "id, username, email, display_name, avatar_url, is_deactivated, created_at";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const profileResult = await (supabase.from("profiles") as any)
+          .select(profileFull)
+          .in("id", pageUserIds);
+        const profiles = (profileResult.data as ProfileRow[] | null) ?? [];
+        const profileMap = new Map(profiles.map((p) => [p.id, p]));
+
+        // Build leaderboard map from the page rows
+        const leaderboardMap = new Map<string, LeaderboardRow>();
+        for (const row of lbRows) {
+          leaderboardMap.set(row.user_id, row);
         }
 
-        // Null values sort to the end regardless of sort direction
-        if (aVal == null && bVal == null) return 0;
-        if (aVal == null) return 1;
-        if (bVal == null) return -1;
-
-        const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-        return sortOrder === "asc" ? cmp : -cmp;
-      });
-
-      // Paginate
-      const from = (page - 1) * pageSize;
-      users = merged.slice(from, from + pageSize).map((m) => m.row);
+        // Maintain the sorted order from leaderboard query
+        users = lbRows
+          .map((lb) => {
+            const p = profileMap.get(lb.user_id);
+            if (!p) return null;
+            return mapToAdminUserRow(p, leaderboardMap);
+          })
+          .filter((u): u is AdminUserRow => u !== null);
+      }
     }
 
     const response: AdminUsersResponse = {

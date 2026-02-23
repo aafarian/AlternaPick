@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notFound, handleApiError } from "@/lib/api/errors";
+import { notFound, badRequest, handleApiError } from "@/lib/api/errors";
 import type { AdminCardDetail, AdminCardPickDetail } from "@/lib/admin/types";
 import type {
   CardStatus,
@@ -60,6 +60,9 @@ type ChallengeRow = {
   opponent_id: string;
 };
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * GET /api/admin/cards/:cardId
  * Returns comprehensive card detail including owner profile, all picks with
@@ -79,6 +82,11 @@ export async function GET(
     }
 
     const { cardId } = await params;
+
+    if (!UUID_RE.test(cardId)) {
+      return badRequest("Invalid card ID format");
+    }
+
     const supabase = createAdminClient();
 
     // Fetch card with owner profile joined via user_id → profiles

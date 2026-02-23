@@ -91,15 +91,18 @@ export async function GET() {
     // These queries return rows (not just counts), so run separately for
     // proper type inference — Promise.all with mixed return shapes causes
     // TypeScript to collapse row types to `never`.
+    // Safety-capped queries: limit rows pulled into memory
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const winRateResult = await (supabase.from("leaderboard_entries") as any)
       .select("win_rate")
-      .gt("total_attempted_picks", 0);
+      .gt("total_attempted_picks", 0)
+      .limit(10000);
 
     const dailyActiveUsersResult = await supabase
       .from("cards")
       .select("user_id")
-      .gte("created_at", todayStart);
+      .gte("created_at", todayStart)
+      .limit(10000);
 
     // Compute average win rate from fetched rows
     const winRates =

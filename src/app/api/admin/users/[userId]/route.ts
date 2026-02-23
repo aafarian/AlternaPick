@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notFound, handleApiError } from "@/lib/api/errors";
+import { notFound, badRequest, handleApiError } from "@/lib/api/errors";
 import type { AdminUserDetail } from "@/lib/admin/types";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 import type {
   CardStatus,
   GameMode,
@@ -95,6 +98,11 @@ export async function GET(
     }
 
     const { userId } = await params;
+
+    if (!UUID_RE.test(userId)) {
+      return badRequest("Invalid user ID format");
+    }
+
     const supabase = createAdminClient();
 
     // Fetch profile first — return 404 if not found
@@ -204,8 +212,10 @@ export async function GET(
       challenges.map((ch) => {
         const isChallenger = ch.challenger_id === userId;
         const opponentProfile = isChallenger ? ch.opponent : ch.challenger;
+        const opponentId = isChallenger ? ch.opponent_id : ch.challenger_id;
         return {
           id: ch.id,
+          opponentId,
           opponentUsername: opponentProfile?.username ?? "Unknown",
           opponentDisplayName: opponentProfile?.display_name ?? null,
           status: ch.status,

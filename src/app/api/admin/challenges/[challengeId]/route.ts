@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notFound, handleApiError } from "@/lib/api/errors";
+import { notFound, badRequest, handleApiError } from "@/lib/api/errors";
 import type {
   AdminChallengeDetail,
   AdminChallengePlayerSide,
@@ -79,6 +79,9 @@ type PickRow = {
   };
 };
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -119,6 +122,11 @@ export async function GET(
     }
 
     const { challengeId } = await params;
+
+    if (!UUID_RE.test(challengeId)) {
+      return badRequest("Invalid challenge ID format");
+    }
+
     const supabase = createAdminClient();
 
     // Fetch challenge with both players' profiles joined
