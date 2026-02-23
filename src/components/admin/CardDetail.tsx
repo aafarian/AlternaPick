@@ -1,0 +1,449 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  ArrowLeft,
+  AlertCircle,
+  RefreshCw,
+  User,
+  Swords,
+  Layers,
+  Crosshair,
+  Clock,
+  Lock,
+  CheckCircle2,
+} from "lucide-react";
+import type { AdminCardDetail, AdminCardPickDetail } from "@/lib/admin/types";
+import type { ChallengeStatus } from "@/lib/supabase/types";
+
+// ---------------------------------------------------------------------------
+// API response shape (extends AdminCardDetail with challenge info)
+// ---------------------------------------------------------------------------
+
+interface CardDetailResponse extends AdminCardDetail {
+  challenge: {
+    id: string;
+    status: ChallengeStatus;
+    opponentId: string;
+  } | null;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatDateTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return "\u2014";
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function cardStatusVariant(status: string) {
+  switch (status) {
+    case "draft":
+      return "secondary" as const;
+    case "locked":
+      return "default" as const;
+    case "resolved":
+      return "outline" as const;
+    default:
+      return "secondary" as const;
+  }
+}
+
+function gameModeLabel(mode: string): string {
+  switch (mode) {
+    case "classic":
+      return "Classic";
+    case "turbo":
+      return "Turbo";
+    case "playoff":
+      return "Playoff";
+    case "h2h":
+      return "H2H";
+    case "sabotage":
+      return "Sabotage";
+    case "mirror":
+      return "Mirror";
+    default:
+      return mode;
+  }
+}
+
+function statCategoryLabel(cat: string): string {
+  return cat
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+function resultBadgeClass(result: string): string {
+  switch (result) {
+    case "hit":
+      return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-transparent";
+    case "miss":
+      return "bg-red-500/15 text-red-700 dark:text-red-400 border-transparent";
+    case "pending":
+    default:
+      return "bg-muted text-muted-foreground border-transparent";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Skeleton components
+// ---------------------------------------------------------------------------
+
+function HeaderSkeleton() {
+  return (
+    <Card className="py-5">
+      <CardContent className="px-6 pb-0 pt-0">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-7 w-48" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-6 w-20" />
+            <Skeleton className="h-6 w-16" />
+            <Skeleton className="h-6 w-24" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TableSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: rows }).map((_, i) => (
+        <Skeleton key={i} className="h-10 w-full" />
+      ))}
+    </div>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-6">
+      <HeaderSkeleton />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="py-4">
+            <CardHeader className="pb-0 pt-0 px-4 gap-1">
+              <Skeleton className="h-3.5 w-20" />
+            </CardHeader>
+            <CardContent className="px-4 pt-1 pb-0">
+              <Skeleton className="h-7 w-14" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="space-y-3">
+        <Skeleton className="h-6 w-32" />
+        <TableSkeleton />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sub-sections
+// ---------------------------------------------------------------------------
+
+function CardHeaderSection({ data }: { data: CardDetailResponse }) {
+  return (
+    <Card className="py-5">
+      <CardContent className="px-6 pb-0 pt-0">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          {/* Left: owner info */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold tracking-tight">
+                Card Detail
+              </h2>
+              <Badge variant={cardStatusVariant(data.status)}>
+                {data.status}
+              </Badge>
+            </div>
+
+            {data.userId && data.username ? (
+              <div className="flex items-center gap-1.5 text-sm">
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground">Owner:</span>
+                <Link
+                  href={`/admin/users/${data.userId}`}
+                  className="text-primary hover:underline font-medium"
+                >
+                  {data.displayName ?? data.username}
+                </Link>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No owner</p>
+            )}
+
+            {data.challenge && (
+              <div className="flex items-center gap-1.5 text-sm">
+                <Swords className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground">Challenge:</span>
+                <Link
+                  href={`/admin/lookup/challenge/${data.challenge.id}`}
+                  className="text-primary hover:underline font-medium"
+                >
+                  {data.challenge.id.slice(0, 8)}...
+                </Link>
+                <Badge variant="secondary" className="text-[10px] ml-1">
+                  {data.challenge.status}
+                </Badge>
+              </div>
+            )}
+          </div>
+
+          {/* Right: meta badges */}
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline">{gameModeLabel(data.gameMode)}</Badge>
+            <Badge variant="outline">{data.cardSize}-pick</Badge>
+            <Badge variant="outline">
+              Score: {data.score}/{data.totalPicks}
+            </Badge>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TimestampsGrid({ data }: { data: CardDetailResponse }) {
+  const timestamps = [
+    { label: "Created", icon: Clock, value: data.createdAt },
+    { label: "Locked", icon: Lock, value: data.lockedAt },
+    { label: "Resolved", icon: CheckCircle2, value: data.resolvedAt },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {timestamps.map((ts) => {
+        const Icon = ts.icon;
+        return (
+          <Card key={ts.label} className="py-4">
+            <CardHeader className="pb-0 pt-0 px-4 gap-1">
+              <div className="flex items-center gap-2">
+                <Icon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs font-medium text-muted-foreground">
+                  {ts.label}
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="px-4 pt-1 pb-0">
+              <p className="text-sm font-medium">
+                {formatDateTime(ts.value)}
+              </p>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+function PicksTable({ picks }: { picks: AdminCardPickDetail[] }) {
+  if (picks.length === 0) {
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        No picks on this card
+      </p>
+    );
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Player</TableHead>
+          <TableHead>Stat</TableHead>
+          <TableHead className="text-right">Line</TableHead>
+          <TableHead>Selection</TableHead>
+          <TableHead>Result</TableHead>
+          <TableHead className="text-right">Actual</TableHead>
+          <TableHead>Matchup</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {picks.map((pick) => (
+          <TableRow key={pick.id}>
+            <TableCell className="font-medium">
+              <div>
+                {pick.playerName}
+                {pick.playerTeam && (
+                  <span className="ml-1.5 text-xs text-muted-foreground">
+                    {pick.playerTeam}
+                  </span>
+                )}
+              </div>
+            </TableCell>
+            <TableCell>{statCategoryLabel(pick.statCategory)}</TableCell>
+            <TableCell className="text-right font-mono">
+              {pick.line}
+            </TableCell>
+            <TableCell>
+              <Badge variant="secondary" className="uppercase text-[10px]">
+                {pick.selection}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              <Badge className={resultBadgeClass(pick.result)}>
+                {pick.result}
+              </Badge>
+            </TableCell>
+            <TableCell className="text-right font-mono">
+              {pick.actualValue !== null ? pick.actualValue : "\u2014"}
+            </TableCell>
+            <TableCell className="text-xs text-muted-foreground">
+              {pick.awayTeam} @ {pick.homeTeam}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
+export default function CardDetail({ cardId }: { cardId: string }) {
+  const [data, setData] = useState<CardDetailResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchDetail = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/cards/${cardId}`);
+      if (res.status === 404) {
+        throw new Error("Card not found");
+      }
+      if (!res.ok) {
+        throw new Error(
+          res.status === 403
+            ? "You do not have permission to view this card."
+            : `Failed to load card detail (${res.status})`
+        );
+      }
+      const json: CardDetailResponse = await res.json();
+      setData(json);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "An unexpected error occurred."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [cardId]);
+
+  useEffect(() => {
+    fetchDetail();
+  }, [fetchDetail]);
+
+  // Back link (always visible)
+  const backLink = (
+    <Link
+      href="/admin/lookup"
+      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+    >
+      <ArrowLeft className="h-4 w-4" />
+      Back to Lookup
+    </Link>
+  );
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-6">
+        {backLink}
+        <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-card p-12 text-center">
+          <AlertCircle className="h-10 w-10 text-muted-foreground" />
+          <div>
+            <p className="font-medium text-foreground">{error}</p>
+          </div>
+          <Button variant="outline" onClick={fetchDetail} className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state
+  if (loading || !data) {
+    return (
+      <div className="space-y-6">
+        {backLink}
+        <LoadingSkeleton />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Back link */}
+      {backLink}
+
+      {/* Header with status, owner, challenge info, meta badges */}
+      <CardHeaderSection data={data} />
+
+      {/* Timestamps */}
+      <TimestampsGrid data={data} />
+
+      {/* Picks table */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Crosshair className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">
+            Picks ({data.picks.length}/{data.cardSize})
+          </h3>
+        </div>
+        <Card className="py-0 overflow-hidden">
+          <CardContent className="px-0 py-0">
+            <PicksTable picks={data.picks} />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Card ID footer */}
+      <div className="flex items-center gap-2">
+        <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+        <p className="text-xs text-muted-foreground font-mono">
+          {data.id}
+        </p>
+      </div>
+    </div>
+  );
+}
