@@ -112,6 +112,7 @@ export interface AdminUserDetail {
   }>;
   recentChallenges: Array<{
     id: string;
+    opponentId: string;
     opponentUsername: string;
     opponentDisplayName: string | null;
     status: string;
@@ -266,6 +267,43 @@ export interface AdminSystemHealth {
       endpoint: string | null;
     }>;
   };
+}
+
+// ---------------------------------------------------------------------------
+// Shared DB Row Types (used across multiple admin API routes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Canonical profile row type covering all fields used across admin API routes
+ * (users list, user detail, moderate, lookup). Uses snake_case to match
+ * Supabase column names.
+ */
+export interface AdminProfileRow {
+  id: string;
+  username: string;
+  email: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  is_deactivated: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Overview Stats
+// ---------------------------------------------------------------------------
+
+/** Platform-wide stats returned by GET /api/admin/overview. */
+export interface AdminOverviewStats {
+  totalUsers: number;
+  signupsToday: number;
+  signupsThisWeek: number;
+  cardsLockedToday: number;
+  activeChallenges: number;
+  picksMadeToday: number;
+  avgWinRate: number;
+  totalCards: number;
+  dailyActiveUsers: number;
 }
 
 // ---------------------------------------------------------------------------
