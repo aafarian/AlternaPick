@@ -233,25 +233,12 @@ export default async function RecapPage({
 
   // ── WEEKLY MODE ──
   if (mode === "weekly") {
-    // If no date param, find the latest week that actually has weekly_data
-    // rather than defaulting to the latest daily date (which may be in an
-    // incomplete week with no weekly recap computed yet).
-    let selectedDate: string;
-    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-      selectedDate = dateParam;
-    } else {
-      const { data: latestWeeklyRow } = await typedFrom(supabase, "recaps")
-        .select("recap_date")
-        .not("weekly_data", "is", null)
-        .order("recap_date", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      selectedDate = latestWeeklyRow?.recap_date
-        ?? (availableDates.length > 0 ? availableDates[availableDates.length - 1] : new Date().toISOString().slice(0, 10));
-    }
+    const requestedDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
+      ? dateParam
+      : (availableDates.length > 0 ? availableDates[availableDates.length - 1] : new Date().toISOString().slice(0, 10));
 
-    const monday = getMondayOfWeek(selectedDate);
-    const sunday = getSundayOfWeek(monday);
+    let monday = getMondayOfWeek(requestedDate);
+    let sunday = getSundayOfWeek(monday);
 
     // Fetch all recap rows in the week range
     const { data: weekRecapRows } = await typedFrom(supabase, "recaps")
@@ -260,11 +247,38 @@ export default async function RecapPage({
       .lte("recap_date", sunday)
       .order("recap_date", { ascending: true });
 
-    const typedWeekRows = (weekRecapRows ?? []) as RecapRow[];
+    let typedWeekRows = (weekRecapRows ?? []) as RecapRow[];
 
     // Find the row that has weekly_data (typically the Sunday row, or any row in the range)
-    const weeklyRow = typedWeekRows.find((r) => r.weekly_data) ?? null;
-    const weeklyData = weeklyRow?.weekly_data ?? null;
+    let weeklyRow = typedWeekRows.find((r) => r.weekly_data) ?? null;
+    let weeklyData = weeklyRow?.weekly_data ?? null;
+
+    // If the selected week has no weekly_data, fall back to the latest week
+    // that does. This handles switching to weekly mode when the current week
+    // is incomplete, or navigating to a week that was never computed.
+    if (!weeklyData) {
+      const { data: latestWeeklyRow } = await typedFrom(supabase, "recaps")
+        .select("*")
+        .not("weekly_data", "is", null)
+        .order("recap_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestWeeklyRow) {
+        const fallback = latestWeeklyRow as RecapRow;
+        monday = getMondayOfWeek(fallback.recap_date);
+        sunday = getSundayOfWeek(monday);
+        // Fetch the full week for this fallback
+        const { data: fallbackRows } = await typedFrom(supabase, "recaps")
+          .select("*")
+          .gte("recap_date", monday)
+          .lte("recap_date", sunday)
+          .order("recap_date", { ascending: true });
+        typedWeekRows = (fallbackRows ?? []) as RecapRow[];
+        weeklyRow = typedWeekRows.find((r) => r.weekly_data) ?? fallback;
+        weeklyData = weeklyRow?.weekly_data ?? fallback.weekly_data;
+      }
+    }
 
     // Format week range for display
     const monDate = new Date(`${monday}T00:00:00Z`);
