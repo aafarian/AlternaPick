@@ -113,12 +113,12 @@ async function patchPlayerIds(
   }
 }
 
-/** Patch missing perfect card usernames for old stored recaps */
-async function patchPerfectCards(
-  recapData: RecapData,
-  currentDate: string,
-  supabase: Awaited<ReturnType<typeof createClient>>,
-) {
+/**
+ * Patch missing perfect card entries for stored recaps.
+ * Uses the stored userIds to look up the actual perfect cards — more reliable
+ * than date-range matching which can miss cards resolved at UTC boundaries.
+ */
+async function patchPerfectCards(recapData: RecapData) {
   if (
     !recapData.perfectCards?.count ||
     recapData.perfectCards.count === 0 ||
@@ -127,47 +127,62 @@ async function patchPerfectCards(
     return;
   }
 
-  const dayStart = `${currentDate}T00:00:00Z`;
-  const nextDay = new Date(`${currentDate}T00:00:00Z`);
-  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-  const dayEnd = nextDay.toISOString();
+  const userIds = recapData.perfectCards.userIds ?? [];
+  if (userIds.length === 0) return;
 
   const adminClient = createAdminClient();
+
+  // Find perfect cards (score === total_picks) for these users
+  type CardRow = { id: string; user_id: string; score: number; total_picks: number };
   const { data: cardRows } = await typedFrom(adminClient, "cards")
     .select("id, user_id, score, total_picks")
     .eq("status", "resolved")
-    .gte("resolved_at", dayStart)
-    .lt("resolved_at", dayEnd)
-    .gte("total_picks", 3);
+    .in("user_id", userIds)
+    .gte("total_picks", 3)
+    .order("resolved_at", { ascending: false });
 
-  type CardRow = { id: string; user_id: string | null; score: number; total_picks: number };
   const perfectCards = ((cardRows ?? []) as CardRow[]).filter(
-    (c) => c.user_id && c.score === c.total_picks,
+    (c) => c.score === c.total_picks,
   );
-  const perfectUserIds = [...new Set(perfectCards.map((c) => c.user_id!))];
 
-  if (perfectUserIds.length > 0) {
-    const { data: profileRows } = await typedFrom(supabase, "profiles")
+  // Dedupe: keep only the most recent perfect card per user
+  const seenUsers = new Set<string>();
+  const dedupedCards: CardRow[] = [];
+  for (const c of perfectCards) {
+    if (!seenUsers.has(c.user_id)) {
+      seenUsers.add(c.user_id);
+      dedupedCards.push(c);
+    }
+  }
+
+  // Build username lookup from existing data or profiles table
+  const usernameMap = new Map<string, string>();
+  const existingUsernames = recapData.perfectCards.usernames ?? [];
+  // If we have usernames in the same order as userIds, map them
+  for (let i = 0; i < userIds.length && i < existingUsernames.length; i++) {
+    usernameMap.set(userIds[i], existingUsernames[i]);
+  }
+
+  // Fill in any missing usernames from profiles
+  const missingIds = userIds.filter((id) => !usernameMap.has(id));
+  if (missingIds.length > 0) {
+    const { data: profileRows } = await typedFrom(adminClient, "profiles")
       .select("id, username")
-      .in("id", perfectUserIds);
-
-    const usernameMap = new Map<string, string>();
+      .in("id", missingIds);
     for (const r of (profileRows ?? []) as { id: string; username: string | null }[]) {
       if (r.username) usernameMap.set(r.id, r.username);
     }
-
-    recapData.perfectCards.userIds = perfectUserIds;
-    recapData.perfectCards.usernames = [...usernameMap.values()];
-    recapData.perfectCards.entries = perfectCards
-      .filter((c) => usernameMap.has(c.user_id!))
-      .map((c) => ({
-        userId: c.user_id!,
-        username: usernameMap.get(c.user_id!)!,
-        cardId: c.id,
-        score: c.score,
-        totalPicks: c.total_picks,
-      }));
   }
+
+  recapData.perfectCards.entries = dedupedCards
+    .filter((c) => usernameMap.has(c.user_id))
+    .map((c) => ({
+      userId: c.user_id,
+      username: usernameMap.get(c.user_id)!,
+      cardId: c.id,
+      score: c.score,
+      totalPicks: c.total_picks,
+    }));
 }
 
 /** Build personal weekly stats from recap rows for a given user */
@@ -317,6 +332,7 @@ export default async function RecapPage({
 
     if (weeklyRecapData) {
       await patchPlayerIds(weeklyRecapData, supabase);
+      await patchPerfectCards(weeklyRecapData);
     }
 
     const weeklyHitPercent = Math.round(weeklyData.weeklyHitRate * 100);
@@ -438,7 +454,7 @@ export default async function RecapPage({
 
   // Patch missing data from old stored recaps
   await patchPlayerIds(recapData, supabase);
-  await patchPerfectCards(recapData, currentDate, supabase);
+  await patchPerfectCards(recapData);
 
   // Format the recap date for display
   const dateLabel = new Date(`${currentDate}T00:00:00Z`).toLocaleDateString("en-US", {
