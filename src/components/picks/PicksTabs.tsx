@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 import type { ReactNode } from "react";
@@ -25,7 +25,6 @@ export default function PicksTabs({
   finishedContent,
 }: PicksTabsProps) {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const prefersReduced = useReducedMotion();
 
   const tabParam = searchParams.get("tab");
@@ -38,7 +37,10 @@ export default function PicksTabs({
     } else {
       params.set("tab", value);
     }
-    router.replace(`/picks${params.size ? `?${params}` : ""}`);
+    // Use replaceState instead of router.replace to avoid re-invoking the
+    // server component (which would re-fetch cards on every tab switch).
+    const url = `/picks${params.size ? `?${params}` : ""}`;
+    window.history.replaceState(window.history.state, "", url);
   }
 
   return (

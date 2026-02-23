@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { useNavClickDetection } from "@/hooks/useNavClickDetection";
 
 /** Get the top-level route segment: "/admin/users" → "/admin" */
 function topSegment(path: string): string {
@@ -32,32 +33,16 @@ export default function PageTransitionShell({
     clearTimeout(timeoutRef.current);
   }, [pathname]);
 
-  // Detect clicks on internal links that cross layout boundaries
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      const anchor = (e.target as HTMLElement).closest("a");
-      if (!anchor) return;
+  useNavClickDetection((href) => {
+    // Only fade when crossing top-level sections (e.g. /picks → /props).
+    // Within the same section (e.g. /admin → /admin/users) the nested
+    // layout persists, so fading would flash the entire shell.
+    if (topSegment(href) === topSegment(pathname)) return;
 
-      const href = anchor.getAttribute("href");
-      if (!href) return;
-      if (/^(https?:|mailto:|tel:|#)/.test(href)) return;
-      const cleanHref = href.split("?")[0].split("#")[0];
-      if (cleanHref === pathname) return;
-
-      // Only fade when crossing top-level sections (e.g. /picks → /props).
-      // Within the same section (e.g. /admin → /admin/users) the nested
-      // layout persists, so fading would flash the entire shell.
-      if (topSegment(cleanHref) === topSegment(pathname)) return;
-
-      setNavigatingAway(true);
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => setNavigatingAway(false), 5000);
-    }
-
-    document.addEventListener("click", handleClick, { capture: true });
-    return () =>
-      document.removeEventListener("click", handleClick, { capture: true });
-  }, [pathname]);
+    setNavigatingAway(true);
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setNavigatingAway(false), 5000);
+  });
 
   useEffect(() => {
     return () => clearTimeout(timeoutRef.current);

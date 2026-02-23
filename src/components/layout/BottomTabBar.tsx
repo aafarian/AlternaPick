@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useOptimisticNav } from "@/hooks/useOptimisticNav";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   LayoutGrid,
@@ -31,17 +30,9 @@ const springTransition = { type: "spring" as const, stiffness: 500, damping: 30 
 const instantTransition = { duration: 0 };
 
 export default function BottomTabBar() {
-  const pathname = usePathname();
+  const { activePath, setPendingPath } = useOptimisticNav();
   const { user } = useAuth();
   const prefersReducedMotion = useReducedMotion();
-
-  // Optimistic nav: light up the tapped tab immediately instead of
-  // waiting for the route to resolve
-  const [pendingPath, setPendingPath] = useState<string | null>(null);
-  useEffect(() => {
-    setPendingPath(null);
-  }, [pathname]);
-  const activePath = pendingPath ?? pathname;
 
   if (!user) return null;
 

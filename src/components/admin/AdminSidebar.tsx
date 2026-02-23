@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useOptimisticNav } from "@/hooks/useOptimisticNav";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -34,15 +34,7 @@ const adminLinks: AdminNavLink[] = [
 ];
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
-  const pathname = usePathname();
-
-  // Optimistic nav: light up the clicked link immediately instead of
-  // waiting for the route to fully resolve
-  const [pendingPath, setPendingPath] = useState<string | null>(null);
-  useEffect(() => {
-    setPendingPath(null);
-  }, [pathname]);
-  const activePath = pendingPath ?? pathname;
+  const { activePath, setPendingPath } = useOptimisticNav();
 
   return (
     <nav className="flex flex-col gap-1">

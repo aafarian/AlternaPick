@@ -233,10 +233,22 @@ export default async function RecapPage({
 
   // ── WEEKLY MODE ──
   if (mode === "weekly") {
-    // Compute Mon-Sun boundaries from selected date
-    const selectedDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
-      ? dateParam
-      : (availableDates.length > 0 ? availableDates[availableDates.length - 1] : new Date().toISOString().slice(0, 10));
+    // If no date param, find the latest week that actually has weekly_data
+    // rather than defaulting to the latest daily date (which may be in an
+    // incomplete week with no weekly recap computed yet).
+    let selectedDate: string;
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      selectedDate = dateParam;
+    } else {
+      const { data: latestWeeklyRow } = await typedFrom(supabase, "recaps")
+        .select("recap_date")
+        .not("weekly_data", "is", null)
+        .order("recap_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      selectedDate = latestWeeklyRow?.recap_date
+        ?? (availableDates.length > 0 ? availableDates[availableDates.length - 1] : new Date().toISOString().slice(0, 10));
+    }
 
     const monday = getMondayOfWeek(selectedDate);
     const sunday = getSundayOfWeek(monday);

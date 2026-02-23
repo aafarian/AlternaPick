@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useOptimisticNav } from "@/hooks/useOptimisticNav";
 import type { AuthUser } from "@/lib/auth/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,16 +71,8 @@ export default function Nav({
   mobileSecondaryOnly?: boolean;
   isAdmin?: boolean;
 }) {
-  const pathname = usePathname();
+  const { activePath, setPendingPath } = useOptimisticNav();
   const prefersReducedMotion = useReducedMotion();
-
-  // Optimistic nav: track which link was clicked so it lights up instantly
-  // instead of waiting for the route to fully resolve
-  const [pendingPath, setPendingPath] = useState<string | null>(null);
-  useEffect(() => {
-    setPendingPath(null);
-  }, [pathname]);
-  const activePath = pendingPath ?? pathname;
 
   const baseLinks = user ? authenticatedLinks : publicLinks;
   const links = mobileSecondaryOnly
