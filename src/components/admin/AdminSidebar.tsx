@@ -1,8 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -36,17 +36,25 @@ const adminLinks: AdminNavLink[] = [
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
 
+  // Optimistic nav: light up the clicked link immediately instead of
+  // waiting for the route to fully resolve
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
+  useEffect(() => {
+    setPendingPath(null);
+  }, [pathname]);
+  const activePath = pendingPath ?? pathname;
+
   return (
     <nav className="flex flex-col gap-1">
       {adminLinks.map((link) => {
         const isActive =
           link.href === "/admin"
-            ? pathname === "/admin"
-            : pathname.startsWith(link.href);
+            ? activePath === "/admin"
+            : activePath.startsWith(link.href);
         const Icon = link.icon;
 
         return (
-          <Link key={link.href} href={link.href} onClick={onNavigate}>
+          <Link key={link.href} href={link.href} onClick={() => { setPendingPath(link.href); onNavigate?.(); }}>
             <Button
               variant="ghost"
               className={`w-full justify-start gap-3 ${

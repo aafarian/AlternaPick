@@ -446,6 +446,49 @@ async function _cachePropsInternal(
     }
   }
 
+  // Cross-game player name cache: query ALL known player_id mappings for this
+  // sport so new games can reuse enrichment even when the stats service is down.
+  // The per-game oldEnrichment above only covers props from today's games being
+  // synced — this covers every player we've ever successfully enriched.
+  const playerNameCache = new Map<string, { player_id: string; player_team: string | null; player_position: string | null }>();
+  try {
+    // Get all game IDs for this sport (not just today's sync batch)
+    const { data: sportGames } = await supabase
+      .from("games")
+      .select("id")
+      .eq("sport", sport);
+    const allSportGameIds = (sportGames ?? []).map((g: { id: string }) => g.id);
+
+    if (allSportGameIds.length > 0) {
+      // Query in batches to stay within PostgREST limits
+      for (let i = 0; i < allSportGameIds.length; i += 500) {
+        const batch = allSportGameIds.slice(i, i + 500);
+        const { data: knownPlayers } = await supabase
+          .from("props")
+          .select("player_name, player_id, player_team, player_position")
+          .not("player_id", "is", null)
+          .in("game_id", batch)
+          .limit(5000);
+
+        for (const p of (knownPlayers ?? []) as {
+          player_name: string; player_id: string;
+          player_team: string | null; player_position: string | null;
+        }[]) {
+          const key = p.player_name.toLowerCase();
+          if (!playerNameCache.has(key)) {
+            playerNameCache.set(key, {
+              player_id: p.player_id,
+              player_team: p.player_team,
+              player_position: p.player_position,
+            });
+          }
+        }
+      }
+    }
+  } catch {
+    // Non-blocking: cross-game cache is a best-effort optimization
+  }
+
   // Step 2: Delete only props that have NO picks
   const deletableIds = allPropIds.filter((id) => !pickedPropIds.has(id));
   if (deletableIds.length > 0) {
@@ -488,9 +531,9 @@ async function _cachePropsInternal(
       propRows.push({
         game_id: gameId,
         player_name: prop.player_name,
-        player_id: freshId ?? old?.player_id ?? null,
-        player_team: freshTeam ?? old?.player_team ?? null,
-        player_position: freshPosition ?? old?.player_position ?? null,
+        player_id: freshId ?? old?.player_id ?? playerNameCache.get(prop.player_name.toLowerCase())?.player_id ?? null,
+        player_team: freshTeam ?? old?.player_team ?? playerNameCache.get(prop.player_name.toLowerCase())?.player_team ?? null,
+        player_position: freshPosition ?? old?.player_position ?? playerNameCache.get(prop.player_name.toLowerCase())?.player_position ?? null,
         stat_category: prop.stat_category,
         line: prop.line,
         over_odds: prop.over_odds,

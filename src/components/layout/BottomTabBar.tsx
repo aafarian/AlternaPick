@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -34,6 +35,14 @@ export default function BottomTabBar() {
   const { user } = useAuth();
   const prefersReducedMotion = useReducedMotion();
 
+  // Optimistic nav: light up the tapped tab immediately instead of
+  // waiting for the route to resolve
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
+  useEffect(() => {
+    setPendingPath(null);
+  }, [pathname]);
+  const activePath = pendingPath ?? pathname;
+
   if (!user) return null;
 
   const transition = prefersReducedMotion ? instantTransition : springTransition;
@@ -46,14 +55,15 @@ export default function BottomTabBar() {
       <div className="mx-auto flex h-16 max-w-lg items-center justify-around px-2">
         {tabs.map((tab) => {
           const isActive =
-            pathname === tab.href ||
-            (tab.href !== "/" && pathname.startsWith(tab.href + "/"));
+            activePath === tab.href ||
+            (tab.href !== "/" && activePath.startsWith(tab.href + "/"));
           const Icon = tab.icon;
 
           return (
             <Link
               key={tab.href}
               href={tab.href}
+              onClick={() => setPendingPath(tab.href)}
               className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium transition-colors ${
                 isActive
                   ? "text-primary"

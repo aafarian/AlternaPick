@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Header from "@/components/layout/Header";
+import NavigationProgress from "@/components/layout/NavigationProgress";
 import Footer from "@/components/layout/Footer";
 import BottomTabBar from "@/components/layout/BottomTabBar";
 import { AuthProvider } from "@/lib/auth/auth-context";
@@ -10,6 +11,7 @@ import PlayerProfileSheet from "@/components/players/PlayerProfileSheet";
 import ServiceWorkerRegistration from "@/components/pwa/ServiceWorkerRegistration";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import PendingCardHandler from "@/components/cards/PendingCardHandler";
+import PageTransitionShell from "@/components/layout/PageTransitionShell";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -47,12 +49,15 @@ export default function RootLayout({
         <ServiceWorkerRegistration />
         <ScrollToTop />
         <AuthProvider>
+          <NavigationProgress />
           <PendingCardHandler />
           <OnboardingProvider>
             <PlayerProfileProvider>
             <Header />
             <main className="mx-auto min-h-screen max-w-6xl px-4 pt-20 pb-20 md:pb-12">
-              {children}
+              <PageTransitionShell>
+                {children}
+              </PageTransitionShell>
             </main>
             <Footer />
             <BottomTabBar />

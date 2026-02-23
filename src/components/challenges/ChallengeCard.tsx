@@ -235,7 +235,7 @@ export default function ChallengeCard({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    window.location.href = `/props?challenge_id=${challenge.id}`;
+                    router.push(`/props?challenge_id=${challenge.id}`);
                   }}
                 >
                   Make Picks

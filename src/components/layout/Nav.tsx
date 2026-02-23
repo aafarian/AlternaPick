@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { AuthUser } from "@/lib/auth/types";
@@ -73,18 +74,27 @@ export default function Nav({
 }) {
   const pathname = usePathname();
   const prefersReducedMotion = useReducedMotion();
+
+  // Optimistic nav: track which link was clicked so it lights up instantly
+  // instead of waiting for the route to fully resolve
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
+  useEffect(() => {
+    setPendingPath(null);
+  }, [pathname]);
+  const activePath = pendingPath ?? pathname;
+
   const baseLinks = user ? authenticatedLinks : publicLinks;
   const links = mobileSecondaryOnly
     ? baseLinks.filter((l) => !bottomTabPaths.has(l.href))
     : baseLinks;
   const isProfileActive =
-    pathname === "/profile" || pathname === "/settings";
-  const isAdminActive = pathname.startsWith("/admin");
+    activePath === "/profile" || activePath === "/settings";
+  const isAdminActive = activePath.startsWith("/admin");
 
   return (
     <nav className={`flex flex-col md:flex-row md:items-center md:gap-0.5 md:overflow-x-auto md:scrollbar-none ${mobileSecondaryOnly ? "gap-1.5" : "gap-1"}`}>
       {links.map((link) => {
-        const isActive = pathname === link.href;
+        const isActive = activePath === link.href;
         const badgeCount =
           link.badgeKey && notificationCounts
             ? notificationCounts[link.badgeKey]
@@ -92,7 +102,7 @@ export default function Nav({
         const Icon = link.icon;
 
         return (
-          <Link key={link.href} href={link.href} onClick={onNavigate}>
+          <Link key={link.href} href={link.href} onClick={() => { setPendingPath(link.href); onNavigate?.(); }}>
             <Button
               variant="ghost"
               size="sm"
@@ -141,7 +151,7 @@ export default function Nav({
       })}
 
       {isAdmin && user && (
-        <Link href="/admin" onClick={onNavigate}>
+        <Link href="/admin" onClick={() => { setPendingPath("/admin"); onNavigate?.(); }}>
           <Button
             variant="ghost"
             size="sm"
@@ -192,13 +202,13 @@ export default function Nav({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem asChild>
-              <Link href="/profile" onClick={onNavigate} className="gap-2">
+              <Link href="/profile" onClick={() => { setPendingPath("/profile"); onNavigate?.(); }} className="gap-2">
                 <User className="h-4 w-4" />
                 My Profile
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/settings" onClick={onNavigate} className="gap-2">
+              <Link href="/settings" onClick={() => { setPendingPath("/settings"); onNavigate?.(); }} className="gap-2">
                 <Settings className="h-4 w-4" />
                 Settings
               </Link>

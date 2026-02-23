@@ -19,6 +19,17 @@ jobs:
           if [ "$HTTP_CODE" != "200" ]; then
             echo "::warning::Props sync returned HTTP $HTTP_CODE: $BODY"
           fi
+      - name: Backfill missing player headshots
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.APP_URL }}/api/props/backfill" \
+            -H "Authorization: Bearer ${{ secrets.SYNC_SECRET }}" \
+            -H "Content-Type: application/json") || true
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "Backfill response (HTTP $HTTP_CODE): $BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::warning::Backfill returned HTTP $HTTP_CODE: $BODY"
+          fi
       - name: Sync game statuses & resolve cards
         run: |
           curl -sf -X POST "${{ secrets.APP_URL }}/api/games/sync-status" \
