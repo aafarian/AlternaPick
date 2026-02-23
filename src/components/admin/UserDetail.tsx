@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -22,6 +23,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft,
   Layers,
   TrendingUp,
@@ -33,7 +44,11 @@ import {
   RefreshCw,
   AlertCircle,
   Users,
+  Trash2,
+  XCircle,
+  Loader2,
 } from "lucide-react";
+import ModerationActions from "@/components/admin/ModerationActions";
 import type { AdminUserDetail } from "@/lib/admin/types";
 
 // ---------------------------------------------------------------------------
@@ -295,10 +310,89 @@ function StatsGrid({ stats }: { stats: AdminUserDetail["stats"] }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Inline moderation action button (used in tables for delete/cancel)
+// ---------------------------------------------------------------------------
+
+function InlineActionButton({
+  icon: Icon,
+  title,
+  description,
+  action,
+  targetId,
+  onActionComplete,
+}: {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  action: string;
+  targetId: string;
+  onActionComplete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleConfirm = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/moderate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, targetId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          data?.error ?? data?.message ?? `Action failed (${res.status})`
+        );
+      }
+      toast.success(data.message ?? "Action completed successfully");
+      setOpen(false);
+      onActionComplete();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "An unexpected error occurred"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [action, targetId, onActionComplete]);
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-7 w-7">
+          <Icon className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+          <Button
+            variant="destructive"
+            onClick={handleConfirm}
+            disabled={loading}
+            className="gap-1.5"
+          >
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Confirm
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 function RecentCardsTable({
   cards,
+  onActionComplete,
 }: {
   cards: AdminUserDetail["recentCards"];
+  onActionComplete: () => void;
 }) {
   if (cards.length === 0) {
     return (
@@ -318,6 +412,7 @@ function RecentCardsTable({
           <TableHead>Game Mode</TableHead>
           <TableHead>Locked At</TableHead>
           <TableHead>Resolved At</TableHead>
+          <TableHead className="w-12">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -339,6 +434,16 @@ function RecentCardsTable({
             <TableCell className="text-muted-foreground text-xs">
               {formatDateTime(card.resolvedAt)}
             </TableCell>
+            <TableCell>
+              <InlineActionButton
+                icon={Trash2}
+                title="Delete this card?"
+                description="This will remove the card and all its picks."
+                action="delete_card"
+                targetId={card.id}
+                onActionComplete={onActionComplete}
+              />
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -346,12 +451,17 @@ function RecentCardsTable({
   );
 }
 
+/** Statuses where a challenge can still be cancelled by an admin */
+const CANCELLABLE_STATUSES = new Set(["pending", "accepted", "active"]);
+
 function RecentChallengesTable({
   challenges,
   userId,
+  onActionComplete,
 }: {
   challenges: AdminUserDetail["recentChallenges"];
   userId: string;
+  onActionComplete: () => void;
 }) {
   if (challenges.length === 0) {
     return (
@@ -381,6 +491,7 @@ function RecentChallengesTable({
           <TableHead>Winner</TableHead>
           <TableHead>Created</TableHead>
           <TableHead>Resolved</TableHead>
+          <TableHead className="w-12">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -408,6 +519,18 @@ function RecentChallengesTable({
             </TableCell>
             <TableCell className="text-muted-foreground text-xs">
               {formatDateTime(ch.resolvedAt)}
+            </TableCell>
+            <TableCell>
+              {CANCELLABLE_STATUSES.has(ch.status) && (
+                <InlineActionButton
+                  icon={XCircle}
+                  title="Cancel this challenge?"
+                  description="This will cancel the challenge for both players."
+                  action="delete_challenge"
+                  targetId={ch.id}
+                  onActionComplete={onActionComplete}
+                />
+              )}
             </TableCell>
           </TableRow>
         ))}
@@ -558,6 +681,24 @@ export default function UserDetail({ userId }: { userId: string }) {
       {/* Header */}
       <UserHeader profile={detail.profile} />
 
+      {/* Moderation Actions */}
+      <Card className="py-4">
+        <CardHeader className="pb-2 pt-0 px-4">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Moderation
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-0 pt-0">
+          <ModerationActions
+            userId={detail.profile.id}
+            username={detail.profile.username}
+            email={detail.profile.email}
+            isDeactivated={detail.profile.isDeactivated}
+            onActionComplete={fetchDetail}
+          />
+        </CardContent>
+      </Card>
+
       {/* Stats grid */}
       <StatsGrid stats={detail.stats} />
 
@@ -579,13 +720,17 @@ export default function UserDetail({ userId }: { userId: string }) {
         </TabsList>
 
         <TabsContent value="cards" className="mt-4">
-          <RecentCardsTable cards={detail.recentCards} />
+          <RecentCardsTable
+            cards={detail.recentCards}
+            onActionComplete={fetchDetail}
+          />
         </TabsContent>
 
         <TabsContent value="challenges" className="mt-4">
           <RecentChallengesTable
             challenges={detail.recentChallenges}
             userId={userId}
+            onActionComplete={fetchDetail}
           />
         </TabsContent>
 
