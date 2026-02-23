@@ -2,7 +2,11 @@ import type {
   AchievementCategory,
   AchievementTier,
   CardStatus,
+  ChallengeStatus,
   GameMode,
+  PickResult,
+  PickSelection,
+  StatCategory,
 } from "@/lib/supabase/types";
 
 // ---------------------------------------------------------------------------
@@ -166,3 +170,116 @@ export const ACTIVITY_EVENT_COLORS: Record<AdminActivityEventType, string> = {
   friend_accepted: "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400",
   reaction_added: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
 };
+
+// ---------------------------------------------------------------------------
+// Record Lookup
+// ---------------------------------------------------------------------------
+
+export interface AdminLookupResult {
+  type: "profile" | "card" | "challenge" | "pick";
+  id: string;
+  data: Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------------------
+// Card Detail (full card with all picks, prop details, results)
+// ---------------------------------------------------------------------------
+
+export interface AdminCardPickDetail {
+  id: string;
+  propId: string;
+  playerName: string;
+  playerTeam: string | null;
+  statCategory: StatCategory;
+  line: number;
+  selection: PickSelection;
+  result: PickResult;
+  actualValue: number | null;
+  homeTeam: string;
+  awayTeam: string;
+  commenceTime: string;
+}
+
+export interface AdminCardDetail {
+  id: string;
+  userId: string | null;
+  username: string | null;
+  displayName: string | null;
+  status: CardStatus;
+  score: number;
+  totalPicks: number;
+  cardSize: number;
+  gameMode: GameMode;
+  challengeId: string | null;
+  lockedAt: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  picks: AdminCardPickDetail[];
+}
+
+// ---------------------------------------------------------------------------
+// Challenge Detail (full challenge with both players' cards, picks, props,
+// results side-by-side)
+// ---------------------------------------------------------------------------
+
+export interface AdminChallengePlayerSide {
+  userId: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  card: AdminCardDetail | null;
+}
+
+export interface AdminChallengeDetail {
+  id: string;
+  status: ChallengeStatus;
+  gameMode: GameMode;
+  cardSize: number;
+  message: string | null;
+  winnerId: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+  challenger: AdminChallengePlayerSide;
+  opponent: AdminChallengePlayerSide;
+}
+
+// ---------------------------------------------------------------------------
+// System Health
+// ---------------------------------------------------------------------------
+
+export interface AdminSystemHealth {
+  propSync: {
+    lastSyncAt: string | null;
+    totalProps: number;
+    propsToday: number;
+  };
+  games: {
+    scheduledToday: number;
+    liveNow: number;
+    finalToday: number;
+    totalToday: number;
+  };
+  errors: {
+    recentApiErrors: Array<{
+      message: string;
+      timestamp: string;
+      endpoint: string | null;
+    }>;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Moderation Actions
+// ---------------------------------------------------------------------------
+
+export type AdminModerationActionType =
+  | "deactivate"
+  | "reactivate"
+  | "reset_password"
+  | "delete_card"
+  | "delete_challenge";
+
+export interface AdminModerationAction {
+  action: AdminModerationActionType;
+  targetId: string;
+}
