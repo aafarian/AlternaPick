@@ -23,6 +23,7 @@ import {
   LogIn,
   BarChart3,
   Newspaper,
+  Shield,
 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 
@@ -62,11 +63,13 @@ export default function Nav({
   user,
   notificationCounts,
   mobileSecondaryOnly = false,
+  isAdmin = false,
 }: {
   onNavigate?: () => void;
   user?: AuthUser | null;
   notificationCounts?: NotificationCounts;
   mobileSecondaryOnly?: boolean;
+  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const prefersReducedMotion = useReducedMotion();
@@ -76,6 +79,7 @@ export default function Nav({
     : baseLinks;
   const isProfileActive =
     pathname === "/profile" || pathname === "/settings";
+  const isAdminActive = pathname.startsWith("/admin");
 
   return (
     <nav className={`flex flex-col md:flex-row md:items-center md:gap-0.5 md:overflow-x-auto md:scrollbar-none ${mobileSecondaryOnly ? "gap-1.5" : "gap-1"}`}>
@@ -135,6 +139,38 @@ export default function Nav({
           </Link>
         );
       })}
+
+      {isAdmin && user && (
+        <Link href="/admin" onClick={onNavigate}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`relative w-full justify-start gap-2 md:w-auto ${
+              mobileSecondaryOnly ? "h-10 text-sm" : ""
+            } ${
+              isAdminActive
+                ? "text-primary hover:text-primary"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+            }`}
+          >
+            {isAdminActive && (
+              <motion.div
+                layoutId="desktop-nav-indicator"
+                className="absolute inset-0 rounded-md bg-primary/10"
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0 }
+                    : { type: "spring", stiffness: 500, damping: 30 }
+                }
+              />
+            )}
+            <span className="relative z-[1] flex items-center gap-2">
+              <Shield className="h-4 w-4 md:hidden" />
+              Admin
+            </span>
+          </Button>
+        </Link>
+      )}
 
       {user ? (
         <DropdownMenu>
