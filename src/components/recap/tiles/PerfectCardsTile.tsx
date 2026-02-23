@@ -45,13 +45,12 @@ export function PerfectCardsTile({
       ) : usernames.length > 0 ? (
         <div className="mt-2 flex flex-col gap-2 flex-1">
           {usernames.map((u) => (
-            <Link
+            <div
               key={u}
-              href={`/users/${u}`}
-              className="flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 hover:bg-amber-500/20 transition-colors"
+              className="flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2"
             >
               <p className="text-xs font-semibold text-foreground">@{u}</p>
-            </Link>
+            </div>
           ))}
         </div>
       ) : (

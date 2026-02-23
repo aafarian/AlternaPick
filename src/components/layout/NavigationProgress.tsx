@@ -2,12 +2,12 @@
 
 import { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { useNavClickDetection } from "@/hooks/useNavClickDetection";
 
 /**
  * Thin progress bar at the top of the viewport that shows during page
- * navigations. Detects navigation start by listening for clicks on internal
- * <a> tags (Next.js Link renders as <a>), and clears when usePathname()
- * updates (meaning the route resolved).
+ * navigations. Detects navigation start via useNavClickDetection, and
+ * clears when usePathname() updates (meaning the route resolved).
  */
 export default function NavigationProgress() {
   const pathname = usePathname();
@@ -26,31 +26,14 @@ export default function NavigationProgress() {
       setProgress(0);
     }, 250);
     return () => clearTimeout(hideRef.current);
+    // Only fire when pathname changes, not when navigating changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // Detect clicks on internal links
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      const anchor = (e.target as HTMLElement).closest("a");
-      if (!anchor) return;
-
-      const href = anchor.getAttribute("href");
-      if (!href) return;
-      // Skip external links, hash links, mailto, tel
-      if (/^(https?:|mailto:|tel:|#)/.test(href)) return;
-      // Skip same-page navigations
-      const cleanHref = href.split("?")[0].split("#")[0];
-      if (cleanHref === pathname) return;
-
-      setNavigating(true);
-      setProgress(15);
-    }
-
-    document.addEventListener("click", handleClick, { capture: true });
-    return () =>
-      document.removeEventListener("click", handleClick, { capture: true });
-  }, [pathname]);
+  useNavClickDetection(() => {
+    setNavigating(true);
+    setProgress(15);
+  });
 
   // Gradually increase progress to simulate loading
   useEffect(() => {
