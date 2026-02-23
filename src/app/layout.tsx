@@ -11,6 +11,7 @@ import PlayerProfileSheet from "@/components/players/PlayerProfileSheet";
 import ServiceWorkerRegistration from "@/components/pwa/ServiceWorkerRegistration";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import PendingCardHandler from "@/components/cards/PendingCardHandler";
+import PageTransitionShell from "@/components/layout/PageTransitionShell";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -54,7 +55,9 @@ export default function RootLayout({
             <PlayerProfileProvider>
             <Header />
             <main className="mx-auto min-h-screen max-w-6xl px-4 pt-20 pb-20 md:pb-12">
-              {children}
+              <PageTransitionShell>
+                {children}
+              </PageTransitionShell>
             </main>
             <Footer />
             <BottomTabBar />
