@@ -4,8 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound, badRequest, handleApiError } from "@/lib/api/errors";
 import type { AdminUserDetail } from "@/lib/admin/types";
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isValidUuid } from "@/lib/admin/helpers";
 import type {
   CardStatus,
   GameMode,
@@ -99,7 +98,7 @@ export async function GET(
 
     const { userId } = await params;
 
-    if (!UUID_RE.test(userId)) {
+    if (!isValidUuid(userId)) {
       return badRequest("Invalid user ID format");
     }
 

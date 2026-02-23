@@ -603,7 +603,12 @@ export async function GET(request: NextRequest) {
     const typeFilter = searchParams.get("type") as
       | AdminActivityEventType
       | null;
-    const userId = searchParams.get("userId") ?? undefined;
+    const rawUserId = searchParams.get("userId") ?? undefined;
+    // Validate userId as UUID to prevent filter injection in .or() calls
+    const userId =
+      rawUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawUserId)
+        ? rawUserId
+        : undefined;
 
     const defaults = defaultDateRange();
     const dateFrom = searchParams.get("dateFrom") ?? defaults.dateFrom;

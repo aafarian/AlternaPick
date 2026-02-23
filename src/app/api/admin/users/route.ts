@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const buildProfileQuery = (base: any) =>
         search
-          ? base.or(`username.ilike.%${search}%,email.ilike.%${search}%`)
+          ? base.or(`username.ilike.*${search}*,email.ilike.*${search}*`)
           : base;
 
       const [countResult, dataResult] = await Promise.all([
@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
         const matchQuery: any = supabase
           .from("profiles")
           .select(profileSelect)
-          .or(`username.ilike.%${search}%,email.ilike.%${search}%`);
+          .or(`username.ilike.*${search}*,email.ilike.*${search}*`);
 
         const matchResult = await matchQuery;
         const matchedIds = ((matchResult.data as { id: string }[]) ?? []).map(
