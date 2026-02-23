@@ -47,11 +47,7 @@ async function getCardsByStatus(
   return (result.data ?? []) as CardWithPicks[];
 }
 
-export default async function CardsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ tab?: string }>;
-}) {
+export default async function CardsPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -61,8 +57,8 @@ export default async function CardsPage({
     redirect("/auth/login?redirectTo=/picks");
   }
 
-  const { tab } = await searchParams;
-  const defaultTab = tab === "finished" ? "finished" : "live";
+  // Tab state is now driven by useSearchParams in PicksTabs (client-side).
+  // The server page no longer needs to compute a default tab.
 
   // Fetch locked and resolved cards separately for proper pagination
   const [activeCards, completedCards] = await Promise.all([
@@ -129,7 +125,6 @@ export default async function CardsPage({
       <FadeIn delay={0.15}>
         <Suspense>
           <PicksTabs
-            defaultTab={defaultTab}
             liveCount={activeCards.length}
             finishedCount={completedCards.length}
             liveContent={<LiveTracker initialCards={activeCards} />}

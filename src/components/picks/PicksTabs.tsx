@@ -1,13 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 import type { ReactNode } from "react";
 
+type TabKey = "live" | "finished";
+
+function isValidTab(v: string | null): v is TabKey {
+  return v === "live" || v === "finished";
+}
+
 interface PicksTabsProps {
-  defaultTab: string;
   liveCount: number;
   finishedCount: number;
   liveContent: ReactNode;
@@ -15,27 +19,26 @@ interface PicksTabsProps {
 }
 
 export default function PicksTabs({
-  defaultTab,
   liveCount,
   finishedCount,
   liveContent,
   finishedContent,
 }: PicksTabsProps) {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  const router = useRouter();
   const prefersReduced = useReducedMotion();
 
+  const tabParam = searchParams.get("tab");
+  const activeTab: TabKey = isValidTab(tabParam) ? tabParam : "live";
+
   function handleTabChange(value: string) {
-    setActiveTab(value);
-    // Update URL for bookmarking without triggering a Next.js server re-render
     const params = new URLSearchParams(searchParams.toString());
     if (value === "live") {
       params.delete("tab");
     } else {
       params.set("tab", value);
     }
-    const url = `/picks${params.size ? `?${params}` : ""}`;
-    window.history.replaceState(null, "", url);
+    router.replace(`/picks${params.size ? `?${params}` : ""}`);
   }
 
   return (
