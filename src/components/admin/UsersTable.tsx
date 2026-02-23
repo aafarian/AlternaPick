@@ -23,6 +23,7 @@ import {
   Users,
 } from "lucide-react";
 import type { AdminUserRow, AdminUsersResponse } from "@/lib/admin/types";
+import { formatDate, userInitials } from "@/lib/admin/helpers";
 
 // ---------------------------------------------------------------------------
 // Column definitions
@@ -58,22 +59,9 @@ const SKELETON_ROWS = 8;
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatDate(iso: string | null): string {
-  if (!iso) return "\u2014";
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 function formatWinRate(rate: number): string {
   if (rate === 0) return "\u2014";
   return `${rate.toFixed(1)}%`;
-}
-
-function userInitials(username: string): string {
-  return username.slice(0, 2).toUpperCase();
 }
 
 // ---------------------------------------------------------------------------
@@ -208,11 +196,7 @@ export default function UsersTable() {
 
       const res = await fetch(`/api/admin/users?${params.toString()}`);
       if (!res.ok) {
-        throw new Error(
-          res.status === 403
-            ? "You do not have permission to view this data."
-            : `Failed to load users (${res.status})`
-        );
+        throw new Error(`Failed to load users (${res.status})`);
       }
       const data: AdminUsersResponse = await res.json();
       setUsers(data.users);

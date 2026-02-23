@@ -50,62 +50,17 @@ import {
 } from "lucide-react";
 import ModerationActions from "@/components/admin/ModerationActions";
 import type { AdminUserDetail } from "@/lib/admin/types";
+import {
+  formatDate,
+  formatDateTime,
+  cardStatusVariant,
+  challengeStatusVariant,
+  gameModeLabel,
+} from "@/lib/admin/helpers";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return "\u2014";
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatDateTime(dateStr: string | null | undefined): string {
-  if (!dateStr) return "\u2014";
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function cardStatusVariant(status: string) {
-  switch (status) {
-    case "draft":
-      return "secondary" as const;
-    case "locked":
-      return "default" as const;
-    case "resolved":
-      return "outline" as const;
-    default:
-      return "secondary" as const;
-  }
-}
-
-function challengeStatusVariant(status: string) {
-  switch (status) {
-    case "pending":
-      return "secondary" as const;
-    case "accepted":
-      return "default" as const;
-    case "active":
-      return "default" as const;
-    case "resolved":
-      return "outline" as const;
-    case "declined":
-      return "destructive" as const;
-    case "cancelled":
-      return "secondary" as const;
-    default:
-      return "secondary" as const;
-  }
-}
 
 function tierVariant(tier: string) {
   switch (tier) {
@@ -115,21 +70,6 @@ function tierVariant(tier: string) {
       return "destructive" as const;
     default:
       return "secondary" as const;
-  }
-}
-
-function gameModeLabel(mode: string): string {
-  switch (mode) {
-    case "classic":
-      return "Classic";
-    case "turbo":
-      return "Turbo";
-    case "playoff":
-      return "Playoff";
-    case "h2h":
-      return "H2H";
-    default:
-      return mode;
   }
 }
 
@@ -457,10 +397,12 @@ const CANCELLABLE_STATUSES = new Set(["pending", "accepted", "active"]);
 function RecentChallengesTable({
   challenges,
   userId,
+  username,
   onActionComplete,
 }: {
   challenges: AdminUserDetail["recentChallenges"];
   userId: string;
+  username: string;
   onActionComplete: () => void;
 }) {
   if (challenges.length === 0) {
@@ -474,10 +416,11 @@ function RecentChallengesTable({
   function winnerLabel(
     winnerId: string | null,
     currentUserId: string,
+    currentUsername: string,
     opponentUsername: string
   ): string {
     if (!winnerId) return "\u2014";
-    if (winnerId === currentUserId) return "You";
+    if (winnerId === currentUserId) return currentUsername;
     return opponentUsername;
   }
 
@@ -499,7 +442,7 @@ function RecentChallengesTable({
           <TableRow key={ch.id}>
             <TableCell>
               <Link
-                href={`/admin/users/${ch.opponentUsername}`}
+                href={`/admin/users/${ch.opponentId}`}
                 className="text-primary hover:underline"
               >
                 {ch.opponentDisplayName ?? ch.opponentUsername}
@@ -512,7 +455,7 @@ function RecentChallengesTable({
             </TableCell>
             <TableCell>{gameModeLabel(ch.gameMode)}</TableCell>
             <TableCell className="font-medium">
-              {winnerLabel(ch.winnerId, userId, ch.opponentUsername)}
+              {winnerLabel(ch.winnerId, userId, username, ch.opponentUsername)}
             </TableCell>
             <TableCell className="text-muted-foreground text-xs">
               {formatDateTime(ch.createdAt)}
@@ -612,11 +555,7 @@ export default function UserDetail({ userId }: { userId: string }) {
         throw new Error("User not found");
       }
       if (!res.ok) {
-        throw new Error(
-          res.status === 403
-            ? "You do not have permission to view this user."
-            : `Failed to load user detail (${res.status})`
-        );
+        throw new Error(`Failed to load user detail (${res.status})`);
       }
       const data: AdminUserDetail = await res.json();
       setDetail(data);
@@ -730,6 +669,7 @@ export default function UserDetail({ userId }: { userId: string }) {
           <RecentChallengesTable
             challenges={detail.recentChallenges}
             userId={userId}
+            username={detail.profile.username}
             onActionComplete={fetchDetail}
           />
         </TabsContent>

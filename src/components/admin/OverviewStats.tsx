@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import type { AdminOverviewStats } from "@/app/api/admin/overview/route";
+import type { AdminOverviewStats } from "@/lib/admin/types";
 import {
   Users,
   UserPlus,
@@ -107,11 +107,7 @@ export default function OverviewStats() {
     try {
       const res = await fetch("/api/admin/overview");
       if (!res.ok) {
-        throw new Error(
-          res.status === 403
-            ? "You do not have permission to view this data."
-            : `Failed to load stats (${res.status})`
-        );
+        throw new Error(`Failed to load stats (${res.status})`);
       }
       const data: AdminOverviewStats = await res.json();
       setStats(data);

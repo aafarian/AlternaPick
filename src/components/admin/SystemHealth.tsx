@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import type { AdminSystemHealth } from "@/lib/admin/types";
+import { timeAgo } from "@/lib/admin/helpers";
 import {
   RefreshCw,
   Database,
@@ -30,26 +31,6 @@ import {
 
 /** How often to auto-refresh (ms) */
 const AUTO_REFRESH_INTERVAL = 60_000;
-
-function relativeTime(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffMs = now - then;
-
-  if (diffMs < 0) return "just now";
-
-  const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
 
 function syncHealthColor(lastSyncAt: string | null): {
   dot: string;
@@ -160,7 +141,7 @@ function PropSyncSection({ data }: { data: AdminSystemHealth["propSync"] }) {
             <span>
               Last sync:{" "}
               <span className="font-medium text-foreground">
-                {relativeTime(data.lastSyncAt)}
+                {timeAgo(data.lastSyncAt)}
               </span>
               <span className="ml-1.5 text-xs">
                 ({new Date(data.lastSyncAt).toLocaleString()})
@@ -280,7 +261,7 @@ function SystemAlertsSection({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-foreground">{alert.message}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {relativeTime(alert.timestamp)}
+                    {timeAgo(alert.timestamp)}
                     {alert.endpoint && (
                       <span className="ml-1.5">
                         &middot; {alert.endpoint}
@@ -310,20 +291,21 @@ function SystemAlertsSection({
 export default function SystemHealth() {
   const [health, setHealth] = useState<AdminSystemHealth | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchHealth = useCallback(async () => {
-    setLoading(true);
+  const fetchHealth = useCallback(async (isBackground = false) => {
+    if (isBackground) {
+      setIsRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await fetch("/api/admin/system");
       if (!res.ok) {
-        throw new Error(
-          res.status === 403
-            ? "You do not have permission to view system health."
-            : `Failed to load system health (${res.status})`
-        );
+        throw new Error(`Failed to load system health (${res.status})`);
       }
       const data: AdminSystemHealth = await res.json();
       setHealth(data);
@@ -333,15 +315,16 @@ export default function SystemHealth() {
       );
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }, []);
 
-  // Fetch on mount + auto-refresh
+  // Fetch on mount + auto-refresh (background)
   useEffect(() => {
-    fetchHealth();
+    fetchHealth(false);
 
     intervalRef.current = setInterval(() => {
-      fetchHealth();
+      fetchHealth(true);
     }, AUTO_REFRESH_INTERVAL);
 
     return () => {
@@ -360,7 +343,7 @@ export default function SystemHealth() {
           </p>
           <p className="mt-1 text-sm text-muted-foreground">{error}</p>
         </div>
-        <Button variant="outline" onClick={fetchHealth} className="gap-2">
+        <Button variant="outline" onClick={() => { fetchHealth(false); }} className="gap-2">
           <RefreshCw className="h-4 w-4" />
           Retry
         </Button>
@@ -375,14 +358,14 @@ export default function SystemHealth() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={fetchHealth}
-          disabled={loading}
+          onClick={() => { fetchHealth(!!health); }}
+          disabled={loading || isRefreshing}
           className="gap-1.5 text-muted-foreground hover:text-foreground"
         >
           <RefreshCw
-            className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+            className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`}
           />
-          Refresh
+          {isRefreshing ? "Refreshing..." : "Refresh"}
         </Button>
       </div>
 

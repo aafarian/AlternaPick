@@ -25,57 +25,15 @@ import {
   Inbox,
   RefreshCw,
 } from "lucide-react";
+import { timeAgo, userInitials } from "@/lib/admin/helpers";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function timeAgo(timestamp: string): string {
-  const now = Date.now();
-  const then = new Date(timestamp).getTime();
-  const diffMs = now - then;
-
-  if (diffMs < 0) return "just now";
-
-  const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) return "just now";
-
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-
-  const date = new Date(timestamp);
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${months[date.getMonth()]} ${date.getDate()}`;
-}
-
 function eventLabel(type: AdminActivityEventType): string {
   const found = ACTIVITY_EVENT_TYPES.find((e) => e.value === type);
   return found?.label ?? type;
-}
-
-function userInitials(username: string, displayName: string | null): string {
-  const name = displayName ?? username;
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
 }
 
 // ---------------------------------------------------------------------------
@@ -114,7 +72,7 @@ function ActivityRow({ item }: { item: AdminActivityItem }) {
           <AvatarImage src={item.avatarUrl} alt={item.username} />
         )}
         <AvatarFallback>
-          {userInitials(item.username, item.displayName)}
+          {userInitials(item.displayName ?? item.username)}
         </AvatarFallback>
       </Avatar>
 
@@ -188,11 +146,7 @@ export default function ActivityFeed() {
 
         const res = await fetch(`/api/admin/activity?${params.toString()}`);
         if (!res.ok) {
-          throw new Error(
-            res.status === 403
-              ? "You do not have permission to view this data."
-              : `Failed to load activity feed (${res.status})`
-          );
+          throw new Error(`Failed to load activity feed (${res.status})`);
         }
 
         const data: AdminActivityFeedResponse = await res.json();
@@ -227,21 +181,19 @@ export default function ActivityFeed() {
     []
   );
 
-  // Reset page to 1 when filters change
-  const prevFiltersRef = useRef(filters);
-  useEffect(() => {
-    if (prevFiltersRef.current !== filters) {
-      prevFiltersRef.current = filters;
-      setPage(1);
-      fetchActivity(filters, 1);
-    }
-  }, [filters, fetchActivity]);
-
-  // Fetch on mount and when page changes (but not from filter change which resets page)
+  // Fetch whenever filters or page change
   useEffect(() => {
     fetchActivity(filters, page);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [filters, page, fetchActivity]);
+
+  // When filters change, reset to page 1
+  const handleFiltersChange = useCallback(
+    (next: ActivityFilterValues) => {
+      setFilters(next);
+      setPage(1);
+    },
+    []
+  );
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -254,7 +206,7 @@ export default function ActivityFeed() {
   if (error) {
     return (
       <div className="space-y-4">
-        <ActivityFilters filters={filters} onFiltersChange={setFilters} />
+        <ActivityFilters filters={filters} onFiltersChange={handleFiltersChange} />
         <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-card p-12 text-center">
           <Activity className="h-10 w-10 text-muted-foreground" />
           <div>
@@ -283,7 +235,7 @@ export default function ActivityFeed() {
     <div className="space-y-4">
       {/* Header with filters and refresh */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <ActivityFilters filters={filters} onFiltersChange={setFilters} />
+        <ActivityFilters filters={filters} onFiltersChange={handleFiltersChange} />
         <Button
           variant="ghost"
           size="sm"

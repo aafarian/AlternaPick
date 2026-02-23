@@ -23,22 +23,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import type { AdminLookupResult } from "@/lib/admin/types";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return "\u2014";
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+import { formatDate, UUID_RE } from "@/lib/admin/helpers";
 
 const TYPE_CONFIG: Record<
   AdminLookupResult["type"],
@@ -158,7 +143,7 @@ function CardResult({ data }: { data: Record<string, unknown> }) {
         </p>
       )}
       <Link
-        href={`/admin/cards/${id}`}
+        href={`/admin/lookup/card/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
       >
         View card detail
@@ -223,7 +208,7 @@ function ChallengeResult({ data }: { data: Record<string, unknown> }) {
         Created {formatDate(createdAt)}
       </p>
       <Link
-        href={`/admin/challenges/${id}`}
+        href={`/admin/lookup/challenge/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
       >
         View challenge detail
@@ -233,7 +218,7 @@ function ChallengeResult({ data }: { data: Record<string, unknown> }) {
   );
 }
 
-function PickResult({ data }: { data: Record<string, unknown> }) {
+function PickLookupResult({ data }: { data: Record<string, unknown> }) {
   const selection = data.selection as string;
   const result = data.result as string;
   const actualValue = data.actualValue as number | null;
@@ -304,7 +289,7 @@ function PickResult({ data }: { data: Record<string, unknown> }) {
         </p>
       )}
       <Link
-        href={`/admin/cards/${cardId}`}
+        href={`/admin/lookup/card/${cardId}`}
         className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
       >
         View card detail
@@ -358,7 +343,7 @@ export default function RecordLookup() {
       setValidationError("Please enter a UUID.");
       return;
     }
-    if (!UUID_REGEX.test(trimmed)) {
+    if (!UUID_RE.test(trimmed)) {
       setValidationError("Invalid UUID format. Expected: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
       return;
     }
@@ -376,11 +361,7 @@ export default function RecordLookup() {
         return;
       }
       if (!res.ok) {
-        throw new Error(
-          res.status === 403
-            ? "You do not have permission to perform lookups."
-            : `Lookup failed (${res.status})`
-        );
+        throw new Error(`Lookup failed (${res.status})`);
       }
       const data: AdminLookupResult = await res.json();
       setResult(data);
@@ -501,7 +482,7 @@ export default function RecordLookup() {
               <ChallengeResult data={result.data} />
             )}
             {result.type === "pick" && (
-              <PickResult data={result.data} />
+              <PickLookupResult data={result.data} />
             )}
           </CardContent>
         </Card>

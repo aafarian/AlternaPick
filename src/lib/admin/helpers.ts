@@ -172,8 +172,14 @@ export function statCategoryLabel(cat: string): string {
 // Status variant helpers (for Badge components)
 // ---------------------------------------------------------------------------
 
+type BadgeVariant =
+  | "default"
+  | "secondary"
+  | "destructive"
+  | "outline";
+
 /** Returns a badge variant string for card statuses. */
-export function cardStatusVariant(status: string): string {
+export function cardStatusVariant(status: string): BadgeVariant {
   switch (status) {
     case "draft":
       return "secondary";
@@ -187,7 +193,7 @@ export function cardStatusVariant(status: string): string {
 }
 
 /** Returns a badge variant string for challenge statuses. */
-export function challengeStatusVariant(status: string): string {
+export function challengeStatusVariant(status: string): BadgeVariant {
   switch (status) {
     case "pending":
       return "secondary";

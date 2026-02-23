@@ -34,138 +34,15 @@ import type {
   AdminChallengePlayerSide,
   AdminCardPickDetail,
 } from "@/lib/admin/types";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return "\u2014";
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatDateTime(dateStr: string | null | undefined): string {
-  if (!dateStr) return "\u2014";
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function challengeStatusVariant(status: string) {
-  switch (status) {
-    case "pending":
-      return "secondary" as const;
-    case "accepted":
-      return "default" as const;
-    case "active":
-      return "default" as const;
-    case "resolved":
-      return "outline" as const;
-    case "declined":
-      return "destructive" as const;
-    case "cancelled":
-      return "secondary" as const;
-    default:
-      return "secondary" as const;
-  }
-}
-
-function cardStatusVariant(status: string) {
-  switch (status) {
-    case "draft":
-      return "secondary" as const;
-    case "locked":
-      return "default" as const;
-    case "resolved":
-      return "outline" as const;
-    default:
-      return "secondary" as const;
-  }
-}
-
-function gameModeLabel(mode: string): string {
-  switch (mode) {
-    case "classic":
-      return "Classic";
-    case "sabotage":
-      return "Sabotage";
-    case "mirror":
-      return "Mirror";
-    case "random":
-      return "Random";
-    case "one_player":
-      return "One Player";
-    case "one_team":
-      return "One Team";
-    default:
-      return mode;
-  }
-}
-
-function statCategoryLabel(cat: string): string {
-  switch (cat) {
-    case "points":
-      return "PTS";
-    case "rebounds":
-      return "REB";
-    case "assists":
-      return "AST";
-    case "threes":
-      return "3PM";
-    case "blocks":
-      return "BLK";
-    case "steals":
-      return "STL";
-    case "turnovers":
-      return "TO";
-    case "pra":
-      return "PRA";
-    case "pts_reb":
-      return "P+R";
-    case "pts_ast":
-      return "P+A";
-    case "reb_ast":
-      return "R+A";
-    case "blk_stl":
-      return "B+S";
-    case "shots":
-      return "SH";
-    case "shots_on_target":
-      return "SOT";
-    case "tackles":
-      return "TKL";
-    case "passes":
-      return "PAS";
-    case "goals":
-      return "G";
-    case "fouls_committed":
-      return "FLS";
-    case "saves":
-      return "SAV";
-    default:
-      return cat.toUpperCase();
-  }
-}
-
-function pickResultClasses(result: string): string {
-  switch (result) {
-    case "hit":
-      return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400";
-    case "miss":
-      return "bg-red-500/15 text-red-700 dark:text-red-400";
-    case "pending":
-    default:
-      return "bg-muted text-muted-foreground";
-  }
-}
+import {
+  formatDate,
+  formatDateTime,
+  challengeStatusVariant,
+  cardStatusVariant,
+  gameModeLabel,
+  statCategoryLabel,
+  pickResultClasses,
+} from "@/lib/admin/helpers";
 
 // ---------------------------------------------------------------------------
 // Skeleton components
@@ -433,11 +310,7 @@ export default function ChallengeDetail({
         throw new Error("Challenge not found");
       }
       if (!res.ok) {
-        throw new Error(
-          res.status === 403
-            ? "You do not have permission to view this challenge."
-            : `Failed to load challenge detail (${res.status})`
-        );
+        throw new Error(`Failed to load challenge detail (${res.status})`);
       }
       const data: AdminChallengeDetail = await res.json();
       setDetail(data);

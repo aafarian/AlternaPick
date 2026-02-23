@@ -2,18 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { handleApiError } from "@/lib/api/errors";
-
-export interface AdminOverviewStats {
-  totalUsers: number;
-  signupsToday: number;
-  signupsThisWeek: number;
-  cardsLockedToday: number;
-  activeChallenges: number;
-  picksMadeToday: number;
-  avgWinRate: number;
-  totalCards: number;
-  dailyActiveUsers: number;
-}
+import type { AdminOverviewStats } from "@/lib/admin/types";
 
 /**
  * GET /api/admin/overview

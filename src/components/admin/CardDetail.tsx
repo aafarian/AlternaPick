@@ -33,6 +33,13 @@ import {
 } from "lucide-react";
 import type { AdminCardDetail, AdminCardPickDetail } from "@/lib/admin/types";
 import type { ChallengeStatus } from "@/lib/supabase/types";
+import {
+  formatDateTime,
+  cardStatusVariant,
+  gameModeLabel,
+  statCategoryLabel,
+  pickResultClasses,
+} from "@/lib/admin/helpers";
 
 // ---------------------------------------------------------------------------
 // API response shape (extends AdminCardDetail with challenge info)
@@ -44,72 +51,6 @@ interface CardDetailResponse extends AdminCardDetail {
     status: ChallengeStatus;
     opponentId: string;
   } | null;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatDateTime(dateStr: string | null | undefined): string {
-  if (!dateStr) return "\u2014";
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function cardStatusVariant(status: string) {
-  switch (status) {
-    case "draft":
-      return "secondary" as const;
-    case "locked":
-      return "default" as const;
-    case "resolved":
-      return "outline" as const;
-    default:
-      return "secondary" as const;
-  }
-}
-
-function gameModeLabel(mode: string): string {
-  switch (mode) {
-    case "classic":
-      return "Classic";
-    case "turbo":
-      return "Turbo";
-    case "playoff":
-      return "Playoff";
-    case "h2h":
-      return "H2H";
-    case "sabotage":
-      return "Sabotage";
-    case "mirror":
-      return "Mirror";
-    default:
-      return mode;
-  }
-}
-
-function statCategoryLabel(cat: string): string {
-  return cat
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
-function resultBadgeClass(result: string): string {
-  switch (result) {
-    case "hit":
-      return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-transparent";
-    case "miss":
-      return "bg-red-500/15 text-red-700 dark:text-red-400 border-transparent";
-    case "pending":
-    default:
-      return "bg-muted text-muted-foreground border-transparent";
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -315,7 +256,7 @@ function PicksTable({ picks }: { picks: AdminCardPickDetail[] }) {
               </Badge>
             </TableCell>
             <TableCell>
-              <Badge className={resultBadgeClass(pick.result)}>
+              <Badge className={pickResultClasses(pick.result)}>
                 {pick.result}
               </Badge>
             </TableCell>
@@ -350,11 +291,7 @@ export default function CardDetail({ cardId }: { cardId: string }) {
         throw new Error("Card not found");
       }
       if (!res.ok) {
-        throw new Error(
-          res.status === 403
-            ? "You do not have permission to view this card."
-            : `Failed to load card detail (${res.status})`
-        );
+        throw new Error(`Failed to load card detail (${res.status})`);
       }
       const json: CardDetailResponse = await res.json();
       setData(json);
