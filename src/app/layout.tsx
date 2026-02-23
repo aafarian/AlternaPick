@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Header from "@/components/layout/Header";
+import NavigationProgress from "@/components/layout/NavigationProgress";
 import Footer from "@/components/layout/Footer";
 import BottomTabBar from "@/components/layout/BottomTabBar";
 import { AuthProvider } from "@/lib/auth/auth-context";
@@ -47,6 +48,7 @@ export default function RootLayout({
         <ServiceWorkerRegistration />
         <ScrollToTop />
         <AuthProvider>
+          <NavigationProgress />
           <PendingCardHandler />
           <OnboardingProvider>
             <PlayerProfileProvider>
