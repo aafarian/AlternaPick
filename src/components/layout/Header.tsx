@@ -28,6 +28,7 @@ export default function Header() {
   const router = useRouter();
   const [notificationCounts, setNotificationCounts] =
     useState<NotificationCounts>({ friends: 0, challenges: 0, notifications: 0 });
+  const [isAdminUser, setIsAdminUser] = useState(false);
 
   // Callback registered by NotificationBell to prepend a new notification
   const prependNotificationRef = useRef<((n: Notification) => void) | null>(null);
@@ -87,10 +88,28 @@ export default function Header() {
     if (!user) {
       setNotificationCounts({ friends: 0, challenges: 0, notifications: 0 });
       toastedIdsRef.current.clear();
+      setIsAdminUser(false);
       return;
     }
     fetchCounts();
   }, [user, pathname, fetchCounts]);
+
+  // Check admin status when user changes (not on every pathname change)
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/check");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setIsAdminUser(data.isAdmin === true);
+      } catch {
+        // Silently ignore - admin link just won't show
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -214,7 +233,7 @@ export default function Header() {
 
         {/* Desktop nav + bell */}
         <div className="hidden items-center gap-1 md:flex">
-          {!loading && <Nav user={user} notificationCounts={notificationCounts} />}
+          {!loading && <Nav user={user} notificationCounts={notificationCounts} isAdmin={isAdminUser} />}
           {user && <StreakBadge />}
           {user && (
             <NotificationBell
@@ -258,6 +277,7 @@ export default function Header() {
                     user={user}
                     notificationCounts={notificationCounts}
                     mobileSecondaryOnly={!!user}
+                    isAdmin={isAdminUser}
                   />
                 </div>
               </SheetContent>
