@@ -45,10 +45,7 @@ export default function ChallengesPage() {
   const loadingMoreRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>(() => {
-    const tab = searchParams.get("tab");
-    return tab === "history" ? "history" : "active";
-  });
+  const activeTab: Tab = searchParams.get("tab") === "history" ? "history" : "active";
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -591,7 +588,6 @@ export default function ChallengesPage() {
               <button
                 key={tab.key}
                 onClick={() => {
-                  setActiveTab(tab.key);
                   const params = new URLSearchParams(searchParams.toString());
                   if (tab.key === "active") {
                     params.delete("tab");
