@@ -20,10 +20,11 @@ export async function GET() {
 
     const supabase = createAdminClient();
 
-    // Compute date boundaries in UTC
-    const todayStart = `${new Date().toISOString().split("T")[0]}T00:00:00.000Z`;
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const weekStart = `${weekAgo.toISOString().split("T")[0]}T00:00:00.000Z`;
+    // Compute date boundaries using US Eastern to match admin's perspective.
+    // new Date(y, m, d) gives local midnight; .toISOString() converts to UTC.
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString();
 
     // Run all queries in parallel
     const [
@@ -77,6 +78,16 @@ export async function GET() {
         .select("*", { count: "exact", head: true }),
     ]);
 
+    // Fail fast on any count-query errors instead of silently returning 0
+    const countResults = [
+      totalUsersResult, signupsTodayResult, signupsThisWeekResult,
+      cardsLockedTodayResult, activeChallengesResult, picksMadeTodayResult,
+      totalCardsResult,
+    ];
+    for (const r of countResults) {
+      if (r.error) throw new Error(r.error.message);
+    }
+
     // These queries return rows (not just counts), so run separately for
     // proper type inference — Promise.all with mixed return shapes causes
     // TypeScript to collapse row types to `never`.
@@ -86,12 +97,14 @@ export async function GET() {
       .select("win_rate")
       .gt("total_attempted_picks", 0)
       .limit(10000);
+    if (winRateResult.error) throw new Error(winRateResult.error.message);
 
     const dailyActiveUsersResult = await supabase
       .from("cards")
       .select("user_id")
       .gte("created_at", todayStart)
       .limit(10000);
+    if (dailyActiveUsersResult.error) throw new Error(dailyActiveUsersResult.error.message);
 
     // Compute average win rate from fetched rows
     const winRates =

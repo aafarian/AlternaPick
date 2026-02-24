@@ -211,8 +211,10 @@ export default function Nav({
                 onNavigate?.();
                 // Sign out client-side so onAuthStateChange fires immediately
                 const { createClient } = await import("@/lib/supabase/client");
+                const { clearAnonymousId } = await import("@/lib/session/anonymous");
                 const supabase = createClient();
                 await supabase.auth.signOut();
+                clearAnonymousId();
                 window.location.href = "/";
               }}
               className="gap-2 cursor-pointer"

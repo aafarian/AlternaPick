@@ -37,19 +37,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-      setLoading(false);
-    });
+    // Safety timeout: if auth never resolves (stale cookies, network hang),
+    // force loading to false so the UI doesn't get stuck with no nav.
+    const timeout = setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) setUser(null);
+        return false;
+      });
+    }, 5000);
+
+    supabase.auth
+      .getUser()
+      .then(({ data: { user } }) => {
+        clearTimeout(timeout);
+        setUser(user);
+        setLoading(false);
+      })
+      .catch(() => {
+        clearTimeout(timeout);
+        setUser(null);
+        setLoading(false);
+      });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      clearTimeout(timeout);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Provide a dummy context during SSR
