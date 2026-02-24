@@ -15,6 +15,7 @@ services:
       - SYNC_SECRET=${SYNC_SECRET}
       - STATS_SERVICE_URL=http://stats-service:8000
       - FOOTBALL_API_KEY=${FOOTBALL_API_KEY}
+      - ADMIN_EMAILS=${ADMIN_EMAILS}
       - NEXT_PUBLIC_SITE_URL=https://${DOMAIN}
     depends_on:
       stats-service:
