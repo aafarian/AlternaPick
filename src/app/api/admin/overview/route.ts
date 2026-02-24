@@ -77,6 +77,16 @@ export async function GET() {
         .select("*", { count: "exact", head: true }),
     ]);
 
+    // Fail fast on any count-query errors instead of silently returning 0
+    const countResults = [
+      totalUsersResult, signupsTodayResult, signupsThisWeekResult,
+      cardsLockedTodayResult, activeChallengesResult, picksMadeTodayResult,
+      totalCardsResult,
+    ];
+    for (const r of countResults) {
+      if (r.error) throw new Error(r.error.message);
+    }
+
     // These queries return rows (not just counts), so run separately for
     // proper type inference — Promise.all with mixed return shapes causes
     // TypeScript to collapse row types to `never`.
@@ -86,12 +96,14 @@ export async function GET() {
       .select("win_rate")
       .gt("total_attempted_picks", 0)
       .limit(10000);
+    if (winRateResult.error) throw new Error(winRateResult.error.message);
 
     const dailyActiveUsersResult = await supabase
       .from("cards")
       .select("user_id")
       .gte("created_at", todayStart)
       .limit(10000);
+    if (dailyActiveUsersResult.error) throw new Error(dailyActiveUsersResult.error.message);
 
     // Compute average win rate from fetched rows
     const winRates =

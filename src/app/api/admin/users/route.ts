@@ -120,6 +120,9 @@ export async function GET(request: NextRequest) {
           .range(from, to),
       ]);
 
+      if (countResult.error) throw new Error(countResult.error.message);
+      if (dataResult.error) throw new Error(dataResult.error.message);
+
       total = countResult.count ?? 0;
       const profiles = (dataResult.data as ProfileRow[] | null) ?? [];
 
@@ -154,6 +157,7 @@ export async function GET(request: NextRequest) {
           .or(`username.ilike.*${search}*,email.ilike.*${search}*`);
 
         const matchResult = await matchQuery;
+        if (matchResult.error) throw new Error(matchResult.error.message);
         const matchedIds = ((matchResult.data as { id: string }[]) ?? []).map(
           (p) => p.id
         );
@@ -174,6 +178,7 @@ export async function GET(request: NextRequest) {
             .range(from, to);
 
           const lbResult = await lbQuery;
+          if (lbResult.error) throw new Error(lbResult.error.message);
           const lbRows = (lbResult.data as LeaderboardRow[] | null) ?? [];
           const pageUserIds = lbRows.map((r) => r.user_id);
 
@@ -184,6 +189,7 @@ export async function GET(request: NextRequest) {
           const profileResult = await (supabase.from("profiles") as any)
             .select(profileFull)
             .in("id", pageUserIds);
+          if (profileResult.error) throw new Error(profileResult.error.message);
           const profiles = (profileResult.data as ProfileRow[] | null) ?? [];
           const profileMap = new Map(profiles.map((p) => [p.id, p]));
 
@@ -208,6 +214,7 @@ export async function GET(request: NextRequest) {
         const countResult = await supabase
           .from("leaderboard_entries")
           .select("*", { count: "exact", head: true });
+        if (countResult.error) throw new Error(countResult.error.message);
         total = countResult.count ?? 0;
 
         const from = (page - 1) * pageSize;
@@ -220,6 +227,7 @@ export async function GET(request: NextRequest) {
           .range(from, to);
 
         const lbResult = await lbQuery;
+        if (lbResult.error) throw new Error(lbResult.error.message);
         const lbRows = (lbResult.data as LeaderboardRow[] | null) ?? [];
         const pageUserIds = lbRows.map((r) => r.user_id);
 
@@ -230,6 +238,7 @@ export async function GET(request: NextRequest) {
         const profileResult = await (supabase.from("profiles") as any)
           .select(profileFull)
           .in("id", pageUserIds);
+        if (profileResult.error) throw new Error(profileResult.error.message);
         const profiles = (profileResult.data as ProfileRow[] | null) ?? [];
         const profileMap = new Map(profiles.map((p) => [p.id, p]));
 
@@ -314,6 +323,7 @@ async function fetchLeaderboardMap(
   );
 
   for (const result of results) {
+    if (result.error) throw new Error(result.error.message);
     const rows = (result.data as LeaderboardRow[] | null) ?? [];
     for (const row of rows) {
       map.set(row.user_id, row);
