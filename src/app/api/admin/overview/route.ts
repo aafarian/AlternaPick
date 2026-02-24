@@ -20,10 +20,11 @@ export async function GET() {
 
     const supabase = createAdminClient();
 
-    // Compute date boundaries in UTC
-    const todayStart = `${new Date().toISOString().split("T")[0]}T00:00:00.000Z`;
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const weekStart = `${weekAgo.toISOString().split("T")[0]}T00:00:00.000Z`;
+    // Compute date boundaries using US Eastern to match admin's perspective.
+    // new Date(y, m, d) gives local midnight; .toISOString() converts to UTC.
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString();
 
     // Run all queries in parallel
     const [
