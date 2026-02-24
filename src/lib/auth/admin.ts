@@ -3,13 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 
 /**
  * Comma-separated list of admin emails.
- * In production, fails closed (no admins) if the env var is missing.
- * In development, falls back to a default for convenience.
+ * Set via ADMIN_EMAILS in .env.local / deploy secrets.
+ * Fails closed (no admins) if the env var is missing.
  */
-const ADMIN_EMAILS: string[] = (
-  process.env.ADMIN_EMAILS ??
-  (process.env.NODE_ENV === "production" ? "" : "antoafarian@gmail.com")
-)
+const ADMIN_EMAILS: string[] = (process.env.ADMIN_EMAILS ?? "")
   .split(",")
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
