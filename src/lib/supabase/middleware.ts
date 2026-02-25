@@ -4,6 +4,7 @@ import type { User } from "@supabase/supabase-js";
 
 /** Throttle last_active_at updates: only write once per 5 minutes per user. */
 const ACTIVE_THROTTLE_MS = 5 * 60 * 1000;
+const MAX_THROTTLE_MAP_SIZE = 10_000;
 const recentlyActive = new Map<string, number>();
 
 export async function updateSession(
@@ -39,6 +40,15 @@ export async function updateSession(
   // Track last visit for DAU metrics (throttled to avoid excessive writes)
   if (user) {
     const now = Date.now();
+
+    // Prune stale entries to prevent unbounded growth on long-lived processes
+    if (recentlyActive.size > MAX_THROTTLE_MAP_SIZE) {
+      const cutoff = now - ACTIVE_THROTTLE_MS;
+      for (const [id, ts] of recentlyActive) {
+        if (ts < cutoff) recentlyActive.delete(id);
+      }
+    }
+
     const lastSeen = recentlyActive.get(user.id) ?? 0;
     if (now - lastSeen > ACTIVE_THROTTLE_MS) {
       recentlyActive.set(user.id, now);
@@ -46,7 +56,9 @@ export async function updateSession(
         .from("profiles")
         .update({ last_active_at: new Date().toISOString() })
         .eq("id", user.id)
-        .then();
+        .then(({ error }) => {
+          if (error) console.error("[DAU] last_active_at update failed:", error.message);
+        });
     }
   }
 

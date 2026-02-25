@@ -180,7 +180,7 @@ export interface WeeklyRecapData {
   totalPicks: number;
   /** Total cards across all 7 days */
   totalCards: number;
-  /** Player with highest hit rate across the week (min 10 picks) */
+  /** Most picked player across the week (min `weeklyTopMin` picks) */
   topPlayer: {
     playerName: string;
     hitRate: number;
