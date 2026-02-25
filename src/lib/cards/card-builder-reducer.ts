@@ -25,23 +25,21 @@ export function cardBuilderReducer(
       if (state.picks.some((p) => p.prop_id === action.pick.prop_id))
         return state;
 
-      // Only enforce mode constraints when picking for an existing challenge
-      // (regular cards: mode is chosen later at challenge/submit time)
-      if (state.challengeId) {
-        const validation = validateIncomingPick(
-          state.picks.map((p) => ({
-            player_name: p.player_name,
-            player_team: p.player_team,
-          })),
-          {
-            player_name: action.pick.player_name,
-            player_team: action.pick.player_team,
-          },
-          state.gameMode
-        );
-        if (!validation.valid) {
-          return { ...state, error: validation.error ?? "Pick violates mode constraints" };
-        }
+      // Enforce mode constraints (e.g. one_player/one_team) for all contexts.
+      // Modes without constraints (classic, etc.) return { valid: true }.
+      const validation = validateIncomingPick(
+        state.picks.map((p) => ({
+          player_name: p.player_name,
+          player_team: p.player_team,
+        })),
+        {
+          player_name: action.pick.player_name,
+          player_team: action.pick.player_team,
+        },
+        state.gameMode
+      );
+      if (!validation.valid) {
+        return { ...state, error: validation.error ?? "Pick violates mode constraints" };
       }
 
       return { ...state, picks: [...state.picks, action.pick], error: null };

@@ -85,9 +85,9 @@ export default function PropLine({
     useCardBuilder();
   const { openProfile } = usePlayerProfile();
 
-  // For existing challenges with constrained modes, hide non-matching props
+  // For constrained modes (one_player/one_team), hide non-matching props
   const selected = isPickSelected(propId);
-  if (state.challengeId && state.picks.length > 0 && !selected) {
+  if (state.picks.length > 0 && !selected) {
     const modeConfig = getModeConfig(state.gameMode);
     const anchor = state.picks[0];
     if (modeConfig.constraints.sameTeam && (playerTeam ?? "") !== anchor.player_team) {
