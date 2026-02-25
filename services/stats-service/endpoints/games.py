@@ -13,6 +13,8 @@ async def today_games(date: str = Query(default="")):
     """
     try:
         target_date = date.strip() if date.strip() else None
+        if target_date and (len(target_date) != 8 or not target_date.isdigit()):
+            raise HTTPException(status_code=400, detail="date must be YYYYMMDD")
         games = await get_todays_scoreboard(target_date)
         return {"data": games, "count": len(games)}
     except Exception as e:

@@ -10,87 +10,43 @@ groups=50 filters to Division I only.
 
 import asyncio
 import logging
-import time
-from datetime import date, datetime
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
-import httpx
+from utils.espn_helpers import (
+    EspnRateLimiter,
+    get_cached,
+    set_cached,
+    get_http_client,
+    parse_espn_status,
+    parse_period,
+    parse_clock,
+    parse_stat_value,
+    safe_int,
+    CACHE_TTL_SECONDS,
+    FINAL_CACHE_TTL_SECONDS,
+)
 
-# US Eastern: ESPN dates are in ET (handles EST/EDT automatically)
 _ET = ZoneInfo("America/New_York")
 
 logger = logging.getLogger(__name__)
 
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball"
 
-# In-memory cache with TTL
-_cache: dict[str, tuple[float, object, float]] = {}
-CACHE_TTL_SECONDS = 30
-FINAL_CACHE_TTL_SECONDS = 3600
-
-
-def _get_cached(key: str):
-    entry = _cache.get(key)
-    if entry and (time.monotonic() - entry[0]) < entry[2]:
-        return entry[1]
-    return None
-
-
-def _set_cached(key: str, value, ttl: float = CACHE_TTL_SECONDS):
-    _cache[key] = (time.monotonic(), value, ttl)
-
-
-# Conservative rate limiter — ESPN is generous but be respectful
-class EspnRateLimiter:
-    def __init__(self, min_interval: float = 1.0):
-        self.min_interval = min_interval
-        self._lock = asyncio.Lock()
-        self._last_call = 0.0
-
-    async def acquire(self):
-        async with self._lock:
-            now = time.monotonic()
-            elapsed = now - self._last_call
-            if elapsed < self.min_interval:
-                await asyncio.sleep(self.min_interval - elapsed)
-            self._last_call = time.monotonic()
-
-
-espn_rate_limiter = EspnRateLimiter(min_interval=0.3)
+# Separate rate limiter instance for NCAAB
+_rate_limiter = EspnRateLimiter(min_interval=0.3)
 
 
 async def _espn_get(endpoint: str, params: dict | None = None) -> dict:
     """Make a rate-limited GET request to ESPN."""
-    await espn_rate_limiter.acquire()
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        response = await client.get(
-            f"{ESPN_BASE}{endpoint}",
-            params=params or {},
-        )
-        response.raise_for_status()
-        return response.json()
-
-
-def _parse_espn_status(status_type: str, status_detail: str) -> str:
-    """Map ESPN status type to our format."""
-    t = status_type.lower()
-    if t == "post":
-        return "final"
-    if t == "in":
-        return "live"
-    return "scheduled"
-
-
-def _parse_period(status_detail: dict) -> int:
-    """Extract period from ESPN status detail."""
-    period = status_detail.get("period", 0)
-    return period if isinstance(period, int) else 0
-
-
-def _parse_clock(status_detail: dict) -> str:
-    """Extract clock from ESPN status detail."""
-    clock = status_detail.get("displayClock", "0:00")
-    return clock if clock else "0:00"
+    await _rate_limiter.acquire()
+    client = get_http_client()
+    response = await client.get(
+        f"{ESPN_BASE}{endpoint}",
+        params=params or {},
+    )
+    response.raise_for_status()
+    return response.json()
 
 
 async def get_todays_ncaab_games(target_date: str | None = None) -> list[dict]:
@@ -101,7 +57,7 @@ async def get_todays_ncaab_games(target_date: str | None = None) -> list[dict]:
     """
     today = target_date or datetime.now(_ET).strftime("%Y%m%d")
     cache_key = f"ncaab_games:{today}"
-    cached = _get_cached(cache_key)
+    cached = get_cached(cache_key)
     if cached is not None:
         return cached
 
@@ -139,41 +95,25 @@ async def get_todays_ncaab_games(target_date: str | None = None) -> list[dict]:
                 "away_tricode": away_team_data.get("abbreviation", ""),
                 "home_score": int(home.get("score", "0") or "0"),
                 "away_score": int(away.get("score", "0") or "0"),
-                "status": _parse_espn_status(status_type, status_detail),
-                "period": _parse_period(status),
-                "clock": _parse_clock(status),
+                "status": parse_espn_status(status_type),
+                "period": parse_period(status),
+                "clock": parse_clock(status),
                 "start_time": event.get("date", ""),
                 "home_team_id": str(home_team_data.get("id", "")),
                 "away_team_id": str(away_team_data.get("id", "")),
             })
 
-        _set_cached(cache_key, games)
+        set_cached(cache_key, games)
         return games
     except Exception as e:
         logger.error(f"Failed to fetch NCAAB games: {e}")
         raise
 
 
-def _parse_stat_value(val: str) -> tuple[int, int]:
-    """Parse ESPN stat strings like '6-10' into (made, attempted)."""
-    if not val or val == "-":
-        return (0, 0)
-    parts = val.split("-")
-    if len(parts) == 2:
-        try:
-            return (int(parts[0]), int(parts[1]))
-        except (ValueError, TypeError):
-            return (0, 0)
-    try:
-        return (int(val), 0)
-    except (ValueError, TypeError):
-        return (0, 0)
-
-
 async def get_ncaab_boxscore(event_id: str) -> list[dict]:
     """Fetch player boxscore for an NCAAB game from ESPN summary."""
     cache_key = f"ncaab_boxscore:{event_id}"
-    cached = _get_cached(cache_key)
+    cached = get_cached(cache_key)
     if cached is not None:
         return cached
 
@@ -207,20 +147,18 @@ async def get_ncaab_boxscore(event_id: str) -> list[dict]:
 
                     # Parse stats
                     minutes = stat_map.get("min", "0")
-                    fg_made, fg_att = _parse_stat_value(stat_map.get("fg", "0-0"))
-                    three_made, three_att = _parse_stat_value(stat_map.get("3pt", "0-0"))
-                    ft_made, ft_att = _parse_stat_value(stat_map.get("ft", "0-0"))
-                    oreb = _safe_int(stat_map.get("oreb", "0"))
-                    dreb = _safe_int(stat_map.get("dreb", "0"))
-                    reb = _safe_int(stat_map.get("reb", "0"))
-                    ast = _safe_int(stat_map.get("ast", "0"))
-                    stl = _safe_int(stat_map.get("stl", "0"))
-                    blk = _safe_int(stat_map.get("blk", "0"))
-                    to = _safe_int(stat_map.get("to", "0"))
-                    pf = _safe_int(stat_map.get("pf", "0"))
-                    pts = _safe_int(stat_map.get("pts", "0"))
-
-                    headshot = athlete_info.get("headshot", {}).get("href", "")
+                    fg_made, fg_att = parse_stat_value(stat_map.get("fg", "0-0"))
+                    three_made, three_att = parse_stat_value(stat_map.get("3pt", "0-0"))
+                    ft_made, ft_att = parse_stat_value(stat_map.get("ft", "0-0"))
+                    oreb = safe_int(stat_map.get("oreb", "0"))
+                    dreb = safe_int(stat_map.get("dreb", "0"))
+                    reb = safe_int(stat_map.get("reb", "0"))
+                    ast = safe_int(stat_map.get("ast", "0"))
+                    stl = safe_int(stat_map.get("stl", "0"))
+                    blk = safe_int(stat_map.get("blk", "0"))
+                    to = safe_int(stat_map.get("to", "0"))
+                    pf = safe_int(stat_map.get("pf", "0"))
+                    pts = safe_int(stat_map.get("pts", "0"))
 
                     players.append({
                         "player_name": athlete_info.get("displayName", ""),
@@ -250,30 +188,20 @@ async def get_ncaab_boxscore(event_id: str) -> list[dict]:
         ttl = CACHE_TTL_SECONDS
         game_status = data.get("header", {}).get("competitions", [{}])[0].get("status", {})
         status_type = game_status.get("type", {}).get("state", "")
-        if _parse_espn_status(status_type, "") == "final":
+        if parse_espn_status(status_type) == "final":
             ttl = FINAL_CACHE_TTL_SECONDS
 
-        _set_cached(cache_key, players, ttl)
+        set_cached(cache_key, players, ttl)
         return players
     except Exception as e:
         logger.error(f"Failed to fetch NCAAB boxscore for event {event_id}: {e}")
         raise
 
 
-def _safe_int(val) -> int:
-    """Safely convert a value to int."""
-    if val is None or val == "-" or val == "":
-        return 0
-    try:
-        return int(val)
-    except (ValueError, TypeError):
-        return 0
-
-
 async def get_team_roster(team_id: str) -> list[dict]:
     """Fetch team roster from ESPN. Returns list of {name, id}."""
     cache_key = f"ncaab_roster:{team_id}"
-    cached = _get_cached(cache_key)
+    cached = get_cached(cache_key)
     if cached is not None:
         return cached
 
@@ -288,7 +216,7 @@ async def get_team_roster(team_id: str) -> list[dict]:
                     "name": display_name,
                     "id": player_id,
                 })
-        _set_cached(cache_key, players, 6 * 3600)  # Cache for 6 hours
+        set_cached(cache_key, players, 6 * 3600)  # Cache for 6 hours
         return players
     except Exception as e:
         logger.warning(f"Failed to fetch roster for team {team_id}: {e}")
@@ -302,7 +230,7 @@ async def get_all_ncaab_teams() -> dict[str, str]:
     works for any D-I team regardless of game schedule.
     """
     cache_key = "ncaab_all_teams"
-    cached = _get_cached(cache_key)
+    cached = get_cached(cache_key)
     if cached is not None:
         return cached
 
@@ -321,7 +249,7 @@ async def get_all_ncaab_teams() -> dict[str, str]:
                 if short_name:
                     teams[short_name.lower()] = team_id
 
-        _set_cached(cache_key, teams, 24 * 3600)  # Cache for 24 hours
+        set_cached(cache_key, teams, 24 * 3600)  # Cache for 24 hours
         return teams
     except Exception as e:
         logger.error(f"Failed to fetch NCAAB teams: {e}")
@@ -335,7 +263,7 @@ async def get_ncaab_player_mapping(team_ids: list[str] | None = None) -> dict[st
     Otherwise, fetch rosters for all of today's game teams.
     """
     cache_key = f"ncaab_player_mapping:{','.join(sorted(team_ids)) if team_ids else 'today'}"
-    cached = _get_cached(cache_key)
+    cached = get_cached(cache_key)
     if cached is not None:
         return cached
 
@@ -363,7 +291,7 @@ async def get_ncaab_player_mapping(team_ids: list[str] | None = None) -> dict[st
         for player in roster:
             mapping[player["name"].lower()] = player["id"]
 
-    _set_cached(cache_key, mapping, 3600)  # Cache for 1 hour
+    set_cached(cache_key, mapping, 3600)  # Cache for 1 hour
     return mapping
 
 

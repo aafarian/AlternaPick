@@ -219,6 +219,9 @@ export async function POST(request: NextRequest) {
           )
         ).flat();
 
+        // Collect all matched updates, then batch them
+        const pendingUpdates: { match: Game; espnGame: typeof allEspnNbaGames[0]; newStatus: string }[] = [];
+
         for (const espnGame of allEspnNbaGames) {
           const homeTeamFull = TRICODE_TO_TEAM[espnGame.home_tricode];
           const awayTeamFull = TRICODE_TO_TEAM[espnGame.away_tricode];
@@ -237,19 +240,27 @@ export async function POST(request: NextRequest) {
 
           if (!match) continue;
 
-          const newStatus = mapNbaStatus(espnGame.status);
+          (match as any)._matched = true;
+          pendingUpdates.push({ match, espnGame, newStatus: mapNbaStatus(espnGame.status) });
+        }
 
-          const { error: updateError } = await (supabase.from("games") as any)
-            .update({
-              status: newStatus,
-              home_score: espnGame.home_score,
-              away_score: espnGame.away_score,
-              external_event_id: espnGame.game_id,
-            })
-            .eq("id", match.id);
+        // Execute all DB updates in parallel
+        const results = await Promise.all(
+          pendingUpdates.map(({ match, espnGame, newStatus }) =>
+            (supabase.from("games") as any)
+              .update({
+                status: newStatus,
+                home_score: espnGame.home_score,
+                away_score: espnGame.away_score,
+                external_event_id: espnGame.game_id,
+              })
+              .eq("id", match.id)
+              .then((res: any) => ({ ...res, match, espnGame, newStatus }))
+          )
+        );
 
+        for (const { error: updateError, match, espnGame, newStatus } of results) {
           if (!updateError) {
-            (match as any)._matched = true;
             updated.push({
               odds_team: `${match.away_team} @ ${match.home_team}`,
               nba_team: `${espnGame.away_team} @ ${espnGame.home_team}`,
