@@ -79,11 +79,10 @@ function LiveCard({
   hasFetched: boolean;
   hasError: boolean;
 }) {
-  // Before first fetch completes, pass empty picks so LivePickCard shows skeletons.
-  // After fetch, use live data or fall back to static pick data.
-  const picks = !hasFetched
-    ? []
-    : (liveData?.picks ?? buildFallbackPicks(card.picks));
+  // Render card structure immediately using static pick data from the server.
+  // Live values (current_value, game scores) overlay when they arrive —
+  // LivePickRow already handles the "no value yet" state with a dash + spinner.
+  const picks = liveData?.picks ?? buildFallbackPicks(card.picks);
 
   const content = (
     <LivePickCard
