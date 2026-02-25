@@ -166,6 +166,28 @@ function PropSyncSection({ data }: { data: AdminSystemHealth["propSync"] }) {
             </p>
           </div>
         </div>
+
+        {data.creditsRemaining !== null && (
+          <div className="rounded-lg border bg-muted/40 p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Odds API Credits</p>
+                <p className="text-xl font-bold tracking-tight">
+                  {data.creditsRemaining.toLocaleString()}
+                  <span className="text-sm font-normal text-muted-foreground ml-1">remaining</span>
+                </p>
+              </div>
+              {data.creditsUsed !== null && (
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Used</p>
+                  <p className="text-lg font-semibold tracking-tight text-muted-foreground">
+                    {data.creditsUsed.toLocaleString()}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

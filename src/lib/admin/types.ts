@@ -253,6 +253,8 @@ export interface AdminSystemHealth {
     lastSyncAt: string | null;
     totalProps: number;
     propsToday: number;
+    creditsRemaining: number | null;
+    creditsUsed: number | null;
   };
   games: {
     scheduledToday: number;

@@ -23,6 +23,8 @@ export function useBatchLiveStats(
   const abortRef = useRef<AbortController | null>(null);
   const stoppedRef = useRef(false);
   const hadLiveRef = useRef(false);
+  const consecutiveErrorsRef = useRef(0);
+  const skipCountRef = useRef(0);
 
   // Stable stringified key to prevent re-renders when array reference changes
   const idsKey = useMemo(() => cardIds.slice().sort().join(","), [cardIds]);
@@ -39,6 +41,16 @@ export function useBatchLiveStats(
 
     async function fetchBatch() {
       if (stoppedRef.current || !idsKey) return;
+
+      // Back off when seeing consecutive errors — skip polls exponentially
+      if (consecutiveErrorsRef.current > 0) {
+        const skipsNeeded = Math.min(2 ** (consecutiveErrorsRef.current - 1), 8);
+        if (skipCountRef.current < skipsNeeded) {
+          skipCountRef.current++;
+          return;
+        }
+        skipCountRef.current = 0;
+      }
 
       // Abort any in-flight request before starting a new one
       abortRef.current?.abort();
@@ -83,6 +95,7 @@ export function useBatchLiveStats(
         });
         setError(null);
         setHasFetched(true);
+        consecutiveErrorsRef.current = 0;
 
         // Track and detect transition from "had live games" to "no live games"
         const anyLive = Object.values(cardsObj).some((c) => c.has_live_games);
@@ -97,6 +110,7 @@ export function useBatchLiveStats(
         }
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
+          consecutiveErrorsRef.current++;
           setError(err instanceof Error ? err.message : "Failed to fetch live stats");
           // Even on error, mark as fetched so we show fallback data instead of skeleton forever
           setHasFetched(true);

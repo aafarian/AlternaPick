@@ -1,10 +1,12 @@
 const STATS_SERVICE_URL =
   process.env.STATS_SERVICE_URL || "http://localhost:8000";
 const TIMEOUT_MS = 3000;
+const BOXSCORE_TIMEOUT_MS = 10_000;
 
 // Module-level TTL cache for live endpoints (30s) and final boxscores (1hr)
 const CACHE_TTL = 30_000;
 const FINAL_CACHE_TTL = 3_600_000;
+const MAX_CACHE_SIZE = 500;
 const cache = new Map<string, { data: unknown; expiry: number }>();
 
 function getCached<T>(key: string): T | undefined {
@@ -18,6 +20,22 @@ function getCached<T>(key: string): T | undefined {
 }
 
 function setCache(key: string, data: unknown, ttl: number = CACHE_TTL): void {
+  if (cache.size >= MAX_CACHE_SIZE) {
+    const now = Date.now();
+    for (const [k, v] of cache) {
+      if (now > v.expiry) cache.delete(k);
+    }
+    // Still over limit — drop oldest entries (Map preserves insertion order)
+    if (cache.size >= MAX_CACHE_SIZE) {
+      const toDelete = cache.size - MAX_CACHE_SIZE + 50;
+      let deleted = 0;
+      for (const k of cache.keys()) {
+        if (deleted >= toDelete) break;
+        cache.delete(k);
+        deleted++;
+      }
+    }
+  }
   cache.set(key, { data, expiry: Date.now() + ttl });
 }
 
@@ -123,11 +141,42 @@ class StatsServiceError extends Error {
   }
 }
 
+// --- Circuit breaker ---
+// After CIRCUIT_OPEN_THRESHOLD consecutive failures, stop calling the stats
+// service for CIRCUIT_COOLDOWN_MS to let it recover.
+const CIRCUIT_OPEN_THRESHOLD = 5;
+const CIRCUIT_COOLDOWN_MS = 30_000;
+let consecutiveFailures = 0;
+let circuitOpenUntil = 0;
+
+function checkCircuitBreaker(): void {
+  if (Date.now() < circuitOpenUntil) {
+    throw new StatsServiceError("Stats service circuit breaker open", 503);
+  }
+}
+
+function recordSuccess(): void {
+  consecutiveFailures = 0;
+  circuitOpenUntil = 0;
+}
+
+function recordFailure(): void {
+  consecutiveFailures++;
+  if (consecutiveFailures >= CIRCUIT_OPEN_THRESHOLD) {
+    circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+    console.warn(
+      `[stats-service] Circuit breaker OPEN after ${consecutiveFailures} consecutive failures, cooldown ${CIRCUIT_COOLDOWN_MS / 1000}s`
+    );
+  }
+}
+
 async function fetchWithRetry(
   url: string,
   retries = 1,
   timeout = TIMEOUT_MS
 ): Promise<Response> {
+  checkCircuitBreaker();
+
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const controller = new AbortController();
@@ -139,13 +188,18 @@ async function fetchWithRetry(
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timer);
 
-      if (response.ok) return response;
+      if (response.ok) {
+        recordSuccess();
+        return response;
+      }
 
-      if (response.status === 503 && attempt < retries) {
-        await new Promise((r) => setTimeout(r, 1000));
+      if ([502, 503, 504, 429].includes(response.status) && attempt < retries) {
+        const delay = Math.min(1000 * 2 ** attempt, 8000) + Math.random() * 500;
+        await new Promise((r) => setTimeout(r, delay));
         continue;
       }
 
+      recordFailure();
       throw new StatsServiceError(
         `Stats service error: ${response.status}`,
         response.status
@@ -153,15 +207,18 @@ async function fetchWithRetry(
     } catch (error) {
       if (error instanceof StatsServiceError) throw error;
       if (attempt < retries) {
-        await new Promise((r) => setTimeout(r, 1000));
+        const delay = Math.min(1000 * 2 ** attempt, 8000) + Math.random() * 500;
+        await new Promise((r) => setTimeout(r, delay));
         continue;
       }
+      recordFailure();
       throw new StatsServiceError(
         `Stats service unavailable: ${error instanceof Error ? error.message : "Unknown error"}`,
         503
       );
     }
   }
+  recordFailure();
   throw new StatsServiceError("Stats service unreachable", 503);
 }
 
@@ -184,11 +241,14 @@ export async function fetchBoxscore(
 
   const response = await fetchWithRetry(
     `${STATS_SERVICE_URL}/games/${gameId}/boxscore`,
-    0
+    0,
+    BOXSCORE_TIMEOUT_MS
   );
   const data = await response.json();
   const result = data.data ?? [];
-  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  // Only cache non-empty boxscores for 1hr — empty results use short TTL
+  // so the next poll retries instead of serving stale empty data
+  setCache(cacheKey, result, result.length > 0 ? FINAL_CACHE_TTL : CACHE_TTL);
   return result;
 }
 
@@ -219,7 +279,8 @@ export async function fetchBoxscoreLive(
 
   const response = await fetchWithRetry(
     `${STATS_SERVICE_URL}/games/${gameId}/boxscore/live`,
-    0
+    0,
+    BOXSCORE_TIMEOUT_MS
   );
   const data = await response.json();
   const result = data.data ?? [];
@@ -274,11 +335,12 @@ export async function fetchSoccerBoxscore(
 
   const response = await fetchWithRetry(
     `${STATS_SERVICE_URL}/soccer/games/${fixtureId}/boxscore`,
-    0
+    0,
+    BOXSCORE_TIMEOUT_MS
   );
   const data = await response.json();
   const result = data.data ?? [];
-  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  setCache(cacheKey, result, result.length > 0 ? FINAL_CACHE_TTL : CACHE_TTL);
   return result;
 }
 
@@ -353,11 +415,12 @@ export async function fetchNcaabBoxscore(
 
   const response = await fetchWithRetry(
     `${STATS_SERVICE_URL}/ncaab/games/${eventId}/boxscore`,
-    0
+    0,
+    BOXSCORE_TIMEOUT_MS
   );
   const data = await response.json();
   const result = data.data ?? [];
-  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  setCache(cacheKey, result, result.length > 0 ? FINAL_CACHE_TTL : CACHE_TTL);
   return result;
 }
 
@@ -370,7 +433,8 @@ export async function fetchNcaabBoxscoreLive(
 
   const response = await fetchWithRetry(
     `${STATS_SERVICE_URL}/ncaab/games/${eventId}/boxscore/live`,
-    0
+    0,
+    BOXSCORE_TIMEOUT_MS
   );
   const data = await response.json();
   const result = data.data ?? [];
@@ -438,7 +502,8 @@ export async function fetchSoccerBoxscoreLive(
 
   const response = await fetchWithRetry(
     `${STATS_SERVICE_URL}/soccer/games/${fixtureId}/boxscore/live`,
-    0
+    0,
+    BOXSCORE_TIMEOUT_MS
   );
   const data = await response.json();
   const result = data.data ?? [];
