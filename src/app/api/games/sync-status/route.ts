@@ -180,17 +180,16 @@ export async function POST(request: NextRequest) {
     }
 
     // --- NBA lookback: fix old event IDs from the nba_api → ESPN migration ---
-    // Matches recent NBA games by team names and overwrites stale external_event_ids.
+    // Finds ALL NBA games with non-ESPN event IDs and overwrites them.
     try {
       const nbaLookbackStart = new Date(now);
-      nbaLookbackStart.setDate(nbaLookbackStart.getDate() - 7);
+      nbaLookbackStart.setDate(nbaLookbackStart.getDate() - 90);
 
       const nbaStaleResult = await supabase
         .from("games")
         .select("*")
         .eq("sport", "nba")
-        .gte("commence_time", nbaLookbackStart.toISOString())
-        .lt("commence_time", todayStart.toISOString()); // exclude today (already handled above)
+        .gte("commence_time", nbaLookbackStart.toISOString());
 
       const nbaStaleGames = (nbaStaleResult.data ?? []) as Game[];
       // Only process games that have no ESPN-format event ID
