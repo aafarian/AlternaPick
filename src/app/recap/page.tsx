@@ -248,12 +248,21 @@ export default async function RecapPage({
 
   // ── WEEKLY MODE ──
   if (mode === "weekly") {
+    const todayStr = new Date().toISOString().slice(0, 10);
     const requestedDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
       ? dateParam
-      : (availableDates.length > 0 ? availableDates[availableDates.length - 1] : new Date().toISOString().slice(0, 10));
+      : (availableDates.length > 0 ? availableDates[availableDates.length - 1] : todayStr);
 
     let monday = getMondayOfWeek(requestedDate);
     let sunday = getSundayOfWeek(monday);
+
+    // Don't show incomplete weeks — if Sunday hasn't passed, fall back to prior week
+    if (sunday >= todayStr) {
+      const priorMonday = new Date(`${monday}T00:00:00Z`);
+      priorMonday.setUTCDate(priorMonday.getUTCDate() - 7);
+      monday = priorMonday.toISOString().slice(0, 10);
+      sunday = getSundayOfWeek(monday);
+    }
 
     // Fetch all recap rows in the week range
     const { data: weekRecapRows } = await typedFrom(supabase, "recaps")
