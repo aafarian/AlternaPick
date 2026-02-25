@@ -10,7 +10,7 @@ export function useBatchLiveStats(
   onAllSettled?: () => void,
 ): { dataMap: Map<string, LiveCardData>; isLoading: boolean; error: string | null } {
   const [dataMap, setDataMap] = useState<Map<string, LiveCardData>>(new Map());
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(enabled && cardIds.length > 0);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stoppedRef = useRef(false);
