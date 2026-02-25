@@ -313,7 +313,25 @@ export async function fetchLiveMaps(
     }
   }
 
-  // Step 3: Fetch boxscores for live, final, and non-today games
+  // Build a set of game IDs where ALL referencing picks already have
+  // actual_value stored in the DB. No need to fetch boxscores for those —
+  // buildLivePicksForCard will use the stored value instead.
+  const gamesWithAllResolved = new Set<string>();
+  const gamesWithUnresolved = new Set<string>();
+  for (const pick of picks) {
+    const eventId = pick.props?.games?.external_event_id;
+    if (!eventId) continue;
+    if (pick.actual_value != null && pick.result && pick.result !== "pending") {
+      if (!gamesWithUnresolved.has(eventId)) {
+        gamesWithAllResolved.add(eventId);
+      }
+    } else {
+      gamesWithAllResolved.delete(eventId);
+      gamesWithUnresolved.add(eventId);
+    }
+  }
+
+  // Step 3: Fetch boxscores only for games that need them
   const fetches: Promise<void>[] = [];
 
   for (const [sport, candidateIds] of sportEntries) {
@@ -322,8 +340,12 @@ export async function fetchLiveMaps(
 
     const todayIds = Array.from(ids).filter((id) => gameStatusMap.has(id));
     const liveIds = todayIds.filter((id) => gameStatusMap.get(id)?.status === "live");
-    const finalIds = todayIds.filter((id) => gameStatusMap.get(id)?.status === "final");
-    const nonTodayIds = Array.from(ids).filter((id) => !gameStatusMap.has(id));
+    const finalIds = todayIds.filter((id) =>
+      gameStatusMap.get(id)?.status === "final" && !gamesWithAllResolved.has(id),
+    );
+    const nonTodayIds = Array.from(ids).filter((id) =>
+      !gameStatusMap.has(id) && !gamesWithAllResolved.has(id),
+    );
 
     // Live games — use the live boxscore endpoint (shorter cache)
     if (liveIds.length > 0) {
