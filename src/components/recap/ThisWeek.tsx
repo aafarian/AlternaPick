@@ -120,30 +120,35 @@ export function ThisWeek({ weeklyData, personalWeekly, hideStats }: ThisWeekProp
         {/* Highlights Row */}
         {(topPlayer || worstTrap || bestLock) && (
           <div className="mt-4 flex flex-col gap-2">
-            {/* Top Player */}
-            {topPlayer && (
-              <div className="flex items-start gap-2 rounded-lg bg-neon-green/10 px-3 py-2">
-                <Trophy className="mt-0.5 h-4 w-4 shrink-0 text-neon-green" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-neon-green">
-                    Top Player
-                  </p>
-                  <div className="mt-0.5 flex items-center gap-2">
-                    <p className="text-sm font-semibold text-foreground truncate">
-                      {topPlayer.playerName}
+            {/* Most Picked Player */}
+            {topPlayer && (() => {
+              const isPositive = topPlayer.hitRate >= 0.5;
+              const bgColor = isPositive ? "bg-neon-green/10" : "bg-bold-red/10";
+              const textColor = isPositive ? "text-neon-green" : "text-bold-red";
+              return (
+                <div className={`flex items-start gap-2 rounded-lg ${bgColor} px-3 py-2`}>
+                  <Trophy className={`mt-0.5 h-4 w-4 shrink-0 ${textColor}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-[10px] font-bold uppercase tracking-widest ${textColor}`}>
+                      Most Picked Player
                     </p>
-                    <Badge className="shrink-0 text-[9px] bg-primary/15 text-primary border-primary/30">
-                      {sportLabel(topPlayer.sport)}
-                    </Badge>
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {topPlayer.playerName}
+                      </p>
+                      <Badge className="shrink-0 text-[9px] bg-primary/15 text-primary border-primary/30">
+                        {sportLabel(topPlayer.sport)}
+                      </Badge>
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {Math.round(topPlayer.hitRate * 100)}% hit rate across{" "}
+                      {topPlayer.pickCount} pick
+                      {topPlayer.pickCount !== 1 ? "s" : ""}
+                    </p>
                   </div>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {Math.round(topPlayer.hitRate * 100)}% hit rate across{" "}
-                    {topPlayer.pickCount} pick
-                    {topPlayer.pickCount !== 1 ? "s" : ""}
-                  </p>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Worst Trap */}
             {worstTrap && (

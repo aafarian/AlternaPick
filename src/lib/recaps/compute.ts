@@ -914,18 +914,16 @@ export async function computeWeeklyRecap(
     const weekByPlayer = groupBy(allPicks, (p) => p.props?.player_name ?? "Unknown");
     const weekByProp = groupBy(allPicks, (p) => p.prop_id);
 
-    // Top player: highest hit rate with min picks and at least 50% hit rate
-    let bestRate = -1;
+    // Most picked player: player with the most picks across the week
+    let mostPicks = 0;
     for (const [playerName, picks] of Object.entries(weekByPlayer)) {
       if (picks.length < weeklyTopMin) continue;
-      const hits = picks.filter((p) => p.result === "hit").length;
-      const rate = hits / picks.length;
-      if (rate < 0.5) continue;
-      if (rate > bestRate) {
-        bestRate = rate;
+      if (picks.length > mostPicks) {
+        mostPicks = picks.length;
+        const hits = picks.filter((p) => p.result === "hit").length;
         topPlayer = {
           playerName,
-          hitRate: round(rate, 3),
+          hitRate: round(hits / picks.length, 3),
           pickCount: picks.length,
           sport: picks[0].props?.games?.sport ?? "unknown",
         };
