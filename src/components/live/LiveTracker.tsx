@@ -71,17 +71,23 @@ function CardTypeBadge({ card }: { card: CardWithPicks }) {
 function LiveCard({
   card,
   liveData,
-  isLoading,
+  hasFetched,
   hasError,
 }: {
   card: CardWithPicks;
   liveData: LiveCardData | undefined;
-  isLoading: boolean;
+  hasFetched: boolean;
   hasError: boolean;
 }) {
+  // Before first fetch completes, pass empty picks so LivePickCard shows skeletons.
+  // After fetch, use live data or fall back to static pick data.
+  const picks = !hasFetched
+    ? []
+    : (liveData?.picks ?? buildFallbackPicks(card.picks));
+
   const content = (
     <LivePickCard
-      picks={liveData?.picks ?? buildFallbackPicks(card.picks)}
+      picks={picks}
       hasLiveGames={liveData?.has_live_games ?? false}
       games={liveData?.games}
       statusLabel={
@@ -90,7 +96,7 @@ function LiveCard({
           {card.picks.length} picks
         </span>
       }
-      loading={isLoading && !liveData}
+      loading={!hasFetched}
       pickCount={card.picks.length}
       error={hasError}
     />
@@ -127,7 +133,7 @@ export default function LiveTracker({
     [initialCards]
   );
 
-  const { dataMap, isLoading, error } = useBatchLiveStats(
+  const { dataMap, isLoading, hasFetched, error } = useBatchLiveStats(
     cardIds,
     initialCards.length > 0,
     handleAllSettled,
@@ -150,7 +156,7 @@ export default function LiveTracker({
           key={card.id}
           card={card}
           liveData={dataMap.get(card.id)}
-          isLoading={isLoading}
+          hasFetched={hasFetched}
           hasError={!!error}
         />
       ))}
