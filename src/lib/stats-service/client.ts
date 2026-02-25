@@ -212,8 +212,15 @@ async function fetchWithRetry(
         continue;
       }
       recordFailure();
+      const urlPath = url.replace(STATS_SERVICE_URL, "");
+      if (error instanceof DOMException && error.name === "AbortError") {
+        throw new StatsServiceError(
+          `Stats service timeout after ${timeout}ms: ${urlPath}`,
+          504
+        );
+      }
       throw new StatsServiceError(
-        `Stats service unavailable: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Stats service network error: ${error instanceof Error ? error.message : "Unknown error"} (${urlPath})`,
         503
       );
     }
@@ -232,6 +239,20 @@ export async function fetchTodaysGames(): Promise<StatsGame[]> {
   return data.data ?? [];
 }
 
+export async function fetchNbaGamesByDate(date: string): Promise<StatsGame[]> {
+  const cacheKey = `nbaGamesByDate:${date}`;
+  const cached = getCached<StatsGame[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/games/today?date=${encodeURIComponent(date)}`
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  return result;
+}
+
 export async function fetchBoxscore(
   gameId: string
 ): Promise<PlayerBoxScore[]> {
@@ -241,7 +262,7 @@ export async function fetchBoxscore(
 
   const response = await fetchWithRetry(
     `${STATS_SERVICE_URL}/games/${gameId}/boxscore`,
-    0,
+    1,
     BOXSCORE_TIMEOUT_MS
   );
   const data = await response.json();
@@ -279,7 +300,7 @@ export async function fetchBoxscoreLive(
 
   const response = await fetchWithRetry(
     `${STATS_SERVICE_URL}/games/${gameId}/boxscore/live`,
-    0,
+    1,
     BOXSCORE_TIMEOUT_MS
   );
   const data = await response.json();
@@ -335,7 +356,7 @@ export async function fetchSoccerBoxscore(
 
   const response = await fetchWithRetry(
     `${STATS_SERVICE_URL}/soccer/games/${fixtureId}/boxscore`,
-    0,
+    1,
     BOXSCORE_TIMEOUT_MS
   );
   const data = await response.json();
@@ -415,7 +436,7 @@ export async function fetchNcaabBoxscore(
 
   const response = await fetchWithRetry(
     `${STATS_SERVICE_URL}/ncaab/games/${eventId}/boxscore`,
-    0,
+    1,
     BOXSCORE_TIMEOUT_MS
   );
   const data = await response.json();
@@ -433,7 +454,7 @@ export async function fetchNcaabBoxscoreLive(
 
   const response = await fetchWithRetry(
     `${STATS_SERVICE_URL}/ncaab/games/${eventId}/boxscore/live`,
-    0,
+    1,
     BOXSCORE_TIMEOUT_MS
   );
   const data = await response.json();
@@ -502,7 +523,7 @@ export async function fetchSoccerBoxscoreLive(
 
   const response = await fetchWithRetry(
     `${STATS_SERVICE_URL}/soccer/games/${fixtureId}/boxscore/live`,
-    0,
+    1,
     BOXSCORE_TIMEOUT_MS
   );
   const data = await response.json();

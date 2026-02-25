@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchTodaysGames, fetchSoccerGames, fetchLaLigaGames, fetchNcaabGames, fetchNcaabGamesByDate } from "@/lib/stats-service/client";
+import { fetchTodaysGames, fetchNbaGamesByDate, fetchSoccerGames, fetchLaLigaGames, fetchNcaabGames, fetchNcaabGamesByDate } from "@/lib/stats-service/client";
 import { resolveEligibleCards, reResolveStaleCards } from "@/lib/cards/resolution";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import { unauthorized, serverError, handleApiError } from "@/lib/api/errors";
@@ -177,6 +177,101 @@ export async function POST(request: NextRequest) {
           }
         }
       }
+    }
+
+    // --- NBA lookback: fix old event IDs from the nba_api → ESPN migration ---
+    // Matches recent NBA games by team names and overwrites stale external_event_ids.
+    try {
+      const nbaLookbackStart = new Date(now);
+      nbaLookbackStart.setDate(nbaLookbackStart.getDate() - 7);
+
+      const nbaStaleResult = await supabase
+        .from("games")
+        .select("*")
+        .eq("sport", "nba")
+        .gte("commence_time", nbaLookbackStart.toISOString())
+        .lt("commence_time", todayStart.toISOString()); // exclude today (already handled above)
+
+      const nbaStaleGames = (nbaStaleResult.data ?? []) as Game[];
+      // Only process games that have no ESPN-format event ID
+      const nbaUnmatched = nbaStaleGames.filter(
+        (g) => !g.external_event_id || !g.external_event_id.startsWith("401")
+      );
+
+      if (nbaUnmatched.length > 0) {
+        const datesToFetch = new Set<string>();
+        for (const g of nbaUnmatched) {
+          if (g.commence_time) {
+            const d = new Date(g.commence_time);
+            datesToFetch.add(d.toISOString().slice(0, 10).replace(/-/g, ""));
+            // Also check day before for UTC boundary edge cases
+            const dayBefore = new Date(d);
+            dayBefore.setDate(dayBefore.getDate() - 1);
+            datesToFetch.add(dayBefore.toISOString().slice(0, 10).replace(/-/g, ""));
+          }
+        }
+
+        const allEspnNbaGames = (
+          await Promise.all(
+            Array.from(datesToFetch).map((dateStr) =>
+              fetchNbaGamesByDate(dateStr).catch(() => [])
+            )
+          )
+        ).flat();
+
+        // Collect all matched updates, then batch them
+        const pendingUpdates: { match: Game; espnGame: typeof allEspnNbaGames[0]; newStatus: string }[] = [];
+
+        for (const espnGame of allEspnNbaGames) {
+          const homeTeamFull = TRICODE_TO_TEAM[espnGame.home_tricode];
+          const awayTeamFull = TRICODE_TO_TEAM[espnGame.away_tricode];
+
+          const match = nbaUnmatched.find((g) => {
+            // Skip already-matched games
+            if ((g as any)._matched) return false;
+            const homeMatch =
+              g.home_team === homeTeamFull ||
+              teamsMatch(g.home_team, espnGame.home_team);
+            const awayMatch =
+              g.away_team === awayTeamFull ||
+              teamsMatch(g.away_team, espnGame.away_team);
+            return homeMatch && awayMatch;
+          });
+
+          if (!match) continue;
+
+          (match as any)._matched = true;
+          pendingUpdates.push({ match, espnGame, newStatus: mapNbaStatus(espnGame.status) });
+        }
+
+        // Execute all DB updates in parallel
+        const results = await Promise.all(
+          pendingUpdates.map(({ match, espnGame, newStatus }) =>
+            (supabase.from("games") as any)
+              .update({
+                status: newStatus,
+                home_score: espnGame.home_score,
+                away_score: espnGame.away_score,
+                external_event_id: espnGame.game_id,
+              })
+              .eq("id", match.id)
+              .then((res: any) => ({ ...res, match, espnGame, newStatus }))
+          )
+        );
+
+        for (const { error: updateError, match, espnGame, newStatus } of results) {
+          if (!updateError) {
+            updated.push({
+              odds_team: `${match.away_team} @ ${match.home_team}`,
+              nba_team: `${espnGame.away_team} @ ${espnGame.home_team}`,
+              status: newStatus,
+              external_event_id: espnGame.game_id,
+            });
+          }
+        }
+      }
+    } catch (nbaLookbackError) {
+      logError("game-sync", `Failed NBA lookback: ${nbaLookbackError instanceof Error ? nbaLookbackError.message : nbaLookbackError}`, "/api/games/sync-status");
     }
 
     // --- Soccer (EPL) game sync ---
