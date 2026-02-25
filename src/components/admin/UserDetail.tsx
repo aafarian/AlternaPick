@@ -346,6 +346,7 @@ function RecentCardsTable({
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead>Card ID</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Score</TableHead>
           <TableHead>Picks</TableHead>
@@ -357,7 +358,16 @@ function RecentCardsTable({
       </TableHeader>
       <TableBody>
         {cards.map((card) => (
-          <TableRow key={card.id}>
+          <TableRow key={card.id} className="cursor-pointer hover:bg-muted/50" onClick={() => window.location.href = `/admin/lookup/card/${card.id}`}>
+            <TableCell>
+              <Link
+                href={`/admin/lookup/card/${card.id}`}
+                className="font-mono text-xs text-primary hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {card.id.slice(0, 8)}
+              </Link>
+            </TableCell>
             <TableCell>
               <Badge variant={cardStatusVariant(card.status)}>
                 {card.status}
@@ -375,14 +385,16 @@ function RecentCardsTable({
               {formatDateTime(card.resolvedAt)}
             </TableCell>
             <TableCell>
-              <InlineActionButton
-                icon={Trash2}
-                title="Delete this card?"
-                description="This will remove the card and all its picks."
-                action="delete_card"
-                targetId={card.id}
-                onActionComplete={onActionComplete}
-              />
+              <span onClick={(e) => e.stopPropagation()}>
+                <InlineActionButton
+                  icon={Trash2}
+                  title="Delete this card?"
+                  description="This will remove the card and all its picks."
+                  action="delete_card"
+                  targetId={card.id}
+                  onActionComplete={onActionComplete}
+                />
+              </span>
             </TableCell>
           </TableRow>
         ))}
