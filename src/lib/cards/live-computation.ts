@@ -365,18 +365,24 @@ export async function fetchLiveMaps(
   // Step 3: Fetch boxscores only for games that need them
   const fetches: Promise<void>[] = [];
 
+  // NBA games with old nba_api-format IDs (numeric, not starting with "401")
+  // will always 503 on the ESPN-based stats service. Skip them entirely —
+  // buildLivePicksForCard falls back to DB actual_value for resolved picks.
+  const isStaleNbaId = (sport: string, id: string) =>
+    sport === "nba" && /^\d+$/.test(id) && !id.startsWith("401");
+
   for (const [sport, candidateIds] of sportEntries) {
     const fetcher = SPORT_FETCHERS[sport];
     const ids = candidatesBySport.get(sport)!;
 
-    const todayIds = Array.from(ids).filter((id) => gameStatusMap.has(id));
+    const todayIds = Array.from(ids).filter((id) => gameStatusMap.has(id) && !isStaleNbaId(sport, id));
     const liveIds = todayIds.filter((id) => gameStatusMap.get(id)?.status === "live");
     const finalIds = todayIds.filter((id) =>
       gameStatusMap.get(id)?.status === "final" && !gamesWithAllResolved.has(id),
     );
-    // Skip non-today games that are scheduled (no boxscore exists) or fully resolved
+    // Skip non-today games that are scheduled (no boxscore exists), fully resolved, or have stale IDs
     const nonTodayIds = Array.from(ids).filter((id) =>
-      !gameStatusMap.has(id) && !gamesWithAllResolved.has(id) && !gamesScheduledInDb.has(id),
+      !gameStatusMap.has(id) && !gamesWithAllResolved.has(id) && !gamesScheduledInDb.has(id) && !isStaleNbaId(sport, id),
     );
 
     // Live games — use the live boxscore endpoint (shorter cache)
