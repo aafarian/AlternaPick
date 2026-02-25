@@ -159,10 +159,10 @@ export default function CardBuilderPanel() {
 
   const opponentLabel = challengeOpponent?.username ?? null;
 
-  // Constraint banner — only for existing challenges with constrained modes
+  // Constraint banner — for constrained modes (one_player/one_team)
   const modeConfig = getModeConfig(gameMode);
   let filterBanner: string | null = null;
-  if (challengeId && picks.length > 0) {
+  if (picks.length > 0) {
     if (modeConfig.constraints.samePlayer) {
       filterBanner = `One Player Mode: All picks must be for ${picks[0].player_name}`;
     } else if (modeConfig.constraints.sameTeam) {
@@ -229,7 +229,7 @@ export default function CardBuilderPanel() {
                   activeMode={gameMode}
                   onSelect={handleModeSelect}
                   compact
-                  modes={["classic", "sabotage", "mirror"]}
+                  modes={["classic", "sabotage", "mirror", "one_player", "one_team"]}
                 />
               </div>
 
@@ -370,7 +370,7 @@ export default function CardBuilderPanel() {
               </div>
             )}
 
-            {/* Constraint filter banner — existing challenges only */}
+            {/* Constraint filter banner */}
             {filterBanner && (
               <div className="mb-2 flex items-center gap-2 rounded-lg border border-neon-green/30 bg-neon-green/10 px-3 py-1.5">
                 <span className="text-sm font-semibold text-neon-green">
