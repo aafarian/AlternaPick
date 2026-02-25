@@ -2,7 +2,6 @@
 
 import { ChevronDown } from "lucide-react";
 import type { Game, Prop, StatCategory } from "@/lib/supabase/types";
-import type { EdgeMap } from "@/lib/analytics/types";
 import PropLine from "./PropLine";
 import CountdownBadge from "./CountdownBadge";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
@@ -52,18 +51,12 @@ interface GameCardProps {
   game: Game & { props: Prop[] };
   expanded: boolean;
   onToggle: () => void;
-  /** Category-level edge rates keyed by stat_category */
-  categoryEdges?: EdgeMap;
-  /** Player-level edge rates keyed by player_name */
-  playerEdges?: EdgeMap;
 }
 
 export default function GameCard({
   game,
   expanded,
   onToggle,
-  categoryEdges = {},
-  playerEdges = {},
 }: GameCardProps) {
   // Sort props: group by team (away first, then home), then by stat category within each team
   const awayCode = teamTricode(game.away_team);
@@ -114,34 +107,23 @@ export default function GameCard({
       {expanded && (
         <CardContent className="p-3">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
-            {sortedProps.map((prop) => {
-              // Pick the higher of player edge vs category edge
-              const catRate = categoryEdges[prop.stat_category];
-              const plrRate = playerEdges[prop.player_name];
-              const edgeRate =
-                catRate !== undefined && plrRate !== undefined
-                  ? Math.max(catRate, plrRate)
-                  : catRate ?? plrRate;
-
-              return (
-                <PropLine
-                  key={prop.id}
-                  propId={prop.id}
-                  gameId={game.id}
-                  playerName={prop.player_name}
-                  playerId={prop.player_id}
-                  playerTeam={prop.player_team}
-                  playerPosition={prop.player_position}
-                  statCategory={prop.stat_category}
-                  line={prop.line}
-                  awayTeam={game.away_team}
-                  homeTeam={game.home_team}
-                  lineHistory={prop.line_history}
-                  edgeRate={edgeRate}
-                  sport={game.sport}
-                />
-              );
-            })}
+            {sortedProps.map((prop) => (
+              <PropLine
+                key={prop.id}
+                propId={prop.id}
+                gameId={game.id}
+                playerName={prop.player_name}
+                playerId={prop.player_id}
+                playerTeam={prop.player_team}
+                playerPosition={prop.player_position}
+                statCategory={prop.stat_category}
+                line={prop.line}
+                awayTeam={game.away_team}
+                homeTeam={game.home_team}
+                lineHistory={prop.line_history}
+                sport={game.sport}
+              />
+            ))}
           </div>
         </CardContent>
       )}

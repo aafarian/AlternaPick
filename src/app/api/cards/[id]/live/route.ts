@@ -8,6 +8,7 @@ import {
 } from "@/lib/cards/live-computation";
 import type { LiveCardData } from "@/lib/cards/live-types";
 import { tryResolveFromLiveData } from "@/lib/cards/resolution";
+import { logError } from "@/lib/logger";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -63,7 +64,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         const results = await tryResolveFromLiveData([card], gameStatusMap, boxscoreMap);
         cardResolved = results.some((r) => r.card_id === card.id);
       } catch (err) {
-        console.error("Auto-resolution from live endpoint failed:", err);
+        logError("resolution", `Auto-resolution from live endpoint failed: ${err instanceof Error ? err.message : err}`, `/api/cards/${id}/live`);
       }
     }
 

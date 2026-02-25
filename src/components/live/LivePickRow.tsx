@@ -87,7 +87,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
 
         {/* Line */}
         <span className="text-sm font-bold tabular-nums">
-          {pick.line || "\u2014"}
+          {pick.line ?? "\u2014"}
         </span>
 
         {/* Over/Under badge */}

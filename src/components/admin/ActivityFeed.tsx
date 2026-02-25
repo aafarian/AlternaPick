@@ -64,6 +64,9 @@ function ActivityRow({ item }: { item: AdminActivityItem }) {
   const colorClasses =
     ACTIVITY_EVENT_COLORS[item.type] ?? "bg-muted text-muted-foreground";
 
+  const cardId = item.metadata.cardId as string | undefined;
+  const challengeId = item.metadata.challengeId as string | undefined;
+
   return (
     <div className="flex items-start gap-3 px-4 py-3">
       {/* Avatar */}
@@ -91,6 +94,25 @@ function ActivityRow({ item }: { item: AdminActivityItem }) {
         </div>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {item.description}
+          {cardId && (
+            <>
+              {" "}
+              <Link
+                href={`/admin/lookup/card/${cardId}`}
+                className="font-mono text-xs text-primary hover:underline"
+              >
+                {cardId.slice(0, 8)}
+              </Link>
+            </>
+          )}
+          {challengeId && (
+            <>
+              {" "}
+              <span className="font-mono text-xs text-muted-foreground/70">
+                {challengeId.slice(0, 8)}
+              </span>
+            </>
+          )}
         </p>
       </div>
 

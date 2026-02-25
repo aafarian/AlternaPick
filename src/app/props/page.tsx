@@ -1,10 +1,6 @@
 import { Suspense } from "react";
 import { getCachedProps, getCachedPropCounts } from "@/lib/odds-api/cache";
 import type { StatCategory } from "@/lib/supabase/types";
-import { createClient } from "@/lib/supabase/server";
-import { getCurrentUser } from "@/lib/auth/helpers";
-import { getCategoryStats, getPlayerStats } from "@/lib/analytics/queries";
-import type { EdgeMap } from "@/lib/analytics/types";
 import { teamMatchesQuery } from "@/lib/constants";
 import { fetchNcaabTeams } from "@/lib/stats-service/client";
 import { type SportKey, SPORT_PRIORITY, SPORT_KEYS, SPORT_CONFIG } from "@/lib/sports";
@@ -16,11 +12,6 @@ import PropsGameList from "@/components/props/PropsGameList";
 import NcaabTeamRegistrar from "@/components/props/NcaabTeamRegistrar";
 import { SlideUp, FadeIn } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
-
-/** Minimum accuracy threshold (0-1) to qualify as an "edge" */
-const EDGE_MIN_RATE = 0.65;
-/** Minimum resolved picks to qualify as an "edge" */
-const EDGE_MIN_TOTAL = 5;
 
 interface PropsPageProps {
   searchParams: Promise<{ category?: string; player?: string; sport?: string }>;
@@ -64,35 +55,6 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
     } catch {
       // ESPN unavailable — team logos fall back to tricode text
     }
-  }
-
-  // Build edge maps for authenticated users
-  let categoryEdges: EdgeMap = {};
-  let playerEdges: EdgeMap = {};
-
-  try {
-    const supabase = await createClient();
-    const user = await getCurrentUser(supabase);
-
-    if (user) {
-      const [catStats, plrStats] = await Promise.all([
-        getCategoryStats(supabase, user.id),
-        getPlayerStats(supabase, user.id, 500),
-      ]);
-
-      for (const cs of catStats) {
-        if (cs.total >= EDGE_MIN_TOTAL && cs.rate >= EDGE_MIN_RATE) {
-          categoryEdges[cs.category] = cs.rate;
-        }
-      }
-      for (const ps of plrStats) {
-        if (ps.total >= EDGE_MIN_TOTAL && ps.rate >= EDGE_MIN_RATE) {
-          playerEdges[ps.player_name] = ps.rate;
-        }
-      }
-    }
-  } catch {
-    // If analytics fetch fails, continue without edge data
   }
 
   // Default to "all" when no category param
@@ -174,8 +136,6 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
         <PropsGameList
           key={`${sport}-${category}`}
           games={withProps}
-          categoryEdges={categoryEdges}
-          playerEdges={playerEdges}
         />
         </FadeIn>
       )}

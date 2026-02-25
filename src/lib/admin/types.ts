@@ -253,6 +253,8 @@ export interface AdminSystemHealth {
     lastSyncAt: string | null;
     totalProps: number;
     propsToday: number;
+    creditsRemaining: number | null;
+    creditsUsed: number | null;
   };
   games: {
     scheduledToday: number;
@@ -263,6 +265,12 @@ export interface AdminSystemHealth {
   errors: {
     recentApiErrors: Array<{
       message: string;
+      timestamp: string;
+      endpoint: string | null;
+    }>;
+    runtimeErrors: Array<{
+      message: string;
+      category: string;
       timestamp: string;
       endpoint: string | null;
     }>;

@@ -13,6 +13,7 @@ import type {
 } from "@/lib/cards/live-types";
 import { tryResolveFromLiveData } from "@/lib/cards/resolution";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
+import { logError } from "@/lib/logger";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -87,7 +88,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       try {
         await tryResolveFromLiveData(cardsList, gameStatusMap, boxscoreMap);
       } catch (err) {
-        console.error("tryResolveFromLiveData failed:", err);
+        logError("resolution", `tryResolveFromLiveData failed: ${err instanceof Error ? err.message : err}`, `/api/challenges/${id}/live`);
       }
     }
 
@@ -99,7 +100,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         const results = await resolveEligibleChallenges();
         challengeResolved = results.some((r) => r.challenge_id === id);
       } catch (err) {
-        console.error("resolveEligibleChallenges failed:", err);
+        logError("resolution", `resolveEligibleChallenges failed: ${err instanceof Error ? err.message : err}`, `/api/challenges/${id}/live`);
       }
     }
 

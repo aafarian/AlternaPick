@@ -23,9 +23,13 @@ export async function isSyncOverlapping(): Promise<boolean> {
 }
 
 /**
- * Returns odds_api_event_ids for upcoming games that already have props in the DB.
- * The sync pipeline uses this to skip re-fetching events, saving API credits.
+ * Returns odds_api_event_ids for upcoming games that already have enough props.
+ * Games with fewer than MIN_PROPS_TO_SKIP props are NOT included, so the sync
+ * pipeline re-fetches them — this handles games where only a few early props
+ * appeared but the Odds API adds more throughout the day.
  */
+const MIN_PROPS_TO_SKIP = 10;
+
 export async function getEventIdsWithProps(): Promise<Set<string>> {
   const supabase = createAdminClient();
 
@@ -33,17 +37,22 @@ export async function getEventIdsWithProps(): Promise<Set<string>> {
   const rangeStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const rangeEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  // !inner join returns only games that have at least one prop — single query,
-  // one row per game, no row-limit concerns
   const result = await supabase
     .from("games")
-    .select("odds_api_event_id, props!inner(id)")
+    .select("odds_api_event_id, props(count)")
     .gte("commence_time", rangeStart.toISOString())
     .lte("commence_time", rangeEnd.toISOString())
     .not("odds_api_event_id", "is", null);
 
+  const games = (result.data ?? []) as {
+    odds_api_event_id: string;
+    props: { count: number }[];
+  }[];
+
   return new Set(
-    ((result.data ?? []) as { odds_api_event_id: string }[]).map((g) => g.odds_api_event_id)
+    games
+      .filter((g) => (g.props[0]?.count ?? 0) >= MIN_PROPS_TO_SKIP)
+      .map((g) => g.odds_api_event_id)
   );
 }
 

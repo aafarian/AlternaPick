@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
@@ -8,6 +9,7 @@ import {
 } from "@/lib/cards/live-computation";
 import type { LiveCardData } from "@/lib/cards/live-types";
 import { tryResolveFromLiveData } from "@/lib/cards/resolution";
+import { logError } from "@/lib/logger";
 
 interface CardWithPicks {
   id: string;
@@ -78,12 +80,15 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // Auto-resolve cards whose games are all final (reuses pre-fetched data)
-    try {
-      await tryResolveFromLiveData(cards, gameStatusMap, boxscoreMap);
-    } catch (err) {
-      console.error("Auto-resolution from live endpoint failed:", err);
-    }
+    // Auto-resolve cards whose games are all final — runs after response is sent
+    // so it doesn't block the user from seeing live data
+    after(async () => {
+      try {
+        await tryResolveFromLiveData(cards, gameStatusMap, boxscoreMap);
+      } catch (err) {
+        logError("resolution", `Auto-resolution from live endpoint failed: ${err instanceof Error ? err.message : err}`, "/api/cards/live");
+      }
+    });
 
     return NextResponse.json(
       { cards: result },

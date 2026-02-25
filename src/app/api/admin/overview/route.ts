@@ -100,10 +100,9 @@ export async function GET() {
     if (winRateResult.error) throw new Error(winRateResult.error.message);
 
     const dailyActiveUsersResult = await supabase
-      .from("cards")
-      .select("user_id")
-      .gte("created_at", todayStart)
-      .limit(10000);
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .gte("last_active_at", todayStart);
     if (dailyActiveUsersResult.error) throw new Error(dailyActiveUsersResult.error.message);
 
     // Compute average win rate from fetched rows
@@ -115,10 +114,7 @@ export async function GET() {
           winRates.length
         : 0;
 
-    // Compute daily active users from distinct user_ids
-    const dauRows =
-      (dailyActiveUsersResult.data as { user_id: string }[] | null) ?? [];
-    const dailyActiveUsers = new Set(dauRows.map((r) => r.user_id)).size;
+    const dailyActiveUsers = dailyActiveUsersResult.count ?? 0;
 
     const stats: AdminOverviewStats = {
       totalUsers: totalUsersResult.count ?? 0,

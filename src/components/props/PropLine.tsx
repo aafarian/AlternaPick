@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { Target } from "lucide-react";
 import type { StatCategory } from "@/lib/supabase/types";
 import { CATEGORY_LABELS, CATEGORY_COLORS, teamLogoUrl } from "@/lib/constants";
 import { getPlayerHeadshotUrl, getHeadshotConfig } from "@/lib/sports";
@@ -24,8 +23,6 @@ interface PropLineProps {
   awayTeam: string;
   homeTeam: string;
   lineHistory: Array<{ t: string; l: number }> | null;
-  /** User's historical accuracy rate (0-1) for this prop's player/category */
-  edgeRate?: number;
   sport?: string;
 }
 
@@ -82,7 +79,6 @@ export default function PropLine({
   awayTeam,
   homeTeam,
   lineHistory,
-  edgeRate,
   sport,
 }: PropLineProps) {
   const { addPick, removePick, isPickSelected, getSelection, isFull, state } =
@@ -230,16 +226,6 @@ export default function PropLine({
           );
         })()}
 
-        {/* Personal hit rate indicator */}
-        {edgeRate !== undefined && (
-          <span
-            className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-neon-green"
-            title={`You hit ${Math.round(edgeRate * 100)}% on this player`}
-          >
-            <Target size={12} className="shrink-0" />
-            You hit {Math.round(edgeRate * 100)}%
-          </span>
-        )}
       </div>
 
       {/* Over / Under buttons */}

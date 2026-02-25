@@ -12,7 +12,7 @@ interface DateNavigatorProps {
 
 function getYesterday(): string {
   const d = new Date();
-  d.setDate(d.getDate() - 1);
+  d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
 }
 
@@ -42,11 +42,18 @@ function formatWeekRange(monday: string): string {
   return `${monMonth} ${monDay} - ${sunMonth} ${sunDay}`;
 }
 
-/** Group available dates into Mon-Sun weeks, returning Monday of each week */
+/** Group available dates into Mon-Sun weeks, returning Monday of each week.
+ *  Excludes the current incomplete week (Sunday hasn't ended yet in UTC). */
 function groupIntoWeeks(dates: string[]): string[] {
   const mondays = new Set<string>();
+  const todayStr = new Date().toISOString().slice(0, 10);
   for (const date of dates) {
-    mondays.add(getMondayOfWeek(date));
+    const monday = getMondayOfWeek(date);
+    const sunday = getSundayOfWeek(monday);
+    // Only include completed weeks (Sunday is in the past)
+    if (sunday < todayStr) {
+      mondays.add(monday);
+    }
   }
   return [...mondays].sort();
 }
