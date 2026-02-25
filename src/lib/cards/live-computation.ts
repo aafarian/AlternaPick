@@ -343,6 +343,8 @@ export async function fetchLiveMaps(
   // buildLivePicksForCard will use the stored value instead.
   const gamesWithAllResolved = new Set<string>();
   const gamesWithUnresolved = new Set<string>();
+  // Games whose DB status is "scheduled" — no boxscore exists yet, skip fetch
+  const gamesScheduledInDb = new Set<string>();
   for (const pick of picks) {
     const eventId = pick.props?.games?.external_event_id;
     if (!eventId) continue;
@@ -353,6 +355,9 @@ export async function fetchLiveMaps(
     } else {
       gamesWithAllResolved.delete(eventId);
       gamesWithUnresolved.add(eventId);
+    }
+    if (pick.props?.games?.status === "scheduled") {
+      gamesScheduledInDb.add(eventId);
     }
   }
 
@@ -368,8 +373,9 @@ export async function fetchLiveMaps(
     const finalIds = todayIds.filter((id) =>
       gameStatusMap.get(id)?.status === "final" && !gamesWithAllResolved.has(id),
     );
+    // Skip non-today games that are scheduled (no boxscore exists) or fully resolved
     const nonTodayIds = Array.from(ids).filter((id) =>
-      !gameStatusMap.has(id) && !gamesWithAllResolved.has(id),
+      !gameStatusMap.has(id) && !gamesWithAllResolved.has(id) && !gamesScheduledInDb.has(id),
     );
 
     // Live games — use the live boxscore endpoint (shorter cache)

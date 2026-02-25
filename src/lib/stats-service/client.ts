@@ -239,6 +239,20 @@ export async function fetchTodaysGames(): Promise<StatsGame[]> {
   return data.data ?? [];
 }
 
+export async function fetchNbaGamesByDate(date: string): Promise<StatsGame[]> {
+  const cacheKey = `nbaGamesByDate:${date}`;
+  const cached = getCached<StatsGame[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/games/today?date=${encodeURIComponent(date)}`
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  return result;
+}
+
 export async function fetchBoxscore(
   gameId: string
 ): Promise<PlayerBoxScore[]> {
