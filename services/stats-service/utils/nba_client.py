@@ -12,13 +12,14 @@ ESPN needs only 0.3s between calls, matching our NCAAB client pattern.
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from difflib import SequenceMatcher
+from zoneinfo import ZoneInfo
 
 import httpx
 
-# US Eastern: ESPN dates are in ET
-_ET = timezone(timedelta(hours=-5))
+# US Eastern: ESPN dates are in ET (handles EST/EDT automatically)
+_ET = ZoneInfo("America/New_York")
 
 logger = logging.getLogger(__name__)
 

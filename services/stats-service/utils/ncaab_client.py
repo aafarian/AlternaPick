@@ -11,14 +11,13 @@ groups=50 filters to Division I only.
 import asyncio
 import logging
 import time
-from datetime import date, datetime, timezone, timedelta
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 import httpx
 
-# US Eastern: ESPN dates are in ET. Using a fixed UTC-5 offset is sufficient
-# for date calculation (worst case we're off by 1 hour during DST transition,
-# but the scoreboard date will still be correct for evening games).
-_ET = timezone(timedelta(hours=-5))
+# US Eastern: ESPN dates are in ET (handles EST/EDT automatically)
+_ET = ZoneInfo("America/New_York")
 
 logger = logging.getLogger(__name__)
 
