@@ -86,16 +86,8 @@ function StatusBadge({ status, score, total }: { status: string; score: number; 
 
 export default function CardDetail({ card, linked = true }: { card: CardWithPicks; linked?: boolean }) {
   const isLocked = card.status === "locked";
-  // Also fetch live data for resolved cards with missing actual_value —
-  // resolution may have run before boxscore data was available on ESPN.
-  // The hook auto-stops polling once has_live_games is false (one-shot fetch).
-  const hasMissingValues =
-    card.status === "resolved" &&
-    card.picks.some(
-      (p) => p.actual_value === null && (p.result === "hit" || p.result === "miss")
-    );
   const router = useRouter();
-  const { data: liveData, cardResolved } = useLiveStats(card.id, isLocked || hasMissingValues);
+  const { data: liveData, cardResolved } = useLiveStats(card.id, isLocked);
 
   // Refresh page data when the backend resolves the card during live polling
   useEffect(() => {

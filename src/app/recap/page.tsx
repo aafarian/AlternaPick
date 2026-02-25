@@ -341,7 +341,7 @@ export default async function RecapPage({
       : null;
 
     return (
-      <div className="flex flex-col gap-6 py-8">
+      <div key={monday} className="flex flex-col gap-6 py-8">
         {/* Header + Mode Toggle */}
         <SlideUp>
           <RecapHeader
@@ -466,7 +466,7 @@ export default async function RecapPage({
   const platformHitPercent = Math.round(recapData.platformHitRate * 100);
 
   return (
-    <div className="flex flex-col gap-6 py-8">
+    <div key={currentDate} className="flex flex-col gap-6 py-8">
       {/* 1. Header + Mode Toggle + Date Navigator */}
       <SlideUp>
         <RecapHeader
