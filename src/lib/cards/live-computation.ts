@@ -31,8 +31,9 @@ async function pMap<T, R>(
   let idx = 0;
 
   async function worker() {
-    while (idx < items.length) {
+    while (true) {
       const i = idx++;
+      if (i >= items.length) break;
       results[i] = await fn(items[i]);
     }
   }
