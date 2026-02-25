@@ -23,6 +23,7 @@ export function logError(
   endpoint?: string,
 ): void {
   console.error(`[${category}] ${message}`);
+  if (process.env.NODE_ENV !== "production") return;
   entries.push({
     message,
     category,
