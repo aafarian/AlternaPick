@@ -6,6 +6,7 @@ import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import { unauthorized, serverError, handleApiError } from "@/lib/api/errors";
 import { registerNcaabTeamIds } from "@/lib/constants";
 import type { Game } from "@/lib/supabase/types";
+import { logError } from "@/lib/logger";
 
 // Map NBA.com tricodes to Odds API full team names
 const TRICODE_TO_TEAM: Record<string, string> = {
@@ -227,7 +228,7 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (soccerError) {
-      console.error("Failed to sync EPL games:", soccerError);
+      logError("game-sync", `Failed to sync EPL games: ${soccerError instanceof Error ? soccerError.message : soccerError}`, "/api/games/sync-status");
     }
 
     // --- La Liga game sync ---
@@ -279,7 +280,7 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (laLigaError) {
-      console.error("Failed to sync La Liga games:", laLigaError);
+      logError("game-sync", `Failed to sync La Liga games: ${laLigaError instanceof Error ? laLigaError.message : laLigaError}`, "/api/games/sync-status");
     }
 
     // --- NCAAB game sync ---
@@ -415,7 +416,7 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (ncaabError) {
-      console.error("Failed to sync NCAAB games:", ncaabError);
+      logError("game-sync", `Failed to sync NCAAB games: ${ncaabError instanceof Error ? ncaabError.message : ncaabError}`, "/api/games/sync-status");
     }
 
     // Auto-cancel accepted challenges where only one side locked a card
@@ -458,7 +459,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (cancelError) {
-        console.error("Failed to cancel stale challenges:", cancelError);
+        logError("resolution", `Failed to cancel stale challenges: ${cancelError instanceof Error ? cancelError.message : cancelError}`, "/api/games/sync-status");
       }
     }
 
@@ -476,7 +477,7 @@ export async function POST(request: NextRequest) {
       const challengeResults = await resolveEligibleChallenges();
       challengesResolved = challengeResults.length;
     } catch (resolveError) {
-      console.error("Auto-resolution error:", resolveError);
+      logError("resolution", `Auto-resolution error: ${resolveError instanceof Error ? resolveError.message : resolveError}`, "/api/games/sync-status");
     }
 
     // Re-resolve stale picks (null actual_value on already-resolved cards).
@@ -484,7 +485,7 @@ export async function POST(request: NextRequest) {
     try {
       reResolved = await reResolveStaleCards();
     } catch (reResolveError) {
-      console.error("Re-resolution of stale picks failed:", reResolveError);
+      logError("resolution", `Re-resolution of stale picks failed: ${reResolveError instanceof Error ? reResolveError.message : reResolveError}`, "/api/games/sync-status");
     }
 
     return NextResponse.json({

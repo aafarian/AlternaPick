@@ -268,6 +268,12 @@ export interface AdminSystemHealth {
       timestamp: string;
       endpoint: string | null;
     }>;
+    runtimeErrors: Array<{
+      message: string;
+      category: string;
+      timestamp: string;
+      endpoint: string | null;
+    }>;
   };
 }
 

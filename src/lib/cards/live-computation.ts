@@ -13,6 +13,7 @@ import {
   type PlayerBoxScore,
   type StatsGame,
 } from "@/lib/stats-service/client";
+import { logError } from "@/lib/logger";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
 import { registerNcaabTeamIds, teamLogoUrl, teamTricode, gameUrl } from "@/lib/constants";
 import type {
@@ -293,7 +294,7 @@ export async function fetchLiveMaps(
   const gamesPerSport = await Promise.all(
     sportEntries.map(([sport]) =>
       SPORT_FETCHERS[sport].fetchGames().catch((err) => {
-        console.error(`Failed to fetch live games for ${sport}:`, err);
+        logError("stats-service", `Failed to fetch live games for ${sport}: ${err instanceof Error ? err.message : err}`);
         return [] as StatsGame[];
       }),
     ),
@@ -352,7 +353,7 @@ export async function fetchLiveMaps(
       fetches.push(
         Promise.all(
           liveIds.map((gid) => fetcher.fetchBoxscoreLive(gid).catch((err) => {
-            console.error(`Failed to fetch live boxscore for game ${gid}:`, err);
+            logError("stats-service", `Failed to fetch live boxscore for game ${gid}: ${err instanceof Error ? err.message : err}`);
             return [] as PlayerBoxScore[];
           })),
         ).then((results) => {
@@ -369,7 +370,7 @@ export async function fetchLiveMaps(
       fetches.push(
         Promise.all(
           staticIds.map((gid) => fetcher.fetchBoxscore(gid).catch((err) => {
-            console.error(`Failed to fetch boxscore for game ${gid}:`, err);
+            logError("stats-service", `Failed to fetch boxscore for game ${gid}: ${err instanceof Error ? err.message : err}`);
             return [] as PlayerBoxScore[];
           })),
         ).then((results) => {

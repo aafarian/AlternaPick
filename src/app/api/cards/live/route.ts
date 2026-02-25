@@ -9,6 +9,7 @@ import {
 } from "@/lib/cards/live-computation";
 import type { LiveCardData } from "@/lib/cards/live-types";
 import { tryResolveFromLiveData } from "@/lib/cards/resolution";
+import { logError } from "@/lib/logger";
 
 interface CardWithPicks {
   id: string;
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
       try {
         await tryResolveFromLiveData(cards, gameStatusMap, boxscoreMap);
       } catch (err) {
-        console.error("Auto-resolution from live endpoint failed:", err);
+        logError("resolution", `Auto-resolution from live endpoint failed: ${err instanceof Error ? err.message : err}`, "/api/cards/live");
       }
     });
 

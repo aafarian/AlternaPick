@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { User } from "@supabase/supabase-js";
+import { logError } from "@/lib/logger";
 
 /** Throttle last_active_at updates: only write once per 5 minutes per user. */
 const ACTIVE_THROTTLE_MS = 5 * 60 * 1000;
@@ -57,7 +58,7 @@ export async function updateSession(
         .update({ last_active_at: new Date().toISOString() })
         .eq("id", user.id)
         .then(({ error }) => {
-          if (error) console.error("[DAU] last_active_at update failed:", error.message);
+          if (error) logError("DAU", `last_active_at update failed: ${error.message}`);
         });
     }
   }

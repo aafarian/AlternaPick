@@ -306,6 +306,71 @@ function SystemAlertsSection({
   );
 }
 
+function RuntimeErrorsSection({
+  errors,
+}: {
+  errors: AdminSystemHealth["errors"]["runtimeErrors"];
+}) {
+  return (
+    <Card className="py-4">
+      <CardHeader className="pb-0 pt-0 px-4 gap-1">
+        <div className="flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium">
+            Runtime Errors
+          </CardTitle>
+          {errors.length > 0 && (
+            <Badge
+              variant="secondary"
+              className="ml-1 text-[10px] px-1.5 py-0"
+            >
+              {errors.length}
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="px-4 pt-3 pb-0">
+        {errors.length === 0 ? (
+          <div className="flex items-center gap-2 rounded-lg border bg-emerald-500/10 p-3">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+              No runtime errors since last restart
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {errors.map((entry, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-3 rounded-lg border bg-amber-500/5 p-3"
+              >
+                <AlertCircle className="h-4 w-4 mt-0.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground break-words">{entry.message}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {timeAgo(entry.timestamp)}
+                    {entry.endpoint && (
+                      <span className="ml-1.5">
+                        &middot; {entry.endpoint}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] shrink-0"
+                >
+                  {entry.category}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -402,6 +467,7 @@ export default function SystemHealth() {
           <PropSyncSection data={health.propSync} />
           <GameScheduleSection data={health.games} />
           <SystemAlertsSection data={health.errors} />
+          <RuntimeErrorsSection errors={health.errors.runtimeErrors} />
         </div>
       ) : null}
     </div>
