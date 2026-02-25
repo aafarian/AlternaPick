@@ -21,6 +21,30 @@ import type {
   LiveGameStatus,
 } from "@/lib/cards/live-types";
 
+/** Run async tasks with bounded concurrency (no external dependency). */
+async function pMap<T, R>(
+  items: T[],
+  fn: (item: T) => Promise<R>,
+  concurrency: number,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let idx = 0;
+
+  async function worker() {
+    while (idx < items.length) {
+      const i = idx++;
+      results[i] = await fn(items[i]);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker()),
+  );
+  return results;
+}
+
+const BOXSCORE_CONCURRENCY = 3;
+
 export interface PickWithPropAndGame {
   id: string;
   selection: PickSelection;
@@ -351,11 +375,13 @@ export async function fetchLiveMaps(
     // Live games — use the live boxscore endpoint (shorter cache)
     if (liveIds.length > 0) {
       fetches.push(
-        Promise.all(
-          liveIds.map((gid) => fetcher.fetchBoxscoreLive(gid).catch((err) => {
+        pMap(
+          liveIds,
+          (gid) => fetcher.fetchBoxscoreLive(gid).catch((err) => {
             logError("stats-service", `Failed to fetch live boxscore for game ${gid}: ${err instanceof Error ? err.message : err}`);
             return [] as PlayerBoxScore[];
-          })),
+          }),
+          BOXSCORE_CONCURRENCY,
         ).then((results) => {
           for (let i = 0; i < liveIds.length; i++) {
             boxscoreMap.set(liveIds[i], results[i]);
@@ -368,11 +394,13 @@ export async function fetchLiveMaps(
     const staticIds = [...finalIds, ...nonTodayIds];
     if (staticIds.length > 0) {
       fetches.push(
-        Promise.all(
-          staticIds.map((gid) => fetcher.fetchBoxscore(gid).catch((err) => {
+        pMap(
+          staticIds,
+          (gid) => fetcher.fetchBoxscore(gid).catch((err) => {
             logError("stats-service", `Failed to fetch boxscore for game ${gid}: ${err instanceof Error ? err.message : err}`);
             return [] as PlayerBoxScore[];
-          })),
+          }),
+          BOXSCORE_CONCURRENCY,
         ).then((results) => {
           for (let i = 0; i < staticIds.length; i++) {
             boxscoreMap.set(staticIds[i], results[i]);

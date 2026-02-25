@@ -25,10 +25,16 @@ def _set_cached(key: str, value):
     _cache[key] = (time.monotonic(), value)
 
 
-def _run_sync(func, *args):
-    """Run a synchronous nba_api call in a thread pool."""
+NBA_API_TIMEOUT = 15  # seconds — must exceed rate limiter queue wait
+
+
+async def _run_sync(func, *args):
+    """Run a synchronous nba_api call in a thread pool with timeout."""
     loop = asyncio.get_event_loop()
-    return loop.run_in_executor(None, func, *args)
+    return await asyncio.wait_for(
+        loop.run_in_executor(None, func, *args),
+        timeout=NBA_API_TIMEOUT,
+    )
 
 
 async def get_todays_scoreboard() -> list[dict]:
