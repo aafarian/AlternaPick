@@ -2,6 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { User } from "@supabase/supabase-js";
 
+/** Throttle last_active_at updates: only write once per 5 minutes per user. */
+const ACTIVE_THROTTLE_MS = 5 * 60 * 1000;
+const recentlyActive = new Map<string, number>();
+
 export async function updateSession(
   request: NextRequest
 ): Promise<{ response: NextResponse; user: User | null }> {
@@ -31,6 +35,20 @@ export async function updateSession(
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // Track last visit for DAU metrics (throttled to avoid excessive writes)
+  if (user) {
+    const now = Date.now();
+    const lastSeen = recentlyActive.get(user.id) ?? 0;
+    if (now - lastSeen > ACTIVE_THROTTLE_MS) {
+      recentlyActive.set(user.id, now);
+      supabase
+        .from("profiles")
+        .update({ last_active_at: new Date().toISOString() })
+        .eq("id", user.id)
+        .then();
+    }
+  }
 
   return { response: supabaseResponse, user };
 }

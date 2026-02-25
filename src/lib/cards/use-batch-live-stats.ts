@@ -36,11 +36,27 @@ export function useBatchLiveStats(
       const result = await response.json();
       const cardsObj = result.cards as Record<string, LiveCardData>;
 
-      const newMap = new Map<string, LiveCardData>();
-      for (const [id, data] of Object.entries(cardsObj)) {
-        newMap.set(id, data);
-      }
-      setDataMap(newMap);
+      setDataMap((prev) => {
+        const merged = new Map<string, LiveCardData>();
+        for (const [id, data] of Object.entries(cardsObj)) {
+          const prevCard = prev.get(id);
+          // Preserve last known current_value on each pick so the bar
+          // doesn't shrink to 0 when the stats API temporarily returns
+          // no boxscore data (e.g. right when a game goes final).
+          if (prevCard && data.picks) {
+            for (const pick of data.picks) {
+              if (pick.current_value === null) {
+                const prevPick = prevCard.picks?.find((p) => p.pick_id === pick.pick_id);
+                if (prevPick?.current_value !== null && prevPick?.current_value !== undefined) {
+                  pick.current_value = prevPick.current_value;
+                }
+              }
+            }
+          }
+          merged.set(id, data);
+        }
+        return merged;
+      });
       setError(null);
 
       // Track and detect transition from "had live games" to "no live games"

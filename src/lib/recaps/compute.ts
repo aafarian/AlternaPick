@@ -272,9 +272,16 @@ async function buildRecapData(
     (p) => p.props?.games?.sport ?? "unknown"
   );
 
-  // --- Adaptive thresholds ---
-  const trapLockMin = Math.max(2, Math.floor(totalPicks / 20));
-  const spotlightMin = Math.max(2, Math.floor(totalPicks / 25));
+  // --- Adaptive thresholds (with higher absolute minimums for small datasets) ---
+  const trapLockMin = Math.max(3, Math.floor(totalPicks / 20));
+  const spotlightMin = Math.max(3, Math.floor(totalPicks / 25));
+
+  // Track featured players to limit cross-tile repetition.
+  // Each player can appear in at most 2 tiles.
+  const playerTileCount = new Map<string, number>();
+  const canFeature = (name: string) => (playerTileCount.get(name) ?? 0) < 2;
+  const markFeatured = (name: string) =>
+    playerTileCount.set(name, (playerTileCount.get(name) ?? 0) + 1);
 
   // --- Trap Props (hit rate < 0.30) ---
   const trapProps: TrapOrLockProp[] = [];
@@ -304,6 +311,19 @@ async function buildRecapData(
   trapProps.sort((a, b) => a.hitRate - b.hitRate);
   lockProps.sort((a, b) => b.hitRate - a.hitRate);
 
+  // Dedup trap/lock: skip players already at the 2-tile limit, cap at 5 each
+  for (const arr of [trapProps, lockProps]) {
+    const keep: TrapOrLockProp[] = [];
+    for (const entry of [...arr]) {
+      if (keep.length >= 5) break;
+      if (!canFeature(entry.playerName)) continue;
+      keep.push(entry);
+      markFeatured(entry.playerName);
+    }
+    arr.length = 0;
+    arr.push(...keep);
+  }
+
   // --- Player Spotlights ---
   const playerSpotlightsGood: PlayerSpotlight[] = [];
   const playerSpotlightsBad: PlayerSpotlight[] = [];
@@ -328,6 +348,19 @@ async function buildRecapData(
   playerSpotlightsGood.sort((a, b) => b.hitRate - a.hitRate);
   playerSpotlightsBad.sort((a, b) => a.hitRate - b.hitRate);
 
+  // Dedup spotlights: skip players already at the 2-tile limit, cap at 3 each
+  for (const arr of [playerSpotlightsGood, playerSpotlightsBad]) {
+    const keep: PlayerSpotlight[] = [];
+    for (const entry of [...arr]) {
+      if (keep.length >= 3) break;
+      if (!canFeature(entry.playerName)) continue;
+      keep.push(entry);
+      markFeatured(entry.playerName);
+    }
+    arr.length = 0;
+    arr.push(...keep);
+  }
+
   // --- Most Picked Players (top 5) ---
   const mostPickedPlayers: MostPickedPlayer[] = Object.entries(byPlayer)
     .map(([playerName, picks]) => ({
@@ -344,8 +377,10 @@ async function buildRecapData(
     .sort((a, b) => b.pickCount - a.pickCount)
     .slice(0, 5);
 
-  // --- Most Picked Props (top 5) ---
-  const mostPickedProps: MostPickedProp[] = Object.entries(byProp)
+  for (const p of mostPickedPlayers) markFeatured(p.playerName);
+
+  // --- Most Picked Props (top 5, skip over-represented players) ---
+  const mostPickedPropsAll = Object.entries(byProp)
     .map(([propId, picks]) => {
       const overCount = picks.filter((p) => p.selection === "over").length;
       const underCount = picks.filter((p) => p.selection === "under").length;
@@ -365,8 +400,14 @@ async function buildRecapData(
         sport: representative.props?.games?.sport ?? "unknown",
       };
     })
-    .sort((a, b) => b.pickCount - a.pickCount)
-    .slice(0, 5);
+    .sort((a, b) => b.pickCount - a.pickCount);
+  const mostPickedProps: MostPickedProp[] = [];
+  for (const p of mostPickedPropsAll) {
+    if (mostPickedProps.length >= 5) break;
+    if (!canFeature(p.playerName)) continue;
+    mostPickedProps.push(p);
+    markFeatured(p.playerName);
+  }
 
   // --- Perfect Cards (require 3+ picks to count) ---
   const perfectCardEntries = cards.filter(
@@ -477,7 +518,19 @@ async function buildRecapData(
     });
   }
   consensusPicks.sort((a, b) => b.dominantPct - a.dominantPct || b.pickCount - a.pickCount);
-  consensusPicks.splice(10); // cap at 10
+
+  // Dedup consensus: skip players already at the 2-tile limit, cap at 10
+  {
+    const keep: ConsensusPick[] = [];
+    for (const entry of [...consensusPicks]) {
+      if (keep.length >= 10) break;
+      if (!canFeature(entry.playerName)) continue;
+      keep.push(entry);
+      markFeatured(entry.playerName);
+    }
+    consensusPicks.length = 0;
+    consensusPicks.push(...keep);
+  }
 
   // --- Spotlights ---
   const spotlights = generateSpotlights({
@@ -861,12 +914,13 @@ export async function computeWeeklyRecap(
     const weekByPlayer = groupBy(allPicks, (p) => p.props?.player_name ?? "Unknown");
     const weekByProp = groupBy(allPicks, (p) => p.prop_id);
 
-    // Top player: highest hit rate with min picks
+    // Top player: highest hit rate with min picks and at least 50% hit rate
     let bestRate = -1;
     for (const [playerName, picks] of Object.entries(weekByPlayer)) {
       if (picks.length < weeklyTopMin) continue;
       const hits = picks.filter((p) => p.result === "hit").length;
       const rate = hits / picks.length;
+      if (rate < 0.5) continue;
       if (rate > bestRate) {
         bestRate = rate;
         topPlayer = {

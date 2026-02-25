@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from "react";
 import type { Game, Prop } from "@/lib/supabase/types";
-import type { EdgeMap } from "@/lib/analytics/types";
 import { StaggerChildren, StaggerItem } from "@/components/motion";
 import GameCard from "./GameCard";
 import GameSelector from "./GameSelector";
@@ -11,16 +10,10 @@ type GameWithProps = Game & { props: Prop[] };
 
 interface PropsGameListProps {
   games: GameWithProps[];
-  /** Category-level edge rates (rate >= 0.65, total >= 5) */
-  categoryEdges?: EdgeMap;
-  /** Player-level edge rates (rate >= 0.65, total >= 5) */
-  playerEdges?: EdgeMap;
 }
 
 export default function PropsGameList({
   games,
-  categoryEdges = {},
-  playerEdges = {},
 }: PropsGameListProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(
     () => new Set(games.map((g) => g.id))
@@ -80,8 +73,6 @@ export default function PropsGameList({
               game={game}
               expanded={expandedIds.has(game.id)}
               onToggle={() => toggleGame(game.id)}
-              categoryEdges={categoryEdges}
-              playerEdges={playerEdges}
             />
           </StaggerItem>
         ))}
