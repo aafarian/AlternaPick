@@ -32,7 +32,6 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         "id, status, picks(id, selection, result, actual_value, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(external_event_id, sport, status, home_team, away_team, home_score, away_score, commence_time)))"
       )
       .eq("id", id)
-      .eq("user_id", user.id)
       .single();
 
     if (cardResult.error || !cardResult.data) {
