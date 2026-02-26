@@ -30,7 +30,7 @@ export type CardStatus = "draft" | "locked" | "resolved";
 
 export type PickSelection = "over" | "under";
 
-export type PickResult = "pending" | "hit" | "miss";
+export type PickResult = "pending" | "hit" | "miss" | "push";
 
 export type ChallengeStatus =
   | "pending"

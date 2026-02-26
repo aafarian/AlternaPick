@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { unauthorized, notFound, handleApiError } from "@/lib/api/errors";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { notFound, handleApiError } from "@/lib/api/errors";
 import {
   buildLivePicksForCard,
   fetchLiveMaps,
@@ -14,16 +14,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, context: RouteContext) {
   try {
-    const supabase = await createClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return unauthorized();
-    }
-
+    const supabase = createAdminClient();
     const { id } = await context.params;
 
     // Fetch card with picks, props, and game data (including DB status for fallback)
@@ -32,7 +23,6 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         "id, status, picks(id, selection, result, actual_value, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(external_event_id, sport, status, home_team, away_team, home_score, away_score, commence_time)))"
       )
       .eq("id", id)
-      .eq("user_id", user.id)
       .single();
 
     if (cardResult.error || !cardResult.data) {

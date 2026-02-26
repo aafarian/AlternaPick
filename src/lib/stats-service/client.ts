@@ -333,6 +333,20 @@ export async function fetchSoccerGames(): Promise<StatsGame[]> {
   return data.data ?? [];
 }
 
+export async function fetchSoccerGamesByDate(date: string): Promise<StatsGame[]> {
+  const cacheKey = `soccerGamesByDate:${date}`;
+  const cached = getCached<StatsGame[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/soccer/games/today?date=${encodeURIComponent(date)}`
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  return result;
+}
+
 export async function fetchSoccerGamesLive(): Promise<StatsGame[]> {
   const cacheKey = "soccerGamesLive";
   const cached = getCached<StatsGame[]>(cacheKey);
@@ -373,6 +387,20 @@ export async function fetchLaLigaGames(): Promise<StatsGame[]> {
   );
   const data = await response.json();
   return data.data ?? [];
+}
+
+export async function fetchLaLigaGamesByDate(date: string): Promise<StatsGame[]> {
+  const cacheKey = `laLigaGamesByDate:${date}`;
+  const cached = getCached<StatsGame[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/soccer/games/today?league=la_liga&date=${encodeURIComponent(date)}`
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  return result;
 }
 
 export async function fetchLaLigaGamesLive(): Promise<StatsGame[]> {

@@ -149,13 +149,12 @@ export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
   const boxscoreCache = new Map<string, PlayerBoxScore[]>();
 
   for (const card of cards) {
-    // Check if all games are final AND have an external event ID.
-    // Without it we can't fetch boxscore data, so skip the card
-    // and let sync-status set the ID on a future run (e.g. via yesterday check).
+    // All games must be final and started. If a pick is missing its
+    // external_event_id we can still resolve the card — the pick will be
+    // marked as "push" in resolveCard() since we can't fetch boxscore data.
     const allResolvable = card.picks.every(
       (pick) =>
         pick.props?.games?.status === "final" &&
-        pick.props?.games?.external_event_id &&
         hasGameStarted(pick.props?.games?.commence_time)
     );
     if (!allResolvable) continue;
@@ -287,7 +286,8 @@ export async function resolveCard(
   for (const pick of card.picks) {
     const eventId = pick.props?.games?.external_event_id;
     if (!eventId) {
-      // Can't resolve without external event ID - mark as miss
+      // Can't resolve without external event ID — mark as push (void)
+      // since we genuinely can't verify the outcome
       pickResolutions.push({
         pick_id: pick.id,
         prop_id: pick.prop_id,
@@ -296,7 +296,7 @@ export async function resolveCard(
         line: pick.props?.line ?? 0,
         selection: pick.selection,
         actual_value: null,
-        result: "miss",
+        result: "push",
       });
       continue;
     }
@@ -629,15 +629,14 @@ export async function tryResolveFromLiveData(
     if (card.status !== "locked") continue;
 
     const allFinal = card.picks.every((pick) => {
-      const eventId = pick.props?.games?.external_event_id;
-      if (!eventId) return false;
       // Safety: never treat a future game as final
       if (!hasGameStarted(pick.props?.games?.commence_time)) return false;
-      const liveGame = gameStatusMap.get(eventId);
-      if (liveGame) return liveGame.status === "final";
-      // Game not in today's live data (yesterday's game) — trust DB status.
-      // If the DB already has it as "final" with scores, it was confirmed
-      // in a previous sync cycle.
+      const eventId = pick.props?.games?.external_event_id;
+      if (eventId) {
+        const liveGame = gameStatusMap.get(eventId);
+        if (liveGame) return liveGame.status === "final";
+      }
+      // Game not in today's live data or has no event ID — trust DB status.
       return pick.props?.games?.status === "final";
     });
 

@@ -95,9 +95,14 @@ def _parse_fixture_status(status_short: str) -> str:
     return "scheduled"
 
 
-async def get_todays_fixtures(league_id: int = EPL_LEAGUE_ID) -> list[dict]:
-    """Fetch today's fixtures for a given league with scores and status."""
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+async def get_todays_fixtures(league_id: int = EPL_LEAGUE_ID, target_date: str | None = None) -> list[dict]:
+    """Fetch fixtures for a given league with scores and status.
+
+    Args:
+        league_id: api-football league ID.
+        target_date: Date in YYYY-MM-DD format. Defaults to today (UTC).
+    """
+    today = target_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     cache_key = f"fixtures:{league_id}:{today}"
     cached = _get_cached(cache_key)
     if cached is not None:
@@ -401,14 +406,14 @@ async def get_soccer_players_by_team_names(
     return player_map
 
 
-async def get_todays_epl_fixtures() -> list[dict]:
-    """Fetch today's EPL fixtures (convenience wrapper)."""
-    return await get_todays_fixtures(EPL_LEAGUE_ID)
+async def get_todays_epl_fixtures(target_date: str | None = None) -> list[dict]:
+    """Fetch EPL fixtures (convenience wrapper)."""
+    return await get_todays_fixtures(EPL_LEAGUE_ID, target_date)
 
 
-async def get_todays_la_liga_fixtures() -> list[dict]:
-    """Fetch today's La Liga fixtures."""
-    return await get_todays_fixtures(LA_LIGA_LEAGUE_ID)
+async def get_todays_la_liga_fixtures(target_date: str | None = None) -> list[dict]:
+    """Fetch La Liga fixtures."""
+    return await get_todays_fixtures(LA_LIGA_LEAGUE_ID, target_date)
 
 
 

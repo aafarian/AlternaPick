@@ -140,8 +140,8 @@ export function buildLivePicksForCard(
         game_id: pick.props.game_id,
         external_event_id: eventId ?? pick.props.game_id,
         status: dbStatus,
-        period: dbStatus === "final" ? 4 : 0,
-        clock: dbStatus === "final" ? "0:00" : "",
+        period: 0,
+        clock: "",
         sport: pick.props.games?.sport ?? undefined,
         home_team: dbHomeTeam,
         away_team: dbAwayTeam,
@@ -375,13 +375,15 @@ export async function fetchLiveMaps(
     const fetcher = SPORT_FETCHERS[sport];
     const ids = candidatesBySport.get(sport)!;
 
-    const todayIds = Array.from(ids).filter((id) => gameStatusMap.has(id) && !isStaleNbaId(sport, id));
+    const allIds = Array.from(ids);
+
+    const todayIds = allIds.filter((id) => gameStatusMap.has(id) && !isStaleNbaId(sport, id));
     const liveIds = todayIds.filter((id) => gameStatusMap.get(id)?.status === "live");
     const finalIds = todayIds.filter((id) =>
       gameStatusMap.get(id)?.status === "final" && !gamesWithAllResolved.has(id),
     );
     // Skip non-today games that are scheduled (no boxscore exists), fully resolved, or have stale IDs
-    const nonTodayIds = Array.from(ids).filter((id) =>
+    const nonTodayIds = allIds.filter((id) =>
       !gameStatusMap.has(id) && !gamesWithAllResolved.has(id) && !gamesScheduledInDb.has(id) && !isStaleNbaId(sport, id),
     );
 
