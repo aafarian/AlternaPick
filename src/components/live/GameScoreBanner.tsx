@@ -83,7 +83,7 @@ export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) 
               )}
               <span className="text-[10px] font-semibold text-white/70">
                 {isLive
-                  ? formatClock(game.period, game.clock, game.sport)
+                  ? (game.period > 0 ? formatClock(game.period, game.clock, game.sport) : "Live")
                   : isScheduled && game.commence_time
                     ? formatGameTime(game.commence_time)
                     : isScheduled

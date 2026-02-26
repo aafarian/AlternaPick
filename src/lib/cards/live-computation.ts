@@ -101,6 +101,9 @@ export function buildLivePicksForCard(
 
     const dbGameStatus = pick.props?.games?.status;
 
+    // Debug: trace each pick's data flow
+    console.log(`[live-debug] pick=${pick.props.player_name} eventId=${eventId} dbStatus=${dbGameStatus} gameInfoFound=${!!gameInfo} result=${pick.result} actual_value=${pick.actual_value}`);
+
     let gameStatus: LiveGameStatus | null = null;
     const resolvedEventId = eventId ?? gameInfo?.game_id ?? null;
 
@@ -140,8 +143,8 @@ export function buildLivePicksForCard(
         game_id: pick.props.game_id,
         external_event_id: eventId ?? pick.props.game_id,
         status: dbStatus,
-        period: dbStatus === "final" ? 4 : 0,
-        clock: dbStatus === "final" ? "0:00" : "",
+        period: 0,
+        clock: "",
         sport: pick.props.games?.sport ?? undefined,
         home_team: dbHomeTeam,
         away_team: dbAwayTeam,
@@ -162,11 +165,15 @@ export function buildLivePicksForCard(
     // Use the live status when available, otherwise fall back to the gameStatus we computed
     const effectiveStatus = gameInfo?.status ?? gameStatus?.status ?? dbGameStatus;
 
+    console.log(`[live-debug]   effectiveStatus=${effectiveStatus} resolvedEventId=${resolvedEventId} boxscoreHas=${resolvedEventId ? boxscoreMap.has(resolvedEventId) : 'N/A'} boxscoreSize=${resolvedEventId ? (boxscoreMap.get(resolvedEventId)?.length ?? 0) : 'N/A'}`);
+
     if (effectiveStatus === "live" || effectiveStatus === "final") {
       // Try boxscore first (only for today's games with external event ID)
       if (resolvedEventId) {
         const boxscore = boxscoreMap.get(resolvedEventId) ?? [];
         const playerStats = fuzzyMatchPlayer(boxscore, pick.props.player_name);
+
+        console.log(`[live-debug]   boxscore players=${boxscore.length} fuzzyMatch=${playerStats?.player_name ?? 'NONE'}`);
 
         if (playerStats) {
           currentValue = extractStatValue(playerStats, pick.props.stat_category);
@@ -202,6 +209,8 @@ export function buildLivePicksForCard(
         }
       }
     }
+
+    console.log(`[live-debug]   RESULT: currentValue=${currentValue} trending=${trending}`);
 
     livePicks.push({
       pick_id: pick.id,
@@ -375,15 +384,23 @@ export async function fetchLiveMaps(
     const fetcher = SPORT_FETCHERS[sport];
     const ids = candidatesBySport.get(sport)!;
 
-    const todayIds = Array.from(ids).filter((id) => gameStatusMap.has(id) && !isStaleNbaId(sport, id));
+    const allIds = Array.from(ids);
+    const staleIds = allIds.filter((id) => isStaleNbaId(sport, id));
+    if (staleIds.length > 0) {
+      console.log(`[live-debug] SKIPPING stale ${sport} IDs:`, staleIds);
+    }
+
+    const todayIds = allIds.filter((id) => gameStatusMap.has(id) && !isStaleNbaId(sport, id));
     const liveIds = todayIds.filter((id) => gameStatusMap.get(id)?.status === "live");
     const finalIds = todayIds.filter((id) =>
       gameStatusMap.get(id)?.status === "final" && !gamesWithAllResolved.has(id),
     );
     // Skip non-today games that are scheduled (no boxscore exists), fully resolved, or have stale IDs
-    const nonTodayIds = Array.from(ids).filter((id) =>
+    const nonTodayIds = allIds.filter((id) =>
       !gameStatusMap.has(id) && !gamesWithAllResolved.has(id) && !gamesScheduledInDb.has(id) && !isStaleNbaId(sport, id),
     );
+
+    console.log(`[live-debug] ${sport}: todayIds=${todayIds} liveIds=${liveIds} finalIds=${finalIds} nonTodayIds=${nonTodayIds} resolvedIds=${Array.from(gamesWithAllResolved)} scheduledIds=${Array.from(gamesScheduledInDb)}`);
 
     // Live games — use the live boxscore endpoint (shorter cache)
     if (liveIds.length > 0) {

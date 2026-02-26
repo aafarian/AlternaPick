@@ -78,7 +78,6 @@ async def get_todays_scoreboard(target_date: str | None = None) -> list[dict]:
 
             status = competition.get("status", event.get("status", {}))
             status_type = status.get("type", {}).get("state", "pre")
-            status_detail = status.get("type", {})
 
             home_team_data = home.get("team", {})
             away_team_data = away.get("team", {})
@@ -92,8 +91,8 @@ async def get_todays_scoreboard(target_date: str | None = None) -> list[dict]:
                 "home_score": int(home.get("score", "0") or "0"),
                 "away_score": int(away.get("score", "0") or "0"),
                 "status": parse_espn_status(status_type),
-                "period": parse_period(status_detail),
-                "clock": parse_clock(status_detail),
+                "period": parse_period(status),
+                "clock": parse_clock(status),
                 "start_time": event.get("date", ""),
                 "home_team_id": str(home_team_data.get("id", "")),
                 "away_team_id": str(away_team_data.get("id", "")),
