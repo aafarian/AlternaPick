@@ -15,14 +15,25 @@ router = APIRouter(prefix="/soccer", tags=["soccer"])
 
 
 @router.get("/games/today")
-async def today_soccer_games(league: str = Query("epl", description="League key: epl or la_liga")):
-    """Get today's soccer fixtures with scores and status."""
+async def today_soccer_games(
+    league: str = Query("epl", description="League key: epl or la_liga"),
+    date: str = Query(default="", description="Date in YYYY-MM-DD format (defaults to today)"),
+):
+    """Get soccer fixtures with scores and status.
+
+    Pass ?date=YYYY-MM-DD to fetch fixtures for a specific date. Defaults to today.
+    """
     try:
+        target_date = date.strip() if date.strip() else None
+        if target_date and (len(target_date) != 10 or target_date[4] != "-" or target_date[7] != "-"):
+            raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
         if league == "la_liga":
-            games = await get_todays_la_liga_fixtures()
+            games = await get_todays_la_liga_fixtures(target_date)
         else:
-            games = await get_todays_epl_fixtures()
+            games = await get_todays_epl_fixtures(target_date)
         return {"data": games, "count": len(games)}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=503,

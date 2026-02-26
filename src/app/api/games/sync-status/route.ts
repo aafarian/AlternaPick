@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchTodaysGames, fetchNbaGamesByDate, fetchSoccerGames, fetchLaLigaGames, fetchNcaabGames, fetchNcaabGamesByDate } from "@/lib/stats-service/client";
+import { fetchTodaysGames, fetchNbaGamesByDate, fetchSoccerGames, fetchSoccerGamesByDate, fetchLaLigaGames, fetchLaLigaGamesByDate, fetchNcaabGames, fetchNcaabGamesByDate } from "@/lib/stats-service/client";
 import { resolveEligibleCards, reResolveStaleCards } from "@/lib/cards/resolution";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import { unauthorized, serverError, handleApiError } from "@/lib/api/errors";
@@ -92,7 +92,6 @@ export async function POST(request: NextRequest) {
     const staleResult = await (supabase.from("games") as any)
       .select("id")
       .neq("status", "final")
-      .not("external_event_id", "is", null)  // Only finalize games with external event ID
       .lt("commence_time", staleThreshold.toISOString());
 
     const staleGames = ((staleResult.data ?? []) as { id: string }[]);
@@ -375,6 +374,91 @@ export async function POST(request: NextRequest) {
       }
     } catch (laLigaError) {
       logError("game-sync", `Failed to sync La Liga games: ${laLigaError instanceof Error ? laLigaError.message : laLigaError}`, "/api/games/sync-status");
+    }
+
+    // --- Soccer (EPL + La Liga) lookback: fix games that were never synced ---
+    try {
+      const soccerLookbackStart = new Date(now);
+      soccerLookbackStart.setDate(soccerLookbackStart.getDate() - 14);
+
+      const soccerStaleResult = await supabase
+        .from("games")
+        .select("*")
+        .in("sport", ["epl", "la_liga"])
+        .is("external_event_id", null)
+        .gte("commence_time", soccerLookbackStart.toISOString())
+        .lt("commence_time", todayStart.toISOString());
+
+      const soccerUnmatched = (soccerStaleResult.data ?? []) as Game[];
+
+      if (soccerUnmatched.length > 0) {
+        // Group by sport and collect dates to fetch
+        const datesBySport = new Map<string, Set<string>>();
+        for (const g of soccerUnmatched) {
+          if (!g.commence_time || !g.sport) continue;
+          let dates = datesBySport.get(g.sport);
+          if (!dates) { dates = new Set(); datesBySport.set(g.sport, dates); }
+          const d = new Date(g.commence_time);
+          dates.add(d.toISOString().slice(0, 10)); // YYYY-MM-DD format for api-football
+        }
+
+        const fetchers: Record<string, (date: string) => Promise<typeof nbaGames>> = {
+          epl: fetchSoccerGamesByDate,
+          la_liga: fetchLaLigaGamesByDate,
+        };
+
+        for (const [sport, dates] of datesBySport) {
+          const fetcher = fetchers[sport];
+          if (!fetcher) continue;
+
+          const allGames = (
+            await Promise.all(
+              Array.from(dates).map((dateStr) => fetcher(dateStr).catch(() => []))
+            )
+          ).flat();
+
+          const sportUnmatched = soccerUnmatched.filter((g) => g.sport === sport);
+
+          const pendingUpdates: { match: Game; apiGame: typeof allGames[0]; newStatus: string }[] = [];
+
+          for (const apiGame of allGames) {
+            const match = sportUnmatched.find((g) => {
+              if ((g as any)._matched) return false;
+              return teamsMatch(g.home_team, apiGame.home_team) && teamsMatch(g.away_team, apiGame.away_team);
+            });
+            if (!match) continue;
+            (match as any)._matched = true;
+            pendingUpdates.push({ match, apiGame, newStatus: apiGame.status });
+          }
+
+          const results = await Promise.all(
+            pendingUpdates.map(({ match, apiGame, newStatus }) =>
+              (supabase.from("games") as any)
+                .update({
+                  status: newStatus,
+                  home_score: apiGame.home_score,
+                  away_score: apiGame.away_score,
+                  external_event_id: apiGame.game_id,
+                })
+                .eq("id", match.id)
+                .then((res: any) => ({ ...res, match, apiGame, newStatus }))
+            )
+          );
+
+          for (const { error: updateError, match, apiGame, newStatus } of results) {
+            if (!updateError) {
+              updated.push({
+                odds_team: `${match.away_team} @ ${match.home_team}`,
+                nba_team: `${apiGame.away_team} @ ${apiGame.home_team}`,
+                status: newStatus,
+                external_event_id: apiGame.game_id,
+              });
+            }
+          }
+        }
+      }
+    } catch (soccerLookbackError) {
+      logError("game-sync", `Failed soccer lookback: ${soccerLookbackError instanceof Error ? soccerLookbackError.message : soccerLookbackError}`, "/api/games/sync-status");
     }
 
     // --- NCAAB game sync ---
