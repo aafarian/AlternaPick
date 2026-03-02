@@ -12,7 +12,7 @@ import {
   getChallenges,
   createChallenge,
 } from "@/lib/challenges/queries";
-import { sendEmail } from "@/lib/email/send";
+import { sendEmail, shouldSendEmail } from "@/lib/email/send";
 import { getChallengeReceivedEmailProps } from "@/lib/email/templates/challenge-received";
 
 export async function GET(request: NextRequest) {
@@ -269,6 +269,20 @@ export async function POST(request: NextRequest) {
         notifBody += ` "${message}"`;
       }
 
+      // Fetch opponent profile (email + notification preferences)
+      const { data: opponentProfile } = await (
+        adminClient.from("profiles") as any
+      )
+        .select("username, email, notification_preferences")
+        .eq("id", body.opponent_id)
+        .single();
+
+      const opponent = opponentProfile as {
+        username: string;
+        email: string | null;
+        notification_preferences: import("@/lib/supabase/types").NotificationPreferences | null;
+      } | null;
+
       await createNotification(adminClient, {
         user_id: body.opponent_id,
         type: "challenge_received",
@@ -278,22 +292,13 @@ export async function POST(request: NextRequest) {
           challenge_id: challenge.id,
           game_mode: gameMode,
         },
-      });
+      }, opponent?.notification_preferences);
 
-      // Fire-and-forget email to opponent
-      const { data: opponentProfile } = await (
-        adminClient.from("profiles") as any
-      )
-        .select("username, email")
-        .eq("id", body.opponent_id)
-        .single();
-
-      const opponent = opponentProfile as {
-        username: string;
-        email: string | null;
-      } | null;
-
-      if (opponent?.email) {
+      // Send email to opponent if preferences allow
+      if (
+        opponent?.email &&
+        shouldSendEmail("challenge_received", opponent.notification_preferences)
+      ) {
         const { subject, react } = getChallengeReceivedEmailProps({
           opponentUsername: opponent.username ?? "Player",
           challengerUsername: challengerName,

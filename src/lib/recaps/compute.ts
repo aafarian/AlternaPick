@@ -12,6 +12,7 @@ import { typedFrom } from "@/lib/supabase/typed-queries";
 import type {
   StatCategory,
   PickSelection,
+  NotificationPreferences,
 } from "@/lib/supabase/types";
 
 // ---------------------------------------------------------------------------
@@ -761,6 +762,18 @@ export async function computeDailyRecap(
   // ------------------------------------------------------------------
   // 6. Send notifications to featured users
   // ------------------------------------------------------------------
+
+  // Batch-fetch notification preferences for all featured users
+  const { data: featuredProfiles } = featuredUserIds.length > 0
+    ? await (supabase.from("profiles") as any)
+        .select("id, notification_preferences")
+        .in("id", featuredUserIds) as { data: Array<{ id: string; notification_preferences: NotificationPreferences | null }> | null }
+    : { data: [] as Array<{ id: string; notification_preferences: NotificationPreferences | null }> };
+
+  const prefsById = new Map<string, NotificationPreferences | null>(
+    (featuredProfiles ?? []).map((p) => [p.id, p.notification_preferences])
+  );
+
   const notificationPromises = featuredUserIds.map((userId) =>
     createNotification(supabase, {
       user_id: userId,
@@ -770,7 +783,7 @@ export async function computeDailyRecap(
         ? "You hit a perfect card yesterday! Check out the daily recap."
         : "The daily recap is ready. See how you and everyone else did.",
       metadata: { recap_date: date },
-    }).catch(() => {
+    }, prefsById.get(userId) ?? null).catch(() => {
       // Swallow notification errors — recap data is already saved
     })
   );

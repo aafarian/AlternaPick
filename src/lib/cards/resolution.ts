@@ -1,9 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
-import { sendEmail } from "@/lib/email/send";
+import { sendEmail, shouldSendEmail } from "@/lib/email/send";
 import { getCardResolvedEmailProps } from "@/lib/email/templates/card-resolved";
 import { getCardTier } from "@/lib/cards/tiers";
+import { logError } from "@/lib/logger";
 import {
   type PlayerBoxScore,
   type StatsGame,
@@ -449,6 +450,18 @@ async function handlePostResolution(
 ): Promise<void> {
   if (!result.user_id) return;
 
+  // Fetch profile with notification preferences (used by both notification + email)
+  let profile: { email: string | null; username: string | null; notification_preferences: import("@/lib/supabase/types").NotificationPreferences | null } | null = null;
+  try {
+    const { data } = await (supabase.from("profiles") as any)
+      .select("email, username, notification_preferences")
+      .eq("id", result.user_id)
+      .single();
+    profile = data;
+  } catch (profileError) {
+    logError("card-resolution", `Failed to fetch profile for notification/email: ${profileError}`);
+  }
+
   try {
     const { title, body } = getCardNotificationMessage(result.score, result.total);
     await createNotification(supabase, {
@@ -457,7 +470,7 @@ async function handlePostResolution(
       title,
       body,
       metadata: { card_id: result.card_id },
-    });
+    }, profile?.notification_preferences);
   } catch (notifError) {
     console.error("Failed to create card_resolved notification:", notifError);
   }
@@ -466,12 +479,7 @@ async function handlePostResolution(
   // Skip if this card belongs to a challenge — challenge_resolved email handles that.
   if (!result.challenge_id) {
     try {
-      const { data: profile } = await (supabase.from("profiles") as any)
-        .select("email, username")
-        .eq("id", result.user_id)
-        .single();
-
-      if (profile?.email) {
+      if (profile?.email && shouldSendEmail("card_resolved", profile.notification_preferences)) {
         const { subject, react } = getCardResolvedEmailProps({
           username: profile.username ?? "Player",
           score: result.score,

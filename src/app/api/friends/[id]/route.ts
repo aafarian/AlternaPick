@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { unauthorized, badRequest, notFound, handleApiError } from "@/lib/api/errors";
-import type { Friendship } from "@/lib/supabase/types";
+import type { Friendship, NotificationPreferences } from "@/lib/supabase/types";
 import {
   acceptFriendRequest,
   declineFriendRequest,
@@ -81,21 +81,31 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // Fire-and-forget: notify requester that their request was accepted
       try {
         const adminClient = createAdminClient();
-        const { data: accepterProfile } = await (
-          adminClient.from("profiles") as any
-        )
-          .select("username")
-          .eq("id", user.id)
-          .single();
+        const [{ data: accepterProfile }, { data: requesterProfile }] =
+          await Promise.all([
+            (adminClient.from("profiles") as any)
+              .select("username")
+              .eq("id", user.id)
+              .single() as Promise<{
+              data: { username: string } | null;
+            }>,
+            (adminClient.from("profiles") as any)
+              .select("notification_preferences")
+              .eq("id", updated.requester_id)
+              .single() as Promise<{
+              data: { notification_preferences: NotificationPreferences | null } | null;
+            }>,
+          ]);
         const accepterName =
           (accepterProfile as { username: string } | null)?.username ?? "Someone";
+        const requesterPrefs = requesterProfile?.notification_preferences ?? null;
         await createNotification(adminClient, {
           user_id: updated.requester_id,
           type: "friend_accepted",
           title: "Friend Request Accepted",
           body: `${accepterName} accepted your friend request`,
           metadata: { friendship_id: updated.id },
-        });
+        }, requesterPrefs);
       } catch (notifError) {
         console.error("Failed to create friend_accepted notification:", notifError);
       }
