@@ -1,6 +1,40 @@
 import type { ReactElement } from "react";
 import { getResendClient } from "./client";
 import { logError } from "@/lib/logger";
+import type {
+  NotificationType,
+  NotificationPreferences,
+} from "@/lib/supabase/types";
+import { NOTIFICATION_TYPE_TO_EMAIL_KEY } from "@/lib/supabase/types";
+
+/**
+ * Check whether an email should be sent for a given notification type
+ * based on the user's preferences.
+ *
+ * - Returns `false` if the notification type has no associated email key
+ *   (meaning emails are not supported for that type).
+ * - Returns `true` if preferences is null/undefined (backward compatible —
+ *   default to sending).
+ * - Returns `true` if the preference key is not present in the user's
+ *   preferences (default to enabled).
+ * - Otherwise returns the boolean value from preferences.
+ */
+export function shouldSendEmail(
+  notificationType: NotificationType,
+  preferences: NotificationPreferences | null | undefined,
+): boolean {
+  const emailKey = NOTIFICATION_TYPE_TO_EMAIL_KEY[notificationType];
+
+  // This notification type doesn't support emails
+  if (!emailKey) return false;
+
+  // No preferences saved — default to sending
+  if (!preferences) return true;
+
+  // If the key exists in preferences, respect it; otherwise default to true
+  const value = preferences[emailKey];
+  return value !== false;
+}
 
 interface SendEmailParams {
   to: string;

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Achievement } from "@/lib/supabase/types";
+import type { Database, Achievement, NotificationPreferences } from "@/lib/supabase/types";
 import { ACHIEVEMENT_CHECKS, type AchievementContext } from "./definitions";
 import {
   getAllAchievements,
@@ -31,11 +31,18 @@ export async function checkAndUnlockAchievements(
   context: AchievementContext
 ): Promise<UnlockedAchievement[]> {
   try {
-    // 1. Fetch all achievement definitions and user's existing unlocks in parallel
-    const [allAchievements, userAchievements] = await Promise.all([
+    // 1. Fetch all achievement definitions, user's existing unlocks, and preferences in parallel
+    const [allAchievements, userAchievements, { data: userProfile }] = await Promise.all([
       getAllAchievements(supabase),
       getUserAchievements(supabase, userId),
+      (supabase.from("profiles") as any)
+        .select("notification_preferences")
+        .eq("id", userId)
+        .single() as Promise<{
+        data: { notification_preferences: NotificationPreferences | null } | null;
+      }>,
     ]);
+    const userPrefs = userProfile?.notification_preferences ?? null;
 
     // 2. Build a set of already-unlocked achievement IDs for fast lookup
     const unlockedIds = new Set(
@@ -94,7 +101,7 @@ export async function checkAndUnlockAchievements(
             achievement_key: achievement.key,
             icon: achievement.icon,
           },
-        });
+        }, userPrefs);
       } catch (notifErr) {
         console.error(
           `Failed to create notification for achievement "${key}":`,

@@ -4,25 +4,28 @@ import { useState, useCallback } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle2, AlertCircle, Bell, Trophy, Users, Swords, UserPlus, Award } from "lucide-react";
-import type { NotificationType, NotificationPreferences } from "@/lib/supabase/types";
+import type { NotificationType, EmailNotificationType, NotificationPreferences } from "@/lib/supabase/types";
 
 const NOTIFICATION_TYPES: {
   key: NotificationType;
   label: string;
   description: string;
   icon: React.ReactNode;
+  emailKey?: EmailNotificationType;
 }[] = [
   {
     key: "card_resolved",
     label: "Card Results",
     description: "Get notified when your pick cards are resolved with final scores.",
     icon: <Trophy className="h-4 w-4" />,
+    emailKey: "email_card_resolved",
   },
   {
     key: "challenge_received",
     label: "Challenge Received",
     description: "Get notified when someone sends you a head-to-head challenge.",
     icon: <Swords className="h-4 w-4" />,
+    emailKey: "email_challenge_received",
   },
   {
     key: "challenge_accepted",
@@ -35,12 +38,14 @@ const NOTIFICATION_TYPES: {
     label: "Challenge Results",
     description: "Get notified when a challenge is resolved with a winner.",
     icon: <Swords className="h-4 w-4" />,
+    emailKey: "email_challenge_resolved",
   },
   {
     key: "friend_request",
     label: "Friend Requests",
     description: "Get notified when someone sends you a friend request.",
     icon: <UserPlus className="h-4 w-4" />,
+    emailKey: "email_friend_request",
   },
   {
     key: "friend_accepted",
@@ -66,6 +71,10 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   achievement_unlocked: true,
   reaction_received: true,
   daily_recap: true,
+  email_card_resolved: true,
+  email_challenge_received: true,
+  email_challenge_resolved: true,
+  email_friend_request: true,
 };
 
 interface NotificationPreferencesSectionProps {
@@ -86,7 +95,7 @@ export default function NotificationPreferencesSection({
   } | null>(null);
 
   const handleToggle = useCallback(
-    async (key: NotificationType) => {
+    async (key: NotificationType | EmailNotificationType) => {
       if (!user || saving) return;
 
       const updated = { ...preferences, [key]: !preferences[key] };
@@ -121,8 +130,8 @@ export default function NotificationPreferencesSection({
         <h2 className="text-lg font-semibold">Notification Preferences</h2>
       </div>
       <p className="mb-6 text-sm text-muted-foreground">
-        Control which in-app notifications you receive. Disabling a type will
-        stop new notifications of that kind from being created.
+        Control which in-app and email notifications you receive. Disabling a
+        type will stop new notifications of that kind from being created.
       </p>
 
       {message && (
@@ -143,11 +152,17 @@ export default function NotificationPreferencesSection({
         </Alert>
       )}
 
+      {/* Column headers */}
+      <div className="mb-1 flex items-center justify-end gap-4 px-3 pr-4">
+        <span className="text-xs font-medium text-muted-foreground">In-App</span>
+        <span className="text-xs font-medium text-muted-foreground w-11 text-center">Email</span>
+      </div>
+
       <div className="space-y-1">
         {NOTIFICATION_TYPES.map((item) => (
-          <label
+          <div
             key={item.key}
-            className="flex cursor-pointer items-center justify-between rounded-lg border border-transparent px-3 py-3 transition-colors hover:border-border hover:bg-muted/30"
+            className="flex items-center justify-between rounded-lg border border-transparent px-3 py-3 transition-colors hover:border-border hover:bg-muted/30"
           >
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
@@ -160,27 +175,57 @@ export default function NotificationPreferencesSection({
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={preferences[item.key]}
-              disabled={saving}
-              onClick={() => handleToggle(item.key)}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 ${
-                preferences[item.key]
-                  ? "bg-primary"
-                  : "bg-input"
-              }`}
-            >
-              <span
-                className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform ${
+            <div className="flex items-center gap-4">
+              {/* In-App toggle */}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={preferences[item.key]}
+                aria-label={`${item.label} in-app notifications`}
+                disabled={saving}
+                onClick={() => handleToggle(item.key)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 ${
                   preferences[item.key]
-                    ? "translate-x-5"
-                    : "translate-x-0"
+                    ? "bg-primary"
+                    : "bg-input"
                 }`}
-              />
-            </button>
-          </label>
+              >
+                <span
+                  className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform ${
+                    preferences[item.key]
+                      ? "translate-x-5"
+                      : "translate-x-0"
+                  }`}
+                />
+              </button>
+              {/* Email toggle (only for types with email support) */}
+              {item.emailKey ? (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={preferences[item.emailKey]}
+                  aria-label={`${item.label} email notifications`}
+                  disabled={saving}
+                  onClick={() => handleToggle(item.emailKey!)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 ${
+                    preferences[item.emailKey]
+                      ? "bg-primary"
+                      : "bg-input"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform ${
+                      preferences[item.emailKey]
+                        ? "translate-x-5"
+                        : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              ) : (
+                <div className="w-11" />
+              )}
+            </div>
+          </div>
         ))}
       </div>
     </div>
