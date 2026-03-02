@@ -4,6 +4,7 @@ import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
 import { sendEmail, shouldSendEmail } from "@/lib/email/send";
 import { getCardResolvedEmailProps } from "@/lib/email/templates/card-resolved";
 import { getCardTier } from "@/lib/cards/tiers";
+import { logError } from "@/lib/logger";
 import {
   type PlayerBoxScore,
   type StatsGame,
@@ -458,7 +459,7 @@ async function handlePostResolution(
       .single();
     profile = data;
   } catch (profileError) {
-    console.error("Failed to fetch profile for notification/email:", profileError);
+    logError("card-resolution", `Failed to fetch profile for notification/email: ${profileError}`);
   }
 
   try {
