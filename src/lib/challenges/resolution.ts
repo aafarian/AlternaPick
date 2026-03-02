@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
+import { sendEmail } from "@/lib/email/send";
+import { getChallengeResolvedEmailProps } from "@/lib/email/templates/challenge-resolved";
 import type { Card, Challenge } from "@/lib/supabase/types";
 
 export interface ChallengeResolutionResult {
@@ -108,21 +110,27 @@ export async function resolveEligibleChallenges(): Promise<
       const { data: challengerProfile } = await (
         supabase.from("profiles") as any
       )
-        .select("username")
+        .select("username, email")
         .eq("id", challenge.challenger_id)
         .single();
       const { data: opponentProfile } = await (
         supabase.from("profiles") as any
       )
-        .select("username")
+        .select("username, email")
         .eq("id", challenge.opponent_id)
         .single();
       const challengerName =
-        (challengerProfile as { username: string } | null)?.username ??
-        "Opponent";
+        (challengerProfile as { username: string; email?: string } | null)
+          ?.username ?? "Opponent";
       const opponentName =
-        (opponentProfile as { username: string } | null)?.username ??
-        "Opponent";
+        (opponentProfile as { username: string; email?: string } | null)
+          ?.username ?? "Opponent";
+      const challengerEmail = (
+        challengerProfile as { username: string; email?: string } | null
+      )?.email;
+      const opponentEmail = (
+        opponentProfile as { username: string; email?: string } | null
+      )?.email;
 
       const challengerMsg = getChallengeNotificationMessage(
         challengerScore,
@@ -151,6 +159,48 @@ export async function resolveEligibleChallenges(): Promise<
         body: opponentMsg.body,
         metadata: { challenge_id: challenge.id },
       });
+
+      // Send challenge-resolved emails to both participants (fire-and-forget)
+      try {
+        if (challengerEmail) {
+          const challengerEmailProps = getChallengeResolvedEmailProps({
+            username: challengerName,
+            myScore: challengerScore,
+            theirScore: opponentScore,
+            opponentName,
+            isWinner: winnerId === challenge.challenger_id,
+            isTie,
+            challengeId: challenge.id,
+          });
+          sendEmail({
+            to: challengerEmail,
+            subject: challengerEmailProps.subject,
+            react: challengerEmailProps.react,
+          }).catch(() => {});
+        }
+
+        if (opponentEmail) {
+          const opponentEmailProps = getChallengeResolvedEmailProps({
+            username: opponentName,
+            myScore: opponentScore,
+            theirScore: challengerScore,
+            opponentName: challengerName,
+            isWinner: winnerId === challenge.opponent_id,
+            isTie,
+            challengeId: challenge.id,
+          });
+          sendEmail({
+            to: opponentEmail,
+            subject: opponentEmailProps.subject,
+            react: opponentEmailProps.react,
+          }).catch(() => {});
+        }
+      } catch (emailError) {
+        console.error(
+          "Failed to send challenge_resolved emails:",
+          emailError
+        );
+      }
     } catch (notifError) {
       console.error(
         "Failed to create challenge_resolved notifications:",
