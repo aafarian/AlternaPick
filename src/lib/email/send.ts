@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { getResendClient } from "./client";
+import { logError } from "@/lib/logger";
 
 interface SendEmailParams {
   to: string;
@@ -30,7 +31,7 @@ export async function sendEmail({
     // Step 1: Get Resend client
     const resend = getResendClient();
     if (!resend) {
-      console.log("sendEmail: No RESEND_API_KEY configured, skipping");
+      logError("email", "No RESEND_API_KEY configured, skipping");
       return { success: false, error: "No API key" };
     }
 
@@ -46,7 +47,7 @@ export async function sendEmail({
 
       // Step 3: Check if recipient is allowed
       if (!allowedEmails.includes(recipientLower)) {
-        console.log(`Skipping email to ${to} (not in allowlist)`);
+        logError("email", `Skipping email (not in allowlist)`);
         return { success: true };
       }
     }
@@ -66,7 +67,7 @@ export async function sendEmail({
   } catch (err) {
     // Step 5: Catch all errors
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`sendEmail error: ${message}`);
+    logError("email", `sendEmail failed: ${message}`);
     return { success: false, error: message };
   }
 }
