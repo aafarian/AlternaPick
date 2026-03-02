@@ -1,6 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
+import { sendEmail } from "@/lib/email/send";
+import { getCardResolvedEmailProps } from "@/lib/email/templates/card-resolved";
+import { getCardTier } from "@/lib/cards/tiers";
 import {
   type PlayerBoxScore,
   type StatsGame,
@@ -31,6 +34,7 @@ export interface PickResolution {
 export interface ResolutionResult {
   card_id: string;
   user_id: string | null;
+  challenge_id: string | null;
   score: number;
   total: number;
   picks: PickResolution[];
@@ -364,6 +368,7 @@ export async function resolveCard(
   return {
     card_id: card.id,
     user_id: card.user_id,
+    challenge_id: card.challenge_id ?? null,
     score,
     total: pickResolutions.length,
     picks: pickResolutions,
@@ -457,6 +462,29 @@ async function handlePostResolution(
     console.error("Failed to create card_resolved notification:", notifError);
   }
 
+  // Send card-resolved email (fire-and-forget, never blocks resolution).
+  // Skip if this card belongs to a challenge — challenge_resolved email handles that.
+  if (!result.challenge_id) {
+    try {
+      const { data: profile } = await (supabase.from("profiles") as any)
+        .select("email, username")
+        .eq("id", result.user_id)
+        .single();
+
+      if (profile?.email) {
+        const { subject, react } = getCardResolvedEmailProps({
+          username: profile.username ?? "Player",
+          score: result.score,
+          total: result.total,
+          cardId: result.card_id,
+        });
+        sendEmail({ to: profile.email, subject, react }).catch(() => {});
+      }
+    } catch (emailError) {
+      console.error("Failed to send card_resolved email:", emailError);
+    }
+  }
+
   try {
     const lbResult = await (supabase.from("leaderboard_entries") as any)
       .select("total_cards, current_streak, best_streak, win_rate, h2h_wins, h2h_losses")
@@ -492,41 +520,10 @@ function getCardNotificationMessage(
   score: number,
   total: number
 ): { title: string; body: string } {
-  const ratio = total > 0 ? score / total : 0;
-
-  if (score === total) {
-    return {
-      title: "Perfect Card!",
-      body: `You went ${score} for ${total}. Absolute masterclass.`,
-    };
-  }
-  if (ratio >= 0.8) {
-    return {
-      title: "On Fire!",
-      body: `${score} out of ${total} hits. Almost perfect.`,
-    };
-  }
-  if (ratio >= 0.6) {
-    return {
-      title: "Nice Card!",
-      body: `${score} out of ${total} hits. Solid work.`,
-    };
-  }
-  if (ratio >= 0.4) {
-    return {
-      title: "Not Bad",
-      body: `${score} out of ${total}. Room to improve.`,
-    };
-  }
-  if (score > 0) {
-    return {
-      title: "Tough Break",
-      body: `${score} out of ${total}. Shake it off.`,
-    };
-  }
+  const { headline, subtext } = getCardTier(score, total);
   return {
-    title: "Ice Cold",
-    body: `0 for ${total}. Tomorrow's a new day.`,
+    title: headline,
+    body: `${score === 0 ? "0" : score} ${score === total ? `for ${total}` : `out of ${total} hits`}. ${subtext}`,
   };
 }
 
