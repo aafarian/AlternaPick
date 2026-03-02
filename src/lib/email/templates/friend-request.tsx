@@ -10,50 +10,45 @@ import {
   Hr,
 } from "@react-email/components";
 import type { ReactElement } from "react";
-import { getCardTier } from "@/lib/cards/tiers";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
 
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
-export interface CardResolvedEmailProps {
-  username: string;
-  score: number;
-  total: number;
-  cardId: string;
+export interface FriendRequestEmailProps {
+  requesterUsername: string;
+  addresseeUsername: string;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function CardResolvedEmail({
-  username,
-  score,
-  total,
-  cardId,
-}: CardResolvedEmailProps): ReactElement {
-  const { headline, subtext } = getCardTier(score, total);
-  const cardUrl = `${baseUrl}/cards/${cardId}`;
+export function FriendRequestEmail({
+  requesterUsername,
+  addresseeUsername,
+}: FriendRequestEmailProps): ReactElement {
+  const friendsUrl = `${baseUrl}/friends`;
 
   return (
     <Html lang="en">
       <Head />
-      <Preview>{`${headline} You went ${score} for ${total}.`}</Preview>
+      <Preview>
+        {`${requesterUsername} sent you a friend request on Sports Tower`}
+      </Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
           <Text style={styles.brand}>Sports Tower</Text>
 
-          <Text style={styles.headline}>{headline}</Text>
-          <Text style={styles.scoreLine}>
-            {username}, you went {score} for {total}.
+          <Text style={styles.headline}>New Friend Request</Text>
+          <Text style={styles.subtext}>
+            {addresseeUsername}, {requesterUsername} wants to be your friend.
           </Text>
-          <Text style={styles.subtext}>{subtext}</Text>
 
           <Section style={styles.buttonSection}>
-            <Button style={styles.button} href={cardUrl}>
-              View Card
+            <Button style={styles.button} href={friendsUrl}>
+              View Request
             </Button>
           </Section>
 
@@ -71,13 +66,14 @@ export function CardResolvedEmail({
 // Helper for Resend integration
 // ---------------------------------------------------------------------------
 
-export function getCardResolvedEmailProps(props: CardResolvedEmailProps): {
+export function getFriendRequestEmailProps(
+  props: FriendRequestEmailProps
+): {
   subject: string;
   react: ReactElement;
 } {
-  const { headline } = getCardTier(props.score, props.total);
   return {
-    subject: `${headline} You went ${props.score} for ${props.total}`,
-    react: <CardResolvedEmail {...props} />,
+    subject: `${props.requesterUsername} sent you a friend request`,
+    react: <FriendRequestEmail {...props} />,
   };
 }

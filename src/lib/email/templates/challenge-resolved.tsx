@@ -1,0 +1,138 @@
+import {
+  Html,
+  Head,
+  Body,
+  Container,
+  Text,
+  Button,
+  Preview,
+  Section,
+  Hr,
+} from "@react-email/components";
+import type { ReactElement } from "react";
+import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+
+export interface ChallengeResolvedEmailProps {
+  username: string;
+  opponentName: string;
+  myScore: number;
+  theirScore: number;
+  isWinner: boolean;
+  isTie: boolean;
+  challengeId: string;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getHeadline(isWinner: boolean, isTie: boolean, margin: number): string {
+  if (isTie) return "Dead Heat";
+  if (isWinner) {
+    if (margin >= 3) return "Dominant Win!";
+    if (margin === 1) return "Clutch Win!";
+    return "Victory!";
+  }
+  // Loss
+  if (margin >= 3) return "Tough Loss";
+  if (margin === 1) return "So Close!";
+  return "Better Luck Next Time";
+}
+
+function getSubtext(
+  isWinner: boolean,
+  isTie: boolean,
+  opponentName: string
+): string {
+  if (isTie) return `You and ${opponentName} are dead even. Run it back?`;
+  if (isWinner) return `Nice work against ${opponentName}.`;
+  return `${opponentName} got this one. Shake it off.`;
+}
+
+function getSubject(
+  isWinner: boolean,
+  isTie: boolean,
+  myScore: number,
+  theirScore: number,
+  opponentName: string
+): string {
+  if (isTie) return `Dead Heat: ${myScore}-${theirScore} vs ${opponentName}`;
+  if (isWinner) return `Victory! You beat ${opponentName} ${myScore}-${theirScore}`;
+  return `You fell to ${opponentName} ${theirScore}-${myScore}`;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export function ChallengeResolvedEmail({
+  username,
+  opponentName,
+  myScore,
+  theirScore,
+  isWinner,
+  isTie,
+  challengeId,
+}: ChallengeResolvedEmailProps): ReactElement {
+  const margin = Math.abs(myScore - theirScore);
+  const headline = getHeadline(isWinner, isTie, margin);
+  const subtext = getSubtext(isWinner, isTie, opponentName);
+  const challengeUrl = `${baseUrl}/challenges/${challengeId}`;
+
+  return (
+    <Html lang="en">
+      <Head />
+      <Preview>
+        {`${headline} ${myScore}-${theirScore} vs ${opponentName}.`}
+      </Preview>
+      <Body style={styles.body}>
+        <Container style={styles.container}>
+          <Text style={styles.brand}>Sports Tower</Text>
+
+          <Text style={styles.headline}>{headline}</Text>
+          <Text style={styles.scoreLine}>
+            {username}, you went {myScore}-{theirScore} vs {opponentName}.
+          </Text>
+          <Text style={styles.subtext}>{subtext}</Text>
+
+          <Section style={styles.buttonSection}>
+            <Button style={styles.button} href={challengeUrl}>
+              View Challenge
+            </Button>
+          </Section>
+
+          <Hr style={styles.hr} />
+          <Text style={styles.footer}>
+            Sports Tower &mdash; alternapick.com
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helper for Resend integration
+// ---------------------------------------------------------------------------
+
+export function getChallengeResolvedEmailProps(
+  props: ChallengeResolvedEmailProps
+): {
+  subject: string;
+  react: ReactElement;
+} {
+  return {
+    subject: getSubject(
+      props.isWinner,
+      props.isTie,
+      props.myScore,
+      props.theirScore,
+      props.opponentName
+    ),
+    react: <ChallengeResolvedEmail {...props} />,
+  };
+}

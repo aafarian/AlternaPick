@@ -12,6 +12,8 @@ import {
   getChallenges,
   createChallenge,
 } from "@/lib/challenges/queries";
+import { sendEmail } from "@/lib/email/send";
+import { getChallengeReceivedEmailProps } from "@/lib/email/templates/challenge-received";
 
 export async function GET(request: NextRequest) {
   try {
@@ -277,6 +279,30 @@ export async function POST(request: NextRequest) {
           game_mode: gameMode,
         },
       });
+
+      // Fire-and-forget email to opponent
+      const { data: opponentProfile } = await (
+        adminClient.from("profiles") as any
+      )
+        .select("username, email")
+        .eq("id", body.opponent_id)
+        .single();
+
+      const opponent = opponentProfile as {
+        username: string;
+        email: string | null;
+      } | null;
+
+      if (opponent?.email) {
+        const { subject, react } = getChallengeReceivedEmailProps({
+          opponentUsername: opponent.username ?? "Player",
+          challengerUsername: challengerName,
+          gameMode,
+          message,
+          challengeId: challenge.id,
+        });
+        sendEmail({ to: opponent.email, subject, react }).catch(() => {});
+      }
     } catch (notifError) {
       console.error("Failed to create challenge_received notification:", notifError);
     }
