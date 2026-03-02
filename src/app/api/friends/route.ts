@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
-import { sendEmail } from "@/lib/email/send";
+import { sendEmail, shouldSendEmail } from "@/lib/email/send";
 import { getFriendRequestEmailProps } from "@/lib/email/templates/friend-request";
 import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
+import type { NotificationPreferences } from "@/lib/supabase/types";
 import {
   getFriends,
   getPendingRequests,
@@ -82,15 +83,17 @@ export async function POST(request: NextRequest) {
             data: { username: string } | null;
           }>,
           (adminClient.from("profiles") as any)
-            .select("username, email")
+            .select("username, email, notification_preferences")
             .eq("id", friendship.addressee_id)
             .single() as Promise<{
-            data: { username: string; email: string } | null;
+            data: { username: string; email: string; notification_preferences: NotificationPreferences | null } | null;
           }>,
         ]);
 
       const requesterName = requesterProfile?.username ?? "Someone";
       const addresseeName = addresseeProfile?.username ?? "Friend";
+
+      const addresseePrefs = addresseeProfile?.notification_preferences ?? null;
 
       await createNotification(adminClient, {
         user_id: friendship.addressee_id,
@@ -98,10 +101,10 @@ export async function POST(request: NextRequest) {
         title: "New Friend Request",
         body: `${requesterName} sent you a friend request`,
         metadata: { friendship_id: friendship.id },
-      });
+      }, addresseePrefs);
 
       // Send email notification (fire-and-forget, never blocks)
-      if (addresseeProfile?.email) {
+      if (addresseeProfile?.email && shouldSendEmail("friend_request", addresseePrefs)) {
         const { subject, react } = getFriendRequestEmailProps({
           requesterUsername: requesterName,
           addresseeUsername: addresseeName,

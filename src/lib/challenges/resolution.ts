@@ -1,9 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
-import { sendEmail } from "@/lib/email/send";
+import { sendEmail, shouldSendEmail } from "@/lib/email/send";
 import { getChallengeResolvedEmailProps } from "@/lib/email/templates/challenge-resolved";
-import type { Card, Challenge } from "@/lib/supabase/types";
+import type {
+  Card,
+  Challenge,
+  NotificationPreferences,
+} from "@/lib/supabase/types";
 
 export interface ChallengeResolutionResult {
   challenge_id: string;
@@ -107,30 +111,34 @@ export async function resolveEligibleChallenges(): Promise<
 
     // Fire-and-forget: notify both participants about challenge result
     try {
+      type ProfileRow = {
+        username: string;
+        email?: string;
+        notification_preferences?: NotificationPreferences | null;
+      } | null;
+
       const { data: challengerProfile } = await (
         supabase.from("profiles") as any
       )
-        .select("username, email")
+        .select("username, email, notification_preferences")
         .eq("id", challenge.challenger_id)
         .single();
       const { data: opponentProfile } = await (
         supabase.from("profiles") as any
       )
-        .select("username, email")
+        .select("username, email, notification_preferences")
         .eq("id", challenge.opponent_id)
         .single();
       const challengerName =
-        (challengerProfile as { username: string; email?: string } | null)
-          ?.username ?? "Opponent";
+        (challengerProfile as ProfileRow)?.username ?? "Opponent";
       const opponentName =
-        (opponentProfile as { username: string; email?: string } | null)
-          ?.username ?? "Opponent";
-      const challengerEmail = (
-        challengerProfile as { username: string; email?: string } | null
-      )?.email;
-      const opponentEmail = (
-        opponentProfile as { username: string; email?: string } | null
-      )?.email;
+        (opponentProfile as ProfileRow)?.username ?? "Opponent";
+      const challengerEmail = (challengerProfile as ProfileRow)?.email;
+      const opponentEmail = (opponentProfile as ProfileRow)?.email;
+      const challengerPrefs =
+        (challengerProfile as ProfileRow)?.notification_preferences ?? null;
+      const opponentPrefs =
+        (opponentProfile as ProfileRow)?.notification_preferences ?? null;
 
       const challengerMsg = getChallengeNotificationMessage(
         challengerScore,
@@ -145,24 +153,35 @@ export async function resolveEligibleChallenges(): Promise<
         winnerId === challenge.opponent_id
       );
 
-      await createNotification(supabase, {
-        user_id: challenge.challenger_id,
-        type: "challenge_resolved",
-        title: challengerMsg.title,
-        body: challengerMsg.body,
-        metadata: { challenge_id: challenge.id },
-      });
-      await createNotification(supabase, {
-        user_id: challenge.opponent_id,
-        type: "challenge_resolved",
-        title: opponentMsg.title,
-        body: opponentMsg.body,
-        metadata: { challenge_id: challenge.id },
-      });
+      await createNotification(
+        supabase,
+        {
+          user_id: challenge.challenger_id,
+          type: "challenge_resolved",
+          title: challengerMsg.title,
+          body: challengerMsg.body,
+          metadata: { challenge_id: challenge.id },
+        },
+        challengerPrefs
+      );
+      await createNotification(
+        supabase,
+        {
+          user_id: challenge.opponent_id,
+          type: "challenge_resolved",
+          title: opponentMsg.title,
+          body: opponentMsg.body,
+          metadata: { challenge_id: challenge.id },
+        },
+        opponentPrefs
+      );
 
       // Send challenge-resolved emails to both participants (fire-and-forget)
       try {
-        if (challengerEmail) {
+        if (
+          challengerEmail &&
+          shouldSendEmail("challenge_resolved", challengerPrefs)
+        ) {
           const challengerEmailProps = getChallengeResolvedEmailProps({
             username: challengerName,
             myScore: challengerScore,
@@ -179,7 +198,10 @@ export async function resolveEligibleChallenges(): Promise<
           }).catch(() => {});
         }
 
-        if (opponentEmail) {
+        if (
+          opponentEmail &&
+          shouldSendEmail("challenge_resolved", opponentPrefs)
+        ) {
           const opponentEmailProps = getChallengeResolvedEmailProps({
             username: opponentName,
             myScore: opponentScore,

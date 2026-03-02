@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
 import { upsertReaction, deleteReaction } from "@/lib/reactions/queries";
 import { createNotification } from "@/lib/notifications/queries";
-import type { ReactionEmoji, ReactionTargetType } from "@/lib/supabase/types";
+import type { ReactionEmoji, ReactionTargetType, NotificationPreferences } from "@/lib/supabase/types";
 
 const VALID_EMOJIS: ReactionEmoji[] = [
   "fire",
@@ -182,6 +182,13 @@ async function sendReactionNotification(
     return;
   }
 
+  // Fetch the owner's notification preferences
+  const { data: ownerProfile } = await (admin.from("profiles") as any)
+    .select("notification_preferences")
+    .eq("id", ownerUserId)
+    .single() as { data: { notification_preferences: NotificationPreferences | null } | null };
+  const ownerPrefs = ownerProfile?.notification_preferences ?? null;
+
   await createNotification(admin, {
     user_id: ownerUserId,
     type: "reaction_received",
@@ -193,5 +200,5 @@ async function sendReactionNotification(
       emoji,
       reactor_id: reactorUserId,
     },
-  });
+  }, ownerPrefs);
 }

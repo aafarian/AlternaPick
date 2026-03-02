@@ -53,7 +53,32 @@ export type NotificationType =
   | "reaction_received"
   | "daily_recap";
 
-export type NotificationPreferences = Record<NotificationType, boolean>;
+export type EmailNotificationType =
+  | "email_card_resolved"
+  | "email_challenge_received"
+  | "email_challenge_resolved"
+  | "email_friend_request";
+
+export const EMAIL_NOTIFICATION_TYPES: EmailNotificationType[] = [
+  "email_card_resolved",
+  "email_challenge_received",
+  "email_challenge_resolved",
+  "email_friend_request",
+];
+
+export type NotificationPreferences = Record<
+  NotificationType | EmailNotificationType,
+  boolean
+>;
+
+export const NOTIFICATION_TYPE_TO_EMAIL_KEY: Partial<
+  Record<NotificationType, keyof NotificationPreferences>
+> = {
+  card_resolved: "email_card_resolved",
+  challenge_received: "email_challenge_received",
+  challenge_resolved: "email_challenge_resolved",
+  friend_request: "email_friend_request",
+};
 
 export type AchievementTier = "standard" | "gold" | "legendary";
 

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   Database,
   Notification,
+  NotificationPreferences,
   NotificationType,
 } from "@/lib/supabase/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
@@ -140,6 +141,12 @@ export async function markAllRead(
 
 /**
  * Create a new notification. Typically called server-side with the admin client.
+ *
+ * If `preferences` is provided and the user has explicitly disabled this
+ * notification type (`preferences[type] === false`), the insert is skipped
+ * and `null` is returned. When preferences is `null`/`undefined` or the key
+ * is missing, the notification is created normally (default-on for backwards
+ * compatibility).
  */
 export async function createNotification(
   supabase: SupabaseClient<Database>,
@@ -149,8 +156,14 @@ export async function createNotification(
     title: string;
     body: string;
     metadata?: Record<string, unknown> | null;
+  },
+  preferences?: NotificationPreferences | null
+): Promise<Notification | null> {
+  // If preferences were provided and this type is explicitly disabled, skip
+  if (preferences && preferences[notification.type] === false) {
+    return null;
   }
-): Promise<Notification> {
+
   const { data, error } = await typedFrom(supabase, "notifications")
     .insert({
       user_id: notification.user_id,

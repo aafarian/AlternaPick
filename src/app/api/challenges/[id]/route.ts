@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { unauthorized, badRequest, notFound, handleApiError } from "@/lib/api/errors";
-import type { Challenge } from "@/lib/supabase/types";
+import type { Challenge, NotificationPreferences } from "@/lib/supabase/types";
 import {
   getChallenge,
   respondToChallenge,
@@ -143,21 +143,31 @@ export async function PATCH(
       try {
         const adminClient = createAdminClient();
         const ch = challenge as Challenge;
-        const { data: opponentProfile } = await (
-          adminClient.from("profiles") as any
-        )
-          .select("username")
-          .eq("id", user.id)
-          .single();
+        const [{ data: opponentProfile }, { data: challengerProfile }] =
+          await Promise.all([
+            (adminClient.from("profiles") as any)
+              .select("username")
+              .eq("id", user.id)
+              .single() as Promise<{
+              data: { username: string } | null;
+            }>,
+            (adminClient.from("profiles") as any)
+              .select("notification_preferences")
+              .eq("id", ch.challenger_id)
+              .single() as Promise<{
+              data: { notification_preferences: NotificationPreferences | null } | null;
+            }>,
+          ]);
         const opponentName =
           (opponentProfile as { username: string } | null)?.username ?? "Someone";
+        const challengerPrefs = challengerProfile?.notification_preferences ?? null;
         await createNotification(adminClient, {
           user_id: ch.challenger_id,
           type: "challenge_accepted",
           title: "Challenge Accepted",
           body: `${opponentName} accepted your challenge!`,
           metadata: { challenge_id: ch.id },
-        });
+        }, challengerPrefs);
       } catch (notifError) {
         console.error("Failed to create challenge_accepted notification:", notifError);
       }
