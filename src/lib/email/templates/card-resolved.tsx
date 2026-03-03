@@ -4,9 +4,8 @@ import {
   Body,
   Container,
   Text,
-  Button,
+  Link,
   Preview,
-  Section,
   Hr,
 } from "@react-email/components";
 import type { ReactElement } from "react";
@@ -43,24 +42,18 @@ export function CardResolvedEmail({
       <Preview>{`${headline} You went ${score} for ${total}.`}</Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
-          <Text style={styles.brand}>Sports Tower</Text>
-
-          <Text style={styles.headline}>{headline}</Text>
-          <Text style={styles.scoreLine}>
-            {username}, you went {score} for {total}.
+          <Text style={styles.heading}>{headline}</Text>
+          <Text style={styles.text}>
+            {username}, you went {score} for {total}. {subtext}
           </Text>
-          <Text style={styles.subtext}>{subtext}</Text>
-
-          <Section style={styles.buttonSection}>
-            <Button style={styles.button} href={cardUrl}>
-              View Card
-            </Button>
-          </Section>
+          <Text style={styles.text}>
+            <Link style={styles.link} href={cardUrl}>
+              View card →
+            </Link>
+          </Text>
 
           <Hr style={styles.hr} />
-          <Text style={styles.footer}>
-            Sports Tower &mdash; alternapick.com
-          </Text>
+          <Text style={styles.footer}>Sports Tower · alternapick.com</Text>
         </Container>
       </Body>
     </Html>

@@ -4,9 +4,8 @@ import {
   Body,
   Container,
   Text,
-  Button,
+  Link,
   Preview,
-  Section,
   Hr,
 } from "@react-email/components";
 import type { ReactElement } from "react";
@@ -37,7 +36,6 @@ function getHeadline(isWinner: boolean, isTie: boolean, margin: number): string 
     if (margin === 1) return "Clutch Win!";
     return "Victory!";
   }
-  // Loss
   if (margin >= 3) return "Tough Loss";
   if (margin === 1) return "So Close!";
   return "Better Luck Next Time";
@@ -91,24 +89,18 @@ export function ChallengeResolvedEmail({
       </Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
-          <Text style={styles.brand}>Sports Tower</Text>
-
-          <Text style={styles.headline}>{headline}</Text>
-          <Text style={styles.scoreLine}>
-            {username}, you went {myScore}-{theirScore} vs {opponentName}.
+          <Text style={styles.heading}>{headline}</Text>
+          <Text style={styles.text}>
+            {username}, you went {myScore}-{theirScore} vs {opponentName}. {subtext}
           </Text>
-          <Text style={styles.subtext}>{subtext}</Text>
-
-          <Section style={styles.buttonSection}>
-            <Button style={styles.button} href={challengeUrl}>
-              View Challenge
-            </Button>
-          </Section>
+          <Text style={styles.text}>
+            <Link style={styles.link} href={challengeUrl}>
+              View challenge →
+            </Link>
+          </Text>
 
           <Hr style={styles.hr} />
-          <Text style={styles.footer}>
-            Sports Tower &mdash; alternapick.com
-          </Text>
+          <Text style={styles.footer}>Sports Tower · alternapick.com</Text>
         </Container>
       </Body>
     </Html>

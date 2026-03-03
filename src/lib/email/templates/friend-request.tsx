@@ -4,9 +4,8 @@ import {
   Body,
   Container,
   Text,
-  Button,
+  Link,
   Preview,
-  Section,
   Hr,
 } from "@react-email/components";
 import type { ReactElement } from "react";
@@ -35,27 +34,23 @@ export function FriendRequestEmail({
     <Html lang="en">
       <Head />
       <Preview>
-        {`${requesterUsername} sent you a friend request on Sports Tower`}
+        {`${requesterUsername} sent you a friend request`}
       </Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
-          <Text style={styles.brand}>Sports Tower</Text>
-
-          <Text style={styles.headline}>New Friend Request</Text>
-          <Text style={styles.subtext}>
-            {addresseeUsername}, {requesterUsername} wants to be your friend.
+          <Text style={styles.heading}>New Friend Request</Text>
+          <Text style={styles.text}>
+            Hey {addresseeUsername}, {requesterUsername} wants to be your friend
+            on Sports Tower.
           </Text>
-
-          <Section style={styles.buttonSection}>
-            <Button style={styles.button} href={friendsUrl}>
-              View Request
-            </Button>
-          </Section>
+          <Text style={styles.text}>
+            <Link style={styles.link} href={friendsUrl}>
+              View request →
+            </Link>
+          </Text>
 
           <Hr style={styles.hr} />
-          <Text style={styles.footer}>
-            Sports Tower &mdash; alternapick.com
-          </Text>
+          <Text style={styles.footer}>Sports Tower · alternapick.com</Text>
         </Container>
       </Body>
     </Html>
