@@ -300,7 +300,6 @@ export async function POST(request: NextRequest) {
         shouldSendEmail("challenge_received", opponent.notification_preferences)
       ) {
         const { subject, react } = getChallengeReceivedEmailProps({
-          opponentUsername: opponent.username ?? "Player",
           challengerUsername: challengerName,
           gameMode,
           message,

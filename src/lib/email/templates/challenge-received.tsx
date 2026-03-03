@@ -16,7 +16,6 @@ import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
 // ---------------------------------------------------------------------------
 
 export interface ChallengeReceivedEmailProps {
-  opponentUsername: string;
   challengerUsername: string;
   gameMode: string;
   message: string | null;

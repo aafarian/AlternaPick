@@ -33,7 +33,7 @@ export const emailStyles = {
   },
   link: {
     color: "#2563eb",
-    textDecoration: "none" as const,
+    textDecoration: "underline" as const,
     fontWeight: 500 as const,
   },
   hr: {
