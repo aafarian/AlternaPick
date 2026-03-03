@@ -66,14 +66,10 @@ export default async function CardsPage() {
   // The server page no longer needs to compute a default tab.
 
   // Fetch cards and stats in parallel
-  const [activeCards, completedCards, leaderboardResult, bestCardResult, totalResolvedResult] = await Promise.all([
+  const [activeCards, completedCards, hitRateResult, bestCardResult, totalResolvedResult] = await Promise.all([
     getCardsByStatus(user.id, "locked"),
     getCardsByStatus(user.id, "resolved", PAGE_SIZE),
-    supabase
-      .from("leaderboard_entries")
-      .select("total_correct_picks, total_attempted_picks, win_rate")
-      .eq("user_id", user.id)
-      .single(),
+    (supabase.rpc as any)("get_hit_rate", { p_user_id: user.id }),
     (supabase.from("cards") as any)
       .select("score, total_picks")
       .eq("user_id", user.id)
@@ -89,8 +85,8 @@ export default async function CardsPage() {
   ]);
 
   // Error handling
-  if (leaderboardResult.error && leaderboardResult.error.code !== "PGRST116") {
-    logError("picks-page", `Leaderboard query failed: ${leaderboardResult.error.message}`);
+  if (hitRateResult.error) {
+    logError("picks-page", `Hit rate query failed: ${hitRateResult.error.message}`);
   }
   if (bestCardResult.error) {
     logError("picks-page", `Best card query failed: ${bestCardResult.error.message}`);
@@ -101,11 +97,11 @@ export default async function CardsPage() {
 
   const totalResolvedCount = totalResolvedResult.count ?? 0;
 
-  // Hit rate from leaderboard_entries
-  const leaderboard = leaderboardResult.data as { total_correct_picks: number; total_attempted_picks: number; win_rate: number } | null;
+  // Hit rate from get_hit_rate RPC (same source of truth as analytics page)
+  const hitRateData = (hitRateResult.data as { hits: number; total: number }[] | null)?.[0];
   const hitRate =
-    leaderboard && leaderboard.total_attempted_picks > 0
-      ? Math.round((leaderboard.total_correct_picks / leaderboard.total_attempted_picks) * 100)
+    hitRateData && hitRateData.total > 0
+      ? Math.round((hitRateData.hits / hitRateData.total) * 100)
       : null;
 
   // Best card from dedicated query
