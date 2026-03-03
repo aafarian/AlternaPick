@@ -48,6 +48,7 @@ jobs:
             cat > .env << 'ENVEOF'
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_SITE_URL=${{ secrets.NEXT_PUBLIC_SITE_URL }}
             SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
             ODDS_API_KEY=${{ secrets.ODDS_API_KEY }}
             SYNC_SECRET=${{ secrets.SYNC_SECRET }}
