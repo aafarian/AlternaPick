@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@react-email/components": "^1.0.8",
+    "@react-email/render": "^2.0.4",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.95.3",
     "@vercel/og": "^0.8.6",
