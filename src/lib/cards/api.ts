@@ -25,7 +25,7 @@ export interface CardWithPicks {
     card_id: string;
     prop_id: string;
     selection: PickSelection;
-    result: "pending" | "hit" | "miss";
+    result: "pending" | "hit" | "miss" | "push" | "dnp";
     actual_value: number | null;
     created_at: string;
     props?: {

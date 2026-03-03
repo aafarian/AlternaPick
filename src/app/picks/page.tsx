@@ -12,6 +12,7 @@ import { Plus, Target, BarChart3, Trophy, Activity } from "lucide-react";
 import { SlideUp, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { cn } from "@/lib/utils";
+import { logError } from "@/lib/logger";
 
 const PAGE_SIZE = 20;
 
@@ -44,6 +45,10 @@ async function getCardsByStatus(
     .order("created_at", { ascending: false })
     .limit(limit);
 
+  if (result.error) {
+    logError("picks-page", `Failed to fetch ${status} cards: ${result.error.message}`);
+  }
+
   return (result.data ?? []) as CardWithPicks[];
 }
 
@@ -60,24 +65,51 @@ export default async function CardsPage() {
   // Tab state is now driven by useSearchParams in PicksTabs (client-side).
   // The server page no longer needs to compute a default tab.
 
-  // Fetch locked and resolved cards separately for proper pagination
-  const [activeCards, completedCards] = await Promise.all([
+  // Fetch cards and stats in parallel
+  const [activeCards, completedCards, leaderboardResult, bestCardResult, totalResolvedResult] = await Promise.all([
     getCardsByStatus(user.id, "locked"),
     getCardsByStatus(user.id, "resolved", PAGE_SIZE),
+    supabase
+      .from("leaderboard_entries")
+      .select("total_correct_picks, total_attempted_picks, win_rate")
+      .eq("user_id", user.id)
+      .single(),
+    (supabase.from("cards") as any)
+      .select("score, total_picks")
+      .eq("user_id", user.id)
+      .eq("status", "resolved")
+      .gt("total_picks", 0)
+      .order("score", { ascending: false })
+      .limit(1),
+    supabase
+      .from("cards")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("status", "resolved"),
   ]);
 
-  const totalHits = completedCards.reduce((sum, c) => sum + c.score, 0);
-  const totalAttempted = completedCards.reduce((sum, c) => sum + c.total_picks, 0);
+  // Error handling
+  if (leaderboardResult.error && leaderboardResult.error.code !== "PGRST116") {
+    logError("picks-page", `Leaderboard query failed: ${leaderboardResult.error.message}`);
+  }
+  if (bestCardResult.error) {
+    logError("picks-page", `Best card query failed: ${bestCardResult.error.message}`);
+  }
+  if (totalResolvedResult.error) {
+    logError("picks-page", `Total resolved query failed: ${totalResolvedResult.error.message}`);
+  }
+
+  const totalResolvedCount = totalResolvedResult.count ?? 0;
+
+  // Hit rate from leaderboard_entries
+  const leaderboard = leaderboardResult.data as { total_correct_picks: number; total_attempted_picks: number; win_rate: number } | null;
   const hitRate =
-    totalAttempted > 0
-      ? Math.round((totalHits / totalAttempted) * 100)
+    leaderboard && leaderboard.total_attempted_picks > 0
+      ? Math.round((leaderboard.total_correct_picks / leaderboard.total_attempted_picks) * 100)
       : null;
 
-  // Find the best card (highest score) and its total picks
-  const bestCard =
-    completedCards.length > 0
-      ? completedCards.reduce((best, c) => (c.score > best.score ? c : best), completedCards[0])
-      : null;
+  // Best card from dedicated query
+  const bestCard = (bestCardResult.data as { score: number; total_picks: number }[] | null)?.[0] ?? null;
 
   return (
     <div className="flex flex-col gap-8 py-8">
@@ -95,7 +127,7 @@ export default async function CardsPage() {
       </SlideUp>
 
       {/* Stats summary */}
-      {(completedCards.length > 0 || activeCards.length > 0) && (
+      {(activeCards.length > 0 || totalResolvedCount > 0) && (
         <StaggerChildren className="grid grid-cols-2 gap-4 md:grid-cols-4" staggerDelay={0.08}>
           <StatCard
             icon={<Activity className="h-5 w-5 text-primary" />}
@@ -104,7 +136,7 @@ export default async function CardsPage() {
           />
           <StatCard
             icon={<Target className="h-5 w-5 text-muted-foreground" />}
-            value={completedCards.length}
+            value={totalResolvedCount}
             label="Completed"
           />
           <StatCard
@@ -126,7 +158,7 @@ export default async function CardsPage() {
         <Suspense>
           <PicksTabs
             liveCount={activeCards.length}
-            finishedCount={completedCards.length}
+            finishedCount={totalResolvedCount}
             liveContent={<LiveTracker initialCards={activeCards} />}
             finishedContent={
               completedCards.length === 0 ? (

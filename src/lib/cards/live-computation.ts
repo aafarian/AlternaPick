@@ -157,29 +157,40 @@ export function buildLivePicksForCard(
     }
 
     let currentValue: number | null = null;
-    let trending: "hit" | "miss" | "push" | null = null;
+    let trending: "hit" | "miss" | "push" | "dnp" | null = null;
+
+    // Once classified as DNP, we skip the boxscore refresh below.
+    // If the classification was incorrect (transient ESPN data),
+    // reResolveStaleCards is the corrective path.
+    if (pick.result === "dnp") {
+      trending = "dnp";
+    }
 
     // Use the live status when available, otherwise fall back to the gameStatus we computed
     const effectiveStatus = gameInfo?.status ?? gameStatus?.status ?? dbGameStatus;
 
-    if (effectiveStatus === "live" || effectiveStatus === "final") {
+    if (trending !== "dnp" && (effectiveStatus === "live" || effectiveStatus === "final")) {
       // Try boxscore first (only for today's games with external event ID)
       if (resolvedEventId) {
         const boxscore = boxscoreMap.get(resolvedEventId) ?? [];
         const playerStats = fuzzyMatchPlayer(boxscore, pick.props.player_name);
 
         if (playerStats) {
-          currentValue = extractStatValue(playerStats, pick.props.stat_category);
-
-          if (currentValue === pick.props.line) {
-            trending = "push";
-          } else if (
-            (pick.selection === "over" && currentValue > pick.props.line) ||
-            (pick.selection === "under" && currentValue < pick.props.line)
-          ) {
-            trending = "hit";
+          if (playerStats.dnp) {
+            trending = "dnp";
           } else {
-            trending = "miss";
+            currentValue = extractStatValue(playerStats, pick.props.stat_category);
+
+            if (currentValue === pick.props.line) {
+              trending = "push";
+            } else if (
+              (pick.selection === "over" && currentValue > pick.props.line) ||
+              (pick.selection === "under" && currentValue < pick.props.line)
+            ) {
+              trending = "hit";
+            } else {
+              trending = "miss";
+            }
           }
         }
       }
@@ -196,6 +207,7 @@ export function buildLivePicksForCard(
       // Second fallback: use resolved result for trending even without actual_value.
       // This prevents the UI from showing "Pending" when resolution ran but
       // couldn't fetch boxscore data (e.g. external event ID was missing at resolution time).
+      // push is still needed here for void picks without boxscore data; dnp is handled above
       if (trending === null && pick.result) {
         if (pick.result === "hit" || pick.result === "miss" || pick.result === "push") {
           trending = pick.result as "hit" | "miss" | "push";
@@ -349,7 +361,11 @@ export async function fetchLiveMaps(
   for (const pick of picks) {
     const eventId = pick.props?.games?.external_event_id;
     if (!eventId) continue;
-    if (pick.actual_value != null && pick.result && pick.result !== "pending") {
+    const isFullyResolved =
+      (pick.actual_value != null || pick.result === "dnp" || pick.result === "push") &&
+      pick.result &&
+      pick.result !== "pending";
+    if (isFullyResolved) {
       if (!gamesWithUnresolved.has(eventId)) {
         gamesWithAllResolved.add(eventId);
       }

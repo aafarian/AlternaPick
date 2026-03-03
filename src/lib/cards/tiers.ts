@@ -5,7 +5,11 @@ export function getCardTier(
   score: number,
   total: number,
 ): { headline: string; subtext: string } {
-  const ratio = total > 0 ? score / total : 0;
+  if (total === 0) {
+    return { headline: "No Contest", subtext: "All picks were voided." };
+  }
+
+  const ratio = score / total;
 
   if (score === total) {
     return { headline: "Perfect Card!", subtext: "Absolute masterclass." };

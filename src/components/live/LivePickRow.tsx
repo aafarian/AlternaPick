@@ -8,7 +8,7 @@ import { formatClock, formatGameTime } from "@/lib/format";
 import type { StatCategory } from "@/lib/supabase/types";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
 import { Badge } from "@/components/ui/badge";
-import { ChevronUp, ChevronDown, Check, X, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { ChevronUp, ChevronDown, Check, X, CheckCircle2, XCircle, Minus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // SVG chevron patterns — fit within h-2 (8px) bar
@@ -43,7 +43,9 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
       >
         {/* Settled icon */}
         {d.isSettled && (
-          d.settledWon ? (
+          d.isDnp || d.isVoid ? (
+            <Minus className="h-4 w-4 shrink-0 text-muted-foreground" />
+          ) : d.settledWon ? (
             <CheckCircle2 className="h-4 w-4 shrink-0 text-neon-green" />
           ) : (
             <XCircle className="h-4 w-4 shrink-0 text-bold-red" />
@@ -142,12 +144,16 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
           <div
             className={cn(
               "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
-              d.settledWon
-                ? "bg-neon-green/15 text-neon-green"
-                : "bg-bold-red/15 text-bold-red"
+              d.isDnp || d.isVoid
+                ? "bg-muted text-muted-foreground"
+                : d.settledWon
+                  ? "bg-neon-green/15 text-neon-green"
+                  : "bg-bold-red/15 text-bold-red"
             )}
           >
-            {d.settledWon ? (
+            {d.isDnp || d.isVoid ? (
+              <Minus className="h-3 w-3" strokeWidth={3} />
+            ) : d.settledWon ? (
               <Check className="h-3 w-3" strokeWidth={3} />
             ) : (
               <X className="h-3 w-3" strokeWidth={3} />
@@ -219,7 +225,11 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
 
         {/* Right: big current value + game status — fixed min-h to avoid layout shift */}
         <div className="flex min-h-[36px] flex-col items-end justify-center gap-1">
-          {d.hasValue ? (
+          {d.isDnp || d.isVoid ? (
+            <span className="text-xs font-semibold leading-none text-muted-foreground">
+              {d.isDnp ? "DNP" : "Void"}
+            </span>
+          ) : d.hasValue ? (
             <span
               className={cn(
                 "text-xl font-black tabular-nums leading-none animate-value-in",

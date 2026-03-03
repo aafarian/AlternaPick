@@ -157,6 +157,52 @@ def _get_period(status: dict) -> int:
     return 0
 
 
+def _make_soccer_player(
+    player_info: dict, team_name: str, *, dnp: bool = False, stats: dict | None = None
+) -> dict:
+    """Build a boxscore entry for a soccer player.
+
+    Args:
+        player_info: api-football player dict with 'name' and 'id'.
+        team_name: Team display name.
+        dnp: True if the player Did Not Play.
+        stats: Aggregated stats dict (from _aggregate_player_stats) or None.
+    """
+    s = stats or {}
+    return {
+        "player_name": player_info.get("name", ""),
+        "player_id": str(player_info.get("id", "")),
+        "team": team_name,
+        "team_tricode": "",
+        "minutes": str(s.get("minutes", "0")) if not dnp else "0",
+        "goals": s.get("goals", 0),
+        "assists": s.get("assists", 0),
+        "shots": s.get("shots_total", 0),
+        "shots_on_target": s.get("shots_on", 0),
+        "passes": s.get("passes_total", 0),
+        "tackles": s.get("tackles_total", 0),
+        "fouls_committed": s.get("fouls_committed", 0),
+        "saves": s.get("saves", 0),
+        # NBA-compatible fields (zero for soccer)
+        "points": 0,
+        "rebounds": 0,
+        "offensive_rebounds": 0,
+        "defensive_rebounds": 0,
+        "steals": 0,
+        "blocks": 0,
+        "turnovers": 0,
+        "threes_made": 0,
+        "threes_attempted": 0,
+        "field_goals_made": 0,
+        "field_goals_attempted": 0,
+        "free_throws_made": 0,
+        "free_throws_attempted": 0,
+        "plus_minus": 0,
+        "fouls": 0,
+        "dnp": dnp,
+    }
+
+
 async def get_fixture_player_stats(fixture_id: str) -> list[dict]:
     """Fetch player stats for a completed/live fixture."""
     cache_key = f"epl_boxscore:{fixture_id}"
@@ -176,42 +222,18 @@ async def get_fixture_player_stats(fixture_id: str) -> list[dict]:
                 player_info = player_entry.get("player", {})
                 stats_list = player_entry.get("statistics", [])
                 if not stats_list:
+                    players.append(_make_soccer_player(player_info, team_name, dnp=True))
                     continue
                 # api-football returns a list of stat objects (one per position played)
                 # Aggregate across all entries
                 stats = _aggregate_player_stats(stats_list)
 
-                players.append({
-                    "player_name": player_info.get("name", ""),
-                    "player_id": str(player_info.get("id", "")),
-                    "team": team_name,
-                    "team_tricode": "",
-                    "minutes": str(stats.get("minutes", "0")),
-                    "goals": stats.get("goals", 0),
-                    "assists": stats.get("assists", 0),
-                    "shots": stats.get("shots_total", 0),
-                    "shots_on_target": stats.get("shots_on", 0),
-                    "passes": stats.get("passes_total", 0),
-                    "tackles": stats.get("tackles_total", 0),
-                    "fouls_committed": stats.get("fouls_committed", 0),
-                    "saves": stats.get("saves", 0),
-                    # NBA-compatible fields (zero for soccer)
-                    "points": 0,
-                    "rebounds": 0,
-                    "offensive_rebounds": 0,
-                    "defensive_rebounds": 0,
-                    "steals": 0,
-                    "blocks": 0,
-                    "turnovers": 0,
-                    "threes_made": 0,
-                    "threes_attempted": 0,
-                    "field_goals_made": 0,
-                    "field_goals_attempted": 0,
-                    "free_throws_made": 0,
-                    "free_throws_attempted": 0,
-                    "plus_minus": 0,
-                    "fouls": 0,
-                })
+                # Detect DNP: minutes is None means player was on roster but didn't play.
+                # Do NOT use == 0; late subs can have 0 minutes due to rounding (B28).
+                minutes_val = stats.get("minutes")
+                is_dnp = minutes_val is None
+
+                players.append(_make_soccer_player(player_info, team_name, dnp=is_dnp, stats=stats))
 
         # Determine cache TTL: use long TTL for final games
         ttl = CACHE_TTL_SECONDS

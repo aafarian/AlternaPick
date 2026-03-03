@@ -67,6 +67,7 @@ export const PENDING_ICON = "?";
 export function resultIcon(result: string): string {
   if (result === "hit") return HIT_ICON;
   if (result === "miss") return MISS_ICON;
+  if (result === "dnp" || result === "push") return "\u2014";
   return PENDING_ICON;
 }
 

@@ -97,6 +97,8 @@ export interface PlayerBoxScore {
   passes?: number;
   fouls_committed?: number;
   saves?: number;
+  /** True when the player was on the roster but did not play */
+  dnp?: boolean;
 }
 
 export interface GameLogEntry {

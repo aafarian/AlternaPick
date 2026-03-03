@@ -56,11 +56,10 @@ export async function GET(request: Request) {
 
   const gameMode = (card.game_mode ?? "classic") as GameMode;
   const scoreText = formatScore(card.score, card.total_picks);
-  const isGood = card.score >= card.total_picks / 2;
+  const isNoContest = card.status === "resolved" && card.total_picks === 0;
+  const isGood = card.total_picks > 0 && card.score >= card.total_picks / 2;
   const scoreColor = card.status === "resolved"
-    ? isGood
-      ? OG_COLORS.green
-      : OG_COLORS.red
+    ? isNoContest ? OG_COLORS.muted : isGood ? OG_COLORS.green : OG_COLORS.red
     : OG_COLORS.amber;
 
   const picks = (card.picks ?? []) as Array<{
@@ -194,11 +193,14 @@ export async function GET(request: Request) {
           {picks.slice(0, 6).map((pick) => {
             const isHit = pick.result === "hit";
             const isMiss = pick.result === "miss";
-            const dotColor = isHit
-              ? OG_COLORS.green
-              : isMiss
-                ? OG_COLORS.red
-                : OG_COLORS.amber;
+            const isNeutral = pick.result === "dnp" || pick.result === "push";
+            const dotColor = isNeutral
+              ? OG_COLORS.muted
+              : isHit
+                ? OG_COLORS.green
+                : isMiss
+                  ? OG_COLORS.red
+                  : OG_COLORS.amber;
             const icon = resultIcon(pick.result);
             const playerName = pick.props?.player_name ?? "Unknown";
             const stat = pick.props ? statLabel(pick.props.stat_category) : "";
