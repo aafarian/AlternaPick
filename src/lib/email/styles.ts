@@ -1,13 +1,13 @@
 /**
  * Shared email styles for all templates.
- * Dark theme matching the app aesthetic.
+ * Clean, minimal transactional style to maximize inbox placement.
  */
 export const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://alternapick.com";
 
 export const emailStyles = {
   body: {
-    backgroundColor: "#0a0a0a",
+    backgroundColor: "#f4f4f5",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     margin: "0" as const,
@@ -16,58 +16,33 @@ export const emailStyles = {
   container: {
     maxWidth: "480px",
     margin: "0 auto",
-    padding: "40px 24px",
+    padding: "32px 24px",
   },
-  brand: {
-    fontSize: "14px",
-    fontWeight: 600 as const,
-    color: "#a1a1aa",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.1em",
-    textAlign: "center" as const,
-    margin: "0 0 32px 0",
-  },
-  headline: {
-    fontSize: "32px",
-    fontWeight: 700 as const,
-    color: "#ffffff",
-    textAlign: "center" as const,
-    margin: "0 0 8px 0",
-    lineHeight: "1.2",
-  },
-  scoreLine: {
+  heading: {
     fontSize: "20px",
-    color: "#e4e4e7",
-    textAlign: "center" as const,
-    margin: "0 0 4px 0",
-  },
-  subtext: {
-    fontSize: "16px",
-    color: "#71717a",
-    textAlign: "center" as const,
-    margin: "0 0 32px 0",
-  },
-  buttonSection: {
-    textAlign: "center" as const,
-    margin: "0 0 32px 0",
-  },
-  button: {
-    backgroundColor: "#ffffff",
-    color: "#0a0a0a",
-    fontSize: "15px",
     fontWeight: 600 as const,
-    textDecoration: "none",
-    borderRadius: "8px",
-    padding: "12px 32px",
+    color: "#18181b",
+    margin: "0 0 16px 0",
+    lineHeight: "1.3",
+  },
+  text: {
+    fontSize: "15px",
+    color: "#3f3f46",
+    margin: "0 0 16px 0",
+    lineHeight: "1.5",
+  },
+  link: {
+    color: "#2563eb",
+    textDecoration: "none" as const,
+    fontWeight: 500 as const,
   },
   hr: {
-    borderColor: "#27272a",
-    margin: "0 0 16px 0",
+    borderColor: "#e4e4e7",
+    margin: "24px 0 16px 0",
   },
   footer: {
     fontSize: "12px",
-    color: "#52525b",
-    textAlign: "center" as const,
+    color: "#a1a1aa",
     margin: "0",
     lineHeight: "1.5",
   },

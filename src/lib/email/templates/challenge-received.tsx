@@ -4,9 +4,8 @@ import {
   Body,
   Container,
   Text,
-  Button,
+  Link,
   Preview,
-  Section,
   Hr,
 } from "@react-email/components";
 import type { ReactElement } from "react";
@@ -23,18 +22,6 @@ export interface ChallengeReceivedEmailProps {
   message: string | null;
   challengeId: string;
 }
-
-// ---------------------------------------------------------------------------
-// Template-specific styles
-// ---------------------------------------------------------------------------
-
-const messageStyle = {
-  fontSize: "16px",
-  color: "#e4e4e7",
-  textAlign: "center" as const,
-  fontStyle: "italic" as const,
-  margin: "0 0 32px 0",
-};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -60,27 +47,23 @@ export function ChallengeReceivedEmail({
       <Preview>{headlineText}</Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
-          <Text style={styles.brand}>Sports Tower</Text>
-
-          <Text style={styles.headline}>{headlineText}</Text>
-          <Text style={styles.subtext}>
+          <Text style={styles.heading}>{headlineText}</Text>
+          <Text style={styles.text}>
             Think you can beat them? Accept the challenge and prove it.
           </Text>
-
           {message && (
-            <Text style={messageStyle}>&ldquo;{message}&rdquo;</Text>
+            <Text style={{ ...styles.text, fontStyle: "italic" as const }}>
+              &ldquo;{message}&rdquo;
+            </Text>
           )}
-
-          <Section style={styles.buttonSection}>
-            <Button style={styles.button} href={challengeUrl}>
-              View Challenge
-            </Button>
-          </Section>
+          <Text style={styles.text}>
+            <Link style={styles.link} href={challengeUrl}>
+              View challenge →
+            </Link>
+          </Text>
 
           <Hr style={styles.hr} />
-          <Text style={styles.footer}>
-            Sports Tower &mdash; alternapick.com
-          </Text>
+          <Text style={styles.footer}>Sports Tower · alternapick.com</Text>
         </Container>
       </Body>
     </Html>
