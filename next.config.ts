@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  serverExternalPackages: ["resend", "@react-email/components"],
+  serverExternalPackages: ["resend", "@react-email/components", "@react-email/render"],
   images: {
     remotePatterns: [
       {
