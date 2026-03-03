@@ -57,7 +57,7 @@ export function getCardShareSummary(
       "?";
     const dir = pick.selection === "over" ? "O" : "U";
     const line = pick.props?.line ?? "?";
-    const icon = pick.result === "hit" ? "+" : pick.result === "miss" ? "-" : "?";
+    const icon = pick.result === "hit" ? "+" : pick.result === "miss" ? "-" : pick.result === "dnp" ? "\u2205" : pick.result === "push" ? "~" : "?";
     return `${icon} ${playerName} ${cat} ${dir} ${line}`;
   });
 

@@ -33,7 +33,7 @@ export interface LivePickData {
   line: number;
   selection: PickSelection;
   current_value: number | null;
-  trending: "hit" | "miss" | "push" | null;
+  trending: "hit" | "miss" | "push" | "dnp" | null;
   game_status: LiveGameStatus | null;
 }
 
@@ -68,7 +68,7 @@ export function toLivePickData(pick: {
   } | null;
 }): LivePickData {
   const hasResult =
-    pick.result === "hit" || pick.result === "miss" || pick.result === "push";
+    pick.result === "hit" || pick.result === "miss" || pick.result === "push" || pick.result === "dnp";
 
   return {
     pick_id: pick.id,
@@ -81,14 +81,14 @@ export function toLivePickData(pick: {
     line: pick.prop?.line ?? 0,
     selection: pick.selection as PickSelection,
     current_value: pick.actual_value,
-    trending: hasResult ? (pick.result as "hit" | "miss" | "push") : null,
+    trending: hasResult ? (pick.result as "hit" | "miss" | "push" | "dnp") : null,
     // Resolved picks should show as "final" — null causes "PRE" display
     game_status: hasResult
       ? {
           game_id: pick.prop?.game_id ?? "",
           external_event_id: pick.prop?.game_id ?? "",
           status: "final" as const,
-          period: 4,
+          period: pick.prop?.games?.sport === "soccer" ? 2 : 4,
           clock: "0:00",
           home_team: "",
           away_team: "",

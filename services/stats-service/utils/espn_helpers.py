@@ -120,3 +120,21 @@ def safe_int(val) -> int:
         return int(val)
     except (ValueError, TypeError):
         return 0
+
+
+def make_dnp_player(athlete_info: dict, team_name: str, team_tricode: str) -> dict:
+    """Build a boxscore entry for a player who Did Not Play."""
+    return {
+        "player_name": athlete_info.get("displayName", ""),
+        "player_id": str(athlete_info.get("id", "")),
+        "team": team_name,
+        "team_tricode": team_tricode,
+        "minutes": "0",
+        "points": 0, "rebounds": 0, "offensive_rebounds": 0, "defensive_rebounds": 0,
+        "assists": 0, "steals": 0, "blocks": 0, "turnovers": 0,
+        "threes_made": 0, "threes_attempted": 0,
+        "field_goals_made": 0, "field_goals_attempted": 0,
+        "free_throws_made": 0, "free_throws_attempted": 0,
+        "plus_minus": 0, "fouls": 0,
+        "dnp": True,
+    }

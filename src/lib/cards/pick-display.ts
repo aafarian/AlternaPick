@@ -11,6 +11,8 @@ export interface PickDisplayState {
   settledWon: boolean | null;
   inPlay: boolean;
   isWinning: boolean;
+  isDnp: boolean;
+  isVoid: boolean;
   barWidth: number;
   linePosition: number;
   barColor: string;
@@ -26,42 +28,49 @@ export function computePickDisplay(pick: LivePickData): PickDisplayState {
     !pick.game_status || pick.game_status.status === "scheduled";
   const isAwaitingLive = !pick.game_status && !hasValue;
 
+  const isDnp = pick.trending === "dnp";
+  const isVoid = pick.trending === "push" && (isFinal || !pick.game_status);
+
   // Progress toward the line
   const rawPct =
     hasValue && pick.line > 0 ? (pick.current_value! / pick.line) * 100 : 0;
-  const pastLine = rawPct >= 100;
+  const crossedLine = rawPct > 100;
+  const isWinning = hasValue && (isOver ? rawPct > 100 : rawPct < 100);
 
   // Line marker fixed at 90%; bar scales within that range or fills 100% when over
   const linePosition = 90;
-  const barWidth = pastLine ? 100 : (rawPct / 100) * 90;
+  const barWidth = crossedLine ? 100 : (rawPct / 100) * 90;
 
   // Settled: line is decided and won't change
   const isSettled =
-    (hasValue && (isFinal || pastLine)) ||
+    isDnp || isVoid ||
+    (hasValue && (isFinal || crossedLine)) ||
     (pick.trending !== null && (isFinal || !pick.game_status));
-  const settledWon = isSettled
-    ? hasValue
-      ? pastLine === isOver
-      : pick.trending === "hit"
-    : null;
+
+  const settledWon = isDnp || isVoid
+    ? null
+    : isSettled
+      ? hasValue ? isWinning : pick.trending === "hit"
+      : null;
 
   // Still in play: has live data but not settled yet
   const inPlay = isLive && !isSettled;
 
   // Bar color — green when winning, red when losing
-  const isWinning = hasValue && (isOver ? pastLine : !pastLine);
   const barColor = !hasValue
     ? "bg-foreground/12"
     : isWinning
       ? "bg-neon-green/30"
       : "bg-bold-red/25";
 
-  // Left accent border — only when settled
-  const accentClass = isSettled
-    ? settledWon
-      ? "border-l-neon-green/60"
-      : "border-l-bold-red/60"
-    : "border-l-transparent";
+  // Left accent border — only when settled; DNP/void get neutral muted styling
+  const accentClass = isDnp || isVoid
+    ? "border-l-muted-foreground/40"
+    : isSettled
+      ? settledWon
+        ? "border-l-neon-green/60"
+        : "border-l-bold-red/60"
+      : "border-l-transparent";
 
   return {
     hasValue,
@@ -74,6 +83,8 @@ export function computePickDisplay(pick: LivePickData): PickDisplayState {
     settledWon,
     inPlay,
     isWinning,
+    isDnp,
+    isVoid,
     barWidth,
     linePosition,
     barColor,

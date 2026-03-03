@@ -18,6 +18,7 @@ from utils.espn_helpers import (
     get_cached,
     set_cached,
     get_http_client,
+    make_dnp_player,
     parse_espn_status,
     parse_period,
     parse_clock,
@@ -137,6 +138,7 @@ async def get_ncaab_boxscore(event_id: str) -> list[dict]:
                     stats_values = athlete.get("stats", [])
 
                     if not stats_values:
+                        players.append(make_dnp_player(athlete_info, team_name, team_tricode))
                         continue
 
                     # Build a label→value map

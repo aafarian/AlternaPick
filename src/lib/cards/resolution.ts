@@ -90,6 +90,7 @@ export function extractStatValue(
     case "saves":
       return stats.saves ?? 0;
     default:
+      logError("resolution", `Unknown stat category: ${category}`);
       return 0;
   }
 }
@@ -169,8 +170,28 @@ export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
       const resolved = await persistResolution(supabase, result);
       if (!resolved) continue; // Already resolved by another caller
 
-      await handlePostResolution(supabase, result);
+      if (result.total > 0) {
+        await handlePostResolution(supabase, result);
+      } else if (result.user_id) {
+        // All picks DNP/voided — still notify the user their card resolved
+        await createNotification(supabase, {
+          user_id: result.user_id,
+          type: "card_resolved",
+          title: "No Contest",
+          body: "Your card resolved with no scoreable picks.",
+          metadata: { card_id: result.card_id },
+        }, null).catch(() => {});
+      }
       results.push(result);
+    }
+  }
+
+  // Resolve eligible challenges if any cards were resolved
+  if (results.length > 0) {
+    try {
+      await resolveEligibleChallenges();
+    } catch (err) {
+      logError("resolution", `Failed to resolve challenges: ${err}`);
     }
   }
 
@@ -188,13 +209,18 @@ export async function reResolveStaleCards(): Promise<{
 }> {
   const supabase = createAdminClient();
 
-  // Find resolved cards that have picks with null actual_value
+  // Find resolved cards that have picks with null actual_value.
+  // Include "dnp" so false-DNP picks (transient ESPN data) can be corrected.
   const { data: stalePicks, error } = await (supabase.from("picks") as any)
-    .select("id, card_id, selection, result, prop_id, props(player_name, stat_category, line, game_id, games(external_event_id, sport, status))")
+    .select("id, card_id, selection, result, prop_id, props(player_name, stat_category, line, game_id, games(external_event_id, sport, status, commence_time))")
     .is("actual_value", null)
-    .in("result", ["hit", "miss"]);
+    .in("result", ["hit", "miss", "dnp"]);
 
-  if (error || !stalePicks || stalePicks.length === 0) {
+  if (error) {
+    logError("resolution", `Failed to fetch stale picks: ${error.message}`);
+    return { picksUpdated: 0, cardsRescored: 0 };
+  }
+  if (!stalePicks || stalePicks.length === 0) {
     return { picksUpdated: 0, cardsRescored: 0 };
   }
 
@@ -209,16 +235,26 @@ export async function reResolveStaleCards(): Promise<{
       stat_category: StatCategory;
       line: number;
       game_id: string;
-      games: { external_event_id: string | null; sport: string | null; status: string | null };
+      games: { external_event_id: string | null; sport: string | null; status: string | null; commence_time: string | null };
     };
   };
 
-  const picks = stalePicks as StalePick[];
+  const allPicks = stalePicks as StalePick[];
+
+  // Post-filter by 7-day recency to avoid unbounded re-evaluation of old DNP picks (B16/B17).
+  // Include picks where commence_time is missing since we can't determine their age.
+  const recentCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const picks = allPicks.filter((pick) => {
+    const ct = pick.props?.games?.commence_time;
+    if (!ct) return true; // can't determine age — include
+    return new Date(ct).getTime() >= recentCutoff;
+  });
 
   // Cache boxscores per game to minimize API calls
   const boxscoreCache = new Map<string, PlayerBoxScore[]>();
   let picksUpdated = 0;
   const affectedCardIds = new Set<string>();
+  const affectedUserIds = new Set<string>();
 
   for (const pick of picks) {
     const eventId = pick.props?.games?.external_event_id;
@@ -239,10 +275,27 @@ export async function reResolveStaleCards(): Promise<{
     const playerStats = fuzzyMatchPlayer(boxscore, pick.props.player_name);
     if (!playerStats) continue;
 
+    // DNP handling
+    if (playerStats.dnp) {
+      if (pick.result === "dnp") {
+        // Already correctly classified as DNP — no-op
+        continue;
+      }
+      // Was hit/miss but player is actually DNP — reclassify
+      const { error: updateErr } = await (supabase.from("picks") as any)
+        .update({ actual_value: null, result: "dnp" })
+        .eq("id", pick.id);
+      if (updateErr) {
+        logError("resolution", `Failed to update pick ${pick.id} to dnp: ${updateErr.message}`);
+      }
+      picksUpdated++;
+      affectedCardIds.add(pick.card_id);
+      continue;
+    }
+
+    // Player has stats — reclassify (handles dnp->hit/miss and hit<->miss corrections)
     const actualValue = extractStatValue(playerStats, pick.props.stat_category);
 
-    // Determine correct result — push (actualValue === line) is treated as miss
-    // (see resolveCard comment for rationale on half-point lines)
     let correctResult: PickResult;
     if (
       (pick.selection === "over" && actualValue > pick.props.line) ||
@@ -253,30 +306,55 @@ export async function reResolveStaleCards(): Promise<{
       correctResult = "miss";
     }
 
-    await (supabase.from("picks") as any)
+    const { error: updateErr } = await (supabase.from("picks") as any)
       .update({ actual_value: actualValue, result: correctResult })
       .eq("id", pick.id);
+    if (updateErr) {
+      logError("resolution", `Failed to update pick ${pick.id}: ${updateErr.message}`);
+    }
 
     picksUpdated++;
     affectedCardIds.add(pick.card_id);
   }
 
-  // Re-score affected cards
+  // Re-score affected cards — update both score and total_picks
   let cardsRescored = 0;
   for (const cardId of affectedCardIds) {
-    const { data: cardPicks } = await (supabase.from("picks") as any)
-      .select("result")
+    const { data: cardPicks, error: fetchErr } = await (supabase.from("picks") as any)
+      .select("result, card_id, cards(user_id)")
       .eq("card_id", cardId);
 
+    if (fetchErr) {
+      logError("resolution", `Failed to fetch picks for card ${cardId}: ${fetchErr.message}`);
+      continue;
+    }
     if (!cardPicks) continue;
-    const allPicks = cardPicks as { result: string }[];
-    const newScore = allPicks.filter((p) => p.result === "hit").length;
 
-    await (supabase.from("cards") as any)
-      .update({ score: newScore })
+    const typedPicks = cardPicks as { result: string; cards: { user_id: string | null } }[];
+    const newScore = typedPicks.filter((p) => p.result === "hit").length;
+    const newTotal = typedPicks.filter((p) => p.result === "hit" || p.result === "miss").length;
+
+    const { error: cardErr } = await (supabase.from("cards") as any)
+      .update({ score: newScore, total_picks: newTotal })
       .eq("id", cardId);
+    if (cardErr) {
+      logError("resolution", `Failed to rescore card ${cardId}: ${cardErr.message}`);
+    }
+
+    // Track affected users for leaderboard recalculation
+    const userId = typedPicks[0]?.cards?.user_id;
+    if (userId) affectedUserIds.add(userId);
 
     cardsRescored++;
+  }
+
+  // Recalculate leaderboard for each affected user (B3)
+  for (const userId of affectedUserIds) {
+    try {
+      await recalculateLeaderboard(supabase, userId);
+    } catch (err) {
+      logError("resolution", `Failed to recalculate leaderboard for user ${userId}: ${err}`);
+    }
   }
 
   return { picksUpdated, cardsRescored };
@@ -314,13 +392,74 @@ export async function resolveCard(
         boxscore = await fetcher(eventId);
         boxscoreCache.set(eventId, boxscore);
       } catch {
-        boxscore = [];
+        // Apply the same 48h safety valve as player-not-found. If the boxscore
+        // endpoint is permanently broken for this event, void all remaining picks
+        // as push so the card doesn't stay locked forever.
+        const gameTime = pick.props?.games?.commence_time;
+        const hrsAgo = gameTime
+          ? (Date.now() - new Date(gameTime).getTime()) / (1000 * 60 * 60)
+          : null;
+
+        if (hrsAgo !== null && hrsAgo > 48) {
+          logError("resolution", `Boxscore fetch failed after ${Math.round(hrsAgo)}h for event ${eventId}, voiding remaining picks on card ${card.id}`);
+          for (const remainingPick of card.picks.slice(card.picks.indexOf(pick))) {
+            pickResolutions.push({
+              pick_id: remainingPick.id,
+              prop_id: remainingPick.prop_id,
+              player_name: remainingPick.props.player_name,
+              stat_category: remainingPick.props.stat_category,
+              line: remainingPick.props?.line ?? 0,
+              selection: remainingPick.selection,
+              actual_value: null,
+              result: "push",
+            });
+          }
+          break; // exit pick loop, resolve the card with what we have
+        }
+
+        logError("resolution", `Boxscore fetch failed for event ${eventId}, retrying card ${card.id}`);
+        return null;
       }
     }
 
     const playerStats = fuzzyMatchPlayer(boxscore, pick.props.player_name);
 
     if (!playerStats) {
+      const commenceTime = pick.props?.games?.commence_time;
+      let hoursSinceGame: number | null = null;
+
+      if (commenceTime) {
+        hoursSinceGame = (Date.now() - new Date(commenceTime).getTime()) / (1000 * 60 * 60);
+      } else {
+        // No commence_time — we can't determine game age. Retry indefinitely
+        // and rely on manual admin intervention if needed.
+        logError("resolution", `Player "${pick.props.player_name}" not found and commence_time is null for card ${card.id}, game ${pick.props?.games?.id ?? "unknown"}`);
+        return null;
+      }
+
+      if (hoursSinceGame > 48) {
+        // 48h since game start — void as push to prevent indefinite blocking
+        logError("resolution", `Player "${pick.props.player_name}" not found after ${Math.round(hoursSinceGame)}h for card ${card.id}, voiding as push`);
+        pickResolutions.push({
+          pick_id: pick.id,
+          prop_id: pick.prop_id,
+          player_name: pick.props.player_name,
+          stat_category: pick.props.stat_category,
+          line: pick.props.line,
+          selection: pick.selection,
+          actual_value: null,
+          result: "push",
+        });
+        continue;
+      }
+
+      // Transient — ESPN data may not be available yet. Retry next cycle.
+      logError("resolution", `Player "${pick.props.player_name}" not found in boxscore for card ${card.id}, retrying (${Math.round(hoursSinceGame)}h since game)`);
+      return null;
+    }
+
+    // DNP detection — player is on the roster but didn't play
+    if (playerStats.dnp) {
       pickResolutions.push({
         pick_id: pick.id,
         prop_id: pick.prop_id,
@@ -329,7 +468,7 @@ export async function resolveCard(
         line: pick.props.line,
         selection: pick.selection,
         actual_value: null,
-        result: "miss",
+        result: "dnp",
       });
       continue;
     }
@@ -365,13 +504,14 @@ export async function resolveCard(
   }
 
   const score = pickResolutions.filter((p) => p.result === "hit").length;
+  const scoredTotal = pickResolutions.filter((p) => p.result === "hit" || p.result === "miss").length;
 
   return {
     card_id: card.id,
     user_id: card.user_id,
     challenge_id: card.challenge_id ?? null,
     score,
-    total: pickResolutions.length,
+    total: scoredTotal,
     picks: pickResolutions,
   };
 }
@@ -385,6 +525,7 @@ async function persistResolution(
   const { data: success, error } = await (supabase.rpc as any)("resolve_card", {
     p_card_id: result.card_id,
     p_score: result.score,
+    p_total: result.total,
     p_picks: result.picks.map((p) => ({
       pick_id: p.pick_id,
       result: p.result,
@@ -393,8 +534,8 @@ async function persistResolution(
   });
 
   if (!error && success) {
-    // RPC succeeded — update leaderboard
-    if (result.user_id) {
+    // RPC succeeded — update leaderboard (skip for all-DNP/push cards)
+    if (result.user_id && result.total > 0) {
       await updateLeaderboardStats(supabase, result.user_id, result.score, result.total);
     }
     return true;
@@ -407,7 +548,7 @@ async function persistResolution(
   }
 
   // RPC failed for another reason — fall back to direct writes
-  console.error("resolve_card RPC failed, falling back to direct writes:", error?.message);
+  logError("resolution", `resolve_card RPC failed, falling back to direct writes: ${error?.message}`);
 
   // Verify card is still locked
   const { data: check } = await (supabase.from("cards") as any)
@@ -418,22 +559,25 @@ async function persistResolution(
 
   // Write pick results
   for (const p of result.picks) {
-    await (supabase.from("picks") as any)
+    const { error: pickError } = await (supabase.from("picks") as any)
       .update({ result: p.result, actual_value: p.actual_value })
       .eq("id", p.pick_id);
+    if (pickError) {
+      logError("resolution", `Failed to write pick ${p.pick_id}: ${pickError.message}`);
+    }
   }
 
   // Mark card resolved (only if still locked — race protection)
   const { data: updated } = await (supabase.from("cards") as any)
-    .update({ status: "resolved", score: result.score, resolved_at: new Date().toISOString() })
+    .update({ status: "resolved", score: result.score, total_picks: result.total, resolved_at: new Date().toISOString() })
     .eq("id", result.card_id)
     .eq("status", "locked")
     .select("id");
 
   if (!updated?.length) return false;
 
-  // Update leaderboard stats
-  if (result.user_id) {
+  // Update leaderboard stats (skip for all-DNP/push cards)
+  if (result.user_id && result.total > 0) {
     await updateLeaderboardStats(supabase, result.user_id, result.score, result.total);
   }
 
@@ -472,7 +616,7 @@ async function handlePostResolution(
       metadata: { card_id: result.card_id },
     }, profile?.notification_preferences);
   } catch (notifError) {
-    console.error("Failed to create card_resolved notification:", notifError);
+    logError("card-resolution", `Failed to create card_resolved notification: ${notifError}`);
   }
 
   // Send card-resolved email (fire-and-forget, never blocks resolution).
@@ -489,7 +633,7 @@ async function handlePostResolution(
         sendEmail({ to: profile.email, subject, react }).catch(() => {});
       }
     } catch (emailError) {
-      console.error("Failed to send card_resolved email:", emailError);
+      logError("card-resolution", `Failed to send card_resolved email: ${emailError}`);
     }
   }
 
@@ -520,7 +664,7 @@ async function handlePostResolution(
       leaderboardStats: lb,
     });
   } catch (achievementError) {
-    console.error("Failed to check achievements after card resolution:", achievementError);
+    logError("card-resolution", `Failed to check achievements after card resolution: ${achievementError}`);
   }
 }
 
@@ -533,6 +677,83 @@ function getCardNotificationMessage(
     title: headline,
     body: `${score === 0 ? "0" : score} ${score === total ? `for ${total}` : `out of ${total} hits`}. ${subtext}`,
   };
+}
+
+/**
+ * Recalculates leaderboard stats from scratch for a given user.
+ * Used by reResolveStaleCards when picks are reclassified.
+ *
+ * NOTE: This does NOT recalculate current_streak or best_streak — those depend
+ * on chronological card resolution order which is expensive to reconstruct.
+ * Streaks are a known limitation and will be addressed in a follow-up.
+ */
+async function recalculateLeaderboard(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string,
+): Promise<void> {
+  // Fetch all resolved cards with scoreable picks (total_picks > 0)
+  const { data: cards, error } = await (supabase.from("cards") as any)
+    .select("score, total_picks")
+    .eq("user_id", userId)
+    .eq("status", "resolved")
+    .gt("total_picks", 0)
+    .limit(10000);
+
+  if (error) {
+    logError("resolution", `recalculateLeaderboard: failed to fetch cards for user ${userId}: ${error.message}`);
+    return;
+  }
+  if (!cards) return;
+
+  const typedCards = cards as { score: number; total_picks: number }[];
+
+  if (typedCards.length >= 10000) {
+    logError("resolution", `recalculateLeaderboard: hit 10000-row cap for user ${userId} — stats may be truncated`);
+  }
+
+  const totalCards = typedCards.length;
+  const totalCorrectPicks = typedCards.reduce((sum, c) => sum + c.score, 0);
+  const totalAttemptedPicks = typedCards.reduce((sum, c) => sum + c.total_picks, 0);
+  const winRate =
+    totalAttemptedPicks > 0
+      ? Math.round((totalCorrectPicks / totalAttemptedPicks) * 100 * 100) / 100
+      : 0;
+
+  // Try update first; if no rows matched, insert a new entry.
+  // Preserves h2h stats and streaks (not recalculated here).
+  const { data: updated, error: updateErr } = await (supabase.from("leaderboard_entries") as any)
+    .update({
+      total_cards: totalCards,
+      total_correct_picks: totalCorrectPicks,
+      total_attempted_picks: totalAttemptedPicks,
+      win_rate: winRate,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .select("user_id");
+
+  if (updateErr) {
+    logError("resolution", `recalculateLeaderboard: update failed for user ${userId}: ${updateErr.message}`);
+    return;
+  }
+
+  // If no rows were updated, insert a new entry
+  if (!updated || updated.length === 0) {
+    const { error: insertErr } = await (supabase.from("leaderboard_entries") as any).insert({
+      user_id: userId,
+      total_cards: totalCards,
+      total_correct_picks: totalCorrectPicks,
+      total_attempted_picks: totalAttemptedPicks,
+      win_rate: winRate,
+      current_streak: 0,
+      best_streak: 0,
+      h2h_wins: 0,
+      h2h_losses: 0,
+    });
+    if (insertErr) {
+      logError("resolution", `recalculateLeaderboard: insert failed for user ${userId}: ${insertErr.message}`);
+    }
+  }
 }
 
 /**
@@ -562,6 +783,14 @@ async function updateLeaderboardStats(
     .eq("user_id", userId)
     .single();
 
+  if (existingResult.error) {
+    if (existingResult.error.code === "PGRST116") {
+      // No existing leaderboard row — new user, will be created below
+    } else {
+      logError("resolution", `updateLeaderboardStats: failed to fetch entry for user ${userId}: ${existingResult.error.message}`);
+    }
+  }
+
   const existing = existingResult.data as {
     total_cards: number;
     total_correct_picks: number;
@@ -587,7 +816,7 @@ async function updateLeaderboardStats(
 
   if (existing) {
     // Update existing entry -- preserve h2h stats
-    await (supabase.from("leaderboard_entries") as any)
+    const { error: updateErr } = await (supabase.from("leaderboard_entries") as any)
       .update({
         total_cards: totalCards,
         total_correct_picks: totalCorrectPicks,
@@ -598,9 +827,12 @@ async function updateLeaderboardStats(
         updated_at: new Date().toISOString(),
       })
       .eq("user_id", userId);
+    if (updateErr) {
+      logError("resolution", `updateLeaderboardStats: update failed for user ${userId}: ${updateErr.message}`);
+    }
   } else {
     // Create new entry via insert (preserves default h2h values)
-    await (supabase.from("leaderboard_entries") as any).insert({
+    const { error: insertErr } = await (supabase.from("leaderboard_entries") as any).insert({
       user_id: userId,
       total_cards: totalCards,
       total_correct_picks: totalCorrectPicks,
@@ -611,6 +843,9 @@ async function updateLeaderboardStats(
       h2h_wins: 0,
       h2h_losses: 0,
     });
+    if (insertErr) {
+      logError("resolution", `updateLeaderboardStats: insert failed for user ${userId}: ${insertErr.message}`);
+    }
   }
 }
 
@@ -665,7 +900,7 @@ export async function tryResolveFromLiveData(
 
   // Step 2: Update DB game rows with final status and scores
   for (const [dbGameId, liveGame] of gameUpdates) {
-    await (supabase.from("games") as any)
+    const { error: gameErr } = await (supabase.from("games") as any)
       .update({
         status: "final",
         external_event_id: liveGame.game_id,
@@ -673,6 +908,9 @@ export async function tryResolveFromLiveData(
         away_score: liveGame.away_score,
       })
       .eq("id", dbGameId);
+    if (gameErr) {
+      logError("resolution", `Failed to update game ${dbGameId}: ${gameErr.message}`);
+    }
   }
 
   // Step 3: Fetch full card data from DB (need user_id, prop_id, etc.)
@@ -694,7 +932,17 @@ export async function tryResolveFromLiveData(
     const resolved = await persistResolution(supabase, result);
     if (!resolved) continue; // Already resolved by another caller
 
-    await handlePostResolution(supabase, result);
+    if (result.total > 0) {
+      await handlePostResolution(supabase, result);
+    } else if (result.user_id) {
+      await createNotification(supabase, {
+        user_id: result.user_id,
+        type: "card_resolved",
+        title: "No Contest",
+        body: "Your card resolved with no scoreable picks.",
+        metadata: { card_id: result.card_id },
+      }, null).catch(() => {});
+    }
     results.push(result);
   }
 
@@ -703,7 +951,7 @@ export async function tryResolveFromLiveData(
     try {
       await resolveEligibleChallenges();
     } catch (err) {
-      console.error("Failed to resolve challenges:", err);
+      logError("resolution", `Failed to resolve challenges: ${err}`);
     }
   }
 
@@ -712,7 +960,7 @@ export async function tryResolveFromLiveData(
     try {
       await reResolveStaleCards();
     } catch (err) {
-      console.error("Failed to re-resolve stale cards:", err);
+      logError("resolution", `Failed to re-resolve stale cards: ${err}`);
     }
   }
 

@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import type { IconConfig } from "@/lib/icons/types";
 import { parseIconConfig } from "@/lib/icons/parse";
 import UserAvatar from "@/components/icons/UserAvatar";
-import { CheckCircle2, XCircle, Clock } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Minus } from "lucide-react";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
 
 // ---------------------------------------------------------------------------
@@ -117,6 +117,9 @@ function ResultIcon({ result }: { result: string }) {
       return <CheckCircle2 className="h-4 w-4 text-neon-green" />;
     case "miss":
       return <XCircle className="h-4 w-4 text-bold-red" />;
+    case "dnp":
+    case "push":
+      return <Minus className="h-4 w-4 text-muted-foreground" />;
     default:
       return <Clock className="h-4 w-4 text-amber-400" />;
   }

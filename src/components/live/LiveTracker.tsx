@@ -15,7 +15,7 @@ import type { StatCategory, PickSelection } from "@/lib/supabase/types";
 
 function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
   return picks.map((pick) => {
-    const hasResult = pick.result === "hit" || pick.result === "miss";
+    const hasResult = pick.result === "hit" || pick.result === "miss" || pick.result === "push" || pick.result === "dnp";
     return {
       pick_id: pick.id,
       player_name: pick.props?.player_name ?? "Unknown",
@@ -27,13 +27,13 @@ function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
       line: pick.props?.line ?? 0,
       selection: pick.selection as PickSelection,
       current_value: pick.actual_value,
-      trending: hasResult ? (pick.result as "hit" | "miss") : null,
+      trending: hasResult ? (pick.result as "hit" | "miss" | "push" | "dnp") : null,
       game_status: hasResult
         ? {
             game_id: pick.props?.game_id ?? "",
             external_event_id: pick.props?.game_id ?? "",
             status: "final" as const,
-            period: 4,
+            period: pick.props?.games?.sport === "soccer" ? 2 : 4,
             clock: "0:00",
             home_team: "",
             away_team: "",
