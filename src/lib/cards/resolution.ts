@@ -172,6 +172,15 @@ export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
 
       if (result.total > 0) {
         await handlePostResolution(supabase, result);
+      } else if (result.user_id) {
+        // All picks DNP/voided — still notify the user their card resolved
+        await createNotification(supabase, {
+          user_id: result.user_id,
+          type: "card_resolved",
+          title: "No Contest",
+          body: "Your card resolved with no scoreable picks.",
+          metadata: { card_id: result.card_id },
+        }, null).catch(() => {});
       }
       results.push(result);
     }
@@ -925,6 +934,14 @@ export async function tryResolveFromLiveData(
 
     if (result.total > 0) {
       await handlePostResolution(supabase, result);
+    } else if (result.user_id) {
+      await createNotification(supabase, {
+        user_id: result.user_id,
+        type: "card_resolved",
+        title: "No Contest",
+        body: "Your card resolved with no scoreable picks.",
+        metadata: { card_id: result.card_id },
+      }, null).catch(() => {});
     }
     results.push(result);
   }
