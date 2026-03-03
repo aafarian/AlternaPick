@@ -34,7 +34,7 @@ export function ChallengeReceivedEmail({
 }: ChallengeReceivedEmailProps): ReactElement {
   const isClassic = gameMode === "classic";
   const modeLabel = gameMode.replace("_", " ");
-  const challengeUrl = `${baseUrl}/challenges`;
+  const challengeUrl = `${baseUrl}/challenges/${challengeId}`;
 
   const headlineText = isClassic
     ? `${challengerUsername} challenged you!`
