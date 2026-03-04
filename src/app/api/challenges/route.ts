@@ -262,7 +262,7 @@ export async function POST(request: NextRequest) {
       // Build notification body with optional trash talk
       let notifBody = `You received a challenge from ${challengerName}!`;
       if (gameMode !== "classic") {
-        const modeLabel = gameMode.replace("_", " ");
+        const modeLabel = gameMode.replaceAll("_", " ");
         notifBody = `${challengerName} challenged you to a ${modeLabel} match!`;
       }
       if (message) {

@@ -32,7 +32,7 @@ function getChallengeReceivedSubject(
   gameMode: string
 ): string {
   const isClassic = gameMode === "classic";
-  const modeLabel = gameMode.replace("_", " ");
+  const modeLabel = gameMode.replaceAll("_", " ");
   return isClassic
     ? `${challengerUsername} challenged you!`
     : `${challengerUsername} challenged you to a ${modeLabel} match!`;
