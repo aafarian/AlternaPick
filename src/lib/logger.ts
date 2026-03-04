@@ -9,6 +9,7 @@ export interface LogEntry {
   category: string;
   timestamp: string;
   endpoint: string | null;
+  stack?: string;
 }
 
 const MAX_ENTRIES = 100;
@@ -32,6 +33,7 @@ export function logError(
     category,
     timestamp: new Date().toISOString(),
     endpoint: endpoint ?? null,
+    ...(stack ? { stack } : {}),
   });
   if (entries.length > MAX_ENTRIES) {
     entries.shift();

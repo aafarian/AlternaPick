@@ -20,7 +20,7 @@ import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
 
 export interface ChallengeReceivedEmailProps {
   challengerUsername: string;
-  gameMode: string;
+  gameMode: GameMode;
   message: string | null;
   challengeId: string;
 }
@@ -31,10 +31,10 @@ export interface ChallengeReceivedEmailProps {
 
 function getChallengeReceivedSubject(
   challengerUsername: string,
-  gameMode: string
+  gameMode: GameMode
 ): string {
   if (gameMode === "classic") return `${challengerUsername} challenged you!`;
-  return `${challengerUsername} challenged you to a ${modeLabel(gameMode as GameMode)} match!`;
+  return `${challengerUsername} challenged you to a ${modeLabel(gameMode)} match!`;
 }
 
 // ---------------------------------------------------------------------------
