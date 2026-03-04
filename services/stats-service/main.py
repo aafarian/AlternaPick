@@ -67,6 +67,20 @@ async def _refresh_scoreboards():
 async def lifespan(app: FastAPI):
     """Startup: warm caches + launch background refresh. Shutdown: cancel it."""
     global _refresh_task
+
+    # Warm caches before accepting requests so the first poll doesn't hit cold ESPN fetches
+    from utils.nba_client import get_todays_scoreboard
+    from utils.ncaab_client import get_todays_ncaab_games
+    from utils.football_client import get_todays_fixtures, EPL_LEAGUE_ID, LA_LIGA_LEAGUE_ID
+
+    await asyncio.gather(
+        get_todays_scoreboard(),
+        get_todays_ncaab_games(),
+        get_todays_fixtures(EPL_LEAGUE_ID),
+        get_todays_fixtures(LA_LIGA_LEAGUE_ID),
+        return_exceptions=True,
+    )
+
     _refresh_task = asyncio.create_task(_refresh_scoreboards())
     logger.info("Background scoreboard refresh started (every %ds)", REFRESH_INTERVAL)
     yield
@@ -76,6 +90,11 @@ async def lifespan(app: FastAPI):
             await _refresh_task
         except asyncio.CancelledError:
             pass
+    # Close the shared httpx client to release TCP connections
+    from utils.espn_helpers import get_http_client
+    client = get_http_client()
+    if client and not client.is_closed:
+        await client.aclose()
     logger.info("Background scoreboard refresh stopped")
 
 
