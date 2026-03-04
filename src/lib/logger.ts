@@ -26,7 +26,7 @@ export function logError(
   error?: unknown,
 ): void {
   const stack = error instanceof Error ? error.stack : undefined;
-  console.error(`[${category}] ${message}`, ...(stack ? ["\n", stack] : []));
+  console.error(`[${category}] ${message}`, ...(stack ? ["\n", stack] : error !== undefined ? [error] : []));
   if (process.env.NODE_ENV !== "production") return;
   entries.push({
     message,
