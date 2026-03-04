@@ -59,6 +59,7 @@ function normalizeTeam(name: string): string {
  * Only the portion before the mascot needs to match.
  */
 const NCAAB_TEAM_ALIASES: Record<string, string> = {
+  // Directional abbreviations
   "n colorado": "northern colorado",
   "se louisiana": "southeastern louisiana",
   "se missouri state": "southeast missouri state",
@@ -78,6 +79,7 @@ const NCAAB_TEAM_ALIASES: Record<string, string> = {
   "w virginia": "west virginia",
   "w georgia": "western georgia",
   "n carolina a&t": "north carolina a&t",
+  // Abbreviations to full names
   "ul monroe": "louisiana-monroe",
   "siu-edwardsville": "siu edwardsville",
   "texas a&m-cc": "texas a&m-corpus christi",
@@ -94,6 +96,15 @@ const NCAAB_TEAM_ALIASES: Record<string, string> = {
   "umbc": "umbc",
   "unc": "north carolina",
   "lsu": "lsu",
+  "liu": "long island university",
+  // Schools where Odds API adds "St" but ESPN omits "State"
+  "grambling state": "grambling",
+  // Mississippi abbreviations
+  "miss valley state": "mississippi valley state",
+  // Parenthetical/abbreviated city names
+  "loyola (chi)": "loyola chicago",
+  // Shortened school names
+  "arkansas-little rock": "little rock",
 };
 
 function normalizeNcaabTeam(name: string): string {
@@ -160,6 +171,8 @@ export async function POST(request: NextRequest) {
     // whether they were stuck at "live" or "scheduled".
     const staleThreshold = new Date(now.getTime() - 6 * 60 * 60 * 1000);
     let staleFinalizedCount = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let ncaabDebug: any = null;
 
     const staleResult = await (supabase.from("games") as any)
       .select("id")
@@ -601,17 +614,36 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Log unmatched games for debugging
+        // Log unmatched games for debugging and admin dashboard visibility
         const unmatchedDb = ncaabDbGames.filter((g) => !g.external_event_id);
-        if (unmatchedEspn.length > 0 || unmatchedDb.length > 0) {
-          console.log(`[NCAAB sync] ESPN games: ${ncaabGames.length}, DB games: ${ncaabDbGames.length}`);
-          if (unmatchedDb.length > 0) {
-            console.log(`[NCAAB sync] Unmatched DB games: ${unmatchedDb.map((g) => `"${g.away_team} @ ${g.home_team}" (${g.commence_time})`).join(", ")}`);
-          }
-          if (unmatchedEspn.length > 0) {
-            console.log(`[NCAAB sync] Unmatched ESPN games (first 10): ${unmatchedEspn.slice(0, 10).join(", ")}`);
+        if (unmatchedDb.length > 0) {
+          // Log each unmatched DB game to admin error dashboard
+          for (const g of unmatchedDb.slice(0, 20)) {
+            logError(
+              "ncaab-sync",
+              `Unmatched DB game: "${g.away_team} @ ${g.home_team}" | ` +
+              `commence: ${g.commence_time} | ` +
+              `normalized: "${normalizeNcaabTeam(g.away_team)} @ ${normalizeNcaabTeam(g.home_team)}" | ` +
+              `game_id: ${g.id}`,
+              "/api/games/sync-status"
+            );
           }
         }
+        // Include debug info in response
+        ncaabDebug = {
+          espnGames: ncaabGames.length,
+          dbGames: ncaabDbGames.length,
+          unmatchedDbCount: unmatchedDb.length,
+          unmatchedDb: unmatchedDb.slice(0, 20).map((g) => ({
+            id: g.id,
+            away: g.away_team,
+            home: g.home_team,
+            awayNorm: normalizeNcaabTeam(g.away_team),
+            homeNorm: normalizeNcaabTeam(g.home_team),
+            time: g.commence_time,
+          })),
+          unmatchedEspn: unmatchedEspn.slice(0, 15),
+        };
       }
 
       // Check for unmatched NCAAB games in the last 7 days.
@@ -651,6 +683,8 @@ export async function POST(request: NextRequest) {
           )
         ).flat();
 
+        console.log(`[NCAAB lookback] ${unmatchedGames.length} unmatched DB games, fetching ${datesToFetch.size} dates, got ${allEspnGames.length} ESPN games`);
+
         for (const ncaabGame of allEspnGames) {
           const match = unmatchedGames.find((g) =>
             !g.external_event_id &&
@@ -688,6 +722,23 @@ export async function POST(request: NextRequest) {
             if (newStatus === "live" && previousStatus === "scheduled") {
               gamesBecameLive.push(match.id);
             }
+          }
+        }
+
+        // Log remaining unmatched games after lookback
+        const stillUnmatched = unmatchedGames.filter((g) => !g.external_event_id);
+        if (stillUnmatched.length > 0) {
+          for (const g of stillUnmatched.slice(0, 10)) {
+            logError(
+              "ncaab-sync-lookback",
+              `Still unmatched after lookback: "${g.away_team} @ ${g.home_team}" | ` +
+              `normalized: "${normalizeNcaabTeam(g.away_team)} @ ${normalizeNcaabTeam(g.home_team)}" | ` +
+              `commence: ${g.commence_time} | game_id: ${g.id}`,
+              "/api/games/sync-status"
+            );
+          }
+          if (ncaabDebug) {
+            ncaabDebug.lookbackStillUnmatched = stillUnmatched.length;
           }
         }
       }
@@ -773,6 +824,7 @@ export async function POST(request: NextRequest) {
       challenges_resolved: challengesResolved,
       picks_re_resolved: reResolved.picksUpdated,
       cards_rescored: reResolved.cardsRescored,
+      ...(ncaabDebug ? { ncaab_debug: ncaabDebug } : {}),
     });
   } catch (error) {
     return handleApiError(error, "Failed to sync game statuses");

@@ -20,6 +20,7 @@ function normalizeTeam(name: string): string {
 }
 
 const NCAAB_TEAM_ALIASES: Record<string, string> = {
+  // Directional abbreviations
   "n colorado": "northern colorado",
   "se louisiana": "southeastern louisiana",
   "se missouri state": "southeast missouri state",
@@ -39,6 +40,7 @@ const NCAAB_TEAM_ALIASES: Record<string, string> = {
   "w virginia": "west virginia",
   "w georgia": "western georgia",
   "n carolina a&t": "north carolina a&t",
+  // Abbreviations to full names
   "ul monroe": "louisiana-monroe",
   "siu-edwardsville": "siu edwardsville",
   "texas a&m-cc": "texas a&m-corpus christi",
@@ -55,6 +57,15 @@ const NCAAB_TEAM_ALIASES: Record<string, string> = {
   "umbc": "umbc",
   "unc": "north carolina",
   "lsu": "lsu",
+  "liu": "long island university",
+  // Schools where Odds API adds "St" but ESPN omits "State"
+  "grambling state": "grambling",
+  // Mississippi abbreviations
+  "miss valley state": "mississippi valley state",
+  // Parenthetical/abbreviated city names
+  "loyola (chi)": "loyola chicago",
+  // Shortened school names
+  "arkansas-little rock": "little rock",
 };
 
 function normalizeNcaabTeam(name: string): string {
@@ -150,6 +161,30 @@ describe("ncaabTeamsMatch", () => {
 
   it("matches GW → George Washington", () => {
     expect(ncaabTeamsMatch("GW Revolutionaries", "George Washington Revolutionaries")).toBe(true);
+  });
+
+  it("matches Alabama St → Alabama State", () => {
+    expect(ncaabTeamsMatch("Alabama St Hornets", "Alabama State Hornets")).toBe(true);
+  });
+
+  it("matches Grambling St → Grambling (ESPN omits State)", () => {
+    expect(ncaabTeamsMatch("Grambling St Tigers", "Grambling Tigers")).toBe(true);
+  });
+
+  it("matches Miss Valley St → Mississippi Valley State", () => {
+    expect(ncaabTeamsMatch("Miss Valley St Delta Devils", "Mississippi Valley State Delta Devils")).toBe(true);
+  });
+
+  it("matches Loyola (Chi) → Loyola Chicago", () => {
+    expect(ncaabTeamsMatch("Loyola (Chi) Ramblers", "Loyola Chicago Ramblers")).toBe(true);
+  });
+
+  it("matches LIU → Long Island University", () => {
+    expect(ncaabTeamsMatch("LIU Sharks", "Long Island University Sharks")).toBe(true);
+  });
+
+  it("matches Arkansas-Little Rock → Little Rock", () => {
+    expect(ncaabTeamsMatch("Arkansas-Little Rock Trojans", "Little Rock Trojans")).toBe(true);
   });
 
   it("does not match unrelated teams", () => {
