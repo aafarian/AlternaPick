@@ -45,9 +45,11 @@ export function FriendRequestEmail({
               Hey {addresseeUsername}, {requesterUsername} wants to be your friend
               on AlternaPick.
             </Text>
-            <Link style={styles.button} href={friendsUrl}>
-              View request →
-            </Link>
+            <Section style={styles.buttonWrapper}>
+              <Link style={styles.button} href={friendsUrl}>
+                View request →
+              </Link>
+            </Section>
           </Section>
 
           <Hr style={styles.hr} />

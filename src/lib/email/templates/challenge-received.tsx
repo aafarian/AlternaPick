@@ -57,9 +57,11 @@ export function ChallengeReceivedEmail({
                 &ldquo;{message}&rdquo;
               </Text>
             )}
-            <Link style={styles.button} href={challengeUrl}>
-              View challenge →
-            </Link>
+            <Section style={styles.buttonWrapper}>
+              <Link style={styles.button} href={challengeUrl}>
+                View challenge →
+              </Link>
+            </Section>
           </Section>
 
           <Hr style={styles.hr} />

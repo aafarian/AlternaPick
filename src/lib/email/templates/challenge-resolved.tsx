@@ -105,9 +105,11 @@ export function ChallengeResolvedEmail({
             <Text style={styles.text}>
               {username}, you went {myScore}-{theirScore} vs {opponentName}. {subtext}
             </Text>
-            <Link style={styles.button} href={challengeUrl}>
-              View challenge →
-            </Link>
+            <Section style={styles.buttonWrapper}>
+              <Link style={styles.button} href={challengeUrl}>
+                View challenge →
+              </Link>
+            </Section>
           </Section>
 
           <Hr style={styles.hr} />

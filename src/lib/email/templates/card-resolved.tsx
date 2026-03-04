@@ -51,9 +51,11 @@ export function CardResolvedEmail({
             <Text style={styles.text}>
               {username}, you went {score} for {total}. {subtext}
             </Text>
-            <Link style={styles.button} href={cardUrl}>
-              View card →
-            </Link>
+            <Section style={styles.buttonWrapper}>
+              <Link style={styles.button} href={cardUrl}>
+                View card →
+              </Link>
+            </Section>
           </Section>
 
           <Hr style={styles.hr} />

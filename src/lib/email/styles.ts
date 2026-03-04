@@ -71,7 +71,11 @@ export const emailStyles = {
     margin: "0",
     color: "#18181b",
   },
+  buttonWrapper: {
+    textAlign: "center" as const,
+    marginTop: "8px",
+  },
   accentWin: { color: "#16a34a" },
   accentLoss: { color: "#71717a" },
-  accentTie: { color: "#2563eb" },
+  accentTie: { color: "#0284c7" },
 } as const;
