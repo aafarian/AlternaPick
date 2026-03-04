@@ -5,9 +5,23 @@
 export const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://alternapick.com";
 
+/** Reusable color palette — single source of truth for email hex values. */
+const colors = {
+  zinc950: "#18181b",
+  zinc700: "#3f3f46",
+  zinc500: "#71717a",
+  zinc400: "#a1a1aa",
+  zinc200: "#e4e4e7",
+  zinc100: "#f4f4f5",
+  white: "#ffffff",
+  blue600: "#2563eb",
+  sky600: "#0284c7",
+  green600: "#16a34a",
+} as const;
+
 export const emailStyles = {
   body: {
-    backgroundColor: "#f4f4f5",
+    backgroundColor: colors.zinc100,
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     margin: "0" as const,
@@ -21,40 +35,40 @@ export const emailStyles = {
   heading: {
     fontSize: "20px",
     fontWeight: 600 as const,
-    color: "#18181b",
+    color: colors.zinc950,
     margin: "0 0 16px 0",
     lineHeight: "1.3",
   },
   text: {
     fontSize: "15px",
-    color: "#3f3f46",
+    color: colors.zinc700,
     margin: "0 0 16px 0",
     lineHeight: "1.5",
   },
   link: {
-    color: "#2563eb",
+    color: colors.blue600,
     textDecoration: "underline" as const,
     fontWeight: 500 as const,
   },
   hr: {
-    borderColor: "#e4e4e7",
+    borderColor: colors.zinc200,
     margin: "24px 0 16px 0",
   },
   footer: {
     fontSize: "12px",
-    color: "#a1a1aa",
+    color: colors.zinc400,
     margin: "0",
     lineHeight: "1.5",
   },
   card: {
-    backgroundColor: "#ffffff",
+    backgroundColor: colors.white,
     borderRadius: "12px",
     padding: "32px",
     marginBottom: "16px",
   },
   button: {
-    backgroundColor: "#18181b",
-    color: "#ffffff",
+    backgroundColor: colors.zinc950,
+    color: colors.white,
     padding: "12px 24px",
     borderRadius: "8px",
     textDecoration: "none" as const,
@@ -69,13 +83,13 @@ export const emailStyles = {
     letterSpacing: "2px",
     padding: "16px 0",
     margin: "0",
-    color: "#18181b",
+    color: colors.zinc950,
   },
   buttonWrapper: {
     textAlign: "center" as const,
     marginTop: "8px",
   },
-  accentWin: { color: "#16a34a" },
-  accentLoss: { color: "#71717a" },
-  accentTie: { color: "#0284c7" },
+  accentWin: { color: colors.green600 },
+  accentLoss: { color: colors.zinc500 },
+  accentTie: { color: colors.sky600 },
 } as const;
