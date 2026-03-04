@@ -88,6 +88,70 @@ describe("extractStatValue", () => {
     // Cast to force an unhandled category
     expect(extractStatValue(stats, "unknown" as any)).toBe(0);
   });
+
+  /* ===== Soccer stat categories ===== */
+
+  describe("soccer stats", () => {
+    it("returns goals when present", () => {
+      const player = makePlayer({ goals: 2 });
+      expect(extractStatValue(player, "goals")).toBe(2);
+    });
+
+    it("returns 0 for goals when undefined", () => {
+      const player = makePlayer();
+      expect(extractStatValue(player, "goals")).toBe(0);
+    });
+
+    it("returns shots_on_target when present", () => {
+      const player = makePlayer({ shots_on_target: 3 });
+      expect(extractStatValue(player, "shots_on_target")).toBe(3);
+    });
+
+    it("returns 0 for shots_on_target when undefined", () => {
+      const player = makePlayer();
+      expect(extractStatValue(player, "shots_on_target")).toBe(0);
+    });
+
+    it("returns tackles when present", () => {
+      const player = makePlayer({ tackles: 5 });
+      expect(extractStatValue(player, "tackles")).toBe(5);
+    });
+
+    it("returns 0 for tackles when undefined", () => {
+      const player = makePlayer();
+      expect(extractStatValue(player, "tackles")).toBe(0);
+    });
+
+    it("returns passes when present", () => {
+      const player = makePlayer({ passes: 48 });
+      expect(extractStatValue(player, "passes")).toBe(48);
+    });
+
+    it("returns 0 for passes when undefined", () => {
+      const player = makePlayer();
+      expect(extractStatValue(player, "passes")).toBe(0);
+    });
+
+    it("returns fouls_committed when present", () => {
+      const player = makePlayer({ fouls_committed: 3 });
+      expect(extractStatValue(player, "fouls_committed")).toBe(3);
+    });
+
+    it("returns 0 for fouls_committed when undefined", () => {
+      const player = makePlayer();
+      expect(extractStatValue(player, "fouls_committed")).toBe(0);
+    });
+
+    it("returns saves when present", () => {
+      const player = makePlayer({ saves: 6 });
+      expect(extractStatValue(player, "saves")).toBe(6);
+    });
+
+    it("returns 0 for saves when undefined", () => {
+      const player = makePlayer();
+      expect(extractStatValue(player, "saves")).toBe(0);
+    });
+  });
 });
 
 /* ---------- fuzzyMatchPlayer ---------- */
