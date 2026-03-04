@@ -74,7 +74,6 @@ export const emailStyles = {
     fontSize: "36px",
     fontWeight: 700 as const,
     textAlign: "center" as const,
-    letterSpacing: "2px",
     padding: "16px 0",
     margin: "0",
     color: colors.zinc950,
