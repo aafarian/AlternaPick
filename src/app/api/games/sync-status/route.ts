@@ -537,21 +537,23 @@ export async function POST(request: NextRequest) {
             logError("ncaab-sync", `Unmatched ESPN game (no DB record): ${entry}`, "/api/games/sync-status");
           }
         }
-        // Include debug info in response
-        ncaabDebug = {
-          espnGames: ncaabGames.length,
-          dbGames: ncaabDbGames.length,
-          unmatchedDbCount: unmatchedDb.length,
-          unmatchedDb: unmatchedDb.slice(0, 20).map((g) => ({
-            id: g.id,
-            away: g.away_team,
-            home: g.home_team,
-            awayNorm: normalizeNcaabTeam(g.away_team),
-            homeNorm: normalizeNcaabTeam(g.home_team),
-            time: g.commence_time,
-          })),
-          unmatchedEspn: unmatchedEspn.slice(0, 15),
-        };
+        // Only include debug info when there are unmatched games to investigate
+        if (unmatchedDb.length > 0 || unmatchedEspn.length > 0) {
+          ncaabDebug = {
+            espnGames: ncaabGames.length,
+            dbGames: ncaabDbGames.length,
+            unmatchedDbCount: unmatchedDb.length,
+            unmatchedDb: unmatchedDb.slice(0, 20).map((g) => ({
+              id: g.id,
+              away: g.away_team,
+              home: g.home_team,
+              awayNorm: normalizeNcaabTeam(g.away_team),
+              homeNorm: normalizeNcaabTeam(g.home_team),
+              time: g.commence_time,
+            })),
+            unmatchedEspn: unmatchedEspn.slice(0, 15),
+          };
+        }
       }
 
       // Check for unmatched NCAAB games in the last 7 days.
@@ -591,7 +593,9 @@ export async function POST(request: NextRequest) {
           )
         ).flat();
 
-        logError("ncaab-sync", `Lookback: ${unmatchedGames.length} unmatched DB games, fetching ${datesToFetch.size} dates, got ${allEspnGames.length} ESPN games`, "/api/games/sync-status");
+        if (unmatchedGames.length > 0) {
+          logError("ncaab-sync", `Lookback: ${unmatchedGames.length} unmatched DB games, fetching ${datesToFetch.size} dates, got ${allEspnGames.length} ESPN games`, "/api/games/sync-status");
+        }
 
         for (const ncaabGame of allEspnGames) {
           const { match, isSwapped } = findNcaabMatch(unmatchedGames, ncaabGame, true);
