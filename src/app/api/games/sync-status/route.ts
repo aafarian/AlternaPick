@@ -557,13 +557,23 @@ export async function POST(request: NextRequest) {
 
         const ncaabDbGames = (ncaabGamesResult.data ?? []) as Game[];
 
+        // Log unmatched ESPN games for debugging
+        const unmatchedEspn: string[] = [];
+
         for (const ncaabGame of ncaabGames) {
           const match = ncaabDbGames.find((g) =>
-            ncaabTeamsMatch(g.home_team, ncaabGame.home_team) &&
-            ncaabTeamsMatch(g.away_team, ncaabGame.away_team)
+            // Try normal orientation
+            (ncaabTeamsMatch(g.home_team, ncaabGame.home_team) &&
+             ncaabTeamsMatch(g.away_team, ncaabGame.away_team)) ||
+            // Try swapped orientation (Odds API sometimes reverses home/away)
+            (ncaabTeamsMatch(g.home_team, ncaabGame.away_team) &&
+             ncaabTeamsMatch(g.away_team, ncaabGame.home_team))
           );
 
-          if (!match) continue;
+          if (!match) {
+            unmatchedEspn.push(`ESPN: ${ncaabGame.away_team} @ ${ncaabGame.home_team} (${ncaabGame.game_id})`);
+            continue;
+          }
 
           const newStatus = ncaabGame.status as "scheduled" | "live" | "final";
           const previousStatus = match.status;
@@ -588,6 +598,18 @@ export async function POST(request: NextRequest) {
             if (newStatus === "live" && previousStatus === "scheduled") {
               gamesBecameLive.push(match.id);
             }
+          }
+        }
+
+        // Log unmatched games for debugging
+        const unmatchedDb = ncaabDbGames.filter((g) => !g.external_event_id);
+        if (unmatchedEspn.length > 0 || unmatchedDb.length > 0) {
+          console.log(`[NCAAB sync] ESPN games: ${ncaabGames.length}, DB games: ${ncaabDbGames.length}`);
+          if (unmatchedDb.length > 0) {
+            console.log(`[NCAAB sync] Unmatched DB games: ${unmatchedDb.map((g) => `"${g.away_team} @ ${g.home_team}" (${g.commence_time})`).join(", ")}`);
+          }
+          if (unmatchedEspn.length > 0) {
+            console.log(`[NCAAB sync] Unmatched ESPN games (first 10): ${unmatchedEspn.slice(0, 10).join(", ")}`);
           }
         }
       }
@@ -632,8 +654,10 @@ export async function POST(request: NextRequest) {
         for (const ncaabGame of allEspnGames) {
           const match = unmatchedGames.find((g) =>
             !g.external_event_id &&
-            ncaabTeamsMatch(g.home_team, ncaabGame.home_team) &&
-            ncaabTeamsMatch(g.away_team, ncaabGame.away_team)
+            ((ncaabTeamsMatch(g.home_team, ncaabGame.home_team) &&
+              ncaabTeamsMatch(g.away_team, ncaabGame.away_team)) ||
+             (ncaabTeamsMatch(g.home_team, ncaabGame.away_team) &&
+              ncaabTeamsMatch(g.away_team, ncaabGame.home_team)))
           );
 
           if (!match) continue;
