@@ -7,7 +7,8 @@ import { unauthorized, serverError, handleApiError } from "@/lib/api/errors";
 import { registerNcaabTeamIds } from "@/lib/constants";
 import type { Game } from "@/lib/supabase/types";
 import { logError } from "@/lib/logger";
-import { normalizeTeam, normalizeNcaabTeam, ncaabTeamsMatch, findNcaabMatch } from "@/lib/ncaab/matching";
+import { normalizeTeam } from "@/lib/team-matching";
+import { normalizeNcaabTeam, ncaabTeamsMatch, findNcaabMatch } from "@/lib/ncaab/matching";
 
 // Map NBA.com tricodes to Odds API full team names
 const TRICODE_TO_TEAM: Record<string, string> = {
@@ -489,9 +490,15 @@ export async function POST(request: NextRequest) {
 
         // Log unmatched ESPN games for debugging
         const unmatchedEspn: string[] = [];
+        // Track matched DB game IDs this run to prevent two ESPN games
+        // from matching the same DB row (the second write would silently win).
+        const matchedThisRun = new Set<string>();
 
         for (const ncaabGame of ncaabGames) {
-          const { match: finalMatch, isSwapped } = findNcaabMatch(ncaabDbGames, ncaabGame);
+          const { match: finalMatch, isSwapped } = findNcaabMatch(
+            ncaabDbGames.filter((g) => !matchedThisRun.has(g.id)),
+            ncaabGame,
+          );
 
           if (!finalMatch) {
             unmatchedEspn.push(`ESPN: ${ncaabGame.away_team} @ ${ncaabGame.home_team} (${ncaabGame.game_id})`);
@@ -513,6 +520,7 @@ export async function POST(request: NextRequest) {
             .eq("id", finalMatch.id);
 
           if (!updateError) {
+            matchedThisRun.add(finalMatch.id);
             // Mark as matched so unmatchedDb filter excludes it
             (finalMatch as any).external_event_id = ncaabGame.game_id;
 

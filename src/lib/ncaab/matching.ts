@@ -4,16 +4,10 @@
  * Used by the game sync endpoint and its tests.
  */
 
-export function normalizeTeam(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/\bst\.\s*/g, "state ")   // "St." → "State"
-    .replace(/\bst\b/g, "state")       // "St" (no period, word boundary) → "State"
-    .replace(/\bmt\.\s*/g, "mount ")
-    .replace(/\./g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+import { normalizeTeam } from "@/lib/team-matching";
+
+// Re-export so existing imports still work
+export { normalizeTeam };
 
 /**
  * NCAAB-specific team name aliases.
