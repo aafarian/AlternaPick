@@ -40,7 +40,6 @@ export const NCAAB_TEAM_ALIASES: Record<string, string> = {
   "n carolina": "north carolina",
   "w virginia": "west virginia",
   "w georgia": "western georgia",
-  "n carolina a&t": "north carolina a&t",
   // Abbreviations to full names
   "ul monroe": "louisiana-monroe",
   "siu-edwardsville": "siu edwardsville",

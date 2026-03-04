@@ -593,8 +593,6 @@ export async function POST(request: NextRequest) {
           )
         ).flat();
 
-        logError("ncaab-sync", `Lookback: ${unmatchedGames.length} unmatched DB games, fetching ${datesToFetch.size} dates, got ${allEspnGames.length} ESPN games`, "/api/games/sync-status");
-
         for (const ncaabGame of allEspnGames) {
           const { match, isSwapped } = findNcaabMatch(unmatchedGames, ncaabGame, true);
 
