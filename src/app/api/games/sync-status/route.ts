@@ -8,6 +8,7 @@ import { registerNcaabTeamIds } from "@/lib/constants";
 import type { Game } from "@/lib/supabase/types";
 import { logError } from "@/lib/logger";
 import { normalizeTeam } from "@/lib/team-matching";
+import { lookbackDatesForSport } from "@/lib/sports/fetchers";
 import { normalizeNcaabTeam, ncaabTeamsMatch, findNcaabMatch } from "@/lib/ncaab/matching";
 
 // Map NBA.com tricodes to Odds API full team names
@@ -197,12 +198,9 @@ export async function POST(request: NextRequest) {
         const datesToFetch = new Set<string>();
         for (const g of nbaUnmatched) {
           if (g.commence_time) {
-            const d = new Date(g.commence_time);
-            datesToFetch.add(d.toISOString().slice(0, 10).replace(/-/g, ""));
-            // Also check day before for UTC boundary edge cases
-            const dayBefore = new Date(d);
-            dayBefore.setDate(dayBefore.getDate() - 1);
-            datesToFetch.add(dayBefore.toISOString().slice(0, 10).replace(/-/g, ""));
+            for (const d of lookbackDatesForSport("nba", new Date(g.commence_time))) {
+              datesToFetch.add(d);
+            }
           }
         }
 
@@ -401,8 +399,9 @@ export async function POST(request: NextRequest) {
           if (!g.commence_time || !g.sport) continue;
           let dates = datesBySport.get(g.sport);
           if (!dates) { dates = new Set(); datesBySport.set(g.sport, dates); }
-          const d = new Date(g.commence_time);
-          dates.add(d.toISOString().slice(0, 10)); // YYYY-MM-DD format for api-football
+          for (const d of lookbackDatesForSport(g.sport, new Date(g.commence_time))) {
+            dates.add(d);
+          }
         }
 
         const fetchers: Record<string, (date: string) => Promise<typeof nbaGames>> = {
@@ -596,11 +595,9 @@ export async function POST(request: NextRequest) {
         const datesToFetch = new Set<string>();
         for (const g of unmatchedGames) {
           if (g.commence_time) {
-            const d = new Date(g.commence_time);
-            datesToFetch.add(d.toISOString().slice(0, 10).replace(/-/g, ""));
-            const dayBefore = new Date(d);
-            dayBefore.setDate(dayBefore.getDate() - 1);
-            datesToFetch.add(dayBefore.toISOString().slice(0, 10).replace(/-/g, ""));
+            for (const d of lookbackDatesForSport("ncaab", new Date(g.commence_time))) {
+              datesToFetch.add(d);
+            }
           }
         }
 
