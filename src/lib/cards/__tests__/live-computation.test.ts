@@ -32,6 +32,14 @@ vi.mock("@/lib/cards/resolution", () => ({
         return stats.shots ?? 0;
       case "shots_on_target":
         return stats.shots_on_target ?? 0;
+      case "tackles":
+        return stats.tackles ?? 0;
+      case "passes":
+        return stats.passes ?? 0;
+      case "fouls_committed":
+        return stats.fouls_committed ?? 0;
+      case "saves":
+        return stats.saves ?? 0;
       case "pra":
         return stats.points + stats.rebounds + stats.assists;
       case "pts_reb":
@@ -1042,8 +1050,6 @@ describe("buildLivePicksForCard", () => {
       category: string,
       line: number,
       selection: "over" | "under",
-      expectedValue: number,
-      expectedTrending: "hit" | "miss",
     ) {
       const pick = makePick({ selection });
       pick.props.games.external_event_id = eventId;
@@ -1060,31 +1066,31 @@ describe("buildLivePicksForCard", () => {
     }
 
     it("pra: 28+8+10=46 > 40.5 -> hit", () => {
-      const result = makeComboTest("pra", 40.5, "over", 46, "hit");
+      const result = makeComboTest("pra", 40.5, "over");
       expect(result.livePicks[0].current_value).toBe(46);
       expect(result.livePicks[0].trending).toBe("hit");
     });
 
     it("pts_reb: 28+8=36 > 35.5 -> hit", () => {
-      const result = makeComboTest("pts_reb", 35.5, "over", 36, "hit");
+      const result = makeComboTest("pts_reb", 35.5, "over");
       expect(result.livePicks[0].current_value).toBe(36);
       expect(result.livePicks[0].trending).toBe("hit");
     });
 
     it("pts_ast: 28+10=38 < 39.5 -> miss", () => {
-      const result = makeComboTest("pts_ast", 39.5, "over", 38, "miss");
+      const result = makeComboTest("pts_ast", 39.5, "over");
       expect(result.livePicks[0].current_value).toBe(38);
       expect(result.livePicks[0].trending).toBe("miss");
     });
 
     it("reb_ast: 8+10=18 > 17.5 -> hit", () => {
-      const result = makeComboTest("reb_ast", 17.5, "over", 18, "hit");
+      const result = makeComboTest("reb_ast", 17.5, "over");
       expect(result.livePicks[0].current_value).toBe(18);
       expect(result.livePicks[0].trending).toBe("hit");
     });
 
     it("blk_stl: 1+2=3 < 3.5 -> miss", () => {
-      const result = makeComboTest("blk_stl", 3.5, "over", 3, "miss");
+      const result = makeComboTest("blk_stl", 3.5, "over");
       expect(result.livePicks[0].current_value).toBe(3);
       expect(result.livePicks[0].trending).toBe("miss");
     });

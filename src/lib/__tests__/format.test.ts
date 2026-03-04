@@ -259,7 +259,7 @@ describe("formatLiveStatus", () => {
     expect(formatLiveStatus(0, "", undefined, 0, 0)).toBe("Starting");
   });
 
-  it('returns "Live" when period=0 and home has scored', () => {
+  it('returns "Live" when period=0 and scores are non-zero', () => {
     expect(formatLiveStatus(0, "", undefined, 12, 8)).toBe("Live");
   });
 
