@@ -16,13 +16,16 @@ const entries: LogEntry[] = [];
 
 /**
  * Log an error to console and store it in the ring buffer for the admin panel.
+ * Pass an optional `error` to automatically append the stack trace.
  */
 export function logError(
   category: string,
   message: string,
   endpoint?: string,
+  error?: unknown,
 ): void {
-  console.error(`[${category}] ${message}`);
+  const stack = error instanceof Error ? error.stack : undefined;
+  console.error(`[${category}] ${message}`, ...(stack ? ["\n", stack] : []));
   if (process.env.NODE_ENV !== "production") return;
   entries.push({
     message,
