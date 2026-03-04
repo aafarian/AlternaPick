@@ -72,6 +72,6 @@ export const emailStyles = {
     color: "#18181b",
   },
   accentWin: { color: "#16a34a" },
-  accentLoss: { color: "#a1a1aa" },
+  accentLoss: { color: "#71717a" },
   accentTie: { color: "#2563eb" },
 } as const;
