@@ -574,47 +574,55 @@ export async function POST(request: NextRequest) {
         const unmatchedEspn: string[] = [];
 
         for (const ncaabGame of ncaabGames) {
+          // Try normal orientation first, then swapped
           const match = ncaabDbGames.find((g) =>
-            // Try normal orientation
-            (ncaabTeamsMatch(g.home_team, ncaabGame.home_team) &&
-             ncaabTeamsMatch(g.away_team, ncaabGame.away_team)) ||
-            // Try swapped orientation (Odds API sometimes reverses home/away)
-            (ncaabTeamsMatch(g.home_team, ncaabGame.away_team) &&
-             ncaabTeamsMatch(g.away_team, ncaabGame.home_team))
+            ncaabTeamsMatch(g.home_team, ncaabGame.home_team) &&
+            ncaabTeamsMatch(g.away_team, ncaabGame.away_team)
           );
+          const swappedMatch = !match
+            ? ncaabDbGames.find((g) =>
+                ncaabTeamsMatch(g.home_team, ncaabGame.away_team) &&
+                ncaabTeamsMatch(g.away_team, ncaabGame.home_team)
+              )
+            : null;
+          const finalMatch = match ?? swappedMatch;
+          const isSwapped = !!swappedMatch && !match;
 
-          if (!match) {
+          if (!finalMatch) {
             unmatchedEspn.push(`ESPN: ${ncaabGame.away_team} @ ${ncaabGame.home_team} (${ncaabGame.game_id})`);
             continue;
           }
 
           const newStatus = ncaabGame.status as "scheduled" | "live" | "final";
-          const previousStatus = match.status;
+          const previousStatus = finalMatch.status;
 
           const { error: updateError } = await (supabase.from("games") as any)
             .update({
               status: newStatus,
-              home_score: ncaabGame.home_score,
-              away_score: ncaabGame.away_score,
+              home_score: isSwapped ? ncaabGame.away_score : ncaabGame.home_score,
+              away_score: isSwapped ? ncaabGame.home_score : ncaabGame.away_score,
               external_event_id: ncaabGame.game_id,
             })
-            .eq("id", match.id);
+            .eq("id", finalMatch.id);
 
           if (!updateError) {
+            // Mark as matched so unmatchedDb filter excludes it
+            (finalMatch as any).external_event_id = ncaabGame.game_id;
+
             updated.push({
-              odds_team: `${match.away_team} @ ${match.home_team}`,
+              odds_team: `${finalMatch.away_team} @ ${finalMatch.home_team}`,
               nba_team: `${ncaabGame.away_team} @ ${ncaabGame.home_team}`,
               status: newStatus,
               external_event_id: ncaabGame.game_id,
             });
 
             if (newStatus === "live" && previousStatus === "scheduled") {
-              gamesBecameLive.push(match.id);
+              gamesBecameLive.push(finalMatch.id);
             }
           }
         }
 
-        // Log unmatched games for debugging and admin dashboard visibility
+        // Log unmatched games — only those not matched in-memory above
         const unmatchedDb = ncaabDbGames.filter((g) => !g.external_event_id);
         if (unmatchedDb.length > 0) {
           // Log each unmatched DB game to admin error dashboard
@@ -683,16 +691,24 @@ export async function POST(request: NextRequest) {
           )
         ).flat();
 
-        console.log(`[NCAAB lookback] ${unmatchedGames.length} unmatched DB games, fetching ${datesToFetch.size} dates, got ${allEspnGames.length} ESPN games`);
+        logError("ncaab-sync", `Lookback: ${unmatchedGames.length} unmatched DB games, fetching ${datesToFetch.size} dates, got ${allEspnGames.length} ESPN games`, "/api/games/sync-status");
 
         for (const ncaabGame of allEspnGames) {
-          const match = unmatchedGames.find((g) =>
+          // Try normal orientation first, then swapped
+          const normalMatch = unmatchedGames.find((g) =>
             !g.external_event_id &&
-            ((ncaabTeamsMatch(g.home_team, ncaabGame.home_team) &&
-              ncaabTeamsMatch(g.away_team, ncaabGame.away_team)) ||
-             (ncaabTeamsMatch(g.home_team, ncaabGame.away_team) &&
-              ncaabTeamsMatch(g.away_team, ncaabGame.home_team)))
+            ncaabTeamsMatch(g.home_team, ncaabGame.home_team) &&
+            ncaabTeamsMatch(g.away_team, ncaabGame.away_team)
           );
+          const swappedMatch = !normalMatch
+            ? unmatchedGames.find((g) =>
+                !g.external_event_id &&
+                ncaabTeamsMatch(g.home_team, ncaabGame.away_team) &&
+                ncaabTeamsMatch(g.away_team, ncaabGame.home_team)
+              )
+            : null;
+          const match = normalMatch ?? swappedMatch;
+          const isSwapped = !!swappedMatch && !normalMatch;
 
           if (!match) continue;
 
@@ -702,8 +718,8 @@ export async function POST(request: NextRequest) {
           const { error: updateError } = await (supabase.from("games") as any)
             .update({
               status: newStatus,
-              home_score: ncaabGame.home_score,
-              away_score: ncaabGame.away_score,
+              home_score: isSwapped ? ncaabGame.away_score : ncaabGame.home_score,
+              away_score: isSwapped ? ncaabGame.home_score : ncaabGame.away_score,
               external_event_id: ncaabGame.game_id,
             })
             .eq("id", match.id);
