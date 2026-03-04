@@ -5,8 +5,8 @@ on:
     branches: [main]
 
 jobs:
-  validate:
-    name: Typecheck, Test & Docker Build
+  typecheck:
+    name: Typecheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,9 +16,32 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc --noEmit
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
       - run: npm test
+
+  docker-app:
+    name: Docker Build (App)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - run: docker build
               --build-arg NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
               --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder
               -t alternapick-ci-test .
+
+  docker-stats:
+    name: Docker Build (Stats Service)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - run: docker build ./services/stats-service -t stats-service-ci-test
