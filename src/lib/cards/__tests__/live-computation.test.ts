@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { buildLivePicksForCard, type PickWithPropAndGame } from "../live-computation";
+import { toLivePickData } from "../live-types";
 import type { StatsGame, PlayerBoxScore } from "@/lib/stats-service/client";
 
 // Mock the resolution module
@@ -709,5 +710,75 @@ describe("buildLivePicksForCard", () => {
 
       expect(result.livePicks[0].game_status?.commence_time).toBe("2026-03-03T01:00:00Z");
     });
+  });
+});
+
+/* ---------- toLivePickData ---------- */
+
+describe("toLivePickData", () => {
+  function makeResolvedPick(sport: string, result: "hit" | "miss" | "push" | "dnp" = "hit") {
+    return {
+      id: "pick-resolved",
+      selection: "over",
+      result,
+      actual_value: 25,
+      prop: {
+        id: "prop-1",
+        player_name: "Test Player",
+        player_id: "123",
+        player_team: "Team A",
+        player_position: "G",
+        stat_category: "points",
+        line: 20.5,
+        game_id: "game-1",
+        games: { sport },
+      },
+    };
+  }
+
+  it("NCAAB resolved pick uses period=2 (halves, not quarters)", () => {
+    const result = toLivePickData(makeResolvedPick("ncaab"));
+    expect(result.game_status).not.toBeNull();
+    expect(result.game_status!.period).toBe(2);
+  });
+
+  it("EPL resolved pick uses period=2 (halves)", () => {
+    const result = toLivePickData(makeResolvedPick("epl"));
+    expect(result.game_status!.period).toBe(2);
+  });
+
+  it("La Liga resolved pick uses period=2 (halves)", () => {
+    const result = toLivePickData(makeResolvedPick("la_liga"));
+    expect(result.game_status!.period).toBe(2);
+  });
+
+  it("NBA resolved pick uses period=4 (quarters)", () => {
+    const result = toLivePickData(makeResolvedPick("nba"));
+    expect(result.game_status!.period).toBe(4);
+  });
+
+  it("NHL resolved pick uses period=4 (quarters/periods)", () => {
+    const result = toLivePickData(makeResolvedPick("nhl"));
+    expect(result.game_status!.period).toBe(4);
+  });
+
+  it("unresolved pick has null game_status", () => {
+    const pick = {
+      id: "pick-pending",
+      selection: "over",
+      result: "pending",
+      actual_value: null,
+      prop: {
+        id: "prop-1",
+        player_name: "Test Player",
+        player_id: null,
+        stat_category: "points",
+        line: 20.5,
+        game_id: "game-1",
+        games: { sport: "ncaab" },
+      },
+    };
+    const result = toLivePickData(pick);
+    expect(result.game_status).toBeNull();
   });
 });
