@@ -263,6 +263,10 @@ describe("formatLiveStatus", () => {
     expect(formatLiveStatus(0, "", undefined, 12, 8)).toBe("Live");
   });
 
+  it('returns "Live" when period=0 and only home has scored', () => {
+    expect(formatLiveStatus(0, "", undefined, 5, 0)).toBe("Live");
+  });
+
   it('returns "Live" when period=0 and only away has scored', () => {
     expect(formatLiveStatus(0, "", undefined, 0, 3)).toBe("Live");
   });

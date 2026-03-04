@@ -15,6 +15,11 @@ import { isSoccer } from "./config";
  * Format a Date for the sport's stats-service date parameter.
  * ESPN-backed sports (NBA, NCAAB) use YYYYMMDD.
  * API-Football-backed sports (EPL, La Liga) use YYYY-MM-DD.
+ *
+ * NOTE: The date is derived from the UTC representation of the game time.
+ * ESPN indexes games by Eastern Time, so late-night ET games (after ~7 PM ET)
+ * will have a UTC date one day ahead of the actual ESPN date.
+ * Always use lookbackDatesForSport() when fetching ESPN data to cover both dates.
  */
 export function formatDateForSport(sport: string, date: Date): string {
   const iso = date.toISOString().slice(0, 10); // "YYYY-MM-DD"
