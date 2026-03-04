@@ -21,6 +21,7 @@ ESPN_RETRY_DELAY = 1.0   # seconds between retries
 # ---------------------------------------------------------------------------
 CACHE_TTL_SECONDS = 30
 FINAL_CACHE_TTL_SECONDS = 3600
+MAX_CACHE_SIZE = 500
 
 _cache: dict[str, tuple[float, object, float]] = {}
 
@@ -35,6 +36,9 @@ def get_cached(key: str):
 
 def set_cached(key: str, value, ttl: float = CACHE_TTL_SECONDS):
     """Store value in cache with current timestamp and TTL."""
+    if len(_cache) >= MAX_CACHE_SIZE and key not in _cache:
+        oldest_key = min(_cache, key=lambda k: _cache[k][0])
+        del _cache[oldest_key]
     _cache[key] = (time.monotonic(), value, ttl)
 
 
