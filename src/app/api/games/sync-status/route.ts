@@ -7,6 +7,7 @@ import { unauthorized, serverError, handleApiError } from "@/lib/api/errors";
 import { registerNcaabTeamIds } from "@/lib/constants";
 import type { Game } from "@/lib/supabase/types";
 import { logError } from "@/lib/logger";
+import { normalizeTeam, normalizeNcaabTeam, ncaabTeamsMatch, findNcaabMatch } from "@/lib/ncaab/matching";
 
 // Map NBA.com tricodes to Odds API full team names
 const TRICODE_TO_TEAM: Record<string, string> = {
@@ -41,100 +42,6 @@ const TRICODE_TO_TEAM: Record<string, string> = {
   UTA: "Utah Jazz",
   WAS: "Washington Wizards",
 };
-
-function normalizeTeam(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/\bst\.\s*/g, "state ")   // "St." → "State"
-    .replace(/\bst\b/g, "state")       // "St" (no period, word boundary) → "State"
-    .replace(/\bmt\.\s*/g, "mount ")
-    .replace(/\./g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/**
- * NCAAB-specific team name aliases.
- * Maps abbreviated Odds API names to the full ESPN displayName.
- * Only the portion before the mascot needs to match.
- */
-const NCAAB_TEAM_ALIASES: Record<string, string> = {
-  // Directional abbreviations
-  "n colorado": "northern colorado",
-  "se louisiana": "southeastern louisiana",
-  "se missouri state": "southeast missouri state",
-  "s carolina": "south carolina",
-  "s carolina upstate": "south carolina upstate",
-  "w michigan": "western michigan",
-  "w kentucky": "western kentucky",
-  "e michigan": "eastern michigan",
-  "e kentucky": "eastern kentucky",
-  "e washington": "eastern washington",
-  "e illinois": "eastern illinois",
-  "n illinois": "northern illinois",
-  "n iowa": "northern iowa",
-  "n arizona": "northern arizona",
-  "n kentucky": "northern kentucky",
-  "n carolina": "north carolina",
-  "w virginia": "west virginia",
-  "w georgia": "western georgia",
-  "n carolina a&t": "north carolina a&t",
-  // Abbreviations to full names
-  "ul monroe": "louisiana-monroe",
-  "siu-edwardsville": "siu edwardsville",
-  "texas a&m-cc": "texas a&m-corpus christi",
-  "umkc": "kansas city",
-  "uab": "uab",
-  "ucf": "ucf",
-  "vcu": "vcu",
-  "gw": "george washington",
-  "fiu": "fiu",
-  "utsa": "utsa",
-  "utep": "utep",
-  "unlv": "unlv",
-  "njit": "njit",
-  "umbc": "umbc",
-  "unc": "north carolina",
-  "lsu": "lsu",
-  "liu": "long island university",
-  // Schools where Odds API adds "St" but ESPN omits "State"
-  "grambling state": "grambling",
-  // Mississippi abbreviations
-  "miss valley state": "mississippi valley state",
-  // Parenthetical/abbreviated city names
-  "loyola (chi)": "loyola chicago",
-  // Shortened school names
-  "arkansas-little rock": "little rock",
-};
-
-function normalizeNcaabTeam(name: string): string {
-  const base = normalizeTeam(name);
-  // Try alias lookup: check if the name (without mascot) has an alias
-  for (const [abbrev, full] of Object.entries(NCAAB_TEAM_ALIASES)) {
-    if (base.startsWith(abbrev + " ") || base === abbrev) {
-      return base.replace(abbrev, full);
-    }
-  }
-  return base;
-}
-
-function ncaabTeamsMatch(dbTeam: string, espnTeam: string): boolean {
-  if (dbTeam === espnTeam) return true;
-  const a = normalizeNcaabTeam(dbTeam);
-  const b = normalizeNcaabTeam(espnTeam);
-  if (a === b) return true;
-  if (a.includes(b) || b.includes(a)) return true;
-  // Fallback: compare mascot (last word) — most NCAAB mascots are unique
-  const mascotA = a.split(" ").pop() ?? "";
-  const mascotB = b.split(" ").pop() ?? "";
-  if (mascotA.length > 3 && mascotA === mascotB) {
-    // Verify at least one word of the location matches too
-    const wordsA = a.split(" ").slice(0, -1);
-    const wordsB = b.split(" ").slice(0, -1);
-    return wordsA.some((w) => w.length > 2 && wordsB.some((wb) => wb.includes(w) || w.includes(wb)));
-  }
-  return false;
-}
 
 function teamsMatch(dbTeam: string, liveTeam: string): boolean {
   if (dbTeam === liveTeam) return true;
@@ -574,19 +481,7 @@ export async function POST(request: NextRequest) {
         const unmatchedEspn: string[] = [];
 
         for (const ncaabGame of ncaabGames) {
-          // Try normal orientation first, then swapped
-          const match = ncaabDbGames.find((g) =>
-            ncaabTeamsMatch(g.home_team, ncaabGame.home_team) &&
-            ncaabTeamsMatch(g.away_team, ncaabGame.away_team)
-          );
-          const swappedMatch = !match
-            ? ncaabDbGames.find((g) =>
-                ncaabTeamsMatch(g.home_team, ncaabGame.away_team) &&
-                ncaabTeamsMatch(g.away_team, ncaabGame.home_team)
-              )
-            : null;
-          const finalMatch = match ?? swappedMatch;
-          const isSwapped = !!swappedMatch && !match;
+          const { match: finalMatch, isSwapped } = findNcaabMatch(ncaabDbGames, ncaabGame);
 
           if (!finalMatch) {
             unmatchedEspn.push(`ESPN: ${ncaabGame.away_team} @ ${ncaabGame.home_team} (${ncaabGame.game_id})`);
@@ -635,6 +530,11 @@ export async function POST(request: NextRequest) {
               `game_id: ${g.id}`,
               "/api/games/sync-status"
             );
+          }
+        }
+        if (unmatchedEspn.length > 0) {
+          for (const entry of unmatchedEspn.slice(0, 10)) {
+            logError("ncaab-sync", `Unmatched ESPN game (no DB record): ${entry}`, "/api/games/sync-status");
           }
         }
         // Include debug info in response
@@ -694,21 +594,7 @@ export async function POST(request: NextRequest) {
         logError("ncaab-sync", `Lookback: ${unmatchedGames.length} unmatched DB games, fetching ${datesToFetch.size} dates, got ${allEspnGames.length} ESPN games`, "/api/games/sync-status");
 
         for (const ncaabGame of allEspnGames) {
-          // Try normal orientation first, then swapped
-          const normalMatch = unmatchedGames.find((g) =>
-            !g.external_event_id &&
-            ncaabTeamsMatch(g.home_team, ncaabGame.home_team) &&
-            ncaabTeamsMatch(g.away_team, ncaabGame.away_team)
-          );
-          const swappedMatch = !normalMatch
-            ? unmatchedGames.find((g) =>
-                !g.external_event_id &&
-                ncaabTeamsMatch(g.home_team, ncaabGame.away_team) &&
-                ncaabTeamsMatch(g.away_team, ncaabGame.home_team)
-              )
-            : null;
-          const match = normalMatch ?? swappedMatch;
-          const isSwapped = !!swappedMatch && !normalMatch;
+          const { match, isSwapped } = findNcaabMatch(unmatchedGames, ncaabGame, true);
 
           if (!match) continue;
 
