@@ -7,6 +7,7 @@ import { unauthorized, serverError, handleApiError } from "@/lib/api/errors";
 import { registerNcaabTeamIds } from "@/lib/constants";
 import type { Game } from "@/lib/supabase/types";
 import { logError } from "@/lib/logger";
+import { normalizeTeam, normalizeNcaabTeam, ncaabTeamsMatch, findNcaabMatch } from "@/lib/ncaab/matching";
 
 // Map NBA.com tricodes to Odds API full team names
 const TRICODE_TO_TEAM: Record<string, string> = {
@@ -41,89 +42,6 @@ const TRICODE_TO_TEAM: Record<string, string> = {
   UTA: "Utah Jazz",
   WAS: "Washington Wizards",
 };
-
-function normalizeTeam(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/\bst\.\s*/g, "state ")   // "St." → "State"
-    .replace(/\bst\b/g, "state")       // "St" (no period, word boundary) → "State"
-    .replace(/\bmt\.\s*/g, "mount ")
-    .replace(/\./g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/**
- * NCAAB-specific team name aliases.
- * Maps abbreviated Odds API names to the full ESPN displayName.
- * Only the portion before the mascot needs to match.
- */
-const NCAAB_TEAM_ALIASES: Record<string, string> = {
-  "n colorado": "northern colorado",
-  "se louisiana": "southeastern louisiana",
-  "se missouri state": "southeast missouri state",
-  "s carolina": "south carolina",
-  "s carolina upstate": "south carolina upstate",
-  "w michigan": "western michigan",
-  "w kentucky": "western kentucky",
-  "e michigan": "eastern michigan",
-  "e kentucky": "eastern kentucky",
-  "e washington": "eastern washington",
-  "e illinois": "eastern illinois",
-  "n illinois": "northern illinois",
-  "n iowa": "northern iowa",
-  "n arizona": "northern arizona",
-  "n kentucky": "northern kentucky",
-  "n carolina": "north carolina",
-  "w virginia": "west virginia",
-  "w georgia": "western georgia",
-  "n carolina a&t": "north carolina a&t",
-  "ul monroe": "louisiana-monroe",
-  "siu-edwardsville": "siu edwardsville",
-  "texas a&m-cc": "texas a&m-corpus christi",
-  "umkc": "kansas city",
-  "uab": "uab",
-  "ucf": "ucf",
-  "vcu": "vcu",
-  "gw": "george washington",
-  "fiu": "fiu",
-  "utsa": "utsa",
-  "utep": "utep",
-  "unlv": "unlv",
-  "njit": "njit",
-  "umbc": "umbc",
-  "unc": "north carolina",
-  "lsu": "lsu",
-};
-
-function normalizeNcaabTeam(name: string): string {
-  const base = normalizeTeam(name);
-  // Try alias lookup: check if the name (without mascot) has an alias
-  for (const [abbrev, full] of Object.entries(NCAAB_TEAM_ALIASES)) {
-    if (base.startsWith(abbrev + " ") || base === abbrev) {
-      return base.replace(abbrev, full);
-    }
-  }
-  return base;
-}
-
-function ncaabTeamsMatch(dbTeam: string, espnTeam: string): boolean {
-  if (dbTeam === espnTeam) return true;
-  const a = normalizeNcaabTeam(dbTeam);
-  const b = normalizeNcaabTeam(espnTeam);
-  if (a === b) return true;
-  if (a.includes(b) || b.includes(a)) return true;
-  // Fallback: compare mascot (last word) — most NCAAB mascots are unique
-  const mascotA = a.split(" ").pop() ?? "";
-  const mascotB = b.split(" ").pop() ?? "";
-  if (mascotA.length > 3 && mascotA === mascotB) {
-    // Verify at least one word of the location matches too
-    const wordsA = a.split(" ").slice(0, -1);
-    const wordsB = b.split(" ").slice(0, -1);
-    return wordsA.some((w) => w.length > 2 && wordsB.some((wb) => wb.includes(w) || w.includes(wb)));
-  }
-  return false;
-}
 
 function teamsMatch(dbTeam: string, liveTeam: string): boolean {
   if (dbTeam === liveTeam) return true;
@@ -160,6 +78,8 @@ export async function POST(request: NextRequest) {
     // whether they were stuck at "live" or "scheduled".
     const staleThreshold = new Date(now.getTime() - 6 * 60 * 60 * 1000);
     let staleFinalizedCount = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let ncaabDebug: any = null;
 
     const staleResult = await (supabase.from("games") as any)
       .select("id")
@@ -233,6 +153,8 @@ export async function POST(request: NextRequest) {
             status: newStatus,
             home_score: nbaGame.home_score,
             away_score: nbaGame.away_score,
+            period: nbaGame.period,
+            clock: nbaGame.clock,
             external_event_id: nbaGame.game_id,
           })
           .eq("id", match.id);
@@ -324,6 +246,8 @@ export async function POST(request: NextRequest) {
                 status: newStatus,
                 home_score: espnGame.home_score,
                 away_score: espnGame.away_score,
+                period: espnGame.period,
+                clock: espnGame.clock,
                 external_event_id: espnGame.game_id,
               })
               .eq("id", match.id)
@@ -376,6 +300,8 @@ export async function POST(request: NextRequest) {
               status: newStatus,
               home_score: soccerGame.home_score,
               away_score: soccerGame.away_score,
+              period: soccerGame.period,
+              clock: soccerGame.clock,
               external_event_id: soccerGame.game_id,
             })
             .eq("id", match.id);
@@ -428,6 +354,8 @@ export async function POST(request: NextRequest) {
               status: newStatus,
               home_score: laLigaGame.home_score,
               away_score: laLigaGame.away_score,
+              period: laLigaGame.period,
+              clock: laLigaGame.clock,
               external_event_id: laLigaGame.game_id,
             })
             .eq("id", match.id);
@@ -512,6 +440,8 @@ export async function POST(request: NextRequest) {
                   status: newStatus,
                   home_score: apiGame.home_score,
                   away_score: apiGame.away_score,
+                  period: apiGame.period,
+                  clock: apiGame.clock,
                   external_event_id: apiGame.game_id,
                 })
                 .eq("id", match.id)
@@ -557,38 +487,84 @@ export async function POST(request: NextRequest) {
 
         const ncaabDbGames = (ncaabGamesResult.data ?? []) as Game[];
 
-        for (const ncaabGame of ncaabGames) {
-          const match = ncaabDbGames.find((g) =>
-            ncaabTeamsMatch(g.home_team, ncaabGame.home_team) &&
-            ncaabTeamsMatch(g.away_team, ncaabGame.away_team)
-          );
+        // Log unmatched ESPN games for debugging
+        const unmatchedEspn: string[] = [];
 
-          if (!match) continue;
+        for (const ncaabGame of ncaabGames) {
+          const { match: finalMatch, isSwapped } = findNcaabMatch(ncaabDbGames, ncaabGame);
+
+          if (!finalMatch) {
+            unmatchedEspn.push(`ESPN: ${ncaabGame.away_team} @ ${ncaabGame.home_team} (${ncaabGame.game_id})`);
+            continue;
+          }
 
           const newStatus = ncaabGame.status as "scheduled" | "live" | "final";
-          const previousStatus = match.status;
+          const previousStatus = finalMatch.status;
 
           const { error: updateError } = await (supabase.from("games") as any)
             .update({
               status: newStatus,
-              home_score: ncaabGame.home_score,
-              away_score: ncaabGame.away_score,
+              home_score: isSwapped ? ncaabGame.away_score : ncaabGame.home_score,
+              away_score: isSwapped ? ncaabGame.home_score : ncaabGame.away_score,
+              period: ncaabGame.period,
+              clock: ncaabGame.clock,
               external_event_id: ncaabGame.game_id,
             })
-            .eq("id", match.id);
+            .eq("id", finalMatch.id);
 
           if (!updateError) {
+            // Mark as matched so unmatchedDb filter excludes it
+            (finalMatch as any).external_event_id = ncaabGame.game_id;
+
             updated.push({
-              odds_team: `${match.away_team} @ ${match.home_team}`,
+              odds_team: `${finalMatch.away_team} @ ${finalMatch.home_team}`,
               nba_team: `${ncaabGame.away_team} @ ${ncaabGame.home_team}`,
               status: newStatus,
               external_event_id: ncaabGame.game_id,
             });
 
             if (newStatus === "live" && previousStatus === "scheduled") {
-              gamesBecameLive.push(match.id);
+              gamesBecameLive.push(finalMatch.id);
             }
           }
+        }
+
+        // Log unmatched games — only those not matched in-memory above
+        const unmatchedDb = ncaabDbGames.filter((g) => !g.external_event_id);
+        if (unmatchedDb.length > 0) {
+          // Log each unmatched DB game to admin error dashboard
+          for (const g of unmatchedDb.slice(0, 20)) {
+            logError(
+              "ncaab-sync",
+              `Unmatched DB game: "${g.away_team} @ ${g.home_team}" | ` +
+              `commence: ${g.commence_time} | ` +
+              `normalized: "${normalizeNcaabTeam(g.away_team)} @ ${normalizeNcaabTeam(g.home_team)}" | ` +
+              `game_id: ${g.id}`,
+              "/api/games/sync-status"
+            );
+          }
+        }
+        if (unmatchedEspn.length > 0) {
+          for (const entry of unmatchedEspn.slice(0, 10)) {
+            logError("ncaab-sync", `Unmatched ESPN game (no DB record): ${entry}`, "/api/games/sync-status");
+          }
+        }
+        // Only include debug info when there are unmatched games to investigate
+        if (unmatchedDb.length > 0 || unmatchedEspn.length > 0) {
+          ncaabDebug = {
+            espnGames: ncaabGames.length,
+            dbGames: ncaabDbGames.length,
+            unmatchedDbCount: unmatchedDb.length,
+            unmatchedDb: unmatchedDb.slice(0, 20).map((g) => ({
+              id: g.id,
+              away: g.away_team,
+              home: g.home_team,
+              awayNorm: normalizeNcaabTeam(g.away_team),
+              homeNorm: normalizeNcaabTeam(g.home_team),
+              time: g.commence_time,
+            })),
+            unmatchedEspn: unmatchedEspn.slice(0, 15),
+          };
         }
       }
 
@@ -630,11 +606,7 @@ export async function POST(request: NextRequest) {
         ).flat();
 
         for (const ncaabGame of allEspnGames) {
-          const match = unmatchedGames.find((g) =>
-            !g.external_event_id &&
-            ncaabTeamsMatch(g.home_team, ncaabGame.home_team) &&
-            ncaabTeamsMatch(g.away_team, ncaabGame.away_team)
-          );
+          const { match, isSwapped } = findNcaabMatch(unmatchedGames, ncaabGame, true);
 
           if (!match) continue;
 
@@ -644,8 +616,10 @@ export async function POST(request: NextRequest) {
           const { error: updateError } = await (supabase.from("games") as any)
             .update({
               status: newStatus,
-              home_score: ncaabGame.home_score,
-              away_score: ncaabGame.away_score,
+              home_score: isSwapped ? ncaabGame.away_score : ncaabGame.home_score,
+              away_score: isSwapped ? ncaabGame.home_score : ncaabGame.away_score,
+              period: ncaabGame.period,
+              clock: ncaabGame.clock,
               external_event_id: ncaabGame.game_id,
             })
             .eq("id", match.id);
@@ -665,6 +639,24 @@ export async function POST(request: NextRequest) {
               gamesBecameLive.push(match.id);
             }
           }
+        }
+
+        // Log remaining unmatched games after lookback
+        const stillUnmatched = unmatchedGames.filter((g) => !g.external_event_id);
+        if (stillUnmatched.length > 0) {
+          for (const g of stillUnmatched.slice(0, 10)) {
+            logError(
+              "ncaab-sync-lookback",
+              `Still unmatched after lookback: "${g.away_team} @ ${g.home_team}" | ` +
+              `normalized: "${normalizeNcaabTeam(g.away_team)} @ ${normalizeNcaabTeam(g.home_team)}" | ` +
+              `commence: ${g.commence_time} | game_id: ${g.id}`,
+              "/api/games/sync-status"
+            );
+          }
+          if (!ncaabDebug) {
+            ncaabDebug = { espnGames: ncaabGames.length, dbGames: 0, unmatchedDbCount: 0, unmatchedDb: [], unmatchedEspn: [] };
+          }
+          ncaabDebug.lookbackStillUnmatched = stillUnmatched.length;
         }
       }
     } catch (ncaabError) {
@@ -749,6 +741,7 @@ export async function POST(request: NextRequest) {
       challenges_resolved: challengesResolved,
       picks_re_resolved: reResolved.picksUpdated,
       cards_rescored: reResolved.cardsRescored,
+      ...(ncaabDebug ? { ncaab_debug: ncaabDebug } : {}),
     });
   } catch (error) {
     return handleApiError(error, "Failed to sync game statuses");

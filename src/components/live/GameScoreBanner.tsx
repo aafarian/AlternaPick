@@ -2,7 +2,7 @@
 
 import type { LiveGameStatus } from "@/lib/cards/live-types";
 import { teamTricode } from "@/lib/constants";
-import { formatClock, formatGameTime } from "@/lib/format";
+import { formatLiveStatus, formatGameTime } from "@/lib/format";
 
 function TeamBadge({ team, tricode, logo, score, showScore, side }: {
   team: string;
@@ -83,7 +83,7 @@ export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) 
               )}
               <span className="text-[10px] font-semibold text-white/70">
                 {isLive
-                  ? (game.period > 0 ? formatClock(game.period, game.clock, game.sport) : "Live")
+                  ? formatLiveStatus(game.period, game.clock, game.sport, game.home_score, game.away_score)
                   : isScheduled && game.commence_time
                     ? formatGameTime(game.commence_time)
                     : isScheduled

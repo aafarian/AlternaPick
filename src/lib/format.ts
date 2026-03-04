@@ -51,16 +51,43 @@ export function formatClock(period: number, clock: string, sport?: string): stri
 
   // Determine if sport uses halves vs quarters
   const usesHalves = sport ? sportUsesHalves(sport) : false;
-  const prefix = usesHalves ? "H" : "Q";
+  const regularPeriods = usesHalves ? 2 : 4;
   // Halftime is end of H1 (period 1) for halves, end of Q2 (period 2) for quarters
   const halftimePeriod = usesHalves ? 1 : 2;
 
   if (period === halftimePeriod && isZero) return "Half";
 
+  // Overtime periods
+  if (period > regularPeriods) {
+    const otNum = period - regularPeriods;
+    const otLabel = otNum === 1 ? "OT" : `${otNum}OT`;
+    if (isZero) return `End ${otLabel}`;
+    const display = match ? `${match[1]}:${match[2].padStart(2, "0")}` : clock;
+    return `${otLabel} ${display}`;
+  }
+
+  const prefix = usesHalves ? "H" : "Q";
   if (isZero && period >= 1) return `End ${prefix}${period}`;
 
   const display = match ? `${match[1]}:${match[2].padStart(2, "0")}` : clock;
   return `${prefix}${period} ${display}`;
+}
+
+/**
+ * Formats the status label for a live game. Shows the clock when available,
+ * "Starting" for tip-off (period 0, no score), or "Live" as a fallback
+ * (period 0 but scores exist — stale DB data where period is unknown).
+ */
+export function formatLiveStatus(
+  period: number,
+  clock: string,
+  sport?: string,
+  homeScore?: number,
+  awayScore?: number,
+): string {
+  if (period > 0) return formatClock(period, clock, sport);
+  if ((homeScore ?? 0) > 0 || (awayScore ?? 0) > 0) return "Live";
+  return "Starting";
 }
 
 /**

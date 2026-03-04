@@ -1,87 +1,11 @@
 /**
  * Tests for NCAAB team name matching in game sync.
  *
- * These functions are defined in sync-status/route.ts but we re-implement
- * them here to test the matching logic independently.
+ * Imports the production matching functions from src/lib/ncaab/matching.ts
+ * to ensure tests validate the actual code used in sync-status/route.ts.
  */
 import { describe, it, expect } from "vitest";
-
-// --- Copied from sync-status/route.ts for unit testing ---
-
-function normalizeTeam(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/\bst\.\s*/g, "state ")
-    .replace(/\bst\b/g, "state")
-    .replace(/\bmt\.\s*/g, "mount ")
-    .replace(/\./g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-const NCAAB_TEAM_ALIASES: Record<string, string> = {
-  "n colorado": "northern colorado",
-  "se louisiana": "southeastern louisiana",
-  "se missouri state": "southeast missouri state",
-  "s carolina": "south carolina",
-  "s carolina upstate": "south carolina upstate",
-  "w michigan": "western michigan",
-  "w kentucky": "western kentucky",
-  "e michigan": "eastern michigan",
-  "e kentucky": "eastern kentucky",
-  "e washington": "eastern washington",
-  "e illinois": "eastern illinois",
-  "n illinois": "northern illinois",
-  "n iowa": "northern iowa",
-  "n arizona": "northern arizona",
-  "n kentucky": "northern kentucky",
-  "n carolina": "north carolina",
-  "w virginia": "west virginia",
-  "w georgia": "western georgia",
-  "n carolina a&t": "north carolina a&t",
-  "ul monroe": "louisiana-monroe",
-  "siu-edwardsville": "siu edwardsville",
-  "texas a&m-cc": "texas a&m-corpus christi",
-  "umkc": "kansas city",
-  "uab": "uab",
-  "ucf": "ucf",
-  "vcu": "vcu",
-  "gw": "george washington",
-  "fiu": "fiu",
-  "utsa": "utsa",
-  "utep": "utep",
-  "unlv": "unlv",
-  "njit": "njit",
-  "umbc": "umbc",
-  "unc": "north carolina",
-  "lsu": "lsu",
-};
-
-function normalizeNcaabTeam(name: string): string {
-  const base = normalizeTeam(name);
-  for (const [abbrev, full] of Object.entries(NCAAB_TEAM_ALIASES)) {
-    if (base.startsWith(abbrev + " ") || base === abbrev) {
-      return base.replace(abbrev, full);
-    }
-  }
-  return base;
-}
-
-function ncaabTeamsMatch(dbTeam: string, espnTeam: string): boolean {
-  if (dbTeam === espnTeam) return true;
-  const a = normalizeNcaabTeam(dbTeam);
-  const b = normalizeNcaabTeam(espnTeam);
-  if (a === b) return true;
-  if (a.includes(b) || b.includes(a)) return true;
-  const mascotA = a.split(" ").pop() ?? "";
-  const mascotB = b.split(" ").pop() ?? "";
-  if (mascotA.length > 3 && mascotA === mascotB) {
-    const wordsA = a.split(" ").slice(0, -1);
-    const wordsB = b.split(" ").slice(0, -1);
-    return wordsA.some((w) => w.length > 2 && wordsB.some((wb) => wb.includes(w) || w.includes(wb)));
-  }
-  return false;
-}
+import { normalizeTeam, ncaabTeamsMatch, findNcaabMatch } from "@/lib/ncaab/matching";
 
 // --- Tests ---
 
@@ -152,6 +76,30 @@ describe("ncaabTeamsMatch", () => {
     expect(ncaabTeamsMatch("GW Revolutionaries", "George Washington Revolutionaries")).toBe(true);
   });
 
+  it("matches Alabama St → Alabama State", () => {
+    expect(ncaabTeamsMatch("Alabama St Hornets", "Alabama State Hornets")).toBe(true);
+  });
+
+  it("matches Grambling St → Grambling (ESPN omits State)", () => {
+    expect(ncaabTeamsMatch("Grambling St Tigers", "Grambling Tigers")).toBe(true);
+  });
+
+  it("matches Miss Valley St → Mississippi Valley State", () => {
+    expect(ncaabTeamsMatch("Miss Valley St Delta Devils", "Mississippi Valley State Delta Devils")).toBe(true);
+  });
+
+  it("matches Loyola (Chi) → Loyola Chicago", () => {
+    expect(ncaabTeamsMatch("Loyola (Chi) Ramblers", "Loyola Chicago Ramblers")).toBe(true);
+  });
+
+  it("matches LIU → Long Island University", () => {
+    expect(ncaabTeamsMatch("LIU Sharks", "Long Island University Sharks")).toBe(true);
+  });
+
+  it("matches Arkansas-Little Rock → Little Rock", () => {
+    expect(ncaabTeamsMatch("Arkansas-Little Rock Trojans", "Little Rock Trojans")).toBe(true);
+  });
+
   it("does not match unrelated teams", () => {
     expect(ncaabTeamsMatch("Duke Blue Devils", "North Carolina Tar Heels")).toBe(false);
   });
@@ -163,5 +111,47 @@ describe("ncaabTeamsMatch", () => {
   it("matches via mascot fallback with location overlap", () => {
     // "N Carolina A&T Aggies" vs "North Carolina A&T Aggies"
     expect(ncaabTeamsMatch("N Carolina A&T Aggies", "North Carolina A&T Aggies")).toBe(true);
+  });
+});
+
+describe("findNcaabMatch", () => {
+  const dbGames = [
+    { home_team: "Alabama St Hornets", away_team: "Southern Jaguars", external_event_id: null },
+    { home_team: "Duke Blue Devils", away_team: "UNC Tar Heels", external_event_id: "123" },
+  ];
+
+  it("finds normal orientation match", () => {
+    const { match, isSwapped } = findNcaabMatch(dbGames, {
+      home_team: "Alabama State Hornets",
+      away_team: "Southern Jaguars",
+    });
+    expect(match).toBe(dbGames[0]);
+    expect(isSwapped).toBe(false);
+  });
+
+  it("finds swapped orientation match", () => {
+    const { match, isSwapped } = findNcaabMatch(dbGames, {
+      home_team: "Southern Jaguars",
+      away_team: "Alabama State Hornets",
+    });
+    expect(match).toBe(dbGames[0]);
+    expect(isSwapped).toBe(true);
+  });
+
+  it("returns null when no match", () => {
+    const { match } = findNcaabMatch(dbGames, {
+      home_team: "Kansas Jayhawks",
+      away_team: "Baylor Bears",
+    });
+    expect(match).toBeNull();
+  });
+
+  it("respects requireUnmatched flag", () => {
+    const { match } = findNcaabMatch(dbGames, {
+      home_team: "Duke Blue Devils",
+      away_team: "UNC Tar Heels",
+    }, true);
+    // Duke already has external_event_id, so should not match with requireUnmatched
+    expect(match).toBeNull();
   });
 });

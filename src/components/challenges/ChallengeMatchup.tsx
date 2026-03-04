@@ -161,6 +161,16 @@ function PlayerSide({
   );
 }
 
+/* ---------- Helpers ---------- */
+
+function liveHitCount(pickMap: Map<string, LivePickData>): number {
+  let hits = 0;
+  for (const lp of pickMap.values()) {
+    if (lp.trending === "hit") hits++;
+  }
+  return hits;
+}
+
 /* ---------- Main Component ---------- */
 
 export default function ChallengeMatchup({
@@ -204,13 +214,6 @@ export default function ChallengeMatchup({
   }
 
   // Compute live scores from trending data (DB score is 0 for unresolved cards)
-  function liveHitCount(pickMap: Map<string, LivePickData>): number {
-    let hits = 0;
-    for (const lp of pickMap.values()) {
-      if (lp.trending === "hit") hits++;
-    }
-    return hits;
-  }
   const challengerLiveScore = liveData ? liveHitCount(challengerLivePickMap) : null;
   const opponentLiveScore = liveData ? liveHitCount(opponentLivePickMap) : null;
 

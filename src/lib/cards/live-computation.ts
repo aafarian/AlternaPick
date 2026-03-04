@@ -3,13 +3,17 @@ import {
   fetchBoxscore,
   fetchBoxscoreLive,
   fetchTodaysGamesLive,
+  fetchNbaGamesByDate,
   fetchSoccerBoxscore,
   fetchSoccerBoxscoreLive,
   fetchSoccerGamesLive,
+  fetchSoccerGamesByDate,
   fetchLaLigaGamesLive,
+  fetchLaLigaGamesByDate,
   fetchNcaabBoxscore,
   fetchNcaabBoxscoreLive,
   fetchNcaabGamesLive,
+  fetchNcaabGamesByDate,
   type PlayerBoxScore,
   type StatsGame,
 } from "@/lib/stats-service/client";
@@ -20,6 +24,7 @@ import type {
   LivePickData,
   LiveGameStatus,
 } from "@/lib/cards/live-types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Run async tasks with bounded concurrency (no external dependency). */
 async function pMap<T, R>(
@@ -67,6 +72,8 @@ export interface PickWithPropAndGame {
       away_team?: string | null;
       home_score?: number | null;
       away_score?: number | null;
+      period?: number | null;
+      clock?: string | null;
       commence_time?: string | null;
     };
   };
@@ -140,8 +147,8 @@ export function buildLivePicksForCard(
         game_id: pick.props.game_id,
         external_event_id: eventId ?? pick.props.game_id,
         status: dbStatus,
-        period: 0,
-        clock: "",
+        period: pick.props.games?.period ?? 0,
+        clock: pick.props.games?.clock ?? "",
         sport: pick.props.games?.sport ?? undefined,
         home_team: dbHomeTeam,
         away_team: dbAwayTeam,
@@ -154,6 +161,10 @@ export function buildLivePicksForCard(
         commence_time: pick.props.games?.commence_time || null,
         game_url: gameUrl(pick.props.games?.sport ?? undefined, eventId ?? ""),
       };
+
+      if (dbStatus === "live") {
+        liveGamesSet.add(eventId ?? pick.props.game_id);
+      }
     }
 
     let currentValue: number | null = null;
@@ -253,6 +264,7 @@ export function buildLivePicksForCard(
 // ---------------------------------------------------------------------------
 interface SportFetchers {
   fetchGames: () => Promise<StatsGame[]>;
+  fetchGamesByDate: (date: string) => Promise<StatsGame[]>;
   fetchBoxscore: (id: string) => Promise<PlayerBoxScore[]>;
   fetchBoxscoreLive: (id: string) => Promise<PlayerBoxScore[]>;
   onGames?: (games: StatsGame[]) => void;
@@ -261,21 +273,25 @@ interface SportFetchers {
 const SPORT_FETCHERS: Record<string, SportFetchers> = {
   nba: {
     fetchGames: fetchTodaysGamesLive,
+    fetchGamesByDate: fetchNbaGamesByDate,
     fetchBoxscore: fetchBoxscore,
     fetchBoxscoreLive: fetchBoxscoreLive,
   },
   epl: {
     fetchGames: fetchSoccerGamesLive,
+    fetchGamesByDate: fetchSoccerGamesByDate,
     fetchBoxscore: fetchSoccerBoxscore,
     fetchBoxscoreLive: fetchSoccerBoxscoreLive,
   },
   la_liga: {
     fetchGames: fetchLaLigaGamesLive,
+    fetchGamesByDate: fetchLaLigaGamesByDate,
     fetchBoxscore: fetchSoccerBoxscore,
     fetchBoxscoreLive: fetchSoccerBoxscoreLive,
   },
   ncaab: {
     fetchGames: fetchNcaabGamesLive,
+    fetchGamesByDate: fetchNcaabGamesByDate,
     fetchBoxscore: fetchNcaabBoxscore,
     fetchBoxscoreLive: fetchNcaabBoxscoreLive,
     onGames: (games) =>
@@ -349,6 +365,64 @@ export async function fetchLiveMaps(
     if (games.length > 0) {
       SPORT_FETCHERS[sport].onGames?.(games);
     }
+  }
+
+  // Step 2b: For games the DB says are "live" but aren't on today's scoreboard
+  // (e.g. late games that rolled past midnight), fetch the scoreboard for the
+  // game's actual date so we get the real status/score from ESPN.
+  const lookbackBySport = new Map<string, Set<string>>();
+  for (const pick of picks) {
+    const eventId = pick.props?.games?.external_event_id;
+    if (!eventId || gameStatusMap.has(eventId)) continue;
+    if (pick.props?.games?.status !== "live") continue;
+    const commence = pick.props?.games?.commence_time;
+    if (!commence) continue;
+    const sport = pick.props?.games?.sport ?? "nba";
+    // ESPN uses YYYYMMDD in ET — a 10 PM ET game on March 3 is stored as
+    // March 4 in UTC. Convert to ET before extracting the date.
+    const gameDate = new Date(commence);
+    const etFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const parts = etFormatter.formatToParts(gameDate);
+    const y = parts.find((p) => p.type === "year")!.value;
+    const m = parts.find((p) => p.type === "month")!.value;
+    const d = parts.find((p) => p.type === "day")!.value;
+    const dateStr = `${y}${m}${d}`;
+    let dates = lookbackBySport.get(sport);
+    if (!dates) {
+      dates = new Set<string>();
+      lookbackBySport.set(sport, dates);
+    }
+    dates.add(dateStr);
+  }
+
+  if (lookbackBySport.size > 0) {
+    const lookbackFetches: Promise<void>[] = [];
+    for (const [sport, dates] of lookbackBySport) {
+      const fetcher = SPORT_FETCHERS[sport];
+      if (!fetcher) continue;
+      for (const dateStr of dates) {
+        lookbackFetches.push(
+          fetcher.fetchGamesByDate(dateStr).then((games) => {
+            for (const g of games) {
+              if (!gameStatusMap.has(g.game_id)) {
+                gameStatusMap.set(g.game_id, g);
+              }
+            }
+            if (games.length > 0) {
+              fetcher.onGames?.(games);
+            }
+          }).catch((err) => {
+            logError("stats-service", `Failed to fetch lookback games for ${sport} ${dateStr}: ${err instanceof Error ? err.message : err}`);
+          }),
+        );
+      }
+    }
+    await Promise.all(lookbackFetches);
   }
 
   // Build a set of game IDs where ALL referencing picks already have
@@ -457,4 +531,68 @@ export async function fetchLiveMapsForCards(
 }> {
   const allPicks = cards.flatMap((c) => c.picks);
   return fetchLiveMaps(allPicks);
+}
+
+/**
+ * Write-through: update DB game rows with fresh ESPN data so the DB fallback
+ * path serves current scores instead of stale data from the last cron sync.
+ * Called non-blocking in after() — failures are logged but don't affect the response.
+ */
+export async function syncGameStatusToDb(
+  supabase: SupabaseClient,
+  gameStatusMap: Map<string, StatsGame>,
+  picks: PickWithPropAndGame[],
+): Promise<void> {
+  if (gameStatusMap.size === 0) return;
+
+  // Collect unique game IDs from picks that have fresh ESPN data
+  const seen = new Set<string>();
+  const updates: { gameId: string; liveGame: StatsGame }[] = [];
+
+  for (const pick of picks) {
+    const gameId = pick.props.game_id;
+    if (seen.has(gameId)) continue;
+    seen.add(gameId);
+
+    const eventId = pick.props.games?.external_event_id;
+    if (!eventId) continue;
+
+    const liveGame = gameStatusMap.get(eventId);
+    if (!liveGame) continue;
+
+    const db = pick.props.games;
+    // Only update if something actually changed
+    if (
+      db?.status === liveGame.status &&
+      db?.home_score === liveGame.home_score &&
+      db?.away_score === liveGame.away_score &&
+      db?.period === liveGame.period &&
+      db?.clock === liveGame.clock
+    ) {
+      continue;
+    }
+
+    updates.push({ gameId, liveGame });
+  }
+
+  if (updates.length === 0) return;
+
+  await Promise.all(
+    updates.map(({ gameId, liveGame }) =>
+      (supabase.from("games") as any)
+        .update({
+          status: liveGame.status,
+          home_score: liveGame.home_score,
+          away_score: liveGame.away_score,
+          period: liveGame.period,
+          clock: liveGame.clock,
+        })
+        .eq("id", gameId)
+        .then(({ error }: { error: any }) => {
+          if (error) {
+            logError("live-sync", `Failed to sync game ${gameId}: ${error.message}`);
+          }
+        }),
+    ),
+  );
 }

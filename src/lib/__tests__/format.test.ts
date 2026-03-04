@@ -80,7 +80,15 @@ describe("formatClock", () => {
     });
 
     it("handles OT period", () => {
-      expect(formatClock(5, "PT3M15.00S")).toBe("Q5 3:15");
+      expect(formatClock(5, "PT3M15.00S")).toBe("OT 3:15");
+    });
+
+    it("handles 2OT period", () => {
+      expect(formatClock(6, "PT1M00.00S")).toBe("2OT 1:00");
+    });
+
+    it("handles End OT", () => {
+      expect(formatClock(5, "PT00M00.00S")).toBe("End OT");
     });
 
     it("formats full 12-minute clock at start of quarter", () => {
@@ -116,7 +124,15 @@ describe("formatClock", () => {
     });
 
     it("formats overtime period (period=3)", () => {
-      expect(formatClock(3, "5:00", "ncaab")).toBe("H3 5:00");
+      expect(formatClock(3, "5:00", "ncaab")).toBe("OT 5:00");
+    });
+
+    it("formats double overtime (period=4)", () => {
+      expect(formatClock(4, "3:00", "ncaab")).toBe("2OT 3:00");
+    });
+
+    it("formats End OT at period=3, 0:00", () => {
+      expect(formatClock(3, "0:00", "ncaab")).toBe("End OT");
     });
 
     it("formats start of H1 (20:00)", () => {

@@ -5,9 +5,11 @@ FastAPI microservice that provides NBA player stats via the nba_api library.
 Runs as a separate process from the Next.js app and is called via REST.
 """
 
+import asyncio
 import logging
 import os
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -23,10 +25,65 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Background scoreboard refresh
+#
+# Instead of waiting for a request to trigger a cache miss → ESPN fetch,
+# proactively refresh all sport scoreboards every 25s. This means the
+# /games/today/live endpoints always hit a warm cache and respond instantly.
+# ---------------------------------------------------------------------------
+REFRESH_INTERVAL = 25  # seconds (just under the 30s cache TTL)
+
+_refresh_task: asyncio.Task | None = None
+
+
+async def _refresh_scoreboards():
+    """Background loop that keeps scoreboard caches warm."""
+    from utils.nba_client import get_todays_scoreboard
+    from utils.ncaab_client import get_todays_ncaab_games
+    from utils.football_client import get_todays_fixtures, EPL_LEAGUE_ID, LA_LIGA_LEAGUE_ID
+
+    while True:
+        try:
+            # Fetch all scoreboards in parallel — each one populates its own cache
+            results = await asyncio.gather(
+                get_todays_scoreboard(),
+                get_todays_ncaab_games(),
+                get_todays_fixtures(EPL_LEAGUE_ID),
+                get_todays_fixtures(LA_LIGA_LEAGUE_ID),
+                return_exceptions=True,
+            )
+            for i, r in enumerate(results):
+                if isinstance(r, Exception):
+                    sport = ["NBA", "NCAAB", "EPL", "La Liga"][i]
+                    logger.warning(f"Background refresh failed for {sport}: {r}")
+        except Exception as e:
+            logger.warning(f"Background refresh error: {e}")
+
+        await asyncio.sleep(REFRESH_INTERVAL)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: warm caches + launch background refresh. Shutdown: cancel it."""
+    global _refresh_task
+    _refresh_task = asyncio.create_task(_refresh_scoreboards())
+    logger.info("Background scoreboard refresh started (every %ds)", REFRESH_INTERVAL)
+    yield
+    if _refresh_task:
+        _refresh_task.cancel()
+        try:
+            await _refresh_task
+        except asyncio.CancelledError:
+            pass
+    logger.info("Background scoreboard refresh stopped")
+
+
 app = FastAPI(
     title="AlternaPick Stats Service",
     description="NBA player stats microservice powered by nba_api",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # ---------------------------------------------------------------------------

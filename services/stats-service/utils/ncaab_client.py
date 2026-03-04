@@ -17,7 +17,7 @@ from utils.espn_helpers import (
     EspnRateLimiter,
     get_cached,
     set_cached,
-    get_http_client,
+    espn_get_with_retry,
     make_dnp_player,
     parse_espn_status,
     parse_period,
@@ -39,15 +39,12 @@ _rate_limiter = EspnRateLimiter(min_interval=0.3)
 
 
 async def _espn_get(endpoint: str, params: dict | None = None) -> dict:
-    """Make a rate-limited GET request to ESPN."""
-    await _rate_limiter.acquire()
-    client = get_http_client()
-    response = await client.get(
+    """Make a rate-limited GET request to ESPN with retry."""
+    return await espn_get_with_retry(
+        _rate_limiter,
         f"{ESPN_BASE}{endpoint}",
-        params=params or {},
+        params,
     )
-    response.raise_for_status()
-    return response.json()
 
 
 async def get_todays_ncaab_games(target_date: str | None = None) -> list[dict]:
