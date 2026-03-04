@@ -73,7 +73,7 @@ export function normalizeNcaabTeam(name: string): string {
   const base = normalizeTeam(name);
   for (const [abbrev, full] of Object.entries(NCAAB_TEAM_ALIASES)) {
     if (base.startsWith(abbrev + " ") || base === abbrev) {
-      return base.replace(abbrev, full);
+      return full + base.slice(abbrev.length);
     }
   }
   return base;
