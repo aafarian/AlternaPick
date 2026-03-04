@@ -5,6 +5,7 @@ import { createNotification } from "@/lib/notifications/queries";
 import { unauthorized, badRequest, handleApiError, logError } from "@/lib/api/errors";
 import type { ChallengeStatus } from "@/lib/supabase/types";
 import { isValidGameMode } from "@/lib/modes/definitions";
+import { modeLabel } from "@/lib/share/image-utils";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE } from "@/lib/modes/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { getCachedProps } from "@/lib/odds-api/cache";
@@ -262,8 +263,7 @@ export async function POST(request: NextRequest) {
       // Build notification body with optional trash talk
       let notifBody = `You received a challenge from ${challengerName}!`;
       if (gameMode !== "classic") {
-        const modeLabel = gameMode.replaceAll("_", " ");
-        notifBody = `${challengerName} challenged you to a ${modeLabel} match!`;
+        notifBody = `${challengerName} challenged you to a ${modeLabel(gameMode)} match!`;
       }
       if (message) {
         notifBody += ` "${message}"`;

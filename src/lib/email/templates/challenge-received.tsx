@@ -10,6 +10,8 @@ import {
   Hr,
 } from "@react-email/components";
 import type { ReactElement } from "react";
+import type { GameMode } from "@/lib/supabase/types";
+import { modeLabel } from "@/lib/share/image-utils";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
 
 // ---------------------------------------------------------------------------
@@ -31,11 +33,8 @@ function getChallengeReceivedSubject(
   challengerUsername: string,
   gameMode: string
 ): string {
-  const isClassic = gameMode === "classic";
-  const modeLabel = gameMode.replaceAll("_", " ");
-  return isClassic
-    ? `${challengerUsername} challenged you!`
-    : `${challengerUsername} challenged you to a ${modeLabel} match!`;
+  if (gameMode === "classic") return `${challengerUsername} challenged you!`;
+  return `${challengerUsername} challenged you to a ${modeLabel(gameMode as GameMode)} match!`;
 }
 
 // ---------------------------------------------------------------------------
