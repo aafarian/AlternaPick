@@ -29,12 +29,13 @@ export interface ChallengeReceivedEmailProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getChallengeReceivedSubject(
-  challengerUsername: string,
-  gameMode: GameMode
-): string {
+function getHeadline(challengerUsername: string, gameMode: GameMode): string {
   if (gameMode === "classic") return `${challengerUsername} challenged you!`;
   return `${challengerUsername} challenged you to a ${modeLabel(gameMode)} match!`;
+}
+
+function getSubject(challengerUsername: string, gameMode: GameMode): string {
+  return getHeadline(challengerUsername, gameMode);
 }
 
 // ---------------------------------------------------------------------------
@@ -48,7 +49,7 @@ export function ChallengeReceivedEmail({
   challengeId,
 }: ChallengeReceivedEmailProps): ReactElement {
   const challengeUrl = `${baseUrl}/challenges/${challengeId}`;
-  const headlineText = getChallengeReceivedSubject(challengerUsername, gameMode);
+  const headlineText = getHeadline(challengerUsername, gameMode);
 
   return (
     <Html lang="en">
@@ -92,7 +93,7 @@ export function getChallengeReceivedEmailProps(
   react: ReactElement;
 } {
   return {
-    subject: getChallengeReceivedSubject(props.challengerUsername, props.gameMode),
+    subject: getSubject(props.challengerUsername, props.gameMode),
     react: <ChallengeReceivedEmail {...props} />,
   };
 }
