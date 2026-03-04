@@ -654,7 +654,7 @@ export async function POST(request: NextRequest) {
             );
           }
           if (!ncaabDebug) {
-            ncaabDebug = { espnGames: ncaabGames.length, dbGames: ncaabDbGames.length, unmatchedDbCount: 0, unmatchedDb: [], unmatchedEspn: [] };
+            ncaabDebug = { espnGames: ncaabGames.length, dbGames: 0, unmatchedDbCount: 0, unmatchedDb: [], unmatchedEspn: [] };
           }
           ncaabDebug.lookbackStillUnmatched = stillUnmatched.length;
         }

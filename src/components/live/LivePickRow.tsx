@@ -262,9 +262,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
           {d.isLive && pick.game_status && (
             <span className="flex items-center gap-1 text-[10px] font-semibold leading-none tabular-nums text-white/70 animate-value-in">
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-              {pick.game_status.period > 0
-                ? formatClock(pick.game_status.period, pick.game_status.clock, pick.sport)
-                : (pick.game_status.home_score > 0 || pick.game_status.away_score > 0) ? "Live" : "Starting"}
+              {formatLiveStatus(pick.game_status.period, pick.game_status.clock, pick.sport, pick.game_status.home_score, pick.game_status.away_score)}
             </span>
           )}
           {d.isFinal && (
