@@ -5,9 +5,8 @@
  * @vercel/og ImageResponse JSX (Satori).
  */
 
-import type { GameMode, StatCategory } from "@/lib/supabase/types";
+import type { StatCategory } from "@/lib/supabase/types";
 import { CATEGORY_LABELS } from "@/lib/constants";
-import { GAME_MODES } from "@/lib/modes/definitions";
 
 // ---- OG Image color constants ----
 
@@ -82,30 +81,9 @@ export function statLabel(category: string): string {
   );
 }
 
-// ---- Game mode labels ----
+// ---- Game mode labels (re-exported from canonical location) ----
 
-/**
- * Return the display name for a game mode (e.g. "Classic", "Sabotage").
- */
-export function modeLabel(mode: GameMode): string {
-  return GAME_MODES[mode]?.displayName ?? mode;
-}
-
-/**
- * Return the emoji icon for a game mode.
- */
-export function modeIcon(mode: GameMode): string {
-  return GAME_MODES[mode]?.icon ?? "";
-}
-
-/**
- * Return combined "icon name" string for a mode badge.
- */
-export function modeBadgeText(mode: GameMode): string {
-  const icon = modeIcon(mode);
-  const label = modeLabel(mode);
-  return icon ? `${icon} ${label}` : label;
-}
+export { modeLabel, modeIcon, modeBadgeText } from "@/lib/modes/utils";
 
 // ---- Direction label ----
 

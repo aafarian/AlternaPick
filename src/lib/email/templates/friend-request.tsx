@@ -3,6 +3,7 @@ import {
   Head,
   Body,
   Container,
+  Section,
   Text,
   Link,
   Preview,
@@ -38,19 +39,21 @@ export function FriendRequestEmail({
       </Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
-          <Text style={styles.heading}>New Friend Request</Text>
-          <Text style={styles.text}>
-            Hey {addresseeUsername}, {requesterUsername} wants to be your friend
-            on Sports Tower.
-          </Text>
-          <Text style={styles.text}>
-            <Link style={styles.link} href={friendsUrl}>
-              View request →
-            </Link>
-          </Text>
+          <Section style={styles.card}>
+            <Text style={styles.heading}>New Friend Request</Text>
+            <Text style={styles.text}>
+              Hey {addresseeUsername}, {requesterUsername} wants to be your friend
+              on AlternaPick.
+            </Text>
+            <Section style={styles.buttonWrapper}>
+              <Link style={styles.button} href={friendsUrl}>
+                View request →
+              </Link>
+            </Section>
+          </Section>
 
           <Hr style={styles.hr} />
-          <Text style={styles.footer}>Sports Tower · alternapick.com</Text>
+          <Text style={styles.footer}>alternapick.com</Text>
         </Container>
       </Body>
     </Html>

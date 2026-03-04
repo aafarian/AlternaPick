@@ -3,8 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
+import { logError } from "@/lib/logger";
 import type { ChallengeStatus } from "@/lib/supabase/types";
 import { isValidGameMode } from "@/lib/modes/definitions";
+import { modeLabel } from "@/lib/modes/utils";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE } from "@/lib/modes/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { getCachedProps } from "@/lib/odds-api/cache";
@@ -211,10 +213,10 @@ export async function POST(request: NextRequest) {
       const now = Date.now();
 
       const allSportGames = await Promise.all([
-        getCachedProps("nba").catch((err) => { console.error("Random mode: failed to fetch nba props:", err); return null; }),
-        getCachedProps("ncaab").catch((err) => { console.error("Random mode: failed to fetch ncaab props:", err); return null; }),
-        getCachedProps("epl").catch((err) => { console.error("Random mode: failed to fetch epl props:", err); return null; }),
-        getCachedProps("la_liga").catch((err) => { console.error("Random mode: failed to fetch la_liga props:", err); return null; }),
+        getCachedProps("nba").catch((err) => { logError("challenges", "Random mode: failed to fetch nba props", undefined, err); return null; }),
+        getCachedProps("ncaab").catch((err) => { logError("challenges", "Random mode: failed to fetch ncaab props", undefined, err); return null; }),
+        getCachedProps("epl").catch((err) => { logError("challenges", "Random mode: failed to fetch epl props", undefined, err); return null; }),
+        getCachedProps("la_liga").catch((err) => { logError("challenges", "Random mode: failed to fetch la_liga props", undefined, err); return null; }),
       ]);
 
       const propIds = allSportGames
@@ -262,8 +264,7 @@ export async function POST(request: NextRequest) {
       // Build notification body with optional trash talk
       let notifBody = `You received a challenge from ${challengerName}!`;
       if (gameMode !== "classic") {
-        const modeLabel = gameMode.replace("_", " ");
-        notifBody = `${challengerName} challenged you to a ${modeLabel} match!`;
+        notifBody = `${challengerName} challenged you to a ${modeLabel(gameMode)} match!`;
       }
       if (message) {
         notifBody += ` "${message}"`;
@@ -308,7 +309,7 @@ export async function POST(request: NextRequest) {
         sendEmail({ to: opponent.email, subject, react }).catch(() => {});
       }
     } catch (notifError) {
-      console.error("Failed to create challenge_received notification:", notifError);
+      logError("challenges", "Failed to create challenge_received notification", undefined, notifError);
     }
 
     return NextResponse.json({ challenge }, { status: 201 });

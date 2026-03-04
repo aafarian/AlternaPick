@@ -3,6 +3,7 @@ import {
   Head,
   Body,
   Container,
+  Section,
   Text,
   Link,
   Preview,
@@ -63,6 +64,12 @@ function getSubject(
   return `You fell to ${opponentName} ${theirScore}-${myScore}`;
 }
 
+function getScoreAccent(isWinner: boolean, isTie: boolean) {
+  if (isTie) return styles.accentTie;
+  if (isWinner) return styles.accentWin;
+  return styles.accentLoss;
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -80,6 +87,7 @@ export function ChallengeResolvedEmail({
   const headline = getHeadline(isWinner, isTie, margin);
   const subtext = getSubtext(isWinner, isTie, opponentName);
   const challengeUrl = `${baseUrl}/challenges/${challengeId}`;
+  const scoreAccent = getScoreAccent(isWinner, isTie);
 
   return (
     <Html lang="en">
@@ -89,18 +97,23 @@ export function ChallengeResolvedEmail({
       </Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
-          <Text style={styles.heading}>{headline}</Text>
-          <Text style={styles.text}>
-            {username}, you went {myScore}-{theirScore} vs {opponentName}. {subtext}
-          </Text>
-          <Text style={styles.text}>
-            <Link style={styles.link} href={challengeUrl}>
-              View challenge →
-            </Link>
-          </Text>
+          <Section style={styles.card}>
+            <Text style={styles.heading}>{headline}</Text>
+            <Text style={{ ...styles.scoreBlock, ...scoreAccent }}>
+              {myScore} - {theirScore}
+            </Text>
+            <Text style={styles.text}>
+              {username}, you went {myScore}-{theirScore} vs {opponentName}. {subtext}
+            </Text>
+            <Section style={styles.buttonWrapper}>
+              <Link style={styles.button} href={challengeUrl}>
+                View challenge →
+              </Link>
+            </Section>
+          </Section>
 
           <Hr style={styles.hr} />
-          <Text style={styles.footer}>Sports Tower · alternapick.com</Text>
+          <Text style={styles.footer}>alternapick.com</Text>
         </Container>
       </Body>
     </Html>

@@ -3,6 +3,7 @@ import {
   Head,
   Body,
   Container,
+  Section,
   Text,
   Link,
   Preview,
@@ -42,18 +43,23 @@ export function CardResolvedEmail({
       <Preview>{`${headline} You went ${score} for ${total}.`}</Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
-          <Text style={styles.heading}>{headline}</Text>
-          <Text style={styles.text}>
-            {username}, you went {score} for {total}. {subtext}
-          </Text>
-          <Text style={styles.text}>
-            <Link style={styles.link} href={cardUrl}>
-              View card →
-            </Link>
-          </Text>
+          <Section style={styles.card}>
+            <Text style={styles.heading}>{headline}</Text>
+            <Text style={styles.scoreBlock}>
+              {score} for {total}
+            </Text>
+            <Text style={styles.text}>
+              {username}, you went {score} for {total}. {subtext}
+            </Text>
+            <Section style={styles.buttonWrapper}>
+              <Link style={styles.button} href={cardUrl}>
+                View card →
+              </Link>
+            </Section>
+          </Section>
 
           <Hr style={styles.hr} />
-          <Text style={styles.footer}>Sports Tower · alternapick.com</Text>
+          <Text style={styles.footer}>alternapick.com</Text>
         </Container>
       </Body>
     </Html>

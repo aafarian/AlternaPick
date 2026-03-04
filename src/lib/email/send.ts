@@ -88,7 +88,7 @@ export async function sendEmail({
 
     // Step 4: Send the email
     const from =
-      process.env.EMAIL_FROM || "Sports Tower <noreply@alternapick.com>";
+      process.env.EMAIL_FROM || "AlternaPick <noreply@alternapick.com>";
 
     await resend.emails.send({
       from,
