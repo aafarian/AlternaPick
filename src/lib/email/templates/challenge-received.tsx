@@ -3,6 +3,7 @@ import {
   Head,
   Body,
   Container,
+  Section,
   Text,
   Link,
   Preview,
@@ -46,20 +47,20 @@ export function ChallengeReceivedEmail({
       <Preview>{headlineText}</Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
-          <Text style={styles.heading}>{headlineText}</Text>
-          <Text style={styles.text}>
-            Think you can beat them? Accept the challenge and prove it.
-          </Text>
-          {message && (
-            <Text style={{ ...styles.text, fontStyle: "italic" as const }}>
-              &ldquo;{message}&rdquo;
+          <Section style={styles.card}>
+            <Text style={styles.heading}>{headlineText}</Text>
+            <Text style={styles.text}>
+              Think you can beat them? Accept the challenge and prove it.
             </Text>
-          )}
-          <Text style={styles.text}>
-            <Link style={styles.link} href={challengeUrl}>
+            {message && (
+              <Text style={{ ...styles.text, fontStyle: "italic" as const }}>
+                &ldquo;{message}&rdquo;
+              </Text>
+            )}
+            <Link style={styles.button} href={challengeUrl}>
               View challenge →
             </Link>
-          </Text>
+          </Section>
 
           <Hr style={styles.hr} />
           <Text style={styles.footer}>Sports Tower · alternapick.com</Text>
