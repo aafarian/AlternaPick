@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
-import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
+import { unauthorized, badRequest, handleApiError, logError } from "@/lib/api/errors";
 import type { ChallengeStatus } from "@/lib/supabase/types";
 import { isValidGameMode } from "@/lib/modes/definitions";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE } from "@/lib/modes/types";
@@ -211,10 +211,10 @@ export async function POST(request: NextRequest) {
       const now = Date.now();
 
       const allSportGames = await Promise.all([
-        getCachedProps("nba").catch((err) => { console.error("Random mode: failed to fetch nba props:", err); return null; }),
-        getCachedProps("ncaab").catch((err) => { console.error("Random mode: failed to fetch ncaab props:", err); return null; }),
-        getCachedProps("epl").catch((err) => { console.error("Random mode: failed to fetch epl props:", err); return null; }),
-        getCachedProps("la_liga").catch((err) => { console.error("Random mode: failed to fetch la_liga props:", err); return null; }),
+        getCachedProps("nba").catch((err) => { logError(err, { route: "challenges", metadata: { sport: "nba" } }); return null; }),
+        getCachedProps("ncaab").catch((err) => { logError(err, { route: "challenges", metadata: { sport: "ncaab" } }); return null; }),
+        getCachedProps("epl").catch((err) => { logError(err, { route: "challenges", metadata: { sport: "epl" } }); return null; }),
+        getCachedProps("la_liga").catch((err) => { logError(err, { route: "challenges", metadata: { sport: "la_liga" } }); return null; }),
       ]);
 
       const propIds = allSportGames
@@ -308,7 +308,7 @@ export async function POST(request: NextRequest) {
         sendEmail({ to: opponent.email, subject, react }).catch(() => {});
       }
     } catch (notifError) {
-      console.error("Failed to create challenge_received notification:", notifError);
+      logError(notifError, { route: "challenges" });
     }
 
     return NextResponse.json({ challenge }, { status: 201 });

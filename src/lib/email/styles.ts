@@ -14,7 +14,6 @@ const colors = {
   zinc200: "#e4e4e7",
   zinc100: "#f4f4f5",
   white: "#ffffff",
-  blue600: "#2563eb",
   sky600: "#0284c7",
   green600: "#16a34a",
 } as const;
@@ -44,11 +43,6 @@ export const emailStyles = {
     color: colors.zinc700,
     margin: "0 0 16px 0",
     lineHeight: "1.5",
-  },
-  link: {
-    color: colors.blue600,
-    textDecoration: "underline" as const,
-    fontWeight: 500 as const,
   },
   hr: {
     borderColor: colors.zinc200,
