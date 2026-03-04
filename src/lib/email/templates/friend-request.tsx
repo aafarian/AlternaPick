@@ -43,7 +43,7 @@ export function FriendRequestEmail({
             <Text style={styles.heading}>New Friend Request</Text>
             <Text style={styles.text}>
               Hey {addresseeUsername}, {requesterUsername} wants to be your friend
-              on Sports Tower.
+              on AlternaPick.
             </Text>
             <Link style={styles.button} href={friendsUrl}>
               View request →
@@ -51,7 +51,7 @@ export function FriendRequestEmail({
           </Section>
 
           <Hr style={styles.hr} />
-          <Text style={styles.footer}>Sports Tower · alternapick.com</Text>
+          <Text style={styles.footer}>alternapick.com</Text>
         </Container>
       </Body>
     </Html>

@@ -111,7 +111,7 @@ export function ChallengeResolvedEmail({
           </Section>
 
           <Hr style={styles.hr} />
-          <Text style={styles.footer}>Sports Tower · alternapick.com</Text>
+          <Text style={styles.footer}>alternapick.com</Text>
         </Container>
       </Body>
     </Html>
