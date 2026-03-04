@@ -2,7 +2,7 @@ import { logError } from "@/lib/logger";
 
 const STATS_SERVICE_URL =
   process.env.STATS_SERVICE_URL || "http://localhost:8000";
-const TIMEOUT_MS = 15_000;
+const TIMEOUT_MS = 8_000;
 const BOXSCORE_TIMEOUT_MS = 10_000;
 
 // Module-level TTL cache for live endpoints (30s) and final boxscores (1hr)

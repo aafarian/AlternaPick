@@ -23,6 +23,7 @@ export function useBatchLiveStats(
   const abortRef = useRef<AbortController | null>(null);
   const stoppedRef = useRef(false);
   const hadLiveRef = useRef(false);
+  const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const consecutiveErrorsRef = useRef(0);
   const skipCountRef = useRef(0);
 
@@ -105,7 +106,9 @@ export function useBatchLiveStats(
           intervalRef.current = null;
           // Confirmation fetch after 5s — catches transient "no live" responses
           // where the write-through hasn't updated the DB yet.
-          setTimeout(async () => {
+          if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
+          confirmTimeoutRef.current = setTimeout(async () => {
+            confirmTimeoutRef.current = null;
             if (stoppedRef.current) return;
             try {
               const res = await fetch(`/api/cards/live?ids=${idsKey}`);
@@ -156,6 +159,10 @@ export function useBatchLiveStats(
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
+      }
+      if (confirmTimeoutRef.current) {
+        clearTimeout(confirmTimeoutRef.current);
+        confirmTimeoutRef.current = null;
       }
       abortRef.current?.abort();
       abortRef.current = null;
