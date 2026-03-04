@@ -1,35 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { extractStatValue, fuzzyMatchPlayer } from "../resolution";
+import { extractStatValue, fuzzyMatchPlayer } from "../resolution-utils";
 import type { PlayerBoxScore } from "@/lib/stats-service/client";
-
-/* ---------- helpers ---------- */
-
-function makePlayer(overrides: Partial<PlayerBoxScore> = {}): PlayerBoxScore {
-  return {
-    player_name: "LeBron James",
-    player_id: "2544",
-    team: "Los Angeles Lakers",
-    team_tricode: "LAL",
-    minutes: "36:00",
-    points: 28,
-    rebounds: 8,
-    offensive_rebounds: 2,
-    defensive_rebounds: 6,
-    assists: 10,
-    steals: 2,
-    blocks: 1,
-    turnovers: 3,
-    threes_made: 4,
-    threes_attempted: 8,
-    field_goals_made: 10,
-    field_goals_attempted: 20,
-    free_throws_made: 4,
-    free_throws_attempted: 5,
-    plus_minus: 12,
-    fouls: 2,
-    ...overrides,
-  };
-}
+import { makePlayer } from "./factories";
 
 /* ---------- extractStatValue ---------- */
 

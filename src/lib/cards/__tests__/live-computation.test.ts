@@ -2,59 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { buildLivePicksForCard, type PickWithPropAndGame } from "../live-computation";
 import { toLivePickData } from "../live-types";
 import type { StatsGame, PlayerBoxScore } from "@/lib/stats-service/client";
-
-// Mock the resolution module
-vi.mock("@/lib/cards/resolution", () => ({
-  fuzzyMatchPlayer: vi.fn((boxscore: PlayerBoxScore[], playerName: string) => {
-    return boxscore.find(
-      (p) => p.player_name.toLowerCase() === playerName.toLowerCase(),
-    );
-  }),
-  extractStatValue: vi.fn((stats: PlayerBoxScore, category: string) => {
-    switch (category) {
-      case "points":
-        return stats.points;
-      case "rebounds":
-        return stats.rebounds;
-      case "assists":
-        return stats.assists;
-      case "steals":
-        return stats.steals;
-      case "blocks":
-        return stats.blocks;
-      case "turnovers":
-        return stats.turnovers;
-      case "threes":
-        return stats.threes_made;
-      case "goals":
-        return stats.goals ?? 0;
-      case "shots":
-        return stats.shots ?? 0;
-      case "shots_on_target":
-        return stats.shots_on_target ?? 0;
-      case "tackles":
-        return stats.tackles ?? 0;
-      case "passes":
-        return stats.passes ?? 0;
-      case "fouls_committed":
-        return stats.fouls_committed ?? 0;
-      case "saves":
-        return stats.saves ?? 0;
-      case "pra":
-        return stats.points + stats.rebounds + stats.assists;
-      case "pts_reb":
-        return stats.points + stats.rebounds;
-      case "pts_ast":
-        return stats.points + stats.assists;
-      case "reb_ast":
-        return stats.rebounds + stats.assists;
-      case "blk_stl":
-        return stats.blocks + stats.steals;
-      default:
-        return 0;
-    }
-  }),
-}));
+import { makePlayer, makeGame, makePick } from "./factories";
 
 // Mock constants — teamLogoUrl, teamTricode, gameUrl
 vi.mock("@/lib/constants", () => ({
@@ -71,79 +19,6 @@ vi.mock("@/lib/constants", () => ({
 vi.mock("@/lib/logger", () => ({
   logError: vi.fn(),
 }));
-
-/* ---------- helpers ---------- */
-
-function makePlayer(overrides: Partial<PlayerBoxScore> = {}): PlayerBoxScore {
-  return {
-    player_name: "LeBron James",
-    player_id: "2544",
-    team: "Los Angeles Lakers",
-    team_tricode: "LAL",
-    minutes: "36:00",
-    points: 28,
-    rebounds: 8,
-    offensive_rebounds: 2,
-    defensive_rebounds: 6,
-    assists: 10,
-    steals: 2,
-    blocks: 1,
-    turnovers: 3,
-    threes_made: 4,
-    threes_attempted: 8,
-    field_goals_made: 10,
-    field_goals_attempted: 20,
-    free_throws_made: 4,
-    free_throws_attempted: 5,
-    plus_minus: 12,
-    fouls: 2,
-    ...overrides,
-  };
-}
-
-function makeGame(overrides: Partial<StatsGame> = {}): StatsGame {
-  return {
-    game_id: "401584700",
-    home_team: "Los Angeles Lakers",
-    home_tricode: "LAL",
-    away_team: "Boston Celtics",
-    away_tricode: "BOS",
-    home_score: 95,
-    away_score: 88,
-    status: "live",
-    period: 3,
-    clock: "5:30",
-    start_time: "2026-03-03T00:00:00Z",
-    ...overrides,
-  };
-}
-
-function makePick(overrides: Partial<PickWithPropAndGame> = {}): PickWithPropAndGame {
-  return {
-    id: "pick-1",
-    selection: "over",
-    props: {
-      player_name: "LeBron James",
-      player_id: "2544",
-      player_team: "Los Angeles Lakers",
-      player_position: "SF",
-      stat_category: "points",
-      line: 25.5,
-      game_id: "game-1",
-      games: {
-        external_event_id: "401584700",
-        sport: "nba",
-        status: "scheduled",
-        home_team: "Los Angeles Lakers",
-        away_team: "Boston Celtics",
-        home_score: null,
-        away_score: null,
-        commence_time: "2026-03-03T00:00:00Z",
-      },
-    },
-    ...overrides,
-  };
-}
 
 /* ---------- tests ---------- */
 
