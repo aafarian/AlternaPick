@@ -203,6 +203,17 @@ export default function ChallengeMatchup({
     }
   }
 
+  // Compute live scores from trending data (DB score is 0 for unresolved cards)
+  function liveHitCount(pickMap: Map<string, LivePickData>): number {
+    let hits = 0;
+    for (const lp of pickMap.values()) {
+      if (lp.trending === "hit") hits++;
+    }
+    return hits;
+  }
+  const challengerLiveScore = liveData ? liveHitCount(challengerLivePickMap) : null;
+  const opponentLiveScore = liveData ? liveHitCount(opponentLivePickMap) : null;
+
   const isChallenger = challenge.challenger_id === currentUserId;
   const challengerName = challenge.challenger.username;
   const opponentName = challenge.opponent.username;
@@ -464,7 +475,7 @@ export default function ChallengeMatchup({
             {challenge.challenger_card && challenge.opponent_card &&
               (challenge.status === "active" || challenge.status === "resolved") && (
               <span className="mt-6 text-lg font-bold tabular-nums tracking-wide md:mt-10">
-                {challenge.challenger_card.score} &ndash; {challenge.opponent_card.score}
+                {challengerLiveScore ?? challenge.challenger_card.score} &ndash; {opponentLiveScore ?? challenge.opponent_card.score}
               </span>
             )}
             {/* VS centered in remaining space */}
