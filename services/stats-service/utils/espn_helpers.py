@@ -7,10 +7,14 @@ so individual sport clients stay focused on endpoint-specific logic.
 import asyncio
 import logging
 import time
+from typing import Any
 
 import httpx
 
 logger = logging.getLogger(__name__)
+
+ESPN_RETRY_ATTEMPTS = 2  # total attempts (1 original + 1 retry)
+ESPN_RETRY_DELAY = 1.0   # seconds between retries
 
 # ---------------------------------------------------------------------------
 # In-memory cache with per-entry TTL
@@ -66,6 +70,31 @@ def get_http_client() -> httpx.AsyncClient:
     if _http_client is None or _http_client.is_closed:
         _http_client = httpx.AsyncClient(timeout=15.0)
     return _http_client
+
+
+async def espn_get_with_retry(
+    rate_limiter: "EspnRateLimiter",
+    url: str,
+    params: dict | None = None,
+) -> Any:
+    """Make a rate-limited GET to ESPN with retry on failure.
+
+    Retries once after a 1s delay on any error (network, 5xx, timeout).
+    """
+    last_error: Exception | None = None
+    for attempt in range(ESPN_RETRY_ATTEMPTS):
+        try:
+            await rate_limiter.acquire()
+            client = get_http_client()
+            response = await client.get(url, params=params or {})
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            last_error = e
+            if attempt < ESPN_RETRY_ATTEMPTS - 1:
+                logger.warning(f"ESPN request failed (attempt {attempt + 1}), retrying in {ESPN_RETRY_DELAY}s: {e}")
+                await asyncio.sleep(ESPN_RETRY_DELAY)
+    raise last_error  # type: ignore[misc]
 
 
 # ---------------------------------------------------------------------------

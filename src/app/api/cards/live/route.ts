@@ -5,6 +5,7 @@ import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
 import {
   buildLivePicksForCard,
   fetchLiveMapsForCards,
+  syncGameStatusToDb,
   type PickWithPropAndGame,
 } from "@/lib/cards/live-computation";
 import type { LiveCardData } from "@/lib/cards/live-types";
@@ -80,9 +81,14 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // Auto-resolve cards whose games are all final — runs after response is sent
-    // so it doesn't block the user from seeing live data
+    // Runs after response is sent so it doesn't block the user
     after(async () => {
+      const allPicks = cards.flatMap((c) => c.picks);
+      try {
+        await syncGameStatusToDb(supabase, gameStatusMap, allPicks);
+      } catch (err) {
+        logError("live-sync", `Write-through sync failed: ${err instanceof Error ? err.message : err}`, "/api/cards/live");
+      }
       try {
         await tryResolveFromLiveData(cards, gameStatusMap, boxscoreMap);
       } catch (err) {

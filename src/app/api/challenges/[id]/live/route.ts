@@ -5,6 +5,7 @@ import { unauthorized, notFound, handleApiError } from "@/lib/api/errors";
 import {
   buildLivePicksForCard,
   fetchLiveMapsForCards,
+  syncGameStatusToDb,
   type PickWithPropAndGame,
 } from "@/lib/cards/live-computation";
 import type {
@@ -77,6 +78,12 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const opponentLive = opponentCardRaw
       ? buildLivePicksForCard(opponentCardRaw.picks, gameStatusMap, boxscoreMap)
       : null;
+
+    // Write-through: update DB with fresh ESPN data (non-critical, don't block)
+    const allPicks = cardsList.flatMap((c) => c.picks);
+    syncGameStatusToDb(admin, gameStatusMap, allPicks).catch((err) => {
+      logError("live-sync", `Write-through sync failed: ${err instanceof Error ? err.message : err}`, `/api/challenges/${id}/live`);
+    });
 
     // --- Resolution ---
     // tryResolveFromLiveData handles the full pipeline: persist picks, update

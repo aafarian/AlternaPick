@@ -58,7 +58,9 @@ export const NCAAB_TEAM_ALIASES: Record<string, string> = {
   "unc": "north carolina",
   "lsu": "lsu",
   "liu": "long island university",
-  // Schools where Odds API adds "St" but ESPN omits "State"
+  // Inverted direction: Odds API uses "Grambling St" (→ "grambling state" after
+  // normalizeTeam) but ESPN uses just "Grambling". Maps long → short here;
+  // the substring fallback in ncaabTeamsMatch handles the reverse direction.
   "grambling state": "grambling",
   // Mississippi abbreviations
   "miss valley state": "mississippi valley state",

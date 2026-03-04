@@ -64,6 +64,23 @@ export function formatClock(period: number, clock: string, sport?: string): stri
 }
 
 /**
+ * Formats the status label for a live game. Shows the clock when available,
+ * "Starting" for tip-off (period 0, no score), or "Live" as a fallback
+ * (period 0 but scores exist — stale DB data where period is unknown).
+ */
+export function formatLiveStatus(
+  period: number,
+  clock: string,
+  sport?: string,
+  homeScore?: number,
+  awayScore?: number,
+): string {
+  if (period > 0) return formatClock(period, clock, sport);
+  if ((homeScore ?? 0) > 0 || (awayScore ?? 0) > 0) return "Live";
+  return "Starting";
+}
+
+/**
  * Formats an ISO 8601 commence_time into a short, human-readable game time.
  * Examples: "Today 7:00 PM", "Tomorrow 1:30 PM", "Feb 12 9:00 PM"
  */

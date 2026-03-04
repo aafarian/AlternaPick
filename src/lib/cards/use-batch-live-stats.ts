@@ -103,10 +103,34 @@ export function useBatchLiveStats(
         if (!anyLive && intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
-          stoppedRef.current = true;
-          if (hadLiveRef.current) {
-            onAllSettledRef.current?.();
-          }
+          // Confirmation fetch after 5s — catches transient "no live" responses
+          // where the write-through hasn't updated the DB yet.
+          setTimeout(async () => {
+            if (stoppedRef.current) return;
+            try {
+              const res = await fetch(`/api/cards/live?ids=${idsKey}`);
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              const json = await res.json();
+              const confirmed = json.cards as Record<string, LiveCardData>;
+              if (stoppedRef.current) return;
+              const stillLive = Object.values(confirmed).some((c) => c.has_live_games);
+              if (stillLive) {
+                // Games are still live — resume polling
+                intervalRef.current = setInterval(fetchBatch, POLL_INTERVAL_MS);
+              } else {
+                stoppedRef.current = true;
+                if (hadLiveRef.current) {
+                  onAllSettledRef.current?.();
+                }
+              }
+            } catch {
+              // Confirmation failed — stop gracefully
+              stoppedRef.current = true;
+              if (hadLiveRef.current) {
+                onAllSettledRef.current?.();
+              }
+            }
+          }, 5000);
         }
       } catch (err) {
         if ((err as Error).name !== "AbortError") {

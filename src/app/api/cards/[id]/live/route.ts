@@ -4,6 +4,7 @@ import { notFound, handleApiError } from "@/lib/api/errors";
 import {
   buildLivePicksForCard,
   fetchLiveMaps,
+  syncGameStatusToDb,
   type PickWithPropAndGame,
 } from "@/lib/cards/live-computation";
 import type { LiveCardData } from "@/lib/cards/live-types";
@@ -42,6 +43,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       gameStatusMap,
       boxscoreMap,
     );
+
+    // Write-through: update DB with fresh ESPN data (non-critical, don't block)
+    syncGameStatusToDb(supabase, gameStatusMap, card.picks).catch((err) => {
+      logError("live-sync", `Write-through sync failed: ${err instanceof Error ? err.message : err}`, `/api/cards/${id}/live`);
+    });
 
     // --- Resolution ---
     // tryResolveFromLiveData handles the full pipeline: persist picks, update

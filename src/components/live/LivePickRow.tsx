@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import type { LivePickData } from "@/lib/cards/live-types";
 import { computePickDisplay } from "@/lib/cards/pick-display";
 import { CATEGORY_LABELS, CATEGORY_COLORS, formatPlayerSubtitle } from "@/lib/constants";
-import { formatClock, formatGameTime } from "@/lib/format";
+import { formatLiveStatus, formatGameTime } from "@/lib/format";
 import type { StatCategory } from "@/lib/supabase/types";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
 import { Badge } from "@/components/ui/badge";
@@ -109,7 +109,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
         {d.isLive && pick.game_status && (
           <span className="flex shrink-0 items-center gap-1 text-[10px] font-semibold text-white/70">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-            {pick.game_status.period > 0 ? formatClock(pick.game_status.period, pick.game_status.clock, pick.sport) : "Live"}
+            {formatLiveStatus(pick.game_status.period, pick.game_status.clock, pick.sport, pick.game_status.home_score, pick.game_status.away_score)}
           </span>
         )}
         {d.isFinal && (
@@ -262,7 +262,9 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
           {d.isLive && pick.game_status && (
             <span className="flex items-center gap-1 text-[10px] font-semibold leading-none tabular-nums text-white/70 animate-value-in">
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-              {pick.game_status.period > 0 ? formatClock(pick.game_status.period, pick.game_status.clock, pick.sport) : "Live"}
+              {pick.game_status.period > 0
+                ? formatClock(pick.game_status.period, pick.game_status.clock, pick.sport)
+                : (pick.game_status.home_score > 0 || pick.game_status.away_score > 0) ? "Live" : "Starting"}
             </span>
           )}
           {d.isFinal && (
