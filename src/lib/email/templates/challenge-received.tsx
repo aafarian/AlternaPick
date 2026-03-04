@@ -11,7 +11,7 @@ import {
 } from "@react-email/components";
 import type { ReactElement } from "react";
 import type { GameMode } from "@/lib/supabase/types";
-import { modeLabel } from "@/lib/share/image-utils";
+import { modeLabel } from "@/lib/modes/utils";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
 
 // ---------------------------------------------------------------------------
