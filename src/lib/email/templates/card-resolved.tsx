@@ -25,6 +25,15 @@ export interface CardResolvedEmailProps {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getCardResolvedSubject(score: number, total: number): string {
+  const { headline } = getCardTier(score, total);
+  return `${headline} You went ${score} for ${total}`;
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -74,9 +83,8 @@ export function getCardResolvedEmailProps(props: CardResolvedEmailProps): {
   subject: string;
   react: ReactElement;
 } {
-  const { headline } = getCardTier(props.score, props.total);
   return {
-    subject: `${headline} You went ${props.score} for ${props.total}`,
+    subject: getCardResolvedSubject(props.score, props.total),
     react: <CardResolvedEmail {...props} />,
   };
 }

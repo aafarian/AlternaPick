@@ -24,6 +24,21 @@ export interface ChallengeReceivedEmailProps {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getChallengeReceivedSubject(
+  challengerUsername: string,
+  gameMode: string
+): string {
+  const isClassic = gameMode === "classic";
+  const modeLabel = gameMode.replace("_", " ");
+  return isClassic
+    ? `${challengerUsername} challenged you!`
+    : `${challengerUsername} challenged you to a ${modeLabel} match!`;
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -33,13 +48,8 @@ export function ChallengeReceivedEmail({
   message,
   challengeId,
 }: ChallengeReceivedEmailProps): ReactElement {
-  const isClassic = gameMode === "classic";
-  const modeLabel = gameMode.replace("_", " ");
   const challengeUrl = `${baseUrl}/challenges/${challengeId}`;
-
-  const headlineText = isClassic
-    ? `${challengerUsername} challenged you!`
-    : `${challengerUsername} challenged you to a ${modeLabel} match!`;
+  const headlineText = getChallengeReceivedSubject(challengerUsername, gameMode);
 
   return (
     <Html lang="en">
@@ -82,15 +92,8 @@ export function getChallengeReceivedEmailProps(
   subject: string;
   react: ReactElement;
 } {
-  const isClassic = props.gameMode === "classic";
-  const modeLabel = props.gameMode.replace("_", " ");
-
-  const subject = isClassic
-    ? `${props.challengerUsername} challenged you!`
-    : `${props.challengerUsername} challenged you to a ${modeLabel} match!`;
-
   return {
-    subject,
+    subject: getChallengeReceivedSubject(props.challengerUsername, props.gameMode),
     react: <ChallengeReceivedEmail {...props} />,
   };
 }
