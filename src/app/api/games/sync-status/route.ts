@@ -153,6 +153,8 @@ export async function POST(request: NextRequest) {
             status: newStatus,
             home_score: nbaGame.home_score,
             away_score: nbaGame.away_score,
+            period: nbaGame.period,
+            clock: nbaGame.clock,
             external_event_id: nbaGame.game_id,
           })
           .eq("id", match.id);
@@ -244,6 +246,8 @@ export async function POST(request: NextRequest) {
                 status: newStatus,
                 home_score: espnGame.home_score,
                 away_score: espnGame.away_score,
+                period: espnGame.period,
+                clock: espnGame.clock,
                 external_event_id: espnGame.game_id,
               })
               .eq("id", match.id)
@@ -296,6 +300,8 @@ export async function POST(request: NextRequest) {
               status: newStatus,
               home_score: soccerGame.home_score,
               away_score: soccerGame.away_score,
+              period: soccerGame.period,
+              clock: soccerGame.clock,
               external_event_id: soccerGame.game_id,
             })
             .eq("id", match.id);
@@ -348,6 +354,8 @@ export async function POST(request: NextRequest) {
               status: newStatus,
               home_score: laLigaGame.home_score,
               away_score: laLigaGame.away_score,
+              period: laLigaGame.period,
+              clock: laLigaGame.clock,
               external_event_id: laLigaGame.game_id,
             })
             .eq("id", match.id);
@@ -432,6 +440,8 @@ export async function POST(request: NextRequest) {
                   status: newStatus,
                   home_score: apiGame.home_score,
                   away_score: apiGame.away_score,
+                  period: apiGame.period,
+                  clock: apiGame.clock,
                   external_event_id: apiGame.game_id,
                 })
                 .eq("id", match.id)
@@ -496,6 +506,8 @@ export async function POST(request: NextRequest) {
               status: newStatus,
               home_score: isSwapped ? ncaabGame.away_score : ncaabGame.home_score,
               away_score: isSwapped ? ncaabGame.home_score : ncaabGame.away_score,
+              period: ncaabGame.period,
+              clock: ncaabGame.clock,
               external_event_id: ncaabGame.game_id,
             })
             .eq("id", finalMatch.id);
@@ -606,6 +618,8 @@ export async function POST(request: NextRequest) {
               status: newStatus,
               home_score: isSwapped ? ncaabGame.away_score : ncaabGame.home_score,
               away_score: isSwapped ? ncaabGame.home_score : ncaabGame.away_score,
+              period: ncaabGame.period,
+              clock: ncaabGame.clock,
               external_event_id: ncaabGame.game_id,
             })
             .eq("id", match.id);

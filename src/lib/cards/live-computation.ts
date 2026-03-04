@@ -67,6 +67,8 @@ export interface PickWithPropAndGame {
       away_team?: string | null;
       home_score?: number | null;
       away_score?: number | null;
+      period?: number | null;
+      clock?: string | null;
       commence_time?: string | null;
     };
   };
@@ -140,8 +142,8 @@ export function buildLivePicksForCard(
         game_id: pick.props.game_id,
         external_event_id: eventId ?? pick.props.game_id,
         status: dbStatus,
-        period: 0,
-        clock: "",
+        period: pick.props.games?.period ?? 0,
+        clock: pick.props.games?.clock ?? "",
         sport: pick.props.games?.sport ?? undefined,
         home_team: dbHomeTeam,
         away_team: dbAwayTeam,
