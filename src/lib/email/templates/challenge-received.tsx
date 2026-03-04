@@ -34,10 +34,6 @@ function getHeadline(challengerUsername: string, gameMode: GameMode): string {
   return `${challengerUsername} challenged you to a ${modeLabel(gameMode)} match!`;
 }
 
-function getSubject(challengerUsername: string, gameMode: GameMode): string {
-  return getHeadline(challengerUsername, gameMode);
-}
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -93,7 +89,7 @@ export function getChallengeReceivedEmailProps(
   react: ReactElement;
 } {
   return {
-    subject: getSubject(props.challengerUsername, props.gameMode),
+    subject: getHeadline(props.challengerUsername, props.gameMode),
     react: <ChallengeReceivedEmail {...props} />,
   };
 }
