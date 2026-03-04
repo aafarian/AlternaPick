@@ -1,4 +1,5 @@
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
+import { usesHalves } from "@/lib/sports/config";
 
 export interface LiveGameStatus {
   game_id: string;
@@ -88,7 +89,7 @@ export function toLivePickData(pick: {
           game_id: pick.prop?.game_id ?? "",
           external_event_id: pick.prop?.game_id ?? "",
           status: "final" as const,
-          period: pick.prop?.games?.sport === "soccer" ? 2 : 4,
+          period: usesHalves(pick.prop?.games?.sport ?? "") ? 2 : 4,
           clock: "0:00",
           home_team: "",
           away_team: "",

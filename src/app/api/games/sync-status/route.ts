@@ -53,6 +53,78 @@ function normalizeTeam(name: string): string {
     .trim();
 }
 
+/**
+ * NCAAB-specific team name aliases.
+ * Maps abbreviated Odds API names to the full ESPN displayName.
+ * Only the portion before the mascot needs to match.
+ */
+const NCAAB_TEAM_ALIASES: Record<string, string> = {
+  "n colorado": "northern colorado",
+  "se louisiana": "southeastern louisiana",
+  "se missouri state": "southeast missouri state",
+  "s carolina": "south carolina",
+  "s carolina upstate": "south carolina upstate",
+  "w michigan": "western michigan",
+  "w kentucky": "western kentucky",
+  "e michigan": "eastern michigan",
+  "e kentucky": "eastern kentucky",
+  "e washington": "eastern washington",
+  "e illinois": "eastern illinois",
+  "n illinois": "northern illinois",
+  "n iowa": "northern iowa",
+  "n arizona": "northern arizona",
+  "n kentucky": "northern kentucky",
+  "n carolina": "north carolina",
+  "w virginia": "west virginia",
+  "w georgia": "western georgia",
+  "n carolina a&t": "north carolina a&t",
+  "ul monroe": "louisiana-monroe",
+  "siu-edwardsville": "siu edwardsville",
+  "texas a&m-cc": "texas a&m-corpus christi",
+  "umkc": "kansas city",
+  "uab": "uab",
+  "ucf": "ucf",
+  "vcu": "vcu",
+  "gw": "george washington",
+  "fiu": "fiu",
+  "utsa": "utsa",
+  "utep": "utep",
+  "unlv": "unlv",
+  "njit": "njit",
+  "umbc": "umbc",
+  "unc": "north carolina",
+  "lsu": "lsu",
+};
+
+function normalizeNcaabTeam(name: string): string {
+  const base = normalizeTeam(name);
+  // Try alias lookup: check if the name (without mascot) has an alias
+  for (const [abbrev, full] of Object.entries(NCAAB_TEAM_ALIASES)) {
+    if (base.startsWith(abbrev + " ") || base === abbrev) {
+      return base.replace(abbrev, full);
+    }
+  }
+  return base;
+}
+
+function ncaabTeamsMatch(dbTeam: string, espnTeam: string): boolean {
+  if (dbTeam === espnTeam) return true;
+  const a = normalizeNcaabTeam(dbTeam);
+  const b = normalizeNcaabTeam(espnTeam);
+  if (a === b) return true;
+  if (a.includes(b) || b.includes(a)) return true;
+  // Fallback: compare mascot (last word) — most NCAAB mascots are unique
+  const mascotA = a.split(" ").pop() ?? "";
+  const mascotB = b.split(" ").pop() ?? "";
+  if (mascotA.length > 3 && mascotA === mascotB) {
+    // Verify at least one word of the location matches too
+    const wordsA = a.split(" ").slice(0, -1);
+    const wordsB = b.split(" ").slice(0, -1);
+    return wordsA.some((w) => w.length > 2 && wordsB.some((wb) => wb.includes(w) || w.includes(wb)));
+  }
+  return false;
+}
+
 function teamsMatch(dbTeam: string, liveTeam: string): boolean {
   if (dbTeam === liveTeam) return true;
   const a = normalizeTeam(dbTeam);
@@ -108,9 +180,11 @@ export async function POST(request: NextRequest) {
 
     const nbaGames = await fetchTodaysGames();
 
-    // Get today's games from Supabase
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
+    // Get games from Supabase — use yesterday start to catch games near UTC
+    // date boundary (e.g., 6 PM EST = 23:00 UTC previous day)
+    const yesterdayStart = new Date(now);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+    yesterdayStart.setHours(0, 0, 0, 0);
     const tomorrowEnd = new Date(now);
     tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
     tomorrowEnd.setHours(23, 59, 59, 999);
@@ -123,7 +197,7 @@ export async function POST(request: NextRequest) {
         .from("games")
         .select("*")
         .eq("sport", "nba")
-        .gte("commence_time", todayStart.toISOString())
+        .gte("commence_time", yesterdayStart.toISOString())
         .lte("commence_time", tomorrowEnd.toISOString());
 
       if (gamesResult.error) {
@@ -281,7 +355,7 @@ export async function POST(request: NextRequest) {
           .from("games")
           .select("*")
           .eq("sport", "epl")
-          .gte("commence_time", todayStart.toISOString())
+          .gte("commence_time", yesterdayStart.toISOString())
           .lte("commence_time", tomorrowEnd.toISOString());
 
         const eplDbGames = (eplGamesResult.data ?? []) as Game[];
@@ -333,7 +407,7 @@ export async function POST(request: NextRequest) {
           .from("games")
           .select("*")
           .eq("sport", "la_liga")
-          .gte("commence_time", todayStart.toISOString())
+          .gte("commence_time", yesterdayStart.toISOString())
           .lte("commence_time", tomorrowEnd.toISOString());
 
         const laLigaDbGames = (laLigaGamesResult.data ?? []) as Game[];
@@ -387,7 +461,7 @@ export async function POST(request: NextRequest) {
         .in("sport", ["epl", "la_liga"])
         .is("external_event_id", null)
         .gte("commence_time", soccerLookbackStart.toISOString())
-        .lt("commence_time", todayStart.toISOString());
+        .lt("commence_time", yesterdayStart.toISOString());
 
       const soccerUnmatched = (soccerStaleResult.data ?? []) as Game[];
 
@@ -478,15 +552,15 @@ export async function POST(request: NextRequest) {
           .from("games")
           .select("*")
           .eq("sport", "ncaab")
-          .gte("commence_time", todayStart.toISOString())
+          .gte("commence_time", yesterdayStart.toISOString())
           .lte("commence_time", tomorrowEnd.toISOString());
 
         const ncaabDbGames = (ncaabGamesResult.data ?? []) as Game[];
 
         for (const ncaabGame of ncaabGames) {
           const match = ncaabDbGames.find((g) =>
-            teamsMatch(g.home_team, ncaabGame.home_team) &&
-            teamsMatch(g.away_team, ncaabGame.away_team)
+            ncaabTeamsMatch(g.home_team, ncaabGame.home_team) &&
+            ncaabTeamsMatch(g.away_team, ncaabGame.away_team)
           );
 
           if (!match) continue;
@@ -558,8 +632,8 @@ export async function POST(request: NextRequest) {
         for (const ncaabGame of allEspnGames) {
           const match = unmatchedGames.find((g) =>
             !g.external_event_id &&
-            teamsMatch(g.home_team, ncaabGame.home_team) &&
-            teamsMatch(g.away_team, ncaabGame.away_team)
+            ncaabTeamsMatch(g.home_team, ncaabGame.home_team) &&
+            ncaabTeamsMatch(g.away_team, ncaabGame.away_team)
           );
 
           if (!match) continue;
