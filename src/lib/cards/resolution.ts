@@ -8,8 +8,15 @@ import { logError } from "@/lib/logger";
 import {
   type PlayerBoxScore,
   type StatsGame,
+  fetchNbaGamesByDate,
+  fetchSoccerGamesByDate,
+  fetchLaLigaGamesByDate,
+  fetchCopaDelReyGamesByDate,
+  fetchNcaabGamesByDate,
 } from "@/lib/stats-service/client";
-import { getBoxscoreFetcher } from "@/lib/sports/fetchers";
+import { getBoxscoreFetcher, lookbackDatesForSport } from "@/lib/sports/fetchers";
+import { teamsMatch } from "@/lib/team-matching";
+import { isSoccer } from "@/lib/sports/config";
 import type { PickWithPropAndGame } from "@/lib/cards/live-computation";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import type {
@@ -122,25 +129,67 @@ export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
  * This handles cases where resolution ran before boxscore data was available
  * on ESPN (common with NCAAB games that just ended).
  */
+export type ReResolvePickLog = {
+  player: string;
+  stat: string;
+  line: number;
+  selection: string;
+  oldResult: string;
+  newResult: string;
+  actualValue: number | null;
+  sport: string | null;
+  gameStatus: string | null;
+};
+
+export type ReResolveSkipLog = {
+  player: string;
+  stat: string;
+  reason: string;
+  sport: string | null;
+  gameStatus: string | null;
+};
+
 export async function reResolveStaleCards(): Promise<{
   picksUpdated: number;
   cardsRescored: number;
+  totalStale: number;
+  logs: ReResolvePickLog[];
+  skipped: ReResolveSkipLog[];
 }> {
   const supabase = createAdminClient();
 
-  // Find resolved cards that have picks with null actual_value.
-  // Include "dnp" so false-DNP picks (transient ESPN data) can be corrected.
-  const { data: stalePicks, error } = await (supabase.from("picks") as any)
-    .select("id, card_id, selection, result, prop_id, props(player_name, stat_category, line, game_id, games(external_event_id, sport, status, commence_time))")
-    .is("actual_value", null)
-    .in("result", ["hit", "miss", "dnp"]);
+  // Find picks that need re-evaluation:
+  // 1. Picks with null actual_value (not yet resolved with real stats)
+  // 2. Pending picks on resolved cards (may have been missed during resolution)
+  const selectFields = "id, card_id, selection, result, prop_id, props(player_name, stat_category, line, game_id, games(external_event_id, sport, status, commence_time, home_team, away_team)), cards(status)";
 
-  if (error) {
-    logError("resolution", `Failed to fetch stale picks: ${error.message}`);
-    return { picksUpdated: 0, cardsRescored: 0 };
+  const [nullValueResult, pendingOnResolvedResult] = await Promise.all([
+    (supabase.from("picks") as any)
+      .select(selectFields)
+      .is("actual_value", null)
+      .in("result", ["hit", "miss", "dnp", "pending"]),
+    (supabase.from("picks") as any)
+      .select(selectFields)
+      .eq("result", "pending")
+      .eq("cards.status", "resolved"),
+  ]);
+
+  if (nullValueResult.error) {
+    logError("resolution", `Failed to fetch stale picks: ${nullValueResult.error.message}`);
+    return { picksUpdated: 0, cardsRescored: 0, totalStale: 0, logs: [], skipped: [] };
   }
-  if (!stalePicks || stalePicks.length === 0) {
-    return { picksUpdated: 0, cardsRescored: 0 };
+  if (pendingOnResolvedResult.error) {
+    logError("resolution", `Failed to fetch pending-on-resolved picks: ${pendingOnResolvedResult.error.message}`);
+  }
+
+  // Merge and dedupe by pick ID
+  const pickMap = new Map<string, unknown>();
+  for (const p of nullValueResult.data ?? []) pickMap.set(p.id, p);
+  for (const p of pendingOnResolvedResult.data ?? []) pickMap.set(p.id, p);
+  const stalePicks = Array.from(pickMap.values());
+
+  if (stalePicks.length === 0) {
+    return { picksUpdated: 0, cardsRescored: 0, totalStale: 0, logs: [], skipped: [] };
   }
 
   type StalePick = {
@@ -154,9 +203,55 @@ export async function reResolveStaleCards(): Promise<{
       stat_category: StatCategory;
       line: number;
       game_id: string;
-      games: { external_event_id: string | null; sport: string | null; status: string | null; commence_time: string | null };
+      games: {
+        external_event_id: string | null;
+        sport: string | null;
+        status: string | null;
+        commence_time: string | null;
+        home_team: string | null;
+        away_team: string | null;
+      };
     };
+    cards: { status: string } | null;
   };
+
+  // Sport → date-based game fetchers (for re-matching games by team names).
+  // La Liga also searches Copa del Rey as a fallback since props may be tagged
+  // "la_liga" for Spanish cup games.
+  const SPORT_FETCHERS: Record<string, Array<(date: string) => Promise<StatsGame[]>>> = {
+    nba: [fetchNbaGamesByDate],
+    epl: [fetchSoccerGamesByDate],
+    la_liga: [fetchLaLigaGamesByDate, fetchCopaDelReyGamesByDate],
+    copa_del_rey: [fetchCopaDelReyGamesByDate],
+    ncaab: [fetchNcaabGamesByDate],
+  };
+
+  /** Try to find the correct ESPN event ID for a game by team-name matching. */
+  async function rematchGame(
+    sport: string,
+    homeTeam: string,
+    awayTeam: string,
+    commenceTime: string | null,
+  ): Promise<StatsGame | null> {
+    const fetchers = SPORT_FETCHERS[sport];
+    if (!fetchers) return null;
+    const date = commenceTime ? new Date(commenceTime) : new Date();
+    const dates = lookbackDatesForSport(sport, date);
+    for (const fetcher of fetchers) {
+      for (const d of dates) {
+        try {
+          const games = await fetcher(d);
+          const match = games.find(
+            (g) => teamsMatch(homeTeam, g.home_team) && teamsMatch(awayTeam, g.away_team),
+          );
+          if (match) return match;
+        } catch {
+          continue;
+        }
+      }
+    }
+    return null;
+  }
 
   const allPicks = stalePicks as StalePick[];
 
@@ -174,45 +269,233 @@ export async function reResolveStaleCards(): Promise<{
   let picksUpdated = 0;
   const affectedCardIds = new Set<string>();
   const affectedUserIds = new Set<string>();
+  const logs: ReResolvePickLog[] = [];
+  const skipped: ReResolveSkipLog[] = [];
+
+  const pickMeta = (pick: StalePick) => ({
+    player: pick.props.player_name,
+    stat: pick.props.stat_category,
+    sport: pick.props?.games?.sport ?? null,
+    gameStatus: pick.props?.games?.status ?? null,
+  });
+
+  const isOnResolvedCard = (pick: StalePick) => pick.cards?.status === "resolved";
+
+  /** Void an unresolvable pick as push (only for picks on already-resolved cards). */
+  async function voidAsPush(pick: StalePick): Promise<boolean> {
+    if (!isOnResolvedCard(pick)) return false;
+    await (supabase.from("picks") as any)
+      .update({ result: "push", actual_value: null })
+      .eq("id", pick.id);
+    picksUpdated++;
+    affectedCardIds.add(pick.card_id);
+    logs.push({
+      player: pick.props.player_name,
+      stat: pick.props.stat_category,
+      line: pick.props.line,
+      selection: pick.selection,
+      oldResult: pick.result,
+      newResult: "push",
+      actualValue: null,
+      sport: pick.props?.games?.sport ?? null,
+      gameStatus: pick.props?.games?.status ?? null,
+    });
+    return true;
+  }
+
+  // Track games we've already re-matched so we don't re-fetch per pick
+  const rematchedGames = new Map<string, string | null>(); // game_id → new event ID or null
 
   for (const pick of picks) {
-    const eventId = pick.props?.games?.external_event_id;
-    if (!eventId) continue;
-    if (pick.props?.games?.status !== "final") continue;
+    let eventId = pick.props?.games?.external_event_id;
+    const gameDbId = pick.props.game_id;
+    const sport = pick.props?.games?.sport ?? "nba";
+    const homeTeam = pick.props?.games?.home_team;
+    const awayTeam = pick.props?.games?.away_team;
+    const ct = pick.props?.games?.commence_time;
 
-    let boxscore = boxscoreCache.get(eventId);
-    if (!boxscore) {
-      try {
-        const fetcher = getBoxscoreFetcher(pick.props?.games?.sport);
-        boxscore = await fetcher(eventId);
-        boxscoreCache.set(eventId, boxscore);
-      } catch {
+    // DB commence_time is in the future — but the game may actually be done
+    // (stale commence_time from odds API). Try to find the real game on ESPN
+    // before giving up. If it's truly not started, skip it.
+    if (ct && new Date(ct).getTime() > Date.now()) {
+      if (pick.props?.games?.status === "final") {
+        // Incorrect final status on a future game — fix it, but still
+        // attempt rematch below in case the game actually happened.
+        await (supabase.from("games") as any)
+          .update({ status: "scheduled" })
+          .eq("id", gameDbId);
+      }
+      // Try to find the game on ESPN — it might have actually been played
+      if (homeTeam && awayTeam && !rematchedGames.has(gameDbId)) {
+        const matched = await rematchGame(sport, homeTeam, awayTeam, ct);
+        if (matched && matched.status === "final") {
+          // Game actually happened — update DB and continue to resolve normally
+          eventId = matched.game_id;
+          rematchedGames.set(gameDbId, eventId);
+          await (supabase.from("games") as any)
+            .update({
+              external_event_id: eventId,
+              status: "final",
+              home_score: matched.home_score,
+              away_score: matched.away_score,
+            })
+            .eq("id", gameDbId);
+          // Fall through to normal resolution below
+        } else {
+          rematchedGames.set(gameDbId, null);
+          // Game not found on ESPN — if card is already resolved, void as push
+          // to clear the dangling pending pick. Otherwise just skip.
+          if (await voidAsPush(pick)) continue;
+          skipped.push({ ...pickMeta(pick), reason: "Game hasn't started yet (future commence time)" });
+          continue;
+        }
+      } else if (rematchedGames.has(gameDbId) && rematchedGames.get(gameDbId)) {
+        eventId = rematchedGames.get(gameDbId)!;
+        // Fall through — already rematched from a previous pick
+      } else {
+        // Already tried rematch for this game and failed
+        if (await voidAsPush(pick)) continue;
+        skipped.push({ ...pickMeta(pick), reason: "Game hasn't started yet (future commence time)" });
         continue;
       }
     }
 
-    const playerStats = fuzzyMatchPlayer(boxscore, pick.props.player_name);
-    if (!playerStats) continue;
+    // If we already rematched this game from a previous pick, use the new event ID
+    if (rematchedGames.has(gameDbId)) {
+      eventId = rematchedGames.get(gameDbId) ?? eventId;
+    }
+
+    const gameStatus = pick.props?.games?.status;
+    if (gameStatus !== "final") {
+      const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
+      const gameStarted = ct ? new Date(ct).getTime() < sixHoursAgo : false;
+      if (!(pick.result === "pending" && gameStarted)) {
+        skipped.push({ ...pickMeta(pick), reason: `Game not final (${gameStatus ?? "unknown"})` });
+        continue;
+      }
+    }
+
+    // If no event ID, try to re-match the game by team names
+    if (!eventId && homeTeam && awayTeam) {
+      if (rematchedGames.has(gameDbId)) {
+        eventId = rematchedGames.get(gameDbId) ?? null;
+      } else {
+        const matched = await rematchGame(sport, homeTeam, awayTeam, ct);
+        if (matched) {
+          eventId = matched.game_id;
+          rematchedGames.set(gameDbId, eventId);
+          // Update the game in DB with the new event ID and status
+          await (supabase.from("games") as any)
+            .update({
+              external_event_id: eventId,
+              status: matched.status === "post" ? "final" : matched.status,
+              home_score: matched.home_score,
+              away_score: matched.away_score,
+            })
+            .eq("id", gameDbId);
+        } else {
+          rematchedGames.set(gameDbId, null);
+        }
+      }
+    }
+
+    if (!eventId) {
+      // If card is already resolved, void this dangling pick as push
+      if (await voidAsPush(pick)) continue;
+      skipped.push({ ...pickMeta(pick), reason: `No event ID and could not match ${homeTeam ?? "?"} vs ${awayTeam ?? "?"}` });
+      continue;
+    }
+
+    let boxscore = boxscoreCache.get(eventId);
+    if (!boxscore) {
+      try {
+        const fetcher = getBoxscoreFetcher(sport);
+        boxscore = await fetcher(eventId);
+        boxscoreCache.set(eventId, boxscore);
+      } catch {
+        skipped.push({ ...pickMeta(pick), reason: "Boxscore fetch failed" });
+        continue;
+      }
+    }
+
+    // If boxscore returned data and the game wasn't marked final in the DB,
+    // update the game status so sync-status and future runs work correctly.
+    if (boxscore.length > 0 && gameStatus !== "final" && gameDbId) {
+      await (supabase.from("games") as any)
+        .update({ status: "final" })
+        .eq("id", gameDbId);
+    }
+
+    let playerStats = fuzzyMatchPlayer(boxscore, pick.props.player_name);
+
+    // Player not found — the event ID might be wrong (old API-Football ID).
+    // Try to re-match the game by team names and fetch the correct boxscore.
+    if (!playerStats && homeTeam && awayTeam && !rematchedGames.has(gameDbId)) {
+      const matched = await rematchGame(sport, homeTeam, awayTeam, ct);
+      if (matched && matched.game_id !== eventId) {
+        const newEventId = matched.game_id;
+        rematchedGames.set(gameDbId, newEventId);
+        // Update DB with correct event ID
+        await (supabase.from("games") as any)
+          .update({
+            external_event_id: newEventId,
+            status: matched.status === "post" ? "final" : matched.status,
+            home_score: matched.home_score,
+            away_score: matched.away_score,
+          })
+          .eq("id", gameDbId);
+        // Fetch boxscore with correct event ID
+        try {
+          const fetcher = getBoxscoreFetcher(sport);
+          const newBoxscore = await fetcher(newEventId);
+          boxscoreCache.set(newEventId, newBoxscore);
+          playerStats = fuzzyMatchPlayer(newBoxscore, pick.props.player_name);
+          boxscore = newBoxscore;
+          eventId = newEventId;
+        } catch {
+          // Fall through to skip below
+        }
+      }
+    }
+
+    if (!playerStats) {
+      const names = boxscore.slice(0, 5).map((p) => p.player_name).join(", ");
+      const suffix = boxscore.length > 5 ? ` +${boxscore.length - 5} more` : "";
+      const reason = boxscore.length === 0
+        ? `Empty boxscore (event ${eventId})`
+        : `Player not in boxscore (${boxscore.length} players: ${names}${suffix})`;
+      // If card is already resolved, void the dangling pick
+      if (await voidAsPush(pick)) continue;
+      skipped.push({ ...pickMeta(pick), reason });
+      continue;
+    }
 
     // DNP handling
     if (playerStats.dnp) {
       if (pick.result === "dnp") {
-        // Already correctly classified as DNP — no-op
+        skipped.push({ ...pickMeta(pick), reason: "Already DNP (no-op)" });
         continue;
       }
-      // Was hit/miss but player is actually DNP — reclassify
       const { error: updateErr } = await (supabase.from("picks") as any)
         .update({ actual_value: null, result: "dnp" })
         .eq("id", pick.id);
       if (updateErr) {
         logError("resolution", `Failed to update pick ${pick.id} to dnp: ${updateErr.message}`);
       }
+      logs.push({
+        ...pickMeta(pick),
+        line: pick.props.line,
+        selection: pick.selection,
+        oldResult: pick.result,
+        newResult: "dnp",
+        actualValue: null,
+      });
       picksUpdated++;
       affectedCardIds.add(pick.card_id);
       continue;
     }
 
-    // Player has stats — reclassify (handles dnp->hit/miss and hit<->miss corrections)
+    // Player has stats — evaluate or reclassify
     const actualValue = extractStatValue(playerStats, pick.props.stat_category);
 
     let correctResult: PickResult;
@@ -225,6 +508,12 @@ export async function reResolveStaleCards(): Promise<{
       correctResult = "miss";
     }
 
+    // Skip if already correct (no-op for non-pending picks)
+    if (pick.result === correctResult) {
+      skipped.push({ ...pickMeta(pick), reason: `Already correct (${correctResult})` });
+      continue;
+    }
+
     const { error: updateErr } = await (supabase.from("picks") as any)
       .update({ actual_value: actualValue, result: correctResult })
       .eq("id", pick.id);
@@ -232,6 +521,14 @@ export async function reResolveStaleCards(): Promise<{
       logError("resolution", `Failed to update pick ${pick.id}: ${updateErr.message}`);
     }
 
+    logs.push({
+      ...pickMeta(pick),
+      line: pick.props.line,
+      selection: pick.selection,
+      oldResult: pick.result,
+      newResult: correctResult,
+      actualValue,
+    });
     picksUpdated++;
     affectedCardIds.add(pick.card_id);
   }
@@ -276,7 +573,7 @@ export async function reResolveStaleCards(): Promise<{
     }
   }
 
-  return { picksUpdated, cardsRescored };
+  return { picksUpdated, cardsRescored, totalStale: picks.length, logs, skipped };
 }
 
 export async function resolveCard(
@@ -339,6 +636,38 @@ export async function resolveCard(
         logError("resolution", `Boxscore fetch failed for event ${eventId}, retrying card ${card.id}`);
         return null;
       }
+    }
+
+    // Empty boxscore = data not available yet (distinct from player not found
+    // in a populated boxscore). Use a shorter timeout for soccer since
+    // API-Football typically syncs within 1 hour.
+    if (boxscore.length === 0) {
+      const gameTime = pick.props?.games?.commence_time;
+      const hrsAgo = gameTime
+        ? (Date.now() - new Date(gameTime).getTime()) / (1000 * 60 * 60)
+        : null;
+      const sport = pick.props?.games?.sport ?? "nba";
+      const maxWaitHrs = isSoccer(sport) ? 6 : 48;
+
+      if (hrsAgo !== null && hrsAgo > maxWaitHrs) {
+        logError("resolution", `Empty boxscore after ${Math.round(hrsAgo)}h for event ${eventId} (${sport}), voiding remaining picks on card ${card.id}`);
+        for (const remainingPick of card.picks.slice(card.picks.indexOf(pick))) {
+          pickResolutions.push({
+            pick_id: remainingPick.id,
+            prop_id: remainingPick.prop_id,
+            player_name: remainingPick.props.player_name,
+            stat_category: remainingPick.props.stat_category,
+            line: remainingPick.props?.line ?? 0,
+            selection: remainingPick.selection,
+            actual_value: null,
+            result: "push",
+          });
+        }
+        break;
+      }
+
+      logError("resolution", `Empty boxscore for event ${eventId} (${sport}, ${Math.round(hrsAgo ?? 0)}h ago), retrying card ${card.id}`);
+      return null;
     }
 
     const playerStats = fuzzyMatchPlayer(boxscore, pick.props.player_name);
@@ -435,7 +764,7 @@ export async function resolveCard(
   };
 }
 
-async function persistResolution(
+export async function persistResolution(
   supabase: ReturnType<typeof createAdminClient>,
   result: ResolutionResult
 ): Promise<boolean> {
@@ -507,7 +836,7 @@ async function persistResolution(
  * Post-resolution side effects: notification + achievement check.
  * Shared by resolveEligibleCards and tryResolveFromLiveData.
  */
-async function handlePostResolution(
+export async function handlePostResolution(
   supabase: ReturnType<typeof createAdminClient>,
   result: ResolutionResult,
 ): Promise<void> {

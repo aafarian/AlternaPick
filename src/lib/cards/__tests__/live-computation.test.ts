@@ -192,8 +192,14 @@ describe("buildLivePicksForCard", () => {
   });
 
   describe("DNP handling", () => {
-    it("pick with result='dnp' -> trending='dnp', skips boxscore", () => {
-      const pick = makePick({ result: "dnp" });
+    it("pick with result='dnp' on final game -> trending='dnp', skips boxscore", () => {
+      const pick = makePick({
+        result: "dnp",
+        props: {
+          ...makePick().props,
+          games: { ...makePick().props.games, status: "final" },
+        },
+      });
       const game = makeGame({ status: "final" });
       const player = makePlayer({ player_name: "LeBron James", points: 28 });
       const gameStatusMap = new Map([["401584700", game]]);
@@ -206,7 +212,39 @@ describe("buildLivePicksForCard", () => {
       expect(result.livePicks[0].current_value).toBeNull();
     });
 
-    it("player with dnp flag in boxscore -> trending='dnp'", () => {
+    it("pick with result='dnp' on live game -> no DNP trending", () => {
+      const pick = makePick({
+        result: "dnp",
+        props: {
+          ...makePick().props,
+          games: { ...makePick().props.games, status: "live" },
+        },
+      });
+      const game = makeGame({ status: "live" });
+      const player = makePlayer({ player_name: "LeBron James", points: 28 });
+      const gameStatusMap = new Map([["401584700", game]]);
+      const boxscoreMap = new Map([["401584700", [player]]]);
+
+      const result = buildLivePicksForCard([pick], gameStatusMap, boxscoreMap);
+
+      // During live games, DNP result is ignored — player might still enter
+      expect(result.livePicks[0].trending).not.toBe("dnp");
+      expect(result.livePicks[0].current_value).toBe(28);
+    });
+
+    it("player with dnp flag in boxscore on final game -> trending='dnp'", () => {
+      const pick = makePick();
+      const game = makeGame({ status: "final" });
+      const player = makePlayer({ player_name: "LeBron James", dnp: true });
+      const gameStatusMap = new Map([["401584700", game]]);
+      const boxscoreMap = new Map([["401584700", [player]]]);
+
+      const result = buildLivePicksForCard([pick], gameStatusMap, boxscoreMap);
+
+      expect(result.livePicks[0].trending).toBe("dnp");
+    });
+
+    it("player with dnp flag in boxscore on live game -> no DNP trending", () => {
       const pick = makePick();
       const game = makeGame({ status: "live" });
       const player = makePlayer({ player_name: "LeBron James", dnp: true });
@@ -215,7 +253,8 @@ describe("buildLivePicksForCard", () => {
 
       const result = buildLivePicksForCard([pick], gameStatusMap, boxscoreMap);
 
-      expect(result.livePicks[0].trending).toBe("dnp");
+      // During live games, bench players with DNP flag just haven't entered yet
+      expect(result.livePicks[0].trending).toBeNull();
     });
   });
 

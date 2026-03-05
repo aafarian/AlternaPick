@@ -59,7 +59,7 @@ describe.runIf(serviceAvailable)("stats service integration", () => {
     }
   });
 
-  it("EPL /soccer/games accepts YYYY-MM-DD date param", async () => {
+  it("EPL /soccer/games accepts YYYYMMDD date param", async () => {
     const dateStr = formatDateForSport("epl", today);
     const r = await fetch(`${STATS_URL}/soccer/games?date=${dateStr}`);
     expect(r.ok).toBe(true);
@@ -88,21 +88,6 @@ describe.runIf(serviceAvailable)("stats service integration", () => {
       expect(g).toHaveProperty("game_id");
       expect(g).toHaveProperty("home_team");
       expect(g).toHaveProperty("away_team");
-    }
-  });
-
-  // --- Date format contract ---
-  // Documents that the soccer endpoint returns empty (not an error) for
-  // YYYYMMDD — the "silent 400" that caused the original bug.
-
-  it("soccer endpoint returns empty array for YYYYMMDD format", async () => {
-    const wrongFormat = formatDateForSport("nba", today); // YYYYMMDD
-    const r = await fetch(`${STATS_URL}/soccer/games?date=${wrongFormat}`);
-    if (r.ok) {
-      const games = await r.json();
-      expect(games).toEqual([]);
-    } else {
-      expect(r.status).toBeGreaterThanOrEqual(400);
     }
   });
 

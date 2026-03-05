@@ -171,10 +171,10 @@ export function buildLivePicksForCard(
     let currentValue: number | null = null;
     let trending: "hit" | "miss" | "push" | "dnp" | null = null;
 
-    // Once classified as DNP, we skip the boxscore refresh below.
+    // Once classified as DNP on a final game, we skip the boxscore refresh below.
     // If the classification was incorrect (transient ESPN data),
     // reResolveStaleCards is the corrective path.
-    if (pick.result === "dnp") {
+    if (pick.result === "dnp" && dbGameStatus === "final") {
       trending = "dnp";
     }
 
@@ -188,9 +188,11 @@ export function buildLivePicksForCard(
         const playerStats = fuzzyMatchPlayer(boxscore, pick.props.player_name);
 
         if (playerStats) {
-          if (playerStats.dnp) {
+          if (playerStats.dnp && effectiveStatus === "final") {
+            // Only show DNP once the game is over — during live games,
+            // a bench player with no stats just hasn't entered yet.
             trending = "dnp";
-          } else {
+          } else if (!playerStats.dnp) {
             currentValue = extractStatValue(playerStats, pick.props.stat_category);
 
             if (currentValue === pick.props.line) {

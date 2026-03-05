@@ -349,6 +349,24 @@ export async function fetchSoccerGamesByDate(date: string): Promise<StatsGame[]>
   return result;
 }
 
+/**
+ * Fetch a single soccer fixture by API-Football fixture ID.
+ * Bypasses by-date lookups (which depend on season config).
+ */
+export async function fetchSoccerFixtureById(fixtureId: string): Promise<StatsGame | null> {
+  const cacheKey = `soccerFixture:${fixtureId}`;
+  const cached = getCached<StatsGame | null>(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/soccer/games/${encodeURIComponent(fixtureId)}`
+  );
+  const data = await response.json();
+  const result = data.data ?? null;
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  return result;
+}
+
 export async function fetchSoccerGamesLive(): Promise<StatsGame[]> {
   const cacheKey = "soccerGamesLive";
   const cached = getCached<StatsGame[]>(cacheKey);
@@ -416,6 +434,22 @@ export async function fetchLaLigaGamesLive(): Promise<StatsGame[]> {
   const data = await response.json();
   const result = data.data ?? [];
   setCache(cacheKey, result);
+  return result;
+}
+
+// --- Copa del Rey (ESPN) endpoints ---
+
+export async function fetchCopaDelReyGamesByDate(date: string): Promise<StatsGame[]> {
+  const cacheKey = `copaDelReyGamesByDate:${date}`;
+  const cached = getCached<StatsGame[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/soccer/games/today?league=copa_del_rey&date=${encodeURIComponent(date)}`
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
   return result;
 }
 

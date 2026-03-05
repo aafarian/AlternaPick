@@ -25,6 +25,10 @@ describe("normalizeTeam", () => {
   it("lowercases and trims", () => {
     expect(normalizeTeam("  UCLA Bruins  ")).toBe("ucla bruins");
   });
+
+  it("normalizes & to and", () => {
+    expect(normalizeTeam("Brighton & Hove Albion")).toBe("brighton and hove albion");
+  });
 });
 
 describe("ncaabTeamsMatch", () => {
