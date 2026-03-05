@@ -150,10 +150,6 @@ function ResyncButton({
       if (!res.ok) {
         throw new Error(data?.error ?? `Failed (${res.status})`);
       }
-      if (data.debug) {
-        // Log full debug payload to console for inspection
-        console.log("[fix-card debug]", JSON.stringify(data.debug, null, 2));
-      }
       if (data.resolved) {
         toast.success(`Card resolved: ${data.score}/${data.total}`);
       } else {

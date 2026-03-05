@@ -4,17 +4,18 @@ import { formatDateForSport } from "@/lib/sports/fetchers";
 const STATS_URL = process.env.STATS_SERVICE_URL || "http://localhost:8000";
 
 let serviceAvailable = false;
-try {
-  const r = await fetch(`${STATS_URL}/games/today`, {
-    signal: AbortSignal.timeout(3000),
-  });
-  if (r.ok) {
-    // Verify it's actually our stats service returning game data
-    const body = await r.json();
-    serviceAvailable = Array.isArray(body);
+if (process.env.STATS_SERVICE_URL) {
+  try {
+    const r = await fetch(`${STATS_URL}/games/today`, {
+      signal: AbortSignal.timeout(500),
+    });
+    if (r.ok) {
+      const body = await r.json();
+      serviceAvailable = Array.isArray(body);
+    }
+  } catch {
+    /* service not reachable or returned non-JSON */
   }
-} catch {
-  /* service not reachable or returned non-JSON */
 }
 
 describe.runIf(serviceAvailable)("stats service integration", () => {
@@ -97,7 +98,7 @@ describe.runIf(serviceAvailable)("stats service integration", () => {
     const gamesRes = await fetch(`${STATS_URL}/games/today`);
     const games = await gamesRes.json();
     const finalGame = games.find(
-      (g: { status: string }) => g.status === "Final",
+      (g: { status: string }) => g.status === "final",
     );
     if (!finalGame) {
       // No final games today — nothing to validate, skip gracefully

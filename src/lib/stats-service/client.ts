@@ -363,7 +363,8 @@ export async function fetchSoccerFixtureById(fixtureId: string): Promise<StatsGa
   );
   const data = await response.json();
   const result = data.data ?? null;
-  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  const ttl = result?.status === "final" ? FINAL_CACHE_TTL : CACHE_TTL;
+  setCache(cacheKey, result, ttl);
   return result;
 }
 

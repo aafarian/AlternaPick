@@ -268,7 +268,7 @@ async def get_soccer_boxscore_cached(event_id: str, league: str = "eng.1") -> li
 
 
 async def get_soccer_fixture_by_id(event_id: str, league: str = "eng.1") -> dict | None:
-    """Fetch a single soccer game by ESPN event ID.
+    """Fetch a single soccer game by ESPN event ID via the summary endpoint.
 
     Args:
         event_id: ESPN event ID.
@@ -282,13 +282,44 @@ async def get_soccer_fixture_by_id(event_id: str, league: str = "eng.1") -> dict
     base_url = ESPN_LEAGUE_URLS.get(league, ESPN_EPL)
 
     try:
-        data = await _espn_get(base_url, "/scoreboard", {"event": event_id})
-        games = _parse_scoreboard(data)
-        if not games:
+        data = await _espn_get(base_url, "/summary", {"event": event_id})
+
+        header = data.get("header", {})
+        competitions = header.get("competitions", [{}])
+        if not competitions:
             return None
 
-        result = games[0]
-        set_cached(cache_key, result, CACHE_TTL_SECONDS)
+        comp = competitions[0]
+        competitors = comp.get("competitors", [])
+        if len(competitors) < 2:
+            return None
+
+        home = next((c for c in competitors if c.get("homeAway") == "home"), competitors[0])
+        away = next((c for c in competitors if c.get("homeAway") == "away"), competitors[1])
+
+        status = comp.get("status", {})
+        status_type = status.get("type", {}).get("state", "pre")
+        game_status = parse_espn_status(status_type)
+
+        home_team = home.get("team", {})
+        away_team = away.get("team", {})
+
+        result = {
+            "game_id": str(header.get("id", event_id)),
+            "home_team": home_team.get("displayName", home_team.get("name", "")),
+            "home_tricode": home_team.get("abbreviation", ""),
+            "away_team": away_team.get("displayName", away_team.get("name", "")),
+            "away_tricode": away_team.get("abbreviation", ""),
+            "home_score": safe_int(home.get("score", "0")),
+            "away_score": safe_int(away.get("score", "0")),
+            "status": game_status,
+            "period": parse_period(status),
+            "clock": parse_clock(status),
+            "start_time": header.get("gameDate", ""),
+        }
+
+        ttl = FINAL_CACHE_TTL_SECONDS if game_status == "final" else CACHE_TTL_SECONDS
+        set_cached(cache_key, result, ttl)
         return result
     except Exception as e:
         logger.error(f"Failed to fetch soccer fixture {event_id}: {e}")

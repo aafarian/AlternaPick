@@ -650,8 +650,10 @@ export async function resolveCard(
       const maxWaitHrs = isSoccer(sport) ? 6 : 48;
 
       if (hrsAgo !== null && hrsAgo > maxWaitHrs) {
-        logError("resolution", `Empty boxscore after ${Math.round(hrsAgo)}h for event ${eventId} (${sport}), voiding remaining picks on card ${card.id}`);
-        for (const remainingPick of card.picks.slice(card.picks.indexOf(pick))) {
+        logError("resolution", `Empty boxscore after ${Math.round(hrsAgo)}h for event ${eventId} (${sport}), voiding picks for this event on card ${card.id}`);
+        for (const remainingPick of card.picks) {
+          const rEventId = remainingPick.props?.games?.external_event_id;
+          if (rEventId !== eventId) continue;
           pickResolutions.push({
             pick_id: remainingPick.id,
             prop_id: remainingPick.prop_id,
@@ -663,7 +665,7 @@ export async function resolveCard(
             result: "push",
           });
         }
-        break;
+        continue;
       }
 
       logError("resolution", `Empty boxscore for event ${eventId} (${sport}, ${Math.round(hrsAgo ?? 0)}h ago), retrying card ${card.id}`);
