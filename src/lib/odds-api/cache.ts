@@ -9,6 +9,7 @@ import {
   type StatsGame,
 } from "@/lib/stats-service/client";
 import { normalizeTeam, teamsMatch } from "@/lib/team-matching";
+import { lookbackDatesForSport } from "@/lib/sports/fetchers";
 import { isSoccer } from "@/lib/sports/config";
 
 /**
@@ -404,15 +405,9 @@ async function _cachePropsInternal(
       const eventDates = new Set<string>();
       for (const e of events) {
         if (!propsMap.has(e.id)) continue;
-        const d = new Date(e.commence_time);
-        eventDates.add(d.toISOString().slice(0, 10).replace(/-/g, ""));
-        // Also check day before/after for timezone edge cases
-        const dayBefore = new Date(d);
-        dayBefore.setDate(dayBefore.getDate() - 1);
-        eventDates.add(dayBefore.toISOString().slice(0, 10).replace(/-/g, ""));
-        const dayAfter = new Date(d);
-        dayAfter.setDate(dayAfter.getDate() + 1);
-        eventDates.add(dayAfter.toISOString().slice(0, 10).replace(/-/g, ""));
+        for (const d of lookbackDatesForSport(sport, new Date(e.commence_time))) {
+          eventDates.add(d);
+        }
       }
 
       // Fetch all ESPN games for those dates

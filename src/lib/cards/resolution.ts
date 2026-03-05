@@ -284,9 +284,13 @@ export async function reResolveStaleCards(): Promise<{
   /** Void an unresolvable pick as push (only for picks on already-resolved cards). */
   async function voidAsPush(pick: StalePick): Promise<boolean> {
     if (!isOnResolvedCard(pick)) return false;
-    await (supabase.from("picks") as any)
+    const { error: updateErr } = await (supabase.from("picks") as any)
       .update({ result: "push", actual_value: null })
       .eq("id", pick.id);
+    if (updateErr) {
+      logError("resolution", `Failed to void pick ${pick.id} as push: ${updateErr.message}`);
+      return false;
+    }
     picksUpdated++;
     affectedCardIds.add(pick.card_id);
     logs.push({

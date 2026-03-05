@@ -345,12 +345,12 @@ export async function fetchSoccerGamesByDate(date: string): Promise<StatsGame[]>
   );
   const data = await response.json();
   const result = data.data ?? [];
-  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  setCache(cacheKey, result, CACHE_TTL);
   return result;
 }
 
 /**
- * Fetch a single soccer fixture by API-Football fixture ID.
+ * Fetch a single soccer fixture by ESPN event ID.
  * Bypasses by-date lookups (which depend on season config).
  */
 export async function fetchSoccerFixtureById(fixtureId: string): Promise<StatsGame | null> {
@@ -420,7 +420,7 @@ export async function fetchLaLigaGamesByDate(date: string): Promise<StatsGame[]>
   );
   const data = await response.json();
   const result = data.data ?? [];
-  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  setCache(cacheKey, result, CACHE_TTL);
   return result;
 }
 
@@ -450,7 +450,7 @@ export async function fetchCopaDelReyGamesByDate(date: string): Promise<StatsGam
   );
   const data = await response.json();
   const result = data.data ?? [];
-  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  setCache(cacheKey, result, CACHE_TTL);
   return result;
 }
 

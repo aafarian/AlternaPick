@@ -153,7 +153,7 @@ function ResyncButton({
       if (data.resolved) {
         toast.success(`Card resolved: ${data.score}/${data.total}`);
       } else {
-        toast.info(`${data.gamesUpdated} game(s) updated. Card not yet resolvable. Check console for debug info.`);
+        toast.info(`${data.gamesUpdated} game(s) updated. Card not yet resolvable.`);
       }
       setOpen(false);
       onComplete();
