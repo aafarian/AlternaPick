@@ -731,6 +731,9 @@ export async function computeDailyRecap(
     .eq("recap_date", date)
     .maybeSingle();
 
+  if (existingRecap.error) {
+    throw new Error(`Failed to check for existing recap: ${existingRecap.error.message}`);
+  }
   const isNewRecap = !existingRecap.data;
 
   if (existingRecap.data) {
