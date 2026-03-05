@@ -374,6 +374,12 @@ export const CATEGORY_LABELS: Record<StatCategory, string> = {
   saves: "Saves",
 };
 
+/** Map a raw stat_category key (e.g. "pts_ast") to its human label ("Pts+Ast"). */
+export function catLabel(key: string): string {
+  const lower = key.toLowerCase();
+  return (CATEGORY_LABELS as Record<string, string>)[lower] ?? key;
+}
+
 export const CATEGORY_COLORS: Record<StatCategory, string> = {
   points: "bg-orange-500/20 text-orange-400",
   rebounds: "bg-blue-500/20 text-blue-400",

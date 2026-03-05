@@ -9,7 +9,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { typedFrom } from "@/lib/supabase/typed-queries";
-import { CATEGORY_LABELS } from "@/lib/constants";
+import { catLabel } from "@/lib/constants";
 import type {
   StatCategory,
   PickSelection,
@@ -1039,11 +1039,6 @@ interface SpotlightInput {
   teamBreakdown: BreakdownEntry[];
 }
 
-function fmtStat(key: string): string {
-  const lower = key.toLowerCase();
-  return (CATEGORY_LABELS as Record<string, string>)[lower] ?? key;
-}
-
 function generateSpotlights(input: SpotlightInput): Spotlight[] {
   const {
     allPicks,
@@ -1132,7 +1127,7 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
       type: "prop_unanimous",
       sentiment: allHit ? "positive" : allMiss ? "negative" : "neutral",
       headline: `Unanimous ${side} on ${name}`,
-      detail: `${picks.length === 1 ? "1 person picked" : picks.length === 2 ? "2 people chose" : `All ${picks.length} chose`} ${side} on ${line} ${fmtStat(stat)}${allHit ? " — all correct" : allMiss ? " — all wrong" : ""}`,
+      detail: `${picks.length === 1 ? "1 person picked" : picks.length === 2 ? "2 people chose" : `All ${picks.length} chose`} ${side} on ${line} ${catLabel(stat)}${allHit ? " — all correct" : allMiss ? " — all wrong" : ""}`,
       value: picks.length,
       valueSuffix: ` picked ${side}`,
       subject: name,
@@ -1152,7 +1147,7 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
     spotlights.push({
       type: "category_hot",
       sentiment: "positive",
-      headline: `${fmtStat(best.key)} was on fire`,
+      headline: `${catLabel(best.key)} was on fire`,
       detail: `${Math.round(best.hitRate * 100)}% hit rate across ${best.pickCount} picks`,
       value: Math.round(best.hitRate * 100),
       valueSuffix: "%",
@@ -1165,7 +1160,7 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
       spotlights.push({
         type: "category_cold",
         sentiment: "negative",
-        headline: `${fmtStat(worst.key)} burned pickers`,
+        headline: `${catLabel(worst.key)} burned pickers`,
         detail: `${Math.round(worst.hitRate * 100) === 0 ? "0" : `Only ${Math.round(worst.hitRate * 100)}`}% hit rate across ${worst.pickCount} picks`,
         value: Math.round(worst.hitRate * 100),
         valueSuffix: "%",
@@ -1213,7 +1208,7 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
       type: "consensus_upset",
       sentiment: "negative",
       headline: `Crowd got burned on ${entry.playerName}`,
-      detail: `${Math.round(entry.dominantPct * 100)}% picked ${entry.dominantSide.toUpperCase()} on ${entry.line} ${fmtStat(entry.statCategory)} — wrong`,
+      detail: `${Math.round(entry.dominantPct * 100)}% picked ${entry.dominantSide.toUpperCase()} on ${entry.line} ${catLabel(entry.statCategory)} — wrong`,
       value: Math.round(entry.dominantPct * 100),
       valueSuffix: `% ${entry.dominantSide}`,
       subject: entry.playerName,
