@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
+import { logError } from "@/lib/logger";
 
 const FOOTBALL_API_KEY = process.env.FOOTBALL_API_KEY ?? "";
 
@@ -58,7 +59,7 @@ export async function GET(
       },
     });
   } catch (err) {
-    console.error(`Failed to process player photo for ${playerId}:`, err);
+    logError("photo", `Failed to process player photo for ${playerId}`, undefined, err);
     return new NextResponse(null, { status: 502 });
   }
 }

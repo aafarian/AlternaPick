@@ -90,7 +90,7 @@ export async function GET(
     const supabase = createAdminClient();
 
     // Fetch card with owner profile joined via user_id → profiles
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { data: cardData, error: cardError } = await (
       supabase.from("cards") as any
     )
@@ -107,7 +107,7 @@ export async function GET(
     const card = cardData as CardRow;
 
     // Fetch all picks for this card with prop and game details
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { data: picksData } = await (supabase.from("picks") as any)
       .select(
         "id, prop_id, selection, result, actual_value, prop:props!inner(player_name, player_team, stat_category, line, game:games!inner(home_team, away_team, commence_time))"
@@ -124,7 +124,7 @@ export async function GET(
     } | null = null;
 
     if (card.challenge_id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: challengeData } = await (
         supabase.from("challenges") as any
       )

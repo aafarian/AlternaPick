@@ -1,11 +1,10 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { createCard } from "@/lib/cards/api";
 import { getAnonymousId } from "@/lib/session/anonymous";
-import { CATEGORY_LABELS } from "@/lib/constants";
 import { getModeConfig } from "@/lib/modes/definitions";
 import { validatePicksForMode } from "@/lib/modes/validation";
 import type { GameMode } from "@/lib/modes/types";
@@ -13,7 +12,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { X, Lock, Loader2, Swords, ArrowLeft } from "lucide-react";
+import { X, Lock, Loader2, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CardSuccessAnimation from "./CardSuccessAnimation";
 import AuthRequiredModal from "./AuthRequiredModal";
@@ -38,7 +37,6 @@ export default function CardBuilderPanel() {
     setMode,
     showSuccess,
     hideSuccess,
-    isFull,
     canLockIn,
   } = useCardBuilder();
   const { picks, isLocking, error, challengeId, challengeOpponent, gameMode } = state;

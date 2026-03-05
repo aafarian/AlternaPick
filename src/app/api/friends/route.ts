@@ -5,6 +5,7 @@ import { createNotification } from "@/lib/notifications/queries";
 import { sendEmail, shouldSendEmail } from "@/lib/email/send";
 import { getFriendRequestEmailProps } from "@/lib/email/templates/friend-request";
 import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
+import { logError } from "@/lib/logger";
 import type { NotificationPreferences } from "@/lib/supabase/types";
 import {
   getFriends,
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
         );
       }
     } catch (notifError) {
-      console.error("Failed to create friend_request notification:", notifError);
+      logError("friends", "Failed to create friend_request notification", undefined, notifError);
     }
 
     return NextResponse.json({ friendship }, { status: 201 });

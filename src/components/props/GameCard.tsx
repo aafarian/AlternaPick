@@ -118,8 +118,6 @@ export default function GameCard({
                 playerPosition={prop.player_position}
                 statCategory={prop.stat_category}
                 line={prop.line}
-                awayTeam={game.away_team}
-                homeTeam={game.home_team}
                 lineHistory={prop.line_history}
                 sport={game.sport}
               />

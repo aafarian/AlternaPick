@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/logger";
 import { createNotification } from "@/lib/notifications/queries";
 import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
 import { sendEmail, shouldSendEmail } from "@/lib/email/send";
@@ -48,7 +49,8 @@ export async function resolveEligibleChallenges(): Promise<
       .eq("challenge_id", challenge.id);
 
     if (cardsResult.error) {
-      console.error(
+      logError(
+        "challenge-resolution",
         `Failed to fetch cards for challenge ${challenge.id}: ${cardsResult.error.message}`
       );
       continue;
@@ -98,7 +100,8 @@ export async function resolveEligibleChallenges(): Promise<
       .eq("id", challenge.id);
 
     if (updateResult.error) {
-      console.error(
+      logError(
+        "challenge-resolution",
         `Failed to update challenge ${challenge.id}: ${updateResult.error.message}`
       );
       continue;
@@ -218,14 +221,18 @@ export async function resolveEligibleChallenges(): Promise<
           }).catch(() => {});
         }
       } catch (emailError) {
-        console.error(
-          "Failed to send challenge_resolved emails:",
+        logError(
+          "challenge-resolution",
+          "Failed to send challenge_resolved emails",
+          undefined,
           emailError
         );
       }
     } catch (notifError) {
-      console.error(
-        "Failed to create challenge_resolved notifications:",
+      logError(
+        "challenge-resolution",
+        "Failed to create challenge_resolved notifications",
+        undefined,
         notifError
       );
     }
@@ -272,8 +279,10 @@ export async function resolveEligibleChallenges(): Promise<
           leaderboardStats: lb,
         });
       } catch (achievementError) {
-        console.error(
-          `Failed to check achievements for user ${participantId} after challenge resolution:`,
+        logError(
+          "challenge-resolution",
+          `Failed to check achievements for user ${participantId} after challenge resolution`,
+          undefined,
           achievementError
         );
       }

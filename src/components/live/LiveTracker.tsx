@@ -132,7 +132,7 @@ export default function LiveTracker({
     [initialCards]
   );
 
-  const { dataMap, isLoading, hasFetched, error } = useBatchLiveStats(
+  const { dataMap, hasFetched, error } = useBatchLiveStats(
     cardIds,
     initialCards.length > 0,
     handleAllSettled,

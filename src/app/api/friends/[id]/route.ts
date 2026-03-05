@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { unauthorized, badRequest, notFound, handleApiError } from "@/lib/api/errors";
+import { logError } from "@/lib/logger";
 import type { Friendship, NotificationPreferences } from "@/lib/supabase/types";
 import {
   acceptFriendRequest,
@@ -107,7 +108,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           metadata: { friendship_id: updated.id },
         }, requesterPrefs);
       } catch (notifError) {
-        console.error("Failed to create friend_accepted notification:", notifError);
+        logError("friends", "Failed to create friend_accepted notification", undefined, notifError);
       }
 
       return NextResponse.json({ friendship: updated });

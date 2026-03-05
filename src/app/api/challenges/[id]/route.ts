@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { unauthorized, badRequest, notFound, handleApiError } from "@/lib/api/errors";
+import { logError } from "@/lib/logger";
 import type { Challenge, NotificationPreferences } from "@/lib/supabase/types";
 import {
   getChallenge,
@@ -169,7 +170,7 @@ export async function PATCH(
           metadata: { challenge_id: ch.id },
         }, challengerPrefs);
       } catch (notifError) {
-        console.error("Failed to create challenge_accepted notification:", notifError);
+        logError("challenges", "Failed to create challenge_accepted notification", undefined, notifError);
       }
     }
 

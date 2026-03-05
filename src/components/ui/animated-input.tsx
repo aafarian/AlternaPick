@@ -23,7 +23,8 @@ const AnimatedInput = React.forwardRef<HTMLInputElement, AnimatedInputProps>(
     const [isFocused, setIsFocused] = React.useState(false);
     const [hasValue, setHasValue] = React.useState(false);
     const prefersReduced = useReducedMotion();
-    const inputId = id || React.useId();
+    const generatedId = React.useId();
+    const inputId = id ?? generatedId;
     const internalRef = React.useRef<HTMLInputElement | null>(null);
 
     // Merge forwarded ref with internal ref

@@ -241,7 +241,7 @@ export async function GET(request: NextRequest) {
     // Query all four tables in parallel — only one will match
     const [profileResult, cardResult, challengeResult, pickResult] =
       await Promise.allSettled([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (supabase.from("profiles") as any)
           .select(
             "id, username, email, display_name, avatar_url, is_deactivated, created_at, updated_at"
@@ -249,7 +249,7 @@ export async function GET(request: NextRequest) {
           .eq("id", id)
           .single(),
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (supabase.from("cards") as any)
           .select(
             "id, user_id, challenge_id, status, score, total_picks, card_size, game_mode, locked_at, resolved_at, created_at, user:profiles!cards_user_id_fkey(id, username, display_name), picks(id, selection, result, actual_value, prop:props!picks_prop_id_fkey(player_name, stat_category, line))"
@@ -257,7 +257,7 @@ export async function GET(request: NextRequest) {
           .eq("id", id)
           .single(),
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (supabase.from("challenges") as any)
           .select(
             "id, challenger_id, opponent_id, status, game_mode, card_size, message, winner_id, created_at, resolved_at, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url)"
@@ -265,7 +265,7 @@ export async function GET(request: NextRequest) {
           .eq("id", id)
           .single(),
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (supabase.from("picks") as any)
           .select(
             "id, card_id, prop_id, selection, result, actual_value, created_at, card:cards!picks_card_id_fkey(id, user_id, status, user:profiles!cards_user_id_fkey(id, username, display_name)), prop:props!picks_prop_id_fkey(id, player_name, stat_category, line, player_team, game:games!props_game_id_fkey(home_team, away_team))"

@@ -1,3 +1,4 @@
+import { logError, logInfo, logWarn } from "@/lib/logger";
 import {
   ODDS_API_BASE_URL,
   DEFAULT_REGION,
@@ -60,8 +61,9 @@ export async function fetchEventOdds(
 
     if (response.status === 429 && attempt < RATE_LIMIT_RETRIES) {
       const delay = RATE_LIMIT_BASE_DELAY_MS * 2 ** attempt;
-      console.warn(
-        `[Odds API] Rate limited on event ${eventId}, retrying in ${delay}ms (attempt ${attempt + 1}/${RATE_LIMIT_RETRIES})`
+      logWarn(
+        "odds-api",
+        `Rate limited on event ${eventId}, retrying in ${delay}ms (attempt ${attempt + 1}/${RATE_LIMIT_RETRIES})`
       );
       await new Promise((r) => setTimeout(r, delay));
       continue;
@@ -195,8 +197,9 @@ export async function fetchAllProps(
   const propsMap = new Map<string, ParsedPlayerProp[]>();
   let latestCredits: CreditUsage = { used: null, remaining: null };
 
-  console.log(
-    `[Odds API] [${sportKey}] ${events.length} total, ${upcomingEvents.length} within 48h, ${newEvents.length} new — fetching odds`
+  logInfo(
+    "odds-api",
+    `[${sportKey}] ${events.length} total, ${upcomingEvents.length} within 48h, ${newEvents.length} new — fetching odds`
   );
 
   for (let i = 0; i < newEvents.length; i++) {
@@ -213,14 +216,17 @@ export async function fetchAllProps(
         latestCredits.remaining !== null &&
         latestCredits.remaining < 10
       ) {
-        console.warn(
-          `[Odds API] Low credits: ${latestCredits.remaining} remaining. Stopping fetch.`
+        logWarn(
+          "odds-api",
+          `Low credits: ${latestCredits.remaining} remaining. Stopping fetch.`
         );
         break;
       }
     } catch (error) {
-      console.error(
-        `[Odds API] Failed to fetch odds for event ${event.id}:`,
+      logError(
+        "odds-api",
+        `Failed to fetch odds for event ${event.id}`,
+        undefined,
         error
       );
     }
@@ -241,7 +247,7 @@ export async function fetchAllPropsMultiSport(
       const result = await fetchAllProps(sport, skipEventIds);
       results.set(sport, result);
     } catch (error) {
-      console.error(`[Odds API] Failed to fetch props for ${sport}:`, error);
+      logError("odds-api", `Failed to fetch props for ${sport}`, undefined, error);
     }
   }
 

@@ -452,7 +452,7 @@ export async function fetchLiveMaps(
   const isStaleNbaId = (sport: string, id: string) =>
     sport === "nba" && /^\d+$/.test(id) && !id.startsWith("401");
 
-  for (const [sport, candidateIds] of sportEntries) {
+  for (const [sport] of sportEntries) {
     const fetcher = SPORT_FETCHERS[sport];
     const ids = candidatesBySport.get(sport)!;
 

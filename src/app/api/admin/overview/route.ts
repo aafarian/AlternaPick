@@ -92,7 +92,7 @@ export async function GET() {
     // proper type inference — Promise.all with mixed return shapes causes
     // TypeScript to collapse row types to `never`.
     // Safety-capped queries: limit rows pulled into memory
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const winRateResult = await (supabase.from("leaderboard_entries") as any)
       .select("win_rate")
       .gt("total_attempted_picks", 0)

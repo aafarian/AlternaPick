@@ -103,7 +103,7 @@ export default function NotificationPreferencesSection({
       setSaving(true);
       setMessage(null);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error } = await (supabase.from("profiles") as any)
         .update({ notification_preferences: updated })
         .eq("id", user.id);

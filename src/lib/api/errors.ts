@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logError as logToBuffer } from "@/lib/logger";
 
 /**
  * Standard API error response shape:
@@ -70,7 +71,8 @@ export function logError(
   const message = error instanceof Error ? error.message : String(error);
   const stack = error instanceof Error ? error.stack : undefined;
 
-  console.error(
+  logToBuffer(
+    "api",
     JSON.stringify({
       level: "error",
       timestamp,
@@ -78,12 +80,10 @@ export function logError(
       userId: context.userId ?? null,
       message,
       ...(context.metadata ? { metadata: context.metadata } : {}),
-    })
+    }),
+    context.route,
+    stack ? error : undefined
   );
-
-  if (stack) {
-    console.error(stack);
-  }
 }
 
 /**
@@ -94,7 +94,7 @@ export function logError(
  */
 export function handleApiError(error: unknown, fallbackMessage: string) {
   // Always log the full error to the terminal
-  console.error(`[API Error] ${fallbackMessage}:`, error);
+  logToBuffer("api", `[API Error] ${fallbackMessage}`, undefined, error);
 
   // Domain errors (ValidationError, NotFoundError, ConflictError, etc.)
   if (

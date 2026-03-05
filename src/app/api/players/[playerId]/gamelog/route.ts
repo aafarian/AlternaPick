@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchPlayerGamelog } from "@/lib/stats-service/client";
+import { logError } from "@/lib/logger";
 
 const VALID_SPORTS = new Set(["nba", "ncaab"]);
 
@@ -32,7 +33,7 @@ export async function GET(
       }
     );
   } catch (error) {
-    console.error(`[gamelog] Failed for player=${playerId} sport=${sport}:`, error);
+    logError("gamelog", `Failed for player=${playerId} sport=${sport}`, undefined, error);
     const message =
       error instanceof Error ? error.message : "Failed to fetch game log";
     const status =

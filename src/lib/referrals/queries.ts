@@ -1,5 +1,6 @@
+import { logError } from "@/lib/logger";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Profile } from "@/lib/supabase/types";
+import type { Database } from "@/lib/supabase/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
 import type { ReferralInfo, ReferralStats, ReferredUser } from "./types";
@@ -170,9 +171,9 @@ export async function processReferral(
     .eq("streak_freezes_available", currentFreezes); // optimistic lock
 
   if (freezeUpdateError) {
-    console.error(
-      `Failed to increment streak freeze for referrer ${referrerId}:`,
-      freezeUpdateError.message
+    logError(
+      "referrals",
+      `Failed to increment streak freeze for referrer ${referrerId}: ${freezeUpdateError.message}`
     );
     // Non-fatal: the referral itself succeeded
   }
@@ -214,7 +215,7 @@ export async function processReferral(
     leaderboardStats,
     friendCount: totalReferred ?? 0,
   }).catch((err) => {
-    console.error("Referral achievement check failed:", err);
+    logError("referrals", "Referral achievement check failed", undefined, err);
   });
 }
 

@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const buildProfileQuery = (base: any) =>
         search
           ? base.or(`username.ilike.*${search}*,email.ilike.*${search}*`)
@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
         // the matching profile IDs, then paginate within leaderboard_entries for
         // those IDs. Fetch matching profile IDs (capped for safety).
         const profileSelect = "id";
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const matchQuery: any = supabase
           .from("profiles")
           .select(profileSelect)
@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
           // Paginate leaderboard_entries filtered to matched IDs
           const from = (page - 1) * pageSize;
           const to = from + pageSize - 1;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const lbQuery: any = supabase
             .from("leaderboard_entries")
             .select("user_id, total_cards, win_rate, last_played_date")
@@ -185,7 +185,7 @@ export async function GET(request: NextRequest) {
           // Batch-fetch profiles for this page
           const profileFull =
             "id, username, email, display_name, avatar_url, is_deactivated, created_at";
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const profileResult = await (supabase.from("profiles") as any)
             .select(profileFull)
             .in("id", pageUserIds);
@@ -219,7 +219,7 @@ export async function GET(request: NextRequest) {
 
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const lbQuery: any = supabase
           .from("leaderboard_entries")
           .select("user_id, total_cards, win_rate, last_played_date")
@@ -234,7 +234,7 @@ export async function GET(request: NextRequest) {
         // Batch-fetch profiles for this page
         const profileFull =
           "id, username, email, display_name, avatar_url, is_deactivated, created_at";
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const profileResult = await (supabase.from("profiles") as any)
           .select(profileFull)
           .in("id", pageUserIds);
@@ -300,7 +300,7 @@ type LeaderboardRow = {
  * Supabase `.in()` has a practical limit, so we batch in groups of 200.
  */
 async function fetchLeaderboardMap(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   supabase: any,
   profileIds: string[]
 ): Promise<Map<string, LeaderboardRow>> {

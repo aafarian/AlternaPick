@@ -38,7 +38,6 @@ import {
   TrendingUp,
   Flame,
   Swords,
-  Trophy,
   Zap,
   CalendarDays,
   RefreshCw,

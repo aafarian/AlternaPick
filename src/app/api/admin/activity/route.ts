@@ -56,7 +56,7 @@ type QueryCtx = {
   rowLimit: number;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 type AnyRow = any;
 
 async function queryUserSignups(ctx: QueryCtx): Promise<AdminActivityItem[]> {
@@ -100,7 +100,7 @@ async function queryCardsLocked(ctx: QueryCtx): Promise<AdminActivityItem[]> {
 
   q = q.order("locked_at", { ascending: false }).limit(ctx.rowLimit);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data, error } = await (q as any);
   if (error) throw new Error(error.message);
 
@@ -140,7 +140,7 @@ async function queryCardsResolved(
 
   q = q.order("resolved_at", { ascending: false }).limit(ctx.rowLimit);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data, error } = await (q as any);
   if (error) throw new Error(error.message);
 
@@ -179,7 +179,7 @@ async function queryChallengesCreated(
 
   q = q.order("created_at", { ascending: false }).limit(ctx.rowLimit);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data, error } = await (q as any);
   if (error) throw new Error(error.message);
 
@@ -222,7 +222,7 @@ async function queryChallengesAccepted(
 
   q = q.order("created_at", { ascending: false }).limit(ctx.rowLimit);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data, error } = await (q as any);
   if (error) throw new Error(error.message);
 
@@ -263,7 +263,7 @@ async function queryChallengesDeclined(
 
   q = q.order("created_at", { ascending: false }).limit(ctx.rowLimit);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data, error } = await (q as any);
   if (error) throw new Error(error.message);
 
@@ -309,7 +309,7 @@ async function queryChallengesResolved(
 
   q = q.order("resolved_at", { ascending: false }).limit(ctx.rowLimit);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data, error } = await (q as any);
   if (error) throw new Error(error.message);
 
@@ -354,7 +354,7 @@ async function queryPicksMade(ctx: QueryCtx): Promise<AdminActivityItem[]> {
 
   // When userId is provided, first fetch the user's card IDs to filter at DB level
   if (ctx.userId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { data: userCards } = await (ctx.supabase.from("cards") as any)
       .select("id")
       .eq("user_id", ctx.userId);
@@ -365,7 +365,7 @@ async function queryPicksMade(ctx: QueryCtx): Promise<AdminActivityItem[]> {
 
   q = q.order("created_at", { ascending: false }).limit(ctx.rowLimit);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data, error } = await (q as any);
   if (error) throw new Error(error.message);
 
@@ -406,7 +406,7 @@ async function queryAchievementsUnlocked(
 
   q = q.order("unlocked_at", { ascending: false }).limit(ctx.rowLimit);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data, error } = await (q as any);
   if (error) throw new Error(error.message);
 
@@ -446,7 +446,7 @@ async function queryFriendRequestsSent(
 
   q = q.order("created_at", { ascending: false }).limit(ctx.rowLimit);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data, error } = await (q as any);
   if (error) throw new Error(error.message);
 
@@ -485,7 +485,7 @@ async function queryFriendsAccepted(
 
   q = q.order("updated_at", { ascending: false }).limit(ctx.rowLimit);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data, error } = await (q as any);
   if (error) throw new Error(error.message);
 
@@ -523,7 +523,7 @@ async function queryReactionsAdded(
 
   q = q.order("created_at", { ascending: false }).limit(ctx.rowLimit);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data, error } = await (q as any);
   if (error) throw new Error(error.message);
 

@@ -43,13 +43,11 @@ export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: ()
 
       // Track and detect transition from "had live games" to "no live games"
       if (result.has_live_games) hadLiveRef.current = true;
-      if (!result.has_live_games && intervalRef.current) {
+      if (!result.has_live_games && hadLiveRef.current && intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
         stoppedRef.current = true;
-        if (hadLiveRef.current) {
-          onAllSettledRef.current?.();
-        }
+        onAllSettledRef.current?.();
       }
     } catch (err) {
       if ((err as Error).name === "AbortError") return;

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
 import { upsertReaction, deleteReaction } from "@/lib/reactions/queries";
 import { createNotification } from "@/lib/notifications/queries";
+import { logError } from "@/lib/logger";
 import type { ReactionEmoji, ReactionTargetType, NotificationPreferences } from "@/lib/supabase/types";
 
 const VALID_EMOJIS: ReactionEmoji[] = [
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
     // Fire-and-forget: notify the target owner about the reaction
     sendReactionNotification(user.id, targetType, targetId, emoji).catch(
       (err) => {
-        console.error("Failed to send reaction notification:", err);
+        logError("reactions", "Failed to send reaction notification", undefined, err);
       }
     );
 

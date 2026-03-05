@@ -41,6 +41,24 @@ export function logError(
 }
 
 /**
+ * Log an informational message to console. Not stored in the ring buffer.
+ */
+export function logInfo(category: string, message: string): void {
+  console.log(`[${category}] ${message}`);
+}
+
+/**
+ * Log a warning to console. Not stored in the ring buffer.
+ */
+export function logWarn(
+  category: string,
+  message: string,
+  error?: unknown,
+): void {
+  console.warn(`[${category}] ${message}`, ...(error !== undefined ? [error] : []));
+}
+
+/**
  * Returns recent errors for the admin dashboard, newest first.
  */
 export function getRecentErrors(): LogEntry[] {

@@ -83,7 +83,7 @@ export default function HistoryChallengeCard({
   const isChallenger = challenge.challenger_id === currentUserId;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
   const displayName = opponent.display_name || opponent.username;
-  const { hoverProps, prefersReduced } = useCardHover();
+  const { hoverProps } = useCardHover();
 
   const result = getResult(challenge, currentUserId);
   const resultLabel = getResultLabel(result);
