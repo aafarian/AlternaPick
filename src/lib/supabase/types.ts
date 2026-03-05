@@ -356,6 +356,39 @@ export interface Database {
           resolved_at?: string | null;
         };
       };
+      feature_flags: {
+        Row: {
+          id: string;
+          key: string;
+          value: string;
+          flag_type: string;
+          description: string;
+          enabled: boolean;
+          env_var_fallback: string | null;
+          updated_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          key: string;
+          value?: string;
+          flag_type?: string;
+          description?: string;
+          enabled?: boolean;
+          env_var_fallback?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          key?: string;
+          value?: string;
+          flag_type?: string;
+          description?: string;
+          enabled?: boolean;
+          env_var_fallback?: string | null;
+          updated_at?: string;
+        };
+      };
       friendships: {
         Row: {
           id: string;
@@ -605,6 +638,8 @@ export type Prop = Database["public"]["Tables"]["props"]["Row"];
 export type Card = Database["public"]["Tables"]["cards"]["Row"];
 export type Pick = Database["public"]["Tables"]["picks"]["Row"];
 export type Challenge = Database["public"]["Tables"]["challenges"]["Row"];
+export type FeatureFlag =
+  Database["public"]["Tables"]["feature_flags"]["Row"];
 export type Friendship = Database["public"]["Tables"]["friendships"]["Row"];
 export type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 export type Achievement = Database["public"]["Tables"]["achievements"]["Row"];
