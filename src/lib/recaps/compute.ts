@@ -1091,12 +1091,13 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
     .sort((a, b) => a.delta - b.delta || b.picks.length - a.picks.length);
 
   for (const entry of traps.slice(0, 2)) {
+    const hitPct = Math.round(entry.rate * 100);
     spotlights.push({
       type: "player_trap",
       sentiment: "negative",
       headline: `${entry.name} fooled everyone`,
-      detail: `${entry.picks.length} picks — ${Math.round(entry.rate * 100) === 0 ? "0" : `only ${Math.round(entry.rate * 100)}`}% hit`,
-      value: Math.round(entry.rate * 100),
+      detail: `${entry.picks.length} picks — ${hitPct === 0 ? "0" : `only ${hitPct}`}% hit`,
+      value: hitPct,
       valueSuffix: "% hit",
       subject: entry.name,
       sport: entry.picks[0].props?.games?.sport ?? undefined,
@@ -1157,12 +1158,13 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
   if (sortedCategories.length >= 2) {
     const worst = sortedCategories[sortedCategories.length - 1];
     if (worst.key !== sortedCategories[0].key) {
+      const pct = Math.round(worst.hitRate * 100);
       spotlights.push({
         type: "category_cold",
         sentiment: "negative",
         headline: `${catLabel(worst.key)} burned pickers`,
-        detail: `${Math.round(worst.hitRate * 100) === 0 ? "0" : `Only ${Math.round(worst.hitRate * 100)}`}% hit rate across ${worst.pickCount} picks`,
-        value: Math.round(worst.hitRate * 100),
+        detail: `${pct === 0 ? "0" : `Only ${pct}`}% hit rate across ${worst.pickCount} picks`,
+        value: pct,
         valueSuffix: "%",
         subject: worst.key,
       });
@@ -1189,12 +1191,13 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
   if (sortedTeams.length >= 2) {
     const worst = sortedTeams[sortedTeams.length - 1];
     if (worst.key !== sortedTeams[0].key) {
+      const pct = Math.round(worst.hitRate * 100);
       spotlights.push({
         type: "team_cold",
         sentiment: "negative",
         headline: `${worst.key} was a trap`,
-        detail: `${Math.round(worst.hitRate * 100) === 0 ? "0" : `Only ${Math.round(worst.hitRate * 100)}`}% hit rate across ${worst.pickCount} picks`,
-        value: Math.round(worst.hitRate * 100),
+        detail: `${pct === 0 ? "0" : `Only ${pct}`}% hit rate across ${worst.pickCount} picks`,
+        value: pct,
         valueSuffix: "%",
         subject: worst.key,
       });
