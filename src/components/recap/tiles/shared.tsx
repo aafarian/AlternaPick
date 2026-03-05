@@ -12,7 +12,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { isValidSport, SPORT_CONFIG } from "@/lib/sports/config";
-import { CATEGORY_LABELS } from "@/lib/constants";
+import { CATEGORY_LABELS, catLabel } from "@/lib/constants";
 import type { SpotlightType } from "@/lib/recaps/compute";
 
 /* ─── Constants ─── */
@@ -202,7 +202,23 @@ export function SportBadge({ sport }: { sport: string }) {
 
 /* ─── Helpers ─── */
 
-export function catLabel(key: string): string {
-  const lower = key.toLowerCase();
-  return (CATEGORY_LABELS as Record<string, string>)[lower] ?? key;
+// Re-export for convenience — canonical implementation lives in @/lib/constants
+export { catLabel } from "@/lib/constants";
+
+/** Matches any raw CATEGORY_LABELS key as a whole word (case-insensitive). */
+const RAW_STAT_RE = new RegExp(
+  `\\b(${Object.keys(CATEGORY_LABELS).join("|")})\\b`,
+  "gi",
+);
+
+/**
+ * Sanitise pre-computed spotlight text so cached DB rows render correctly.
+ * - Replaces raw stat_category keys (e.g. "Pts_ast", "threes") with human labels
+ * - Replaces "only 0%" with "0%" (reserve "only" for low-but-nonzero rates)
+ */
+export function sanitizeSpotlightText(text: string): string {
+  let out = text.replace(RAW_STAT_RE, (match) => catLabel(match));
+  out = out.replace(/\b[Oo]nly 0%/g, "0%");
+  out = out.replace(/^All 2 chose/, "2 people chose");
+  return out;
 }

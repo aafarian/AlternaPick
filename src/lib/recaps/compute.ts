@@ -9,6 +9,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { typedFrom } from "@/lib/supabase/typed-queries";
+import { catLabel } from "@/lib/constants";
 import type {
   StatCategory,
   PickSelection,
@@ -1090,12 +1091,13 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
     .sort((a, b) => a.delta - b.delta || b.picks.length - a.picks.length);
 
   for (const entry of traps.slice(0, 2)) {
+    const hitPct = Math.round(entry.rate * 100);
     spotlights.push({
       type: "player_trap",
       sentiment: "negative",
       headline: `${entry.name} fooled everyone`,
-      detail: `${entry.picks.length} picks — only ${Math.round(entry.rate * 100)}% hit`,
-      value: Math.round(entry.rate * 100),
+      detail: `${entry.picks.length} picks — ${hitPct === 0 ? "0" : `only ${hitPct}`}% hit`,
+      value: hitPct,
       valueSuffix: "% hit",
       subject: entry.name,
       sport: entry.picks[0].props?.games?.sport ?? undefined,
@@ -1126,7 +1128,7 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
       type: "prop_unanimous",
       sentiment: allHit ? "positive" : allMiss ? "negative" : "neutral",
       headline: `Unanimous ${side} on ${name}`,
-      detail: `All ${picks.length} chose ${side} on ${line} ${stat}${allHit ? " — all correct" : allMiss ? " — all wrong" : ""}`,
+      detail: `${picks.length === 2 ? "2 people chose" : `All ${picks.length} chose`} ${side} on ${line} ${catLabel(stat)}${allHit ? " — all correct" : allMiss ? " — all wrong" : ""}`,
       value: picks.length,
       valueSuffix: ` picked ${side}`,
       subject: name,
@@ -1146,7 +1148,7 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
     spotlights.push({
       type: "category_hot",
       sentiment: "positive",
-      headline: `${best.key.charAt(0).toUpperCase() + best.key.slice(1)} was on fire`,
+      headline: `${catLabel(best.key)} was on fire`,
       detail: `${Math.round(best.hitRate * 100)}% hit rate across ${best.pickCount} picks`,
       value: Math.round(best.hitRate * 100),
       valueSuffix: "%",
@@ -1156,12 +1158,13 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
   if (sortedCategories.length >= 2) {
     const worst = sortedCategories[sortedCategories.length - 1];
     if (worst.key !== sortedCategories[0].key) {
+      const pct = Math.round(worst.hitRate * 100);
       spotlights.push({
         type: "category_cold",
         sentiment: "negative",
-        headline: `${worst.key.charAt(0).toUpperCase() + worst.key.slice(1)} burned pickers`,
-        detail: `Only ${Math.round(worst.hitRate * 100)}% hit rate across ${worst.pickCount} picks`,
-        value: Math.round(worst.hitRate * 100),
+        headline: `${catLabel(worst.key)} burned pickers`,
+        detail: `${pct === 0 ? "0" : `Only ${pct}`}% hit rate across ${worst.pickCount} picks`,
+        value: pct,
         valueSuffix: "%",
         subject: worst.key,
       });
@@ -1188,12 +1191,13 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
   if (sortedTeams.length >= 2) {
     const worst = sortedTeams[sortedTeams.length - 1];
     if (worst.key !== sortedTeams[0].key) {
+      const pct = Math.round(worst.hitRate * 100);
       spotlights.push({
         type: "team_cold",
         sentiment: "negative",
         headline: `${worst.key} was a trap`,
-        detail: `Only ${Math.round(worst.hitRate * 100)}% hit rate across ${worst.pickCount} picks`,
-        value: Math.round(worst.hitRate * 100),
+        detail: `${pct === 0 ? "0" : `Only ${pct}`}% hit rate across ${worst.pickCount} picks`,
+        value: pct,
         valueSuffix: "%",
         subject: worst.key,
       });
@@ -1207,7 +1211,7 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
       type: "consensus_upset",
       sentiment: "negative",
       headline: `Crowd got burned on ${entry.playerName}`,
-      detail: `${Math.round(entry.dominantPct * 100)}% picked ${entry.dominantSide.toUpperCase()} on ${entry.line} ${entry.statCategory} — wrong`,
+      detail: `${Math.round(entry.dominantPct * 100)}% picked ${entry.dominantSide.toUpperCase()} on ${entry.line} ${catLabel(entry.statCategory)} — wrong`,
       value: Math.round(entry.dominantPct * 100),
       valueSuffix: `% ${entry.dominantSide}`,
       subject: entry.playerName,
