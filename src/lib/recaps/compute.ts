@@ -731,6 +731,8 @@ export async function computeDailyRecap(
     .eq("recap_date", date)
     .maybeSingle();
 
+  const isNewRecap = !existingRecap.data;
+
   if (existingRecap.data) {
     // Update existing
     const { error: updateError } = await typedFrom(supabase, "recaps")
@@ -761,35 +763,37 @@ export async function computeDailyRecap(
   }
 
   // ------------------------------------------------------------------
-  // 6. Send notifications to featured users
+  // 6. Send notifications to featured users (only on first computation)
   // ------------------------------------------------------------------
 
-  // Batch-fetch notification preferences for all featured users
-  const { data: featuredProfiles } = featuredUserIds.length > 0
-    ? await (supabase.from("profiles") as any)
-        .select("id, notification_preferences")
-        .in("id", featuredUserIds) as { data: Array<{ id: string; notification_preferences: NotificationPreferences | null }> | null }
-    : { data: [] as Array<{ id: string; notification_preferences: NotificationPreferences | null }> };
+  if (isNewRecap) {
+    // Batch-fetch notification preferences for all featured users
+    const { data: featuredProfiles } = featuredUserIds.length > 0
+      ? await (supabase.from("profiles") as any)
+          .select("id, notification_preferences")
+          .in("id", featuredUserIds) as { data: Array<{ id: string; notification_preferences: NotificationPreferences | null }> | null }
+      : { data: [] as Array<{ id: string; notification_preferences: NotificationPreferences | null }> };
 
-  const prefsById = new Map<string, NotificationPreferences | null>(
-    (featuredProfiles ?? []).map((p) => [p.id, p.notification_preferences])
-  );
+    const prefsById = new Map<string, NotificationPreferences | null>(
+      (featuredProfiles ?? []).map((p) => [p.id, p.notification_preferences])
+    );
 
-  const notificationPromises = featuredUserIds.map((userId) =>
-    createNotification(supabase, {
-      user_id: userId,
-      type: "daily_recap",
-      title: "Daily Recap Available",
-      body: recapData.perfectCards.userIds.includes(userId)
-        ? "You hit a perfect card yesterday! Check out the daily recap."
-        : "The daily recap is ready. See how you and everyone else did.",
-      metadata: { recap_date: date },
-    }, prefsById.get(userId) ?? null).catch(() => {
-      // Swallow notification errors — recap data is already saved
-    })
-  );
+    const notificationPromises = featuredUserIds.map((userId) =>
+      createNotification(supabase, {
+        user_id: userId,
+        type: "daily_recap",
+        title: "Daily Recap Available",
+        body: recapData.perfectCards.userIds.includes(userId)
+          ? "You hit a perfect card yesterday! Check out the daily recap."
+          : "The daily recap is ready. See how you and everyone else did.",
+        metadata: { recap_date: date },
+      }, prefsById.get(userId) ?? null).catch(() => {
+        // Swallow notification errors — recap data is already saved
+      })
+    );
 
-  await Promise.all(notificationPromises);
+    await Promise.all(notificationPromises);
+  }
 
   return { recapData, personalHighlights, featuredUserIds };
 }
