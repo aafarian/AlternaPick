@@ -1127,7 +1127,7 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
       type: "prop_unanimous",
       sentiment: allHit ? "positive" : allMiss ? "negative" : "neutral",
       headline: `Unanimous ${side} on ${name}`,
-      detail: `${picks.length === 1 ? "1 person picked" : picks.length === 2 ? "2 people chose" : `All ${picks.length} chose`} ${side} on ${line} ${catLabel(stat)}${allHit ? " — all correct" : allMiss ? " — all wrong" : ""}`,
+      detail: `${picks.length === 2 ? "2 people chose" : `All ${picks.length} chose`} ${side} on ${line} ${catLabel(stat)}${allHit ? " — all correct" : allMiss ? " — all wrong" : ""}`,
       value: picks.length,
       valueSuffix: ` picked ${side}`,
       subject: name,

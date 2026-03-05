@@ -219,7 +219,6 @@ const RAW_STAT_RE = new RegExp(
 export function sanitizeSpotlightText(text: string): string {
   let out = text.replace(RAW_STAT_RE, (match) => catLabel(match));
   out = out.replace(/\b[Oo]nly 0%/g, "0%");
-  out = out.replace(/^All 1 chose/, "1 person picked");
   out = out.replace(/^All 2 chose/, "2 people chose");
   return out;
 }
