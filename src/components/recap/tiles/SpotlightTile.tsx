@@ -5,6 +5,7 @@ import {
   PLAYER_TYPES,
   spotlightConfig,
   SportBadge,
+  sanitizeSpotlightText,
 } from "./shared";
 
 export function SpotlightTile({ spotlight }: { spotlight: Spotlight }) {
@@ -38,10 +39,10 @@ export function SpotlightTile({ spotlight }: { spotlight: Spotlight }) {
       </div>
       <div className="mt-auto pt-2">
         <p className="text-sm font-semibold text-foreground leading-tight">
-          {spotlight.headline}
+          {sanitizeSpotlightText(spotlight.headline)}
         </p>
         <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug line-clamp-2">
-          {spotlight.detail}
+          {sanitizeSpotlightText(spotlight.detail)}
         </p>
         {spotlight.team && (
           <p className="mt-0.5 text-[10px] font-medium text-muted-foreground/70">
