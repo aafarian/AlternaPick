@@ -311,7 +311,7 @@ function DeleteAccountButton() {
     setError(null);
 
     // Soft delete: set is_deactivated = true
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { error: updateError } = await (supabase.from("profiles") as any)
       .update({ is_deactivated: true })
       .eq("id", user.id);

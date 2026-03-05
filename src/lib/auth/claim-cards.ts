@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/logger";
 
 export async function claimAnonymousCards(
   userId: string,
@@ -13,7 +14,7 @@ export async function claimAnonymousCards(
     .select("id");
 
   if (error) {
-    console.error("Failed to claim anonymous cards:", error.message);
+    logError("claim-cards", `Failed to claim anonymous cards: ${error.message}`);
     return 0;
   }
 

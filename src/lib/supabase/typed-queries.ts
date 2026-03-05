@@ -19,7 +19,7 @@ import type { Database } from "./types";
 
 type TableName = keyof Database["public"]["Tables"];
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 type QueryBuilder = any;
 
 /**
@@ -31,7 +31,7 @@ export function typedFrom(
   supabase: SupabaseClient<Database>,
   table: TableName
 ): QueryBuilder {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   return supabase.from(table) as any;
 }
 

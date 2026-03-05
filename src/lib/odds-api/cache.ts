@@ -8,9 +8,10 @@ import {
   fetchSoccerGamesByDate, fetchLaLigaGamesByDate, fetchCopaDelReyGamesByDate,
   type StatsGame,
 } from "@/lib/stats-service/client";
-import { normalizeTeam, teamsMatch } from "@/lib/team-matching";
+import { teamsMatch } from "@/lib/team-matching";
 import { lookbackDatesForSport } from "@/lib/sports/fetchers";
 import { isSoccer } from "@/lib/sports/config";
+import { logError, logInfo, logWarn } from "@/lib/logger";
 
 /**
  * Returns true if a sync happened within the last 5 minutes,
@@ -290,7 +291,7 @@ async function _cachePropsInternal(
           }
         }
         if (!found) {
-          console.warn(`[NCAAB enrich] No ESPN match for team: "${teamName}"`);
+          logWarn("NCAAB enrich", `No ESPN match for team: "${teamName}"`);
         }
       }
 
@@ -311,11 +312,11 @@ async function _cachePropsInternal(
             playerTeamMap.set(normalizeName(name), teamName);
           }
         } else {
-          console.warn(`[NCAAB enrich] Failed to fetch roster for a team:`, outcome.reason);
+          logError("NCAAB enrich", "Failed to fetch roster for a team", undefined, outcome.reason);
         }
       }
     } catch (err) {
-      console.error("[NCAAB enrich] Failed:", err);
+      logError("NCAAB enrich", "Failed", undefined, err);
     }
   }
 
@@ -338,7 +339,7 @@ async function _cachePropsInternal(
         playerIdMap.set(normalizeName(name), id);
       }
     } catch (err) {
-      console.error(`[${sport} enrich] Failed:`, err);
+      logError(`${sport} enrich`, "Failed", undefined, err);
     }
   }
 
@@ -459,7 +460,7 @@ async function _cachePropsInternal(
 
   if (gameRows.length === 0) return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data: upsertedGames, error: gamesError } = await (supabase.from("games") as any)
     .upsert(gameRows, { onConflict: "odds_api_event_id" })
     .select("id, odds_api_event_id") as {
@@ -468,9 +469,9 @@ async function _cachePropsInternal(
   };
 
   if (gamesError) {
-    console.error(`[${sport} cache] Games upsert failed:`, gamesError);
+    logError(`${sport} cache`, `Games upsert failed: ${gamesError.message}`);
   }
-  console.log(`[${sport} cache] Upserted ${upsertedGames?.length ?? 0} games from ${gameRows.length} rows`);
+  logInfo(`${sport} cache`, `Upserted ${upsertedGames?.length ?? 0} games from ${gameRows.length} rows`);
   if (!upsertedGames) return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
 
   const eventToGameId = new Map(
@@ -637,7 +638,7 @@ async function _cachePropsInternal(
       if (match.player_team !== null) updatePayload.player_team = match.player_team;
       if (match.player_position !== null) updatePayload.player_position = match.player_position;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (supabase.from("props") as any)
         .update(updatePayload)
         .eq("id", kept.id);
@@ -656,18 +657,18 @@ async function _cachePropsInternal(
   if (newPropRows.length > 0) {
     for (let i = 0; i < newPropRows.length; i += 500) {
       const batch = newPropRows.slice(i, i + 500);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { error: insertError } = await (supabase.from("props") as any).upsert(batch, {
         onConflict: "game_id,player_name,stat_category",
         ignoreDuplicates: false,
       });
       if (insertError) {
-        console.error(`[${sport} cache] Props upsert failed (batch ${i / 500 + 1}):`, insertError);
+        logError(`${sport} cache`, `Props upsert failed (batch ${i / 500 + 1}): ${insertError.message}`);
       }
     }
   }
 
-  console.log(`[${sport} cache] Prepared ${propRows.length} props, inserted ${newPropRows.length} new (${keptProps.length} kept)`);
+  logInfo(`${sport} cache`, `Prepared ${propRows.length} props, inserted ${newPropRows.length} new (${keptProps.length} kept)`);
   const enrichedCount = propRows.filter((r) => r.player_id !== null).length;
   return { propsInserted: newPropRows.length, propsEnriched: enrichedCount, playerMapSize: playerIdMap.size };
 }

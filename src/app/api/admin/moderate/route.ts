@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case "deactivate": {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { data: profileData, error: fetchError } = await (
           supabase.from("profiles") as any
         )
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
         const profile = profileData as ProfileRow;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { error: updateError } = await (
           supabase.from("profiles") as any
         )
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       }
 
       case "reactivate": {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { data: profileData, error: fetchError } = await (
           supabase.from("profiles") as any
         )
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
 
         const profile = profileData as ProfileRow;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { error: updateError } = await (
           supabase.from("profiles") as any
         )
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
 
       case "reset_password": {
         // First fetch the user's email from profiles
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { data: profileData, error: fetchError } = await (
           supabase.from("profiles") as any
         )
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
       }
 
       case "delete_card": {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { data: cardData, error: fetchError } = await (
           supabase.from("cards") as any
         )
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
           return notFound("Card");
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { error: deleteError } = await (supabase.from("cards") as any)
           .delete()
           .eq("id", targetId);
@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
       }
 
       case "delete_challenge": {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { data: challengeData, error: fetchError } = await (
           supabase.from("challenges") as any
         )
@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
           return badRequest("Challenge is already cancelled");
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const { error: updateError } = await (
           supabase.from("challenges") as any
         )

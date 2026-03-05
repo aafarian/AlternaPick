@@ -20,8 +20,6 @@ interface PropLineProps {
   playerPosition: string | null;
   statCategory: StatCategory;
   line: number;
-  awayTeam: string;
-  homeTeam: string;
   lineHistory: Array<{ t: string; l: number }> | null;
   sport?: string;
 }
@@ -76,8 +74,6 @@ export default function PropLine({
   playerPosition,
   statCategory,
   line,
-  awayTeam,
-  homeTeam,
   lineHistory,
   sport,
 }: PropLineProps) {
@@ -129,9 +125,9 @@ export default function PropLine({
 
   const disabledUnselected = isFull && !selected;
 
-  // Determine which team logo to show as background
-  const bgTeam = playerTeam || homeTeam;
-  const bgLogoUrl = teamLogoUrl(bgTeam);
+  // Only use the player's enriched team — falling back to homeTeam would show
+  // the opponent's logo for away-team players whose enrichment is missing.
+  const bgLogoUrl = playerTeam ? teamLogoUrl(playerTeam) : null;
 
   return (
     <div

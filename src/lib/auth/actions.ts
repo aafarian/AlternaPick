@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { claimAnonymousCards } from "@/lib/auth/claim-cards";
+import { logError } from "@/lib/logger";
 
 /**
  * Resolves a login identifier (email or username) to an email address.
@@ -18,7 +19,7 @@ export async function resolveLoginEmail(login: string) {
 
   // Username → look up the associated email
   const admin = createAdminClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data: profile } = await (admin.from("profiles") as any)
     .select("id")
     .eq("username", login)
@@ -90,13 +91,13 @@ export async function signUp(formData: FormData) {
   });
 
   if (error) {
-    console.error("[signUp] Error:", error.message);
+    logError("auth-actions", "signUp error", undefined, error);
     return { error: error.message };
   }
 
   // Ensure profile exists (trigger should handle this, but belt-and-suspenders)
   if (data.user) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { error: profileError } = await (admin.from("profiles") as any).upsert(
       {
         id: data.user.id,
@@ -106,11 +107,11 @@ export async function signUp(formData: FormData) {
     );
 
     if (profileError) {
-      console.error("[signUp] Profile upsert error:", profileError);
+      logError("auth-actions", "signUp profile upsert error", undefined, profileError);
     }
 
     // Ensure leaderboard entry exists
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await (admin.from("leaderboard_entries") as any).upsert(
       { user_id: data.user.id },
       { onConflict: "user_id" }
@@ -150,13 +151,13 @@ export async function updateUsername(username: string) {
     return { error: "Username already taken" };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { error } = await (admin.from("profiles") as any)
     .update({ username: trimmed })
     .eq("id", user.id);
 
   if (error) {
-    console.error("[updateUsername] Error:", error.message);
+    logError("auth-actions", "updateUsername error", undefined, error);
     return { error: "Failed to update username" };
   }
 

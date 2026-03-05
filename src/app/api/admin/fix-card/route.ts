@@ -21,7 +21,7 @@ import {
 } from "@/lib/cards/resolution";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import { logError } from "@/lib/logger";
-import type { Card, Pick, Prop, Game, StatCategory } from "@/lib/supabase/types";
+import type { Card, Pick, Prop, Game } from "@/lib/supabase/types";
 
 // ---------------------------------------------------------------------------
 // Types

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { updateDailyStreak } from "@/lib/streaks/engine";
 import { unauthorized, badRequest, notFound, forbidden, conflict, serverError, handleApiError } from "@/lib/api/errors";
+import { logError } from "@/lib/logger";
 import { isValidGameMode } from "@/lib/modes/definitions";
 import { validatePicksForMode } from "@/lib/modes/validation";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE, DEFAULT_CARD_SIZE } from "@/lib/modes/types";
@@ -217,7 +218,7 @@ export async function POST(request: NextRequest) {
         const adminClient = createAdminClient();
         await updateDailyStreak(adminClient, user.id);
       } catch (streakError) {
-        console.error("Failed to update daily streak:", streakError);
+        logError("cards", "Failed to update daily streak", undefined, streakError);
       }
     }
 
@@ -245,7 +246,7 @@ export async function POST(request: NextRequest) {
             .eq("status", "accepted");
 
           if (activateError) {
-            console.error(`Failed to activate challenge ${challenge_id}:`, activateError.message);
+            logError("cards", `Failed to activate challenge ${challenge_id}: ${activateError.message}`);
           }
 
           // Sabotage mode: swap user_id on both cards so each player
@@ -264,7 +265,7 @@ export async function POST(request: NextRequest) {
               .eq("id", cardB.id);
 
             if (swapErr1 || swapErr2) {
-              console.error(`Failed to swap sabotage cards for challenge ${challenge_id}:`, swapErr1?.message, swapErr2?.message);
+              logError("cards", `Failed to swap sabotage cards for challenge ${challenge_id}: ${swapErr1?.message} ${swapErr2?.message}`);
             }
           }
         }

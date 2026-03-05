@@ -130,7 +130,7 @@ export async function GET(
     const supabase = createAdminClient();
 
     // Fetch challenge with both players' profiles joined
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { data: challengeData, error: challengeError } = await (
       supabase.from("challenges") as any
     )
@@ -147,7 +147,7 @@ export async function GET(
     const challenge = challengeData as ChallengeRow;
 
     // Fetch both players' cards for this challenge in parallel
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { data: cardsData } = await (supabase.from("cards") as any)
       .select(
         "id, user_id, status, score, total_picks, card_size, game_mode, challenge_id, locked_at, resolved_at, created_at"
@@ -167,7 +167,7 @@ export async function GET(
     let allPicks: PickRow[] = [];
 
     if (cardIds.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data: picksData } = await (supabase.from("picks") as any)
         .select(
           "id, card_id, prop_id, selection, result, actual_value, prop:props!inner(id, player_name, player_team, stat_category, line, game:games!inner(home_team, away_team, commence_time))"

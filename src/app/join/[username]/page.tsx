@@ -83,6 +83,7 @@ export default async function JoinPage({ params }: JoinPageProps) {
             <div className="relative">
               <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-primary/40 to-accent/30 blur-md" />
               {referrer.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={referrer.avatar_url}
                   alt={displayName}

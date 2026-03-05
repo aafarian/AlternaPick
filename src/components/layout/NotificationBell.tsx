@@ -77,6 +77,7 @@ export default function NotificationBell({
           setNotifications(data.notifications ?? []);
         }
       } catch (err) {
+        // eslint-disable-next-line no-console
         console.error("Failed to fetch notifications:", err);
       } finally {
         setLoading(false);
@@ -90,6 +91,7 @@ export default function NotificationBell({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "mark_all_read" }),
         }).catch((err) => {
+          // eslint-disable-next-line no-console
           console.error("Failed to mark notifications as read:", err);
         });
       }

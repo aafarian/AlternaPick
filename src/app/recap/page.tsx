@@ -1,3 +1,4 @@
+import { logError } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { typedFrom } from "@/lib/supabase/typed-queries";
@@ -418,7 +419,7 @@ export default async function RecapPage({
   const { data: recap, error } = await query.maybeSingle();
 
   if (error) {
-    console.error("Failed to fetch recap:", error.message);
+    logError("recap", `Failed to fetch recap: ${error.message}`);
   }
 
   const typedRecap = recap as RecapRow | null;

@@ -166,7 +166,7 @@ export async function getUserRank(
   const entry = toLeaderboardRow(entryData as Record<string, unknown>);
 
   // Step 2: Get rank via single Postgres function (replaces 3 COUNT queries)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data: rankData, error: rankError } = await (supabase.rpc as any)(
     "get_user_rank",
     { p_user_id: userId, p_sort: sort }

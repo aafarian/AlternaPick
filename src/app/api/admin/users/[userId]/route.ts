@@ -105,7 +105,7 @@ export async function GET(
     const supabase = createAdminClient();
 
     // Fetch profile first — return 404 if not found
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { data: profileData, error: profileError } = await (
       supabase.from("profiles") as any
     )
@@ -130,7 +130,7 @@ export async function GET(
       friendCountResult,
     ] = await Promise.all([
       // Leaderboard stats
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       (supabase.from("leaderboard_entries") as any)
         .select(
           "total_cards, total_correct_picks, total_attempted_picks, win_rate, current_streak, best_streak, daily_streak, best_daily_streak, h2h_wins, h2h_losses, h2h_win_pct"
@@ -139,7 +139,7 @@ export async function GET(
         .single(),
 
       // Recent cards (last 20)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       (supabase.from("cards") as any)
         .select(
           "id, status, score, total_picks, card_size, game_mode, locked_at, resolved_at, created_at"
@@ -149,7 +149,7 @@ export async function GET(
         .limit(20),
 
       // Recent challenges (last 20) with profile joins for opponent info
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       (supabase.from("challenges") as any)
         .select(
           "id, challenger_id, opponent_id, status, game_mode, winner_id, resolved_at, created_at, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name)"
@@ -159,7 +159,7 @@ export async function GET(
         .limit(20),
 
       // Achievements with achievement details
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       (supabase.from("user_achievements") as any)
         .select(
           "id, unlocked_at, achievement:achievements!inner(id, name, description, icon, tier, category)"
@@ -167,7 +167,7 @@ export async function GET(
         .eq("user_id", userId),
 
       // Friend count
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       (supabase.from("friendships") as any)
         .select("*", { count: "exact", head: true })
         .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)

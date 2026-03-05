@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { handleApiError } from "@/lib/api/errors";
+import { logError } from "@/lib/logger";
 import { expireStaleChallenges } from "@/lib/challenges/queries";
 import { resolveEligibleCards } from "@/lib/cards/resolution";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
       const challengeResults = await resolveEligibleChallenges();
       challengesResolved = challengeResults.length;
     } catch (resolveError) {
-      console.error("Resolution in expire cycle failed:", resolveError);
+      logError("expire", "Resolution in expire cycle failed", undefined, resolveError);
     }
 
     return NextResponse.json({

@@ -38,7 +38,6 @@ const buttonSpring = { type: "spring" as const, stiffness: 400, damping: 25 };
 export function AnimatedUserProfile({
   profile,
   memberSince,
-  initial,
   stats,
   currentUser,
   isFriend,

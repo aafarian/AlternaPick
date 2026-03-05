@@ -775,7 +775,7 @@ export async function persistResolution(
   result: ResolutionResult
 ): Promise<boolean> {
   // Try atomic RPC first (single transaction for all picks + card status)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { data: success, error } = await (supabase.rpc as any)("resolve_card", {
     p_card_id: result.card_id,
     p_score: result.score,

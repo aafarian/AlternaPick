@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { claimAnonymousCards } from "@/lib/auth/claim-cards";
 import { processReferral } from "@/lib/referrals/queries";
+import { logError } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
     const admin = createAdminClient();
     const fallbackUsername = "user_" + user.id.replace(/-/g, "").slice(0, 8);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { error: profileError } = await (admin.from("profiles") as any).upsert(
       {
         id: user.id,
@@ -47,18 +48,18 @@ export async function GET(request: NextRequest) {
     );
 
     if (profileError) {
-      console.error("[auth/callback] Profile upsert error:", profileError.message);
+      logError("auth-callback", `Profile upsert error: ${profileError.message}`);
     }
 
     // Ensure leaderboard entry exists
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { error: leaderboardError } = await (admin.from("leaderboard_entries") as any).upsert(
       { user_id: user.id },
       { onConflict: "user_id", ignoreDuplicates: true }
     );
 
     if (leaderboardError) {
-      console.error("[auth/callback] Leaderboard upsert error:", leaderboardError.message);
+      logError("auth-callback", `Leaderboard upsert error: ${leaderboardError.message}`);
     }
   }
 
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
       await processReferral(supabase, user.id, decodeURIComponent(refUsername));
     } catch {
       // Non-fatal: referral failure should not block the auth flow
-      console.error("[auth/callback] Failed to process referral");
+      logError("auth-callback", "Failed to process referral");
     }
   }
 

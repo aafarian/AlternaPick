@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams, fetchSoccerPlayers } from "@/lib/stats-service/client";
 import { unauthorized, handleApiError } from "@/lib/api/errors";
+import { logError } from "@/lib/logger";
 
 function normalizeName(name: string): string {
   return name
@@ -162,7 +163,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (err) {
-        console.error("[Backfill] NBA enrichment failed:", err);
+        logError("backfill", "NBA enrichment failed", undefined, err);
         unmatchedNba.push(`ERROR: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
@@ -216,7 +217,7 @@ export async function POST(request: NextRequest) {
               ncaabTeamMap.set(normalizeName(name), teamName);
             }
           } catch (err) {
-            console.error(`[Backfill] NCAAB roster fetch failed for "${teamName}" (${teamId}):`, err);
+            logError("backfill", `NCAAB roster fetch failed for "${teamName}" (${teamId})`, undefined, err);
           }
         }
         ncaabPlayerMapSize = playerMap.size / 2; // each player has 2 entries
@@ -238,7 +239,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (err) {
-        console.error("[Backfill] NCAAB enrichment failed:", err);
+        logError("backfill", "NCAAB enrichment failed", undefined, err);
         unmatchedNcaab.push(`ERROR: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
@@ -284,7 +285,7 @@ export async function POST(request: NextRequest) {
             }
           }
         } catch (err) {
-          console.error(`[Backfill] ${league} enrichment failed:`, err);
+          logError("backfill", `${league} enrichment failed`, undefined, err);
           unmatchedSoccer.push(`ERROR (${league}): ${err instanceof Error ? err.message : String(err)}`);
         }
       }
@@ -330,7 +331,7 @@ export async function POST(request: NextRequest) {
                     ncaabTeamMap2.set(normalizeName(name), teamName);
                   }
                 } catch (err) {
-                  console.warn(`[Backfill] Failed to fetch NCAAB roster for team ${teamName}:`, err);
+                  logError("backfill", `Failed to fetch NCAAB roster for team ${teamName}`, undefined, err);
                 }
                 break;
               }
@@ -344,7 +345,7 @@ export async function POST(request: NextRequest) {
               ncaabTeamMap2.set(normalizeName(name), teamName);
             }
           } catch (err) {
-            console.warn(`[Backfill] Failed to fetch NCAAB roster for team ${teamName}:`, err);
+            logError("backfill", `Failed to fetch NCAAB roster for team ${teamName}`, undefined, err);
           }
         }
 
@@ -358,7 +359,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (err) {
-        console.error("[Backfill] NCAAB team backfill failed:", err);
+        logError("backfill", "NCAAB team backfill failed", undefined, err);
       }
     }
 

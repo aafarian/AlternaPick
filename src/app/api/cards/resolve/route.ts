@@ -4,6 +4,7 @@ import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import { resetWeeklyFreezes } from "@/lib/streaks/engine";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { unauthorized, handleApiError } from "@/lib/api/errors";
+import { logError } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
   // Auth check
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
       const adminClient = createAdminClient();
       await resetWeeklyFreezes(adminClient);
     } catch (freezeError) {
-      console.error("Failed to reset weekly freezes:", freezeError);
+      logError("resolve", "Failed to reset weekly freezes", undefined, freezeError);
     }
 
     // Phase 1: Resolve eligible cards
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
     try {
       reResolved = await reResolveStaleCards();
     } catch (reResolveError) {
-      console.error("Re-resolution failed:", reResolveError);
+      logError("resolve", "Re-resolution failed", undefined, reResolveError);
     }
 
     // Phase 2: Resolve eligible challenges (post-processing)

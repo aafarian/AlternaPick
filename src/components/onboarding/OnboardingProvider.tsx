@@ -28,7 +28,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function checkStatus(attempt = 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const { data, error } = await (supabase.from("profiles") as any)
         .select("username, onboarding_completed")
         .eq("id", userId)
@@ -68,7 +68,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [userId, loading, supabase]);
 
   function handleUsernameComplete() {
@@ -79,7 +79,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     setPhase("done");
 
     if (userId && supabase) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (supabase.from("profiles") as any)
         .update({ onboarding_completed: true })
         .eq("id", userId);

@@ -9,7 +9,7 @@ import type { Game } from "@/lib/supabase/types";
 import { logError } from "@/lib/logger";
 import { normalizeTeam } from "@/lib/team-matching";
 import { lookbackDatesForSport } from "@/lib/sports/fetchers";
-import { normalizeNcaabTeam, ncaabTeamsMatch, findNcaabMatch } from "@/lib/ncaab/matching";
+import { normalizeNcaabTeam, findNcaabMatch } from "@/lib/ncaab/matching";
 
 // Map NBA.com tricodes to Odds API full team names
 const TRICODE_TO_TEAM: Record<string, string> = {
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     // whether they were stuck at "live" or "scheduled".
     const staleThreshold = new Date(now.getTime() - 6 * 60 * 60 * 1000);
     let staleFinalizedCount = 0;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     let ncaabDebug: any = null;
 
     const staleResult = await (supabase.from("games") as any)

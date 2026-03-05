@@ -101,7 +101,7 @@ export function useBatchLiveStats(
         // Track and detect transition from "had live games" to "no live games"
         const anyLive = Object.values(cardsObj).some((c) => c.has_live_games);
         if (anyLive) hadLiveRef.current = true;
-        if (!anyLive && intervalRef.current) {
+        if (!anyLive && hadLiveRef.current && intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
           // Confirmation fetch after 5s — catches transient "no live" responses

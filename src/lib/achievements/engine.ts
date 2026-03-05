@@ -1,3 +1,4 @@
+import { logError } from "@/lib/logger";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Achievement, NotificationPreferences } from "@/lib/supabase/types";
 import { ACHIEVEMENT_CHECKS, type AchievementContext } from "./definitions";
@@ -68,7 +69,7 @@ export async function checkAndUnlockAchievements(
         passed = checkFn(context);
       } catch {
         // Individual check failure should not block others
-        console.error(`Achievement check "${key}" threw an error`);
+        logError("achievement-engine", `Achievement check "${key}" threw an error`);
         continue;
       }
 
@@ -103,8 +104,10 @@ export async function checkAndUnlockAchievements(
           },
         }, userPrefs);
       } catch (notifErr) {
-        console.error(
-          `Failed to create notification for achievement "${key}":`,
+        logError(
+          "achievement-engine",
+          `Failed to create notification for achievement "${key}"`,
+          undefined,
           notifErr
         );
       }
@@ -113,7 +116,7 @@ export async function checkAndUnlockAchievements(
     return newlyUnlocked;
   } catch (err) {
     // Top-level catch: achievement failures must NEVER break the caller
-    console.error("Achievement engine error:", err);
+    logError("achievement-engine", "Achievement engine error", undefined, err);
     return [];
   }
 }
