@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -11,6 +12,16 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -23,6 +34,7 @@ import {
   ArrowLeft,
   AlertCircle,
   RefreshCw,
+  Loader2,
   User,
   Swords,
   Layers,
@@ -116,7 +128,71 @@ function LoadingSkeleton() {
 // Sub-sections
 // ---------------------------------------------------------------------------
 
-function CardHeaderSection({ data }: { data: CardDetailResponse }) {
+function ResyncButton({
+  cardId,
+  onComplete,
+}: {
+  cardId: string;
+  onComplete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleConfirm = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/fix-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error ?? `Failed (${res.status})`);
+      }
+      if (data.resolved) {
+        toast.success(`Card resolved: ${data.score}/${data.total}`);
+      } else {
+        toast.info(`${data.gamesUpdated} game(s) updated. Card not yet resolvable.`);
+      }
+      setOpen(false);
+      onComplete();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
+  }, [cardId, onComplete]);
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1.5">
+          <RefreshCw className="h-4 w-4" />
+          Re-sync Games
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Re-sync game data?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will re-fetch game data from the stats service and re-attempt
+            resolution if all games are final.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+          <Button onClick={handleConfirm} disabled={loading} className="gap-1.5">
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Re-sync
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function CardHeaderSection({ data, onResync }: { data: CardDetailResponse; onResync: () => void }) {
   return (
     <Card className="py-5">
       <CardContent className="px-6 pb-0 pt-0">
@@ -164,8 +240,11 @@ function CardHeaderSection({ data }: { data: CardDetailResponse }) {
             )}
           </div>
 
-          {/* Right: meta badges */}
-          <div className="flex flex-wrap gap-2">
+          {/* Right: meta badges + actions */}
+          <div className="flex flex-wrap items-center gap-2">
+            {data.status === "locked" && (
+              <ResyncButton cardId={data.id} onComplete={onResync} />
+            )}
             <Badge variant="outline">{gameModeLabel(data.gameMode)}</Badge>
             <Badge variant="outline">{data.cardSize}-pick</Badge>
             <Badge variant="outline">
@@ -354,7 +433,7 @@ export default function CardDetail({ cardId }: { cardId: string }) {
       {backLink}
 
       {/* Header with status, owner, challenge info, meta badges */}
-      <CardHeaderSection data={data} />
+      <CardHeaderSection data={data} onResync={fetchDetail} />
 
       {/* Timestamps */}
       <TimestampsGrid data={data} />

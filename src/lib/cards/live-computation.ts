@@ -1,4 +1,4 @@
-import { extractStatValue, fuzzyMatchPlayer } from "@/lib/cards/resolution";
+import { extractStatValue, fuzzyMatchPlayer } from "@/lib/cards/resolution-utils";
 import {
   fetchBoxscore,
   fetchBoxscoreLive,
@@ -18,6 +18,7 @@ import {
   type StatsGame,
 } from "@/lib/stats-service/client";
 import { logError } from "@/lib/logger";
+import { lookbackDatesForSport } from "@/lib/sports/fetchers";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
 import { registerNcaabTeamIds, teamLogoUrl, teamTricode, gameUrl } from "@/lib/constants";
 import type {
@@ -170,10 +171,10 @@ export function buildLivePicksForCard(
     let currentValue: number | null = null;
     let trending: "hit" | "miss" | "push" | "dnp" | null = null;
 
-    // Once classified as DNP, we skip the boxscore refresh below.
+    // Once classified as DNP on a final game, we skip the boxscore refresh below.
     // If the classification was incorrect (transient ESPN data),
     // reResolveStaleCards is the corrective path.
-    if (pick.result === "dnp") {
+    if (pick.result === "dnp" && dbGameStatus === "final") {
       trending = "dnp";
     }
 
@@ -187,9 +188,11 @@ export function buildLivePicksForCard(
         const playerStats = fuzzyMatchPlayer(boxscore, pick.props.player_name);
 
         if (playerStats) {
-          if (playerStats.dnp) {
+          if (playerStats.dnp && effectiveStatus === "final") {
+            // Only show DNP once the game is over — during live games,
+            // a bench player with no stats just hasn't entered yet.
             trending = "dnp";
-          } else {
+          } else if (!playerStats.dnp) {
             currentValue = extractStatValue(playerStats, pick.props.stat_category);
 
             if (currentValue === pick.props.line) {
@@ -378,26 +381,14 @@ export async function fetchLiveMaps(
     const commence = pick.props?.games?.commence_time;
     if (!commence) continue;
     const sport = pick.props?.games?.sport ?? "nba";
-    // ESPN uses YYYYMMDD in ET — a 10 PM ET game on March 3 is stored as
-    // March 4 in UTC. Convert to ET before extracting the date.
-    const gameDate = new Date(commence);
-    const etFormatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/New_York",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-    const parts = etFormatter.formatToParts(gameDate);
-    const y = parts.find((p) => p.type === "year")!.value;
-    const m = parts.find((p) => p.type === "month")!.value;
-    const d = parts.find((p) => p.type === "day")!.value;
-    const dateStr = `${y}${m}${d}`;
     let dates = lookbackBySport.get(sport);
     if (!dates) {
       dates = new Set<string>();
       lookbackBySport.set(sport, dates);
     }
-    dates.add(dateStr);
+    for (const dateStr of lookbackDatesForSport(sport, new Date(commence))) {
+      dates.add(dateStr);
+    }
   }
 
   if (lookbackBySport.size > 0) {

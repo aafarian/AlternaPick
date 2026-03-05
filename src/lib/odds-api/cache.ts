@@ -3,7 +3,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { SportKey } from "./constants";
 import type { OddsApiEvent, ParsedPlayerProp } from "./types";
 import type { Game, Prop } from "@/lib/supabase/types";
-import { fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams, fetchSoccerPlayers } from "@/lib/stats-service/client";
+import {
+  fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams, fetchSoccerPlayers,
+  fetchSoccerGamesByDate, fetchLaLigaGamesByDate, fetchCopaDelReyGamesByDate,
+  type StatsGame,
+} from "@/lib/stats-service/client";
+import { normalizeTeam, teamsMatch } from "@/lib/team-matching";
+import { lookbackDatesForSport } from "@/lib/sports/fetchers";
+import { isSoccer } from "@/lib/sports/config";
 
 /**
  * Returns true if a sync happened within the last 5 minutes,
@@ -383,9 +390,65 @@ async function _cachePropsInternal(
     return null;
   }
 
+  // For soccer, validate games against ESPN to filter out phantom matchups
+  // (e.g. Copa del Rey games mislabeled as La Liga by the Odds API).
+  let validEventIds: Set<string> | null = null;
+  if (isSoccer(sport)) {
+    try {
+      const soccerFetchers: Record<string, Array<(date: string) => Promise<StatsGame[]>>> = {
+        epl: [fetchSoccerGamesByDate],
+        la_liga: [fetchLaLigaGamesByDate, fetchCopaDelReyGamesByDate],
+      };
+      const fetchers = soccerFetchers[sport] ?? [];
+
+      // Collect unique dates from events (YYYYMMDD format)
+      const eventDates = new Set<string>();
+      for (const e of events) {
+        if (!propsMap.has(e.id)) continue;
+        for (const d of lookbackDatesForSport(sport, new Date(e.commence_time))) {
+          eventDates.add(d);
+        }
+      }
+
+      // Fetch all ESPN games for those dates
+      const espnGames: StatsGame[] = [];
+      for (const fetcher of fetchers) {
+        for (const date of eventDates) {
+          try {
+            const games = await fetcher(date);
+            espnGames.push(...games);
+          } catch {
+            // Non-fatal — if ESPN is down, skip validation
+          }
+        }
+      }
+
+      if (espnGames.length > 0) {
+        // Match Odds API events to ESPN games by team names
+        validEventIds = new Set<string>();
+        for (const event of events) {
+          if (!propsMap.has(event.id)) continue;
+          const matched = espnGames.some(
+            (g) =>
+              teamsMatch(event.home_team, g.home_team) &&
+              teamsMatch(event.away_team, g.away_team),
+          );
+          if (matched) {
+            validEventIds.add(event.id);
+          } else {
+            propsMap.delete(event.id); // Remove props for this phantom game
+          }
+        }
+      }
+    } catch {
+      // ESPN validation failed — proceed without filtering
+    }
+  }
+
   // Upsert games
   const gameRows = events
     .filter((e) => propsMap.has(e.id))
+    .filter((e) => !validEventIds || validEventIds.has(e.id))
     .map((event) => ({
       odds_api_event_id: event.id,
       home_team: event.home_team,

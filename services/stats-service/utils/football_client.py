@@ -1,14 +1,14 @@
 """
-api-football client for fetching EPL fixture data.
+api-football client for team and player lookups.
 
 Uses the direct api-football.com endpoint (v3.football.api-sports.io).
 Sign up at https://dashboard.api-football.com for a free API key (100 req/day).
 
 Endpoints used:
-  - GET /fixtures?league=39&season=2024&date={today}  — today's EPL fixtures
-  - GET /fixtures?id={id}                              — single fixture (score/status)
-  - GET /fixtures/players?fixture={id}                 — player stats for a fixture
+  - GET /teams?league={id}&season={season}   — all teams for a league
+  - GET /players/squads?team={id}            — squad for a team
 
+Game scores and player boxscores have been migrated to ESPN.
 Free tier: 100 requests/day. We use a dedicated rate limiter.
 """
 
@@ -17,26 +17,22 @@ import logging
 import os
 import time
 import unicodedata
-from datetime import date, datetime, timezone, timedelta
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://v3.football.api-sports.io"
-EPL_LEAGUE_ID = 39
-LA_LIGA_LEAGUE_ID = 140
-EPL_SEASON = 2024  # EPL 2024-25 season
+EPL_SEASON = 2024  # Free plan covers 2022-2024
 
 # In-memory cache with TTL
-_cache: dict[str, tuple[float, object]] = {}
+_cache: dict[str, tuple[float, object, float]] = {}
 CACHE_TTL_SECONDS = 30
-FINAL_CACHE_TTL_SECONDS = 3600
 
 
 def _get_cached(key: str):
     entry = _cache.get(key)
-    if entry and (time.monotonic() - entry[0]) < (entry[2] if len(entry) > 2 else CACHE_TTL_SECONDS):
+    if entry and (time.monotonic() - entry[0]) < entry[2]:
         return entry[1]
     return None
 
@@ -82,232 +78,6 @@ async def _api_get(endpoint: str, params: dict) -> dict:
         )
         response.raise_for_status()
         return response.json()
-
-
-def _parse_fixture_status(status_short: str) -> str:
-    """Map api-football short status to our status format."""
-    live_statuses = {"1H", "2H", "HT", "ET", "BT", "P", "INT", "LIVE"}
-    final_statuses = {"FT", "AET", "PEN", "AWD", "WO"}
-    if status_short in live_statuses:
-        return "live"
-    if status_short in final_statuses:
-        return "final"
-    return "scheduled"
-
-
-async def get_todays_fixtures(league_id: int = EPL_LEAGUE_ID, target_date: str | None = None) -> list[dict]:
-    """Fetch fixtures for a given league with scores and status.
-
-    Args:
-        league_id: api-football league ID.
-        target_date: Date in YYYY-MM-DD format. Defaults to today (UTC).
-    """
-    today = target_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    cache_key = f"fixtures:{league_id}:{today}"
-    cached = _get_cached(cache_key)
-    if cached is not None:
-        return cached
-
-    try:
-        data = await _api_get("/fixtures", {
-            "league": league_id,
-            "season": EPL_SEASON,
-            "date": today,
-        })
-
-        fixtures = []
-        for f in data.get("response", []):
-            fixture_info = f.get("fixture", {})
-            teams = f.get("teams", {})
-            goals = f.get("goals", {})
-            status = fixture_info.get("status", {})
-
-            fixtures.append({
-                "game_id": str(fixture_info.get("id", "")),
-                "home_team": teams.get("home", {}).get("name", ""),
-                "home_tricode": "",
-                "away_team": teams.get("away", {}).get("name", ""),
-                "away_tricode": "",
-                "home_score": goals.get("home") or 0,
-                "away_score": goals.get("away") or 0,
-                "status": _parse_fixture_status(status.get("short", "NS")),
-                "period": _get_period(status),
-                "clock": str(status.get("elapsed", 0) or 0) + "'",
-                "start_time": fixture_info.get("date", ""),
-            })
-
-        _set_cached(cache_key, fixtures)
-        return fixtures
-    except Exception as e:
-        logger.error(f"Failed to fetch EPL fixtures: {e}")
-        raise
-
-
-def _get_period(status: dict) -> int:
-    """Derive period number from api-football status."""
-    short = status.get("short", "NS")
-    if short == "1H":
-        return 1
-    if short in ("HT", "2H"):
-        return 2
-    if short in ("ET", "BT", "P"):
-        return 3
-    if short in ("FT", "AET", "PEN"):
-        return 2
-    return 0
-
-
-def _make_soccer_player(
-    player_info: dict, team_name: str, *, dnp: bool = False, stats: dict | None = None
-) -> dict:
-    """Build a boxscore entry for a soccer player.
-
-    Args:
-        player_info: api-football player dict with 'name' and 'id'.
-        team_name: Team display name.
-        dnp: True if the player Did Not Play.
-        stats: Aggregated stats dict (from _aggregate_player_stats) or None.
-    """
-    s = stats or {}
-    return {
-        "player_name": player_info.get("name", ""),
-        "player_id": str(player_info.get("id", "")),
-        "team": team_name,
-        "team_tricode": "",
-        "minutes": str(s.get("minutes", "0")) if not dnp else "0",
-        "goals": s.get("goals", 0),
-        "assists": s.get("assists", 0),
-        "shots": s.get("shots_total", 0),
-        "shots_on_target": s.get("shots_on", 0),
-        "passes": s.get("passes_total", 0),
-        "tackles": s.get("tackles_total", 0),
-        "fouls_committed": s.get("fouls_committed", 0),
-        "saves": s.get("saves", 0),
-        # NBA-compatible fields (zero for soccer)
-        "points": 0,
-        "rebounds": 0,
-        "offensive_rebounds": 0,
-        "defensive_rebounds": 0,
-        "steals": 0,
-        "blocks": 0,
-        "turnovers": 0,
-        "threes_made": 0,
-        "threes_attempted": 0,
-        "field_goals_made": 0,
-        "field_goals_attempted": 0,
-        "free_throws_made": 0,
-        "free_throws_attempted": 0,
-        "plus_minus": 0,
-        "fouls": 0,
-        "dnp": dnp,
-    }
-
-
-async def get_fixture_player_stats(fixture_id: str) -> list[dict]:
-    """Fetch player stats for a completed/live fixture."""
-    cache_key = f"epl_boxscore:{fixture_id}"
-    cached = _get_cached(cache_key)
-    if cached is not None:
-        return cached
-
-    try:
-        data = await _api_get("/fixtures/players", {
-            "fixture": fixture_id,
-        })
-
-        players = []
-        for team_data in data.get("response", []):
-            team_name = team_data.get("team", {}).get("name", "")
-            for player_entry in team_data.get("players", []):
-                player_info = player_entry.get("player", {})
-                stats_list = player_entry.get("statistics", [])
-                if not stats_list:
-                    players.append(_make_soccer_player(player_info, team_name, dnp=True))
-                    continue
-                # api-football returns a list of stat objects (one per position played)
-                # Aggregate across all entries
-                stats = _aggregate_player_stats(stats_list)
-
-                # Detect DNP: minutes is None means player was on roster but didn't play.
-                # Do NOT use == 0; late subs can have 0 minutes due to rounding (B28).
-                minutes_val = stats.get("minutes")
-                is_dnp = minutes_val is None
-
-                players.append(_make_soccer_player(player_info, team_name, dnp=is_dnp, stats=stats))
-
-        # Determine cache TTL: use long TTL for final games
-        ttl = CACHE_TTL_SECONDS
-        fixture_data = await _get_fixture_status(fixture_id)
-        if fixture_data and fixture_data.get("status") == "final":
-            ttl = FINAL_CACHE_TTL_SECONDS
-
-        _set_cached(cache_key, players, ttl)
-        return players
-    except Exception as e:
-        logger.error(f"Failed to fetch player stats for fixture {fixture_id}: {e}")
-        raise
-
-
-def _aggregate_player_stats(stats_list: list[dict]) -> dict:
-    """Aggregate player stats across multiple stat entries."""
-    result = {
-        "minutes": 0,
-        "goals": 0,
-        "assists": 0,
-        "shots_total": 0,
-        "shots_on": 0,
-        "passes_total": 0,
-        "tackles_total": 0,
-        "fouls_committed": 0,
-        "saves": 0,
-    }
-
-    for s in stats_list:
-        games = s.get("games", {})
-        goals_data = s.get("goals", {})
-        shots_data = s.get("shots", {})
-        passes_data = s.get("passes", {})
-        tackles_data = s.get("tackles", {})
-        fouls_data = s.get("fouls", {})
-
-        minutes_str = str(games.get("minutes") or "0")
-        try:
-            result["minutes"] += int(minutes_str.replace("'", ""))
-        except (ValueError, TypeError):
-            pass
-
-        result["goals"] += goals_data.get("total") or 0
-        result["assists"] += goals_data.get("assists") or 0
-        result["shots_total"] += shots_data.get("total") or 0
-        result["shots_on"] += shots_data.get("on") or 0
-        result["passes_total"] += passes_data.get("total") or 0
-        result["tackles_total"] += tackles_data.get("total") or 0
-        result["fouls_committed"] += fouls_data.get("committed") or 0
-        result["saves"] += s.get("goals", {}).get("saves") or 0
-
-    return result
-
-
-async def _get_fixture_status(fixture_id: str) -> dict | None:
-    """Get fixture status (used internally for cache TTL decisions)."""
-    cache_key = f"epl_fixture_status:{fixture_id}"
-    cached = _get_cached(cache_key)
-    if cached is not None:
-        return cached
-
-    try:
-        data = await _api_get("/fixtures", {"id": fixture_id})
-        fixtures = data.get("response", [])
-        if not fixtures:
-            return None
-
-        f = fixtures[0]
-        status_short = f.get("fixture", {}).get("status", {}).get("short", "NS")
-        result = {"status": _parse_fixture_status(status_short)}
-        _set_cached(cache_key, result)
-        return result
-    except Exception:
-        return None
 
 
 LEAGUE_IDS = {
@@ -426,29 +196,3 @@ async def get_soccer_players_by_team_names(
             pass
 
     return player_map
-
-
-async def get_todays_epl_fixtures(target_date: str | None = None) -> list[dict]:
-    """Fetch EPL fixtures (convenience wrapper)."""
-    return await get_todays_fixtures(EPL_LEAGUE_ID, target_date)
-
-
-async def get_todays_la_liga_fixtures(target_date: str | None = None) -> list[dict]:
-    """Fetch La Liga fixtures."""
-    return await get_todays_fixtures(LA_LIGA_LEAGUE_ID, target_date)
-
-
-
-async def get_todays_epl_fixtures_cached() -> list[dict]:
-    """Cached version of get_todays_epl_fixtures (30s TTL)."""
-    return await get_todays_epl_fixtures()
-
-
-async def get_todays_la_liga_fixtures_cached() -> list[dict]:
-    """Cached version of get_todays_la_liga_fixtures (30s TTL)."""
-    return await get_todays_la_liga_fixtures()
-
-
-async def get_fixture_player_stats_cached(fixture_id: str) -> list[dict]:
-    """Cached version of get_fixture_player_stats (30s TTL for live, 1hr for final)."""
-    return await get_fixture_player_stats(fixture_id)

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { formatTimeAgo, formatClock, formatGameTime } from "../format";
+import { formatTimeAgo, formatClock, formatLiveStatus, formatGameTime } from "../format";
 
 /* ---------- formatTimeAgo ---------- */
 
@@ -233,6 +233,42 @@ describe("formatClock", () => {
     it("ISO format with no leading zero in minutes", () => {
       expect(formatClock(2, "PT3M09.00S")).toBe("Q2 3:09");
     });
+  });
+});
+
+/* ---------- formatLiveStatus ---------- */
+
+describe("formatLiveStatus", () => {
+  it("delegates to formatClock when period > 0 (NBA)", () => {
+    expect(formatLiveStatus(3, "5:30", "nba")).toBe("Q3 5:30");
+  });
+
+  it("delegates to formatClock when period > 0 (EPL)", () => {
+    expect(formatLiveStatus(2, "65:00", "epl")).toBe("H2 65:00");
+  });
+
+  it("delegates to formatClock when period > 0 (NCAAB halftime)", () => {
+    expect(formatLiveStatus(1, "0:00", "ncaab")).toBe("Half");
+  });
+
+  it('returns "Starting" when period=0 and no scores', () => {
+    expect(formatLiveStatus(0, "", undefined, undefined, undefined)).toBe("Starting");
+  });
+
+  it('returns "Starting" when period=0 and both scores are 0', () => {
+    expect(formatLiveStatus(0, "", undefined, 0, 0)).toBe("Starting");
+  });
+
+  it('returns "Live" when period=0 and scores are non-zero', () => {
+    expect(formatLiveStatus(0, "", undefined, 12, 8)).toBe("Live");
+  });
+
+  it('returns "Live" when period=0 and only home has scored', () => {
+    expect(formatLiveStatus(0, "", undefined, 5, 0)).toBe("Live");
+  });
+
+  it('returns "Live" when period=0 and only away has scored', () => {
+    expect(formatLiveStatus(0, "", undefined, 0, 3)).toBe("Live");
   });
 });
 

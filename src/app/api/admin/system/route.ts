@@ -102,19 +102,20 @@ export async function GET() {
         .gte("commence_time", todayStart)
         .lte("commence_time", todayEnd),
 
-      // Error indicator: picks with result='pending' on cards with status='resolved'
+      // Error indicator: picks with result='pending' on resolved cards where game is final.
+      // Live/scheduled games are expected to have pending picks — not an error.
+      // Include player/game details so admin can debug.
       supabase
         .from("picks")
-        .select("id, card_id, cards!inner(status)", { count: "exact", head: true })
+        .select("id, card_id, props(player_name, stat_category, line, player_team, games(status, home_team, away_team, sport, external_event_id)), cards!inner(status)")
         .eq("result", "pending")
         .eq("cards.status", "resolved"),
 
       // Error indicator: locked cards where all referenced games are final
-      // We find locked cards, then check if any have games that are NOT final
-      // Strategy: get locked cards with at least one pick, then filter client-side
+      // Include pick/user details so admin can see which cards are stuck
       supabase
         .from("cards")
-        .select("id, picks(prop_id, props(game_id, games(status)))")
+        .select("id, locked_at, user_id, profiles!cards_user_id_fkey(username), picks(result, props(player_name, stat_category, line, games(status)))")
         .eq("status", "locked"),
 
       // Odds API credit check (free endpoint, 0 credits)
@@ -128,9 +129,17 @@ export async function GET() {
     // Calculate stuck locked cards: locked cards where ALL games referenced are 'final'
     type LockedCardRow = {
       id: string;
+      locked_at: string | null;
+      user_id: string | null;
+      profiles: { username: string } | null;
       picks: Array<{
-        prop_id: string;
-        props: { game_id: string; games: { status: string } } | null;
+        result: string;
+        props: {
+          player_name: string;
+          stat_category: string;
+          line: number;
+          games: { status: string } | null;
+        } | null;
       }> | null;
     };
     const lockedCards = (stuckLockedCardsResult.data as LockedCardRow[] | null) ?? [];
@@ -144,12 +153,46 @@ export async function GET() {
     // Build error indicators as recentApiErrors entries
     const errorIndicators: AdminSystemHealth["errors"]["recentApiErrors"] = [];
 
-    const stalePendingCount = stalePendingPicksResult.count ?? 0;
-    if (stalePendingCount > 0) {
+    // Only count pending picks where the game is final — live/scheduled games will resolve naturally
+    type StalePendingRow = {
+      id: string;
+      card_id: string;
+      props: {
+        player_name: string;
+        stat_category: string;
+        line: number;
+        player_team: string | null;
+        games: {
+          status: string;
+          home_team: string;
+          away_team: string;
+          sport: string | null;
+          external_event_id: string | null;
+        } | null;
+      } | null;
+    };
+    const stalePendingRows = (stalePendingPicksResult.data as StalePendingRow[] | null) ?? [];
+    const stalePendingFinal = stalePendingRows.filter(
+      (row) => row.props?.games?.status === "final",
+    );
+    if (stalePendingFinal.length > 0) {
       errorIndicators.push({
-        message: `${stalePendingCount} pick(s) still pending on resolved cards`,
+        message: `${stalePendingFinal.length} pick(s) still pending on resolved cards`,
         timestamp: new Date().toISOString(),
         endpoint: null,
+        stalePicks: stalePendingFinal.map((row) => ({
+          pickId: row.id,
+          cardId: row.card_id,
+          player: row.props?.player_name ?? "Unknown",
+          stat: row.props?.stat_category ?? "Unknown",
+          line: row.props?.line ?? 0,
+          team: row.props?.player_team ?? null,
+          sport: row.props?.games?.sport ?? null,
+          game: row.props?.games
+            ? `${row.props.games.home_team} vs ${row.props.games.away_team}`
+            : null,
+          eventId: row.props?.games?.external_event_id ?? null,
+        })),
       });
     }
 
@@ -158,6 +201,19 @@ export async function GET() {
         message: `${stuckLockedCards.length} locked card(s) with all games final (unresolved)`,
         timestamp: new Date().toISOString(),
         endpoint: null,
+        lockedCards: stuckLockedCards.map((card) => ({
+          cardId: card.id,
+          username: card.profiles?.username ?? null,
+          lockedAt: card.locked_at,
+          pickCount: card.picks?.length ?? 0,
+          picks: (card.picks ?? []).map((p) => ({
+            player: p.props?.player_name ?? "Unknown",
+            stat: p.props?.stat_category ?? "Unknown",
+            line: p.props?.line ?? 0,
+            result: p.result,
+            gameStatus: p.props?.games?.status ?? null,
+          })),
+        })),
       });
     }
 

@@ -248,6 +248,32 @@ export interface AdminChallengeDetail {
 // System Health
 // ---------------------------------------------------------------------------
 
+export interface StalePickDetail {
+  pickId: string;
+  cardId: string;
+  player: string;
+  stat: string;
+  line: number;
+  team: string | null;
+  sport: string | null;
+  game: string | null;
+  eventId: string | null;
+}
+
+export interface LockedCardDetail {
+  cardId: string;
+  username: string | null;
+  lockedAt: string | null;
+  pickCount: number;
+  picks: Array<{
+    player: string;
+    stat: string;
+    line: number;
+    result: string;
+    gameStatus: string | null;
+  }>;
+}
+
 export interface AdminSystemHealth {
   propSync: {
     lastSyncAt: string | null;
@@ -267,6 +293,8 @@ export interface AdminSystemHealth {
       message: string;
       timestamp: string;
       endpoint: string | null;
+      stalePicks?: StalePickDetail[];
+      lockedCards?: LockedCardDetail[];
     }>;
     runtimeErrors: Array<{
       message: string;

@@ -41,7 +41,7 @@ async def _refresh_scoreboards():
     """Background loop that keeps scoreboard caches warm."""
     from utils.nba_client import get_todays_scoreboard
     from utils.ncaab_client import get_todays_ncaab_games
-    from utils.football_client import get_todays_fixtures, EPL_LEAGUE_ID, LA_LIGA_LEAGUE_ID
+    from utils.soccer_espn_client import get_epl_scoreboard, get_la_liga_scoreboard
 
     while True:
         try:
@@ -49,8 +49,8 @@ async def _refresh_scoreboards():
             results = await asyncio.gather(
                 get_todays_scoreboard(),
                 get_todays_ncaab_games(),
-                get_todays_fixtures(EPL_LEAGUE_ID),
-                get_todays_fixtures(LA_LIGA_LEAGUE_ID),
+                get_epl_scoreboard(),
+                get_la_liga_scoreboard(),
                 return_exceptions=True,
             )
             for i, r in enumerate(results):
@@ -71,13 +71,13 @@ async def lifespan(app: FastAPI):
     # Warm caches before accepting requests so the first poll doesn't hit cold ESPN fetches
     from utils.nba_client import get_todays_scoreboard
     from utils.ncaab_client import get_todays_ncaab_games
-    from utils.football_client import get_todays_fixtures, EPL_LEAGUE_ID, LA_LIGA_LEAGUE_ID
+    from utils.soccer_espn_client import get_epl_scoreboard, get_la_liga_scoreboard
 
     await asyncio.gather(
         get_todays_scoreboard(),
         get_todays_ncaab_games(),
-        get_todays_fixtures(EPL_LEAGUE_ID),
-        get_todays_fixtures(LA_LIGA_LEAGUE_ID),
+        get_epl_scoreboard(),
+        get_la_liga_scoreboard(),
         return_exceptions=True,
     )
 

@@ -2,41 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { buildLivePicksForCard, type PickWithPropAndGame } from "../live-computation";
 import { toLivePickData } from "../live-types";
 import type { StatsGame, PlayerBoxScore } from "@/lib/stats-service/client";
-
-// Mock the resolution module
-vi.mock("@/lib/cards/resolution", () => ({
-  fuzzyMatchPlayer: vi.fn((boxscore: PlayerBoxScore[], playerName: string) => {
-    return boxscore.find(
-      (p) => p.player_name.toLowerCase() === playerName.toLowerCase(),
-    );
-  }),
-  extractStatValue: vi.fn((stats: PlayerBoxScore, category: string) => {
-    switch (category) {
-      case "points":
-        return stats.points;
-      case "rebounds":
-        return stats.rebounds;
-      case "assists":
-        return stats.assists;
-      case "steals":
-        return stats.steals;
-      case "blocks":
-        return stats.blocks;
-      case "turnovers":
-        return stats.turnovers;
-      case "threes":
-        return stats.threes_made;
-      case "goals":
-        return stats.goals ?? 0;
-      case "shots":
-        return stats.shots ?? 0;
-      case "shots_on_target":
-        return stats.shots_on_target ?? 0;
-      default:
-        return 0;
-    }
-  }),
-}));
+import { makePlayer, makeGame, makePick } from "./factories";
 
 // Mock constants — teamLogoUrl, teamTricode, gameUrl
 vi.mock("@/lib/constants", () => ({
@@ -53,79 +19,6 @@ vi.mock("@/lib/constants", () => ({
 vi.mock("@/lib/logger", () => ({
   logError: vi.fn(),
 }));
-
-/* ---------- helpers ---------- */
-
-function makePlayer(overrides: Partial<PlayerBoxScore> = {}): PlayerBoxScore {
-  return {
-    player_name: "LeBron James",
-    player_id: "2544",
-    team: "Los Angeles Lakers",
-    team_tricode: "LAL",
-    minutes: "36:00",
-    points: 28,
-    rebounds: 8,
-    offensive_rebounds: 2,
-    defensive_rebounds: 6,
-    assists: 10,
-    steals: 2,
-    blocks: 1,
-    turnovers: 3,
-    threes_made: 4,
-    threes_attempted: 8,
-    field_goals_made: 10,
-    field_goals_attempted: 20,
-    free_throws_made: 4,
-    free_throws_attempted: 5,
-    plus_minus: 12,
-    fouls: 2,
-    ...overrides,
-  };
-}
-
-function makeGame(overrides: Partial<StatsGame> = {}): StatsGame {
-  return {
-    game_id: "401584700",
-    home_team: "Los Angeles Lakers",
-    home_tricode: "LAL",
-    away_team: "Boston Celtics",
-    away_tricode: "BOS",
-    home_score: 95,
-    away_score: 88,
-    status: "live",
-    period: 3,
-    clock: "5:30",
-    start_time: "2026-03-03T00:00:00Z",
-    ...overrides,
-  };
-}
-
-function makePick(overrides: Partial<PickWithPropAndGame> = {}): PickWithPropAndGame {
-  return {
-    id: "pick-1",
-    selection: "over",
-    props: {
-      player_name: "LeBron James",
-      player_id: "2544",
-      player_team: "Los Angeles Lakers",
-      player_position: "SF",
-      stat_category: "points",
-      line: 25.5,
-      game_id: "game-1",
-      games: {
-        external_event_id: "401584700",
-        sport: "nba",
-        status: "scheduled",
-        home_team: "Los Angeles Lakers",
-        away_team: "Boston Celtics",
-        home_score: null,
-        away_score: null,
-        commence_time: "2026-03-03T00:00:00Z",
-      },
-    },
-    ...overrides,
-  };
-}
 
 /* ---------- tests ---------- */
 
@@ -299,8 +192,14 @@ describe("buildLivePicksForCard", () => {
   });
 
   describe("DNP handling", () => {
-    it("pick with result='dnp' -> trending='dnp', skips boxscore", () => {
-      const pick = makePick({ result: "dnp" });
+    it("pick with result='dnp' on final game -> trending='dnp', skips boxscore", () => {
+      const pick = makePick({
+        result: "dnp",
+        props: {
+          ...makePick().props,
+          games: { ...makePick().props.games, status: "final" },
+        },
+      });
       const game = makeGame({ status: "final" });
       const player = makePlayer({ player_name: "LeBron James", points: 28 });
       const gameStatusMap = new Map([["401584700", game]]);
@@ -313,7 +212,39 @@ describe("buildLivePicksForCard", () => {
       expect(result.livePicks[0].current_value).toBeNull();
     });
 
-    it("player with dnp flag in boxscore -> trending='dnp'", () => {
+    it("pick with result='dnp' on live game -> no DNP trending", () => {
+      const pick = makePick({
+        result: "dnp",
+        props: {
+          ...makePick().props,
+          games: { ...makePick().props.games, status: "live" },
+        },
+      });
+      const game = makeGame({ status: "live" });
+      const player = makePlayer({ player_name: "LeBron James", points: 28 });
+      const gameStatusMap = new Map([["401584700", game]]);
+      const boxscoreMap = new Map([["401584700", [player]]]);
+
+      const result = buildLivePicksForCard([pick], gameStatusMap, boxscoreMap);
+
+      // During live games, DNP result is ignored — player might still enter
+      expect(result.livePicks[0].trending).not.toBe("dnp");
+      expect(result.livePicks[0].current_value).toBe(28);
+    });
+
+    it("player with dnp flag in boxscore on final game -> trending='dnp'", () => {
+      const pick = makePick();
+      const game = makeGame({ status: "final" });
+      const player = makePlayer({ player_name: "LeBron James", dnp: true });
+      const gameStatusMap = new Map([["401584700", game]]);
+      const boxscoreMap = new Map([["401584700", [player]]]);
+
+      const result = buildLivePicksForCard([pick], gameStatusMap, boxscoreMap);
+
+      expect(result.livePicks[0].trending).toBe("dnp");
+    });
+
+    it("player with dnp flag in boxscore on live game -> no DNP trending", () => {
       const pick = makePick();
       const game = makeGame({ status: "live" });
       const player = makePlayer({ player_name: "LeBron James", dnp: true });
@@ -322,7 +253,8 @@ describe("buildLivePicksForCard", () => {
 
       const result = buildLivePicksForCard([pick], gameStatusMap, boxscoreMap);
 
-      expect(result.livePicks[0].trending).toBe("dnp");
+      // During live games, bench players with DNP flag just haven't entered yet
+      expect(result.livePicks[0].trending).toBeNull();
     });
   });
 
@@ -709,6 +641,372 @@ describe("buildLivePicksForCard", () => {
       const result = buildLivePicksForCard([pick], gameStatusMap, boxscoreMap);
 
       expect(result.livePicks[0].game_status?.commence_time).toBe("2026-03-03T01:00:00Z");
+    });
+  });
+
+  describe("sport lifecycle scenarios", () => {
+    describe("NBA lifecycle", () => {
+      const eventId = "401584800";
+
+      it("scheduled: no live data -> status=scheduled, no value", () => {
+        const pick = makePick();
+        pick.props.games.external_event_id = eventId;
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map<string, StatsGame>(),
+          new Map<string, PlayerBoxScore[]>(),
+        );
+        expect(result.livePicks[0].game_status?.status).toBe("scheduled");
+        expect(result.livePicks[0].current_value).toBeNull();
+        expect(result.livePicks[0].trending).toBeNull();
+      });
+
+      it("live with boxscore: correct value and trending", () => {
+        const pick = makePick({ selection: "over" });
+        pick.props.games.external_event_id = eventId;
+        pick.props.stat_category = "points";
+        pick.props.line = 25.5;
+        const game = makeGame({ game_id: eventId, status: "live", period: 3, clock: "PT05M30.00S" });
+        const player = makePlayer({ player_name: "LeBron James", points: 28 });
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map([[eventId, game]]),
+          new Map([[eventId, [player]]]),
+        );
+        expect(result.livePicks[0].game_status?.status).toBe("live");
+        expect(result.livePicks[0].current_value).toBe(28);
+        expect(result.livePicks[0].trending).toBe("hit");
+        expect(result.hasLiveGames).toBe(true);
+      });
+
+      it("final with boxscore: correct value, no hasLiveGames", () => {
+        const pick = makePick({ selection: "under" });
+        pick.props.games.external_event_id = eventId;
+        pick.props.stat_category = "rebounds";
+        pick.props.line = 10.5;
+        const game = makeGame({ game_id: eventId, status: "final", period: 4, clock: "0:00" });
+        const player = makePlayer({ player_name: "LeBron James", rebounds: 8 });
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map([[eventId, game]]),
+          new Map([[eventId, [player]]]),
+        );
+        expect(result.livePicks[0].game_status?.status).toBe("final");
+        expect(result.livePicks[0].current_value).toBe(8);
+        expect(result.livePicks[0].trending).toBe("hit"); // 8 < 10.5 under
+        expect(result.hasLiveGames).toBe(false);
+      });
+
+      it("DB fallback when final: uses stored actual_value", () => {
+        const pick = makePick({ actual_value: 30, result: "hit" });
+        pick.props.games.external_event_id = eventId;
+        pick.props.games.status = "final";
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map<string, StatsGame>(),
+          new Map<string, PlayerBoxScore[]>(),
+        );
+        expect(result.livePicks[0].game_status?.status).toBe("final");
+        expect(result.livePicks[0].current_value).toBe(30);
+        expect(result.livePicks[0].trending).toBe("hit");
+      });
+    });
+
+    describe("NCAAB lifecycle", () => {
+      const eventId = "401700100";
+
+      it("scheduled: no live data -> status=scheduled", () => {
+        const pick = makePick();
+        pick.props.games.sport = "ncaab";
+        pick.props.games.external_event_id = eventId;
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map<string, StatsGame>(),
+          new Map<string, PlayerBoxScore[]>(),
+        );
+        expect(result.livePicks[0].game_status?.status).toBe("scheduled");
+        expect(result.livePicks[0].sport).toBe("ncaab");
+      });
+
+      it("live with boxscore: halves period, correct value", () => {
+        const pick = makePick({ selection: "over" });
+        pick.props.games.sport = "ncaab";
+        pick.props.games.external_event_id = eventId;
+        pick.props.stat_category = "assists";
+        pick.props.line = 5.5;
+        const game = makeGame({
+          game_id: eventId,
+          status: "live",
+          period: 2,
+          clock: "12:00",
+          home_team: "Duke Blue Devils",
+          away_team: "UNC Tar Heels",
+        });
+        const player = makePlayer({ player_name: "LeBron James", assists: 10 });
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map([[eventId, game]]),
+          new Map([[eventId, [player]]]),
+        );
+        expect(result.livePicks[0].game_status?.period).toBe(2);
+        expect(result.livePicks[0].current_value).toBe(10);
+        expect(result.livePicks[0].trending).toBe("hit");
+      });
+
+      it("final: correct value", () => {
+        const pick = makePick({ selection: "over" });
+        pick.props.games.sport = "ncaab";
+        pick.props.games.external_event_id = eventId;
+        pick.props.stat_category = "points";
+        pick.props.line = 20.5;
+        const game = makeGame({ game_id: eventId, status: "final", period: 2, clock: "0:00" });
+        const player = makePlayer({ player_name: "LeBron James", points: 28 });
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map([[eventId, game]]),
+          new Map([[eventId, [player]]]),
+        );
+        expect(result.livePicks[0].game_status?.status).toBe("final");
+        expect(result.livePicks[0].current_value).toBe(28);
+        expect(result.livePicks[0].trending).toBe("hit");
+      });
+
+      it("DB fallback when final: uses stored actual_value", () => {
+        const pick = makePick({ actual_value: 22, result: "hit" });
+        pick.props.games.sport = "ncaab";
+        pick.props.games.external_event_id = eventId;
+        pick.props.games.status = "final";
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map<string, StatsGame>(),
+          new Map<string, PlayerBoxScore[]>(),
+        );
+        expect(result.livePicks[0].current_value).toBe(22);
+        expect(result.livePicks[0].trending).toBe("hit");
+      });
+    });
+
+    describe("EPL lifecycle", () => {
+      const eventId = "epl-match-100";
+
+      it("scheduled: no live data -> status=scheduled", () => {
+        const pick = makePick();
+        pick.props.games.sport = "epl";
+        pick.props.games.external_event_id = eventId;
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map<string, StatsGame>(),
+          new Map<string, PlayerBoxScore[]>(),
+        );
+        expect(result.livePicks[0].game_status?.status).toBe("scheduled");
+        expect(result.livePicks[0].sport).toBe("epl");
+      });
+
+      it("live with boxscore: goals stat, correct value", () => {
+        const pick = makePick({ selection: "over" });
+        pick.props.games.sport = "epl";
+        pick.props.games.external_event_id = eventId;
+        pick.props.player_name = "Mohamed Salah";
+        pick.props.stat_category = "goals";
+        pick.props.line = 0.5;
+        const game = makeGame({
+          game_id: eventId,
+          status: "live",
+          period: 2,
+          clock: "65:00",
+          home_team: "Liverpool",
+          away_team: "Arsenal",
+        });
+        const player = makePlayer({ player_name: "Mohamed Salah", goals: 2 });
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map([[eventId, game]]),
+          new Map([[eventId, [player]]]),
+        );
+        expect(result.livePicks[0].current_value).toBe(2);
+        expect(result.livePicks[0].trending).toBe("hit"); // 2 > 0.5
+      });
+
+      it("live with boxscore: shots_on_target stat", () => {
+        const pick = makePick({ selection: "over" });
+        pick.props.games.sport = "epl";
+        pick.props.games.external_event_id = eventId;
+        pick.props.player_name = "Mohamed Salah";
+        pick.props.stat_category = "shots_on_target";
+        pick.props.line = 1.5;
+        const game = makeGame({ game_id: eventId, status: "live", period: 1, clock: "30:00" });
+        const player = makePlayer({ player_name: "Mohamed Salah", shots_on_target: 3 });
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map([[eventId, game]]),
+          new Map([[eventId, [player]]]),
+        );
+        expect(result.livePicks[0].current_value).toBe(3);
+        expect(result.livePicks[0].trending).toBe("hit"); // 3 > 1.5
+      });
+
+      it("final: correct value", () => {
+        const pick = makePick({ selection: "under" });
+        pick.props.games.sport = "epl";
+        pick.props.games.external_event_id = eventId;
+        pick.props.player_name = "Mohamed Salah";
+        pick.props.stat_category = "shots";
+        pick.props.line = 4.5;
+        const game = makeGame({ game_id: eventId, status: "final", period: 2, clock: "0:00" });
+        const player = makePlayer({ player_name: "Mohamed Salah", shots: 4 });
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map([[eventId, game]]),
+          new Map([[eventId, [player]]]),
+        );
+        expect(result.livePicks[0].current_value).toBe(4);
+        expect(result.livePicks[0].trending).toBe("hit"); // 4 < 4.5 under
+      });
+
+      it("DB fallback when final: uses stored actual_value", () => {
+        const pick = makePick({ actual_value: 1, result: "hit" });
+        pick.props.games.sport = "epl";
+        pick.props.games.external_event_id = eventId;
+        pick.props.games.status = "final";
+        pick.props.stat_category = "goals";
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map<string, StatsGame>(),
+          new Map<string, PlayerBoxScore[]>(),
+        );
+        expect(result.livePicks[0].current_value).toBe(1);
+        expect(result.livePicks[0].trending).toBe("hit");
+      });
+    });
+
+    describe("La Liga lifecycle", () => {
+      const eventId = "laliga-match-100";
+
+      it("scheduled: no live data -> status=scheduled", () => {
+        const pick = makePick();
+        pick.props.games.sport = "la_liga";
+        pick.props.games.external_event_id = eventId;
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map<string, StatsGame>(),
+          new Map<string, PlayerBoxScore[]>(),
+        );
+        expect(result.livePicks[0].game_status?.status).toBe("scheduled");
+        expect(result.livePicks[0].sport).toBe("la_liga");
+      });
+
+      it("live with boxscore: goals stat, correct value", () => {
+        const pick = makePick({ selection: "over" });
+        pick.props.games.sport = "la_liga";
+        pick.props.games.external_event_id = eventId;
+        pick.props.player_name = "Vinicius Jr";
+        pick.props.stat_category = "goals";
+        pick.props.line = 0.5;
+        const game = makeGame({
+          game_id: eventId,
+          status: "live",
+          period: 1,
+          clock: "35:00",
+          home_team: "Real Madrid",
+          away_team: "Barcelona",
+        });
+        const player = makePlayer({ player_name: "Vinicius Jr", goals: 1 });
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map([[eventId, game]]),
+          new Map([[eventId, [player]]]),
+        );
+        expect(result.livePicks[0].game_status?.sport).toBe("la_liga");
+        expect(result.livePicks[0].current_value).toBe(1);
+        expect(result.livePicks[0].trending).toBe("hit");
+      });
+
+      it("final: correct value", () => {
+        const pick = makePick({ selection: "over" });
+        pick.props.games.sport = "la_liga";
+        pick.props.games.external_event_id = eventId;
+        pick.props.player_name = "Vinicius Jr";
+        pick.props.stat_category = "shots_on_target";
+        pick.props.line = 1.5;
+        const game = makeGame({ game_id: eventId, status: "final", period: 2, clock: "0:00" });
+        const player = makePlayer({ player_name: "Vinicius Jr", shots_on_target: 2 });
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map([[eventId, game]]),
+          new Map([[eventId, [player]]]),
+        );
+        expect(result.livePicks[0].game_status?.status).toBe("final");
+        expect(result.livePicks[0].current_value).toBe(2);
+        expect(result.livePicks[0].trending).toBe("hit");
+      });
+
+      it("DB fallback when final: uses stored actual_value", () => {
+        const pick = makePick({ actual_value: 3, result: "miss" });
+        pick.props.games.sport = "la_liga";
+        pick.props.games.external_event_id = eventId;
+        pick.props.games.status = "final";
+        pick.props.stat_category = "shots";
+        const result = buildLivePicksForCard(
+          [pick],
+          new Map<string, StatsGame>(),
+          new Map<string, PlayerBoxScore[]>(),
+        );
+        expect(result.livePicks[0].current_value).toBe(3);
+        expect(result.livePicks[0].trending).toBe("miss");
+      });
+    });
+  });
+
+  describe("combo stat categories", () => {
+    const eventId = "401584900";
+
+    function makeComboTest(
+      category: string,
+      line: number,
+      selection: "over" | "under",
+    ) {
+      const pick = makePick({ selection });
+      pick.props.games.external_event_id = eventId;
+      pick.props.stat_category = category as any;
+      pick.props.line = line;
+      const game = makeGame({ game_id: eventId, status: "live", period: 3, clock: "5:00" });
+      // points=28, rebounds=8, assists=10, blocks=1, steals=2
+      const player = makePlayer({ player_name: "LeBron James" });
+      return buildLivePicksForCard(
+        [pick],
+        new Map([[eventId, game]]),
+        new Map([[eventId, [player]]]),
+      );
+    }
+
+    it("pra: 28+8+10=46 > 40.5 -> hit", () => {
+      const result = makeComboTest("pra", 40.5, "over");
+      expect(result.livePicks[0].current_value).toBe(46);
+      expect(result.livePicks[0].trending).toBe("hit");
+    });
+
+    it("pts_reb: 28+8=36 > 35.5 -> hit", () => {
+      const result = makeComboTest("pts_reb", 35.5, "over");
+      expect(result.livePicks[0].current_value).toBe(36);
+      expect(result.livePicks[0].trending).toBe("hit");
+    });
+
+    it("pts_ast: 28+10=38 < 39.5 -> miss", () => {
+      const result = makeComboTest("pts_ast", 39.5, "over");
+      expect(result.livePicks[0].current_value).toBe(38);
+      expect(result.livePicks[0].trending).toBe("miss");
+    });
+
+    it("reb_ast: 8+10=18 > 17.5 -> hit", () => {
+      const result = makeComboTest("reb_ast", 17.5, "over");
+      expect(result.livePicks[0].current_value).toBe(18);
+      expect(result.livePicks[0].trending).toBe("hit");
+    });
+
+    it("blk_stl: 1+2=3 < 3.5 -> miss", () => {
+      const result = makeComboTest("blk_stl", 3.5, "over");
+      expect(result.livePicks[0].current_value).toBe(3);
+      expect(result.livePicks[0].trending).toBe("miss");
     });
   });
 });
