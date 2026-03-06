@@ -32,11 +32,42 @@ export async function isSyncOverlapping(): Promise<boolean> {
 
 /**
  * Returns odds_api_event_ids for upcoming games that already have enough props.
- * Games with fewer than MIN_PROPS_TO_SKIP props are NOT included, so the sync
- * pipeline re-fetches them — this handles games where only a few early props
- * appeared but the Odds API adds more throughout the day.
+ * A game is only skipped when BOTH teams have >= MIN_PROPS_TO_SKIP props each,
+ * ensuring balanced coverage. Games where props have only arrived for one team
+ * are re-fetched. When player_team data is unavailable (e.g. soccer), falls
+ * back to total prop count.
  */
-const MIN_PROPS_TO_SKIP = 10;
+export const MIN_PROPS_TO_SKIP = 10;
+
+/** Returns true if pre-aggregated per-team counts show enough coverage to skip polling. */
+export function hasEnoughProps(
+  teamCounts: Map<string, number>,
+  threshold: number = MIN_PROPS_TO_SKIP,
+): boolean {
+  if (teamCounts.size === 0) return false;
+
+  // Separate real teams from the null-team bucket (player_team was null)
+  const nullCount = teamCounts.get("") ?? 0;
+  const realTeamCount = teamCounts.size - (teamCounts.has("") ? 1 : 0);
+
+  if (realTeamCount === 0) {
+    // All props have null player_team (e.g. soccer, not enriched yet) — fall back to total
+    return nullCount >= threshold;
+  }
+
+  if (realTeamCount === 1) {
+    // Only one real team — other team has 0 props, re-poll
+    return false;
+  }
+
+  // 2+ real teams: only skip if every real team meets the threshold
+  let min = Infinity;
+  for (const [team, count] of teamCounts) {
+    if (team === "") continue;
+    min = Math.min(min, count);
+  }
+  return min >= threshold;
+}
 
 export async function getEventIdsWithProps(): Promise<Set<string>> {
   const supabase = createAdminClient();
@@ -45,23 +76,43 @@ export async function getEventIdsWithProps(): Promise<Set<string>> {
   const rangeStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const rangeEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  const result = await supabase
-    .from("games")
-    .select("odds_api_event_id, props(count)")
-    .gte("commence_time", rangeStart.toISOString())
-    .lte("commence_time", rangeEnd.toISOString())
-    .not("odds_api_event_id", "is", null);
+  const { data, error } = await (supabase.rpc as any)("get_event_team_counts", {
+    range_start: rangeStart.toISOString(),
+    range_end: rangeEnd.toISOString(),
+  });
 
-  const games = (result.data ?? []) as {
+  if (error) {
+    logWarn("props-cache", "get_event_team_counts RPC failed, skipping optimization", error);
+    return new Set();
+  }
+
+  const rows = (data ?? []) as {
     odds_api_event_id: string;
-    props: { count: number }[];
+    player_team: string | null;
+    cnt: number;
   }[];
 
-  return new Set(
-    games
-      .filter((g) => (g.props[0]?.count ?? 0) >= MIN_PROPS_TO_SKIP)
-      .map((g) => g.odds_api_event_id)
-  );
+  // Group RPC rows into per-game team count maps
+  const gameTeamCounts = new Map<string, Map<string, number>>();
+  for (const row of rows) {
+    let counts = gameTeamCounts.get(row.odds_api_event_id);
+    if (!counts) {
+      counts = new Map();
+      gameTeamCounts.set(row.odds_api_event_id, counts);
+    }
+    // Coalesce null player_team to "" so it can be a Map key
+    const team = row.player_team ?? "";
+    counts.set(team, (counts.get(team) ?? 0) + row.cnt);
+  }
+
+  const skipSet = new Set<string>();
+  for (const [eventId, counts] of gameTeamCounts) {
+    if (hasEnoughProps(counts)) {
+      skipSet.add(eventId);
+    }
+  }
+
+  return skipSet;
 }
 
 async function getCachedPropsInternal(sport?: SportKey): Promise<
