@@ -186,7 +186,7 @@ export default function Nav({
           <Button
             variant="ghost"
             size="sm"
-            className={`w-full justify-start gap-2 md:w-auto focus-visible:ring-0 focus-visible:border-transparent ${
+            className={`group w-full justify-start gap-2 md:w-auto focus-visible:ring-0 focus-visible:border-transparent ${
               isGroupActive
                 ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -194,7 +194,7 @@ export default function Nav({
           >
             <Icon className="h-4 w-4 md:hidden" />
             {group.label}
-            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            <ChevronDown className={`h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180 ${isGroupActive ? "text-primary" : "text-muted-foreground"}`} />
             <AnimatePresence>
               {groupBadgeCount > 0 && (
                 <motion.span
