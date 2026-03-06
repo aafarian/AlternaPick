@@ -9,7 +9,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { CATEGORY_LABELS } from "@/lib/constants";
+import { catLabel } from "@/lib/constants";
 import { AnimatedSkeleton } from "@/components/ui/animated-skeleton";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 import { type PickerInfo, sportLabel, ResultIcon, hitRateColor, hitRateBg } from "./tiles/shared";
@@ -52,9 +52,7 @@ export function PropPicksModal({
       .finally(() => setLoading(false));
   }, [propId]);
 
-  const categoryLabel =
-    CATEGORY_LABELS[statCategory.toLowerCase() as keyof typeof CATEGORY_LABELS] ??
-    statCategory;
+  const categoryLabel = catLabel(statCategory);
 
   const hits = pickers.filter((p) => p.result === "hit").length;
   const misses = pickers.filter((p) => p.result === "miss").length;

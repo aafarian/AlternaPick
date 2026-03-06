@@ -130,7 +130,9 @@ export async function getAllFlags(): Promise<FeatureFlag[]> {
     }
 
     const flags = (data ?? []) as FeatureFlag[];
-    allFlagsCache = { flags, cachedAt: Date.now() };
+    const now = Date.now();
+    flags.forEach((f) => flagCache.set(f.key, { flag: f, cachedAt: now }));
+    allFlagsCache = { flags, cachedAt: now };
     return flags;
   } catch (err) {
     logError("feature-flags", "Failed to fetch all flags", undefined, err);
@@ -158,7 +160,7 @@ export async function setFlag(
       .eq("key", key)
       .select("id", { count: "exact", head: true });
 
-    if (error || count === 0) {
+    if (error || count === null || count === 0) {
       logError("feature-flags", `Flag "${key}" not found or update failed`, undefined, error);
       return false;
     }

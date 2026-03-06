@@ -26,8 +26,7 @@ CREATE TABLE IF NOT EXISTS feature_flags (
 -- 2. INDEXES
 -- ============================================================
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_feature_flags_key
-  ON feature_flags (key);
+-- Index on key is already covered by the UNIQUE constraint above; no explicit index needed.
 
 -- ============================================================
 -- 3. ROW-LEVEL SECURITY
