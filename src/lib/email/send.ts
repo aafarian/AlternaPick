@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { getResendClient } from "./client";
-import { logError } from "@/lib/logger";
+import { logError, logWarn } from "@/lib/logger";
 import { getFlag, getFlagValue } from "@/lib/feature-flags";
 import type {
   NotificationType,
@@ -72,7 +72,7 @@ export async function sendEmail({
     // Step 1: Get Resend client
     const resend = getResendClient();
     if (!resend) {
-      logError("email", "No RESEND_API_KEY configured, skipping");
+      logWarn("email", "No RESEND_API_KEY configured, skipping");
       return { success: false, error: "No API key" };
     }
 
@@ -88,7 +88,7 @@ export async function sendEmail({
 
       // Step 3: Check if recipient is allowed
       if (!allowedEmails.includes(recipientLower)) {
-        logError("email", `Skipping email (not in allowlist)`);
+        logWarn("email", `Skipping email (not in allowlist)`);
         return { success: true };
       }
     }

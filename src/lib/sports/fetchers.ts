@@ -8,7 +8,7 @@ import {
   fetchNcaabBoxscore,
   type PlayerBoxScore,
 } from "@/lib/stats-service/client";
-import { logError } from "@/lib/logger";
+import { logWarn } from "@/lib/logger";
 import type { SportKey } from "./config";
 
 /**
@@ -57,7 +57,7 @@ export function getBoxscoreFetcher(sport?: string | null): BoxscoreFetcher {
     return FETCHER_MAP[sport as SportKey]!;
   }
   if (sport && sport !== "nba") {
-    logError("fetchers", `No boxscore fetcher mapped for "${sport}", falling back to NBA`);
+    logWarn("fetchers", `No boxscore fetcher mapped for "${sport}", falling back to NBA`);
   }
   return fetchBoxscore;
 }

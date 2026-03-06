@@ -76,9 +76,8 @@ export default function NotificationBell({
           const data = await res.json();
           setNotifications(data.notifications ?? []);
         }
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error("Failed to fetch notifications:", err);
+      } catch {
+        // Silent: non-fatal fetch failure
       } finally {
         setLoading(false);
       }
@@ -90,10 +89,7 @@ export default function NotificationBell({
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "mark_all_read" }),
-        }).catch((err) => {
-          // eslint-disable-next-line no-console
-          console.error("Failed to mark notifications as read:", err);
-        });
+        }).catch(() => {});
       }
     },
     [count, onCountReset]
