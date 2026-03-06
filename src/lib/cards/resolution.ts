@@ -705,9 +705,17 @@ export async function resolveCard(
     const playerStats = fuzzyMatchPlayer(boxscore, pick.props.player_name);
 
     if (!playerStats) {
-      // Player absent from a non-empty boxscore means they were inactive
-      // (injury, rest, etc.) — ESPN omits them entirely from the game-day
-      // roster. Treat as DNP (voided pick) immediately.
+      const gameStatus = pick.props?.games?.status;
+      if (gameStatus !== "final") {
+        // Callers gate on all-final, but guard defensively in case
+        // resolveCard is ever invoked on a non-final game.
+        return null;
+      }
+      // Player absent from a non-empty final boxscore means they were
+      // inactive (injury, rest, etc.) — ESPN omits them entirely from the
+      // game-day roster. Treat as DNP (voided pick). fuzzyMatchPlayer covers
+      // exact, last-name, and substring matches, so a miss here is definitive
+      // rather than a name-normalization gap.
       logWarn("resolution", `Player "${pick.props.player_name}" not in boxscore for card ${card.id} (event ${eventId}), marking as DNP`);
       pickResolutions.push({
         pick_id: pick.id,
