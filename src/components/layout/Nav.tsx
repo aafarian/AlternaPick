@@ -43,28 +43,28 @@ function NavBadge({
 }) {
   const prefersReducedMotion = useReducedMotion();
 
-  if (count <= 0) return null;
-
   const badge = (
     <Badge variant="destructive" className={`${className} h-5 min-w-5 px-1.5 text-[10px] font-bold`}>
       {count > 9 ? "9+" : count}
     </Badge>
   );
 
-  if (!animated) return badge;
+  if (!animated) return count > 0 ? badge : null;
 
   return (
     <AnimatePresence>
-      <motion.span
-        key={animationKey}
-        initial={prefersReducedMotion ? false : { scale: 0, opacity: 0 }}
-        animate={prefersReducedMotion ? {} : { scale: 1, opacity: 1 }}
-        exit={prefersReducedMotion ? {} : { scale: 0, opacity: 0 }}
-        transition={{ type: "spring", stiffness: 500, damping: 25 }}
-        className="inline-flex"
-      >
-        {badge}
-      </motion.span>
+      {count > 0 && (
+        <motion.span
+          key={animationKey}
+          initial={prefersReducedMotion ? false : { scale: 0, opacity: 0 }}
+          animate={prefersReducedMotion ? {} : { scale: 1, opacity: 1 }}
+          exit={prefersReducedMotion ? {} : { scale: 0, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 500, damping: 25 }}
+          className="inline-flex"
+        >
+          {badge}
+        </motion.span>
+      )}
     </AnimatePresence>
   );
 }
@@ -189,7 +189,7 @@ export default function Nav({
           <span className="relative z-[1] flex items-center gap-2">
             <Icon className="h-4 w-4 md:hidden" />
             {link.label}
-            <NavBadge count={badgeCount} animationKey={`badge-${link.badgeKey}`} />
+            <NavBadge count={badgeCount} animationKey={`badge-${link.badgeKey ?? link.href}`} />
           </span>
         </Button>
       </Link>
@@ -240,7 +240,7 @@ export default function Nav({
                 >
                   <ChildIcon className="h-4 w-4" />
                   {child.label}
-                  <NavBadge count={childBadgeCount} animationKey={`badge-${child.badgeKey}`} animated={false} className="ml-auto" />
+                  <NavBadge count={childBadgeCount} animationKey={`badge-${child.badgeKey ?? child.href}`} animated={false} className="ml-auto" />
                 </Link>
               </DropdownMenuItem>
             );
