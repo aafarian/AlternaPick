@@ -206,6 +206,12 @@ export function buildLivePicksForCard(
               trending = "miss";
             }
           }
+        } else if (boxscore.length > 0 && effectiveStatus === "final" && pick.result === "pending") {
+          // Player absent from a non-empty final boxscore = inactive (DNP).
+          // ESPN omits players ruled out before the game entirely.
+          // Only apply to unresolved picks — already-resolved picks (push, hit,
+          // miss) should fall through to the DB fallbacks below.
+          trending = "dnp";
         }
       }
 

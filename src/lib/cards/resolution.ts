@@ -4,7 +4,7 @@ import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
 import { sendEmail, shouldSendEmail } from "@/lib/email/send";
 import { getCardResolvedEmailProps } from "@/lib/email/templates/card-resolved";
 import { getCardTier } from "@/lib/cards/tiers";
-import { logError } from "@/lib/logger";
+import { logError, logWarn } from "@/lib/logger";
 import {
   type PlayerBoxScore,
   type StatsGame,
@@ -463,14 +463,40 @@ export async function reResolveStaleCards(): Promise<{
     }
 
     if (!playerStats) {
-      const names = boxscore.slice(0, 5).map((p) => p.player_name).join(", ");
-      const suffix = boxscore.length > 5 ? ` +${boxscore.length - 5} more` : "";
-      const reason = boxscore.length === 0
-        ? `Empty boxscore (event ${eventId})`
-        : `Player not in boxscore (${boxscore.length} players: ${names}${suffix})`;
-      // If card is already resolved, void the dangling pick
-      if (await voidAsPush(pick)) continue;
-      skipped.push({ ...pickMeta(pick), reason });
+      if (boxscore.length === 0) {
+        skipped.push({ ...pickMeta(pick), reason: `Empty boxscore (event ${eventId})` });
+        continue;
+      }
+      // Only treat absence as DNP once the game is confirmed final.
+      // The 6-hour stale path (lines 372-380) can reach here for non-final
+      // games — a bench player who hasn't entered a live game isn't DNP.
+      if (gameStatus !== "final") {
+        skipped.push({ ...pickMeta(pick), reason: `Player not in boxscore but game not final (${gameStatus ?? "unknown"})` });
+        continue;
+      }
+      // Player absent from a non-empty boxscore = inactive (DNP)
+      if (pick.result === "dnp") {
+        skipped.push({ ...pickMeta(pick), reason: "Already DNP (no-op)" });
+        continue;
+      }
+      logWarn("resolution", `Player "${pick.props.player_name}" not in boxscore for pick ${pick.id} (event ${eventId}), marking as DNP`);
+      const { error: updateErr } = await (supabase.from("picks") as any)
+        .update({ actual_value: null, result: "dnp" })
+        .eq("id", pick.id);
+      if (updateErr) {
+        logError("resolution", `Failed to update pick ${pick.id} to dnp: ${updateErr.message}`);
+        continue;
+      }
+      logs.push({
+        ...pickMeta(pick),
+        line: pick.props.line,
+        selection: pick.selection,
+        oldResult: pick.result,
+        newResult: "dnp",
+        actualValue: null,
+      });
+      picksUpdated++;
+      affectedCardIds.add(pick.card_id);
       continue;
     }
 
@@ -679,37 +705,29 @@ export async function resolveCard(
     const playerStats = fuzzyMatchPlayer(boxscore, pick.props.player_name);
 
     if (!playerStats) {
-      const commenceTime = pick.props?.games?.commence_time;
-      let hoursSinceGame: number | null = null;
-
-      if (commenceTime) {
-        hoursSinceGame = (Date.now() - new Date(commenceTime).getTime()) / (1000 * 60 * 60);
-      } else {
-        // No commence_time — we can't determine game age. Retry indefinitely
-        // and rely on manual admin intervention if needed.
-        logError("resolution", `Player "${pick.props.player_name}" not found and commence_time is null for card ${card.id}, game ${pick.props?.games?.id ?? "unknown"}`);
+      const gameStatus = pick.props?.games?.status;
+      if (gameStatus !== "final") {
+        // Callers gate on all-final, but guard defensively in case
+        // resolveCard is ever invoked on a non-final game.
         return null;
       }
-
-      if (hoursSinceGame > 48) {
-        // 48h since game start — void as push to prevent indefinite blocking
-        logError("resolution", `Player "${pick.props.player_name}" not found after ${Math.round(hoursSinceGame)}h for card ${card.id}, voiding as push`);
-        pickResolutions.push({
-          pick_id: pick.id,
-          prop_id: pick.prop_id,
-          player_name: pick.props.player_name,
-          stat_category: pick.props.stat_category,
-          line: pick.props.line,
-          selection: pick.selection,
-          actual_value: null,
-          result: "push",
-        });
-        continue;
-      }
-
-      // Transient — ESPN data may not be available yet. Retry next cycle.
-      logError("resolution", `Player "${pick.props.player_name}" not found in boxscore for card ${card.id}, retrying (${Math.round(hoursSinceGame)}h since game)`);
-      return null;
+      // Player absent from a non-empty final boxscore means they were
+      // inactive (injury, rest, etc.) — ESPN omits them entirely from the
+      // game-day roster. Treat as DNP (voided pick). fuzzyMatchPlayer covers
+      // exact, last-name, and substring matches, so a miss here is definitive
+      // rather than a name-normalization gap.
+      logWarn("resolution", `Player "${pick.props.player_name}" not in boxscore for card ${card.id} (event ${eventId}), marking as DNP`);
+      pickResolutions.push({
+        pick_id: pick.id,
+        prop_id: pick.prop_id,
+        player_name: pick.props.player_name,
+        stat_category: pick.props.stat_category,
+        line: pick.props.line,
+        selection: pick.selection,
+        actual_value: null,
+        result: "dnp",
+      });
+      continue;
     }
 
     // DNP detection — player is on the roster but didn't play
