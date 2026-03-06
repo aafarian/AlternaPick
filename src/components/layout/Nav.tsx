@@ -295,7 +295,7 @@ export default function Nav({
             <Button
               variant="ghost"
               size="sm"
-              className={`w-full justify-start gap-2 md:w-auto focus-visible:ring-0 focus-visible:border-transparent ${
+              className={`group w-full justify-start gap-2 md:w-auto focus-visible:ring-0 focus-visible:border-transparent ${
                 mobileSecondaryOnly ? "h-10 text-sm" : ""
               } ${
                 isProfileActive
@@ -305,6 +305,7 @@ export default function Nav({
             >
               <User className="h-4 w-4 md:hidden" />
               Profile
+              <ChevronDown className={`h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180 ${isProfileActive ? "text-primary" : "text-muted-foreground"}`} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
