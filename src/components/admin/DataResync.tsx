@@ -79,7 +79,7 @@ function StatusIcon({ status }: { status: StepStatus }) {
     case "success":
       return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
     case "error":
-      return <AlertCircle className="h-4 w-4 text-red-500" />;
+      return <AlertCircle className="h-4 w-4 text-red-400" />;
     default:
       return null;
   }
@@ -212,7 +212,6 @@ export default function DataResync() {
     setFullResync({ status: "running" });
     try {
       // Step 1: Re-resolve
-      setReResolve({ status: "running" });
       const r1 = await runStep("/api/admin/re-resolve", null, setReResolve);
       if (!r1) {
         setFullResync({ status: "error", error: "Re-resolve failed" });
@@ -220,7 +219,6 @@ export default function DataResync() {
       }
 
       // Step 2: Card scores
-      setCardScores({ status: "running" });
       const r2 = await runStep(
         "/api/admin/resync/card-scores",
         null,
@@ -232,7 +230,6 @@ export default function DataResync() {
       }
 
       // Step 3: Leaderboard (all users)
-      setLeaderboard({ status: "running" });
       const r3 = await runStep(
         "/api/admin/resync/leaderboard",
         {},
