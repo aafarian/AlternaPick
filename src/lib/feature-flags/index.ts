@@ -155,13 +155,18 @@ export async function setFlag(
 ): Promise<boolean> {
   try {
     const supabase = createAdminClient();
-    const { error, count } = await typedFrom(supabase, "feature_flags")
+    const { data, error } = await typedFrom(supabase, "feature_flags")
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq("key", key)
-      .select("id", { count: "exact", head: true });
+      .select("id");
 
-    if (error || count === null || count === 0) {
-      logError("feature-flags", `Flag "${key}" not found or update failed`, undefined, error);
+    if (error) {
+      logError("feature-flags", `Failed to update flag "${key}"`, undefined, error);
+      return false;
+    }
+
+    if (!data || (data as unknown[]).length === 0) {
+      logError("feature-flags", `Flag "${key}" not found`);
       return false;
     }
 
