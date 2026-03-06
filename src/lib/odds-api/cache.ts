@@ -552,7 +552,7 @@ async function _cachePropsInternal(
     .select("id, game_id, player_name, stat_category, line, line_history, player_id, player_team, player_position")
     .in("game_id", gameIds);
   if (allPropsResult.error) {
-    logError(`${sport} cache`, `Failed to fetch existing props: ${allPropsResult.error.message}`);
+    logError(`${sport} cache`, "Failed to fetch existing props", undefined, allPropsResult.error);
     return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
   }
   const allProps = (allPropsResult.data ?? []) as {
@@ -571,7 +571,7 @@ async function _cachePropsInternal(
       .select("prop_id")
       .in("prop_id", allPropIds);
     if (picksResult.error) {
-      logError(`${sport} cache`, `Failed to fetch picks: ${picksResult.error.message}`);
+      logError(`${sport} cache`, "Failed to fetch picks", undefined, picksResult.error);
       return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
     }
     pickedPropIds = new Set(
@@ -633,7 +633,8 @@ async function _cachePropsInternal(
       const batch = deletableIds.slice(i, i + 500);
       const { error: deleteError } = await supabase.from("props").delete().in("id", batch);
       if (deleteError) {
-        logError(`${sport} cache`, `Props delete failed (batch ${i / 500 + 1}): ${deleteError.message}`);
+        logError(`${sport} cache`, `Props delete failed (batch ${i / 500 + 1})`, undefined, deleteError);
+        return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
       }
     }
   }
@@ -722,7 +723,7 @@ async function _cachePropsInternal(
         .update(updatePayload)
         .eq("id", kept.id);
       if (updateError) {
-        logError(`${sport} cache`, `Prop update failed for ${kept.id}: ${updateError.message}`);
+        logError(`${sport} cache`, `Prop update failed for ${kept.id}`, undefined, updateError);
       }
     }
   }
