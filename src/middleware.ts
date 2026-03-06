@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/admin") ||
     (pathname.startsWith("/api/admin") && !pathname.startsWith("/api/admin/check"))
   ) {
-    if (!user || !isAdminEmail(user.email ?? "")) {
+    if (!user || !(await isAdminEmail(user.email ?? ""))) {
       return NextResponse.rewrite(new URL("/not-found", request.url));
     }
     return response;
