@@ -467,6 +467,13 @@ export async function reResolveStaleCards(): Promise<{
         skipped.push({ ...pickMeta(pick), reason: `Empty boxscore (event ${eventId})` });
         continue;
       }
+      // Only treat absence as DNP once the game is confirmed final.
+      // The 6-hour stale path (lines 372-380) can reach here for non-final
+      // games — a bench player who hasn't entered a live game isn't DNP.
+      if (gameStatus !== "final") {
+        skipped.push({ ...pickMeta(pick), reason: `Player not in boxscore but game not final (${gameStatus ?? "unknown"})` });
+        continue;
+      }
       // Player absent from a non-empty boxscore = inactive (DNP)
       if (pick.result === "dnp") {
         skipped.push({ ...pickMeta(pick), reason: "Already DNP (no-op)" });
