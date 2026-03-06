@@ -63,6 +63,12 @@ export async function sendEmail({
   react,
 }: SendEmailParams): Promise<SendEmailResult> {
   try {
+    // Step 0: Check global email toggle
+    const emailEnabled = await getFlagValue("email_enabled");
+    if (emailEnabled === "false") {
+      return { success: false, error: "Email sending is disabled" };
+    }
+
     // Step 1: Get Resend client
     const resend = getResendClient();
     if (!resend) {

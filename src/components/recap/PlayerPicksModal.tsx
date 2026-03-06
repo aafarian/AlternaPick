@@ -10,17 +10,10 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS, catLabel } from "@/lib/constants";
-import { isValidSport, SPORT_CONFIG } from "@/lib/sports/config";
 import { AnimatedSkeleton } from "@/components/ui/animated-skeleton";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
-import { Check, X, Minus, ChevronRight } from "lucide-react";
-
-interface Picker {
-  username: string;
-  selection: string;
-  result: string;
-  actualValue: number | null;
-}
+import { ChevronRight } from "lucide-react";
+import { type PickerInfo, sportLabel, ResultIcon } from "./tiles/shared";
 
 interface PropResult {
   propId: string;
@@ -30,7 +23,7 @@ interface PropResult {
   hitRate: number;
   pickCount: number;
   actualValue: number | null;
-  pickers: Picker[];
+  pickers: PickerInfo[];
 }
 
 interface PlayerPicksModalProps {
@@ -38,11 +31,6 @@ interface PlayerPicksModalProps {
   sport?: string;
   statCategory?: string;
   onClose: () => void;
-}
-
-function sportLabel(sport: string): string {
-  if (isValidSport(sport)) return SPORT_CONFIG[sport].shortLabel;
-  return sport.toUpperCase();
 }
 
 function hitRateColor(rate: number): string {
@@ -55,28 +43,6 @@ function hitRateBg(rate: number): string {
   if (rate >= 0.6) return "bg-neon-green/5";
   if (rate >= 0.4) return "bg-electric-blue/5";
   return "bg-bold-red/5";
-}
-
-function ResultIcon({ result }: { result: string }) {
-  if (result === "hit") {
-    return (
-      <div className="flex h-4 w-4 items-center justify-center rounded-full bg-neon-green/20 shrink-0">
-        <Check className="h-2.5 w-2.5 text-neon-green" />
-      </div>
-    );
-  }
-  if (result === "miss") {
-    return (
-      <div className="flex h-4 w-4 items-center justify-center rounded-full bg-bold-red/20 shrink-0">
-        <X className="h-2.5 w-2.5 text-bold-red" />
-      </div>
-    );
-  }
-  return (
-    <div className="flex h-4 w-4 items-center justify-center rounded-full bg-border/40 shrink-0">
-      <Minus className="h-2.5 w-2.5 text-muted-foreground" />
-    </div>
-  );
 }
 
 export function PlayerPicksModal({

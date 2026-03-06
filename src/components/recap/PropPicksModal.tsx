@@ -10,17 +10,9 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS } from "@/lib/constants";
-import { isValidSport, SPORT_CONFIG } from "@/lib/sports/config";
 import { AnimatedSkeleton } from "@/components/ui/animated-skeleton";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
-import { Check, X, Minus } from "lucide-react";
-
-interface Picker {
-  username: string;
-  selection: string;
-  result: string;
-  actualValue: number | null;
-}
+import { type PickerInfo, sportLabel, ResultIcon } from "./tiles/shared";
 
 interface PropPicksModalProps {
   propId: string | null;
@@ -30,33 +22,6 @@ interface PropPicksModalProps {
   onClose: () => void;
 }
 
-function sportLabel(sport: string): string {
-  if (isValidSport(sport)) return SPORT_CONFIG[sport].shortLabel;
-  return sport.toUpperCase();
-}
-
-function ResultIcon({ result }: { result: string }) {
-  if (result === "hit") {
-    return (
-      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-neon-green/20">
-        <Check className="h-3 w-3 text-neon-green" />
-      </div>
-    );
-  }
-  if (result === "miss") {
-    return (
-      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-bold-red/20">
-        <X className="h-3 w-3 text-bold-red" />
-      </div>
-    );
-  }
-  return (
-    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-border/40">
-      <Minus className="h-3 w-3 text-muted-foreground" />
-    </div>
-  );
-}
-
 export function PropPicksModal({
   propId,
   playerName,
@@ -64,7 +29,7 @@ export function PropPicksModal({
   line,
   onClose,
 }: PropPicksModalProps) {
-  const [pickers, setPickers] = useState<Picker[]>([]);
+  const [pickers, setPickers] = useState<PickerInfo[]>([]);
   const [sport, setSport] = useState<string>("unknown");
   const [loading, setLoading] = useState(false);
   const prefersReduced = useReducedMotion();
@@ -209,7 +174,7 @@ export function PropPicksModal({
                               : "bg-muted/30"
                         }`}
                       >
-                        <ResultIcon result={p.result} />
+                        <ResultIcon result={p.result} size="md" />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-foreground truncate">
                             {p.username}
