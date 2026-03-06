@@ -9,11 +9,11 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { CATEGORY_LABELS, catLabel } from "@/lib/constants";
+import { catLabel } from "@/lib/constants";
 import { AnimatedSkeleton } from "@/components/ui/animated-skeleton";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 import { ChevronRight } from "lucide-react";
-import { type PickerInfo, sportLabel, ResultIcon } from "./tiles/shared";
+import { type PickerInfo, sportLabel, ResultIcon, hitRateColor, hitRateBg } from "./tiles/shared";
 
 interface PropResult {
   propId: string;
@@ -31,18 +31,6 @@ interface PlayerPicksModalProps {
   sport?: string;
   statCategory?: string;
   onClose: () => void;
-}
-
-function hitRateColor(rate: number): string {
-  if (rate >= 0.6) return "text-neon-green";
-  if (rate >= 0.4) return "text-electric-blue";
-  return "text-bold-red";
-}
-
-function hitRateBg(rate: number): string {
-  if (rate >= 0.6) return "bg-neon-green/5";
-  if (rate >= 0.4) return "bg-electric-blue/5";
-  return "bg-bold-red/5";
 }
 
 export function PlayerPicksModal({
@@ -159,10 +147,7 @@ export function PlayerPicksModal({
                 {/* Prop list */}
                 <div className="max-h-64 overflow-y-auto flex flex-col gap-1.5">
                   {propResults.map((prop, i) => {
-                    const catLabel =
-                      CATEGORY_LABELS[
-                        prop.statCategory.toLowerCase() as keyof typeof CATEGORY_LABELS
-                      ] ?? prop.statCategory;
+                    const propCatLabel = catLabel(prop.statCategory);
                     const isExpanded = expandedProp === prop.propId;
 
                     return (
@@ -179,7 +164,7 @@ export function PlayerPicksModal({
                         >
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-semibold text-foreground">
-                              {prop.line} {catLabel}
+                              {prop.line} {propCatLabel}
                               {prop.actualValue != null && (
                                 <span className="ml-1.5 text-xs font-normal text-muted-foreground">
                                   (actual: {prop.actualValue})

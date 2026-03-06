@@ -266,6 +266,18 @@ export function ResultIcon({
   );
 }
 
+export function hitRateColor(rate: number): string {
+  if (rate >= 0.6) return "text-neon-green";
+  if (rate >= 0.4) return "text-electric-blue";
+  return "text-bold-red";
+}
+
+export function hitRateBg(rate: number): string {
+  if (rate >= 0.6) return "bg-neon-green/5";
+  if (rate >= 0.4) return "bg-electric-blue/5";
+  return "bg-bold-red/5";
+}
+
 /* ─── Helpers ─── */
 
 // Re-export for convenience — canonical implementation lives in @/lib/constants

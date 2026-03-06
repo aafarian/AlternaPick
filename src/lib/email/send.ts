@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { getResendClient } from "./client";
 import { logError } from "@/lib/logger";
-import { getFlagValue } from "@/lib/feature-flags";
+import { getFlag, getFlagValue } from "@/lib/feature-flags";
 import type {
   NotificationType,
   NotificationPreferences,
@@ -64,8 +64,8 @@ export async function sendEmail({
 }: SendEmailParams): Promise<SendEmailResult> {
   try {
     // Step 0: Check global email toggle
-    const emailEnabled = await getFlagValue("email_enabled");
-    if (emailEnabled === "false") {
+    const emailEnabledFlag = await getFlag("email_enabled");
+    if (emailEnabledFlag !== null && !emailEnabledFlag.enabled) {
       return { success: false, error: "Email sending is disabled" };
     }
 

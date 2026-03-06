@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS } from "@/lib/constants";
 import { AnimatedSkeleton } from "@/components/ui/animated-skeleton";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
-import { type PickerInfo, sportLabel, ResultIcon } from "./tiles/shared";
+import { type PickerInfo, sportLabel, ResultIcon, hitRateColor, hitRateBg } from "./tiles/shared";
 
 interface PropPicksModalProps {
   propId: string | null;
@@ -131,9 +131,9 @@ export function PropPicksModal({
                     <p className="text-lg font-bold tabular-nums text-bold-red">{misses}</p>
                     <p className="text-[10px] font-medium uppercase tracking-wider text-bold-red/70">Miss</p>
                   </div>
-                  <div className="flex-1 rounded-lg bg-primary/10 px-3 py-2 text-center">
-                    <p className="text-lg font-bold tabular-nums text-primary">{hitRate}%</p>
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-primary/70">Hit Rate</p>
+                  <div className={`flex-1 rounded-lg px-3 py-2 text-center ${hitRateBg(total > 0 ? hits / total : 0)}`}>
+                    <p className={`text-lg font-bold tabular-nums ${hitRateColor(total > 0 ? hits / total : 0)}`}>{hitRate}%</p>
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Hit Rate</p>
                   </div>
                 </div>
 
