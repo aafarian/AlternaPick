@@ -92,7 +92,7 @@ function ResultDisplay({ result }: { result: Record<string, unknown> }) {
   return (
     <div className="mt-3 rounded-md bg-muted/50 p-3 text-sm space-y-1">
       {Object.entries(result)
-        .filter(([k]) => k !== "fixes" && k !== "errors" && k !== "logs" && k !== "skipped")
+        .filter(([k]) => k !== "fixes" && k !== "errors")
         .map(([key, value]) => (
           <div key={key} className="flex justify-between">
             <span className="text-muted-foreground">{key}</span>
