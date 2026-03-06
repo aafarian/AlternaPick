@@ -1,22 +1,36 @@
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { getFlagValue } from "@/lib/feature-flags";
 
 /**
- * Comma-separated list of admin emails.
- * Set via ADMIN_EMAILS in .env.local / deploy secrets.
- * Fails closed (no admins) if the env var is missing.
+ * Parse a comma-separated email string into a normalized lowercase set.
  */
-const ADMIN_EMAILS: string[] = (process.env.ADMIN_EMAILS ?? "")
-  .split(",")
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean);
+function parseEmails(raw: string | null | undefined): string[] {
+  return (raw ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
 
 /**
- * Synchronous check: is the given email in the admin list?
- * Useful in middleware where the user is already resolved.
+ * Check whether the given email is in the admin list.
+ *
+ * Fast path: checks ADMIN_EMAILS env var first to avoid a DB round-trip
+ * in middleware (important for serverless cold starts). Falls through to
+ * the feature flag (DB-first with env var fallback) when the env var
+ * doesn't contain the email, so admins added via the UI are still recognized.
  */
-export function isAdminEmail(email: string): boolean {
-  return ADMIN_EMAILS.includes(email.toLowerCase());
+export async function isAdminEmail(email: string): Promise<boolean> {
+  const normalized = email.toLowerCase();
+
+  // Fast path: check env var directly (avoids DB query in middleware)
+  const envAdmins = parseEmails(process.env.ADMIN_EMAILS);
+  if (envAdmins.includes(normalized)) return true;
+
+  // Full check: consult feature flag (DB-first, env var fallback)
+  const raw = await getFlagValue("admin_emails");
+  const flagAdmins = parseEmails(raw);
+  return flagAdmins.includes(normalized);
 }
 
 /**
@@ -36,7 +50,7 @@ export async function isAdmin(): Promise<{
     return { isAdmin: false, user: null };
   }
 
-  return { isAdmin: isAdminEmail(user.email ?? ""), user };
+  return { isAdmin: await isAdminEmail(user.email ?? ""), user };
 }
 
 /**

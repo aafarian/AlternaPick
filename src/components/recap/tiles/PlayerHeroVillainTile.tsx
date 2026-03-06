@@ -1,16 +1,18 @@
 import { AlertTriangle, Check } from "lucide-react";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
 import type { PlayerSpotlight } from "@/lib/recaps/compute";
-import { TILE, TileHeader, TilePill } from "./shared";
+import { TILE, TileHeader, TilePill, type OnPlayerClick } from "./shared";
 
 export function PlayerHeroVillainTile({
   good,
   bad,
   platformHitRate,
+  onPlayerClick,
 }: {
   good: PlayerSpotlight[];
   bad: PlayerSpotlight[];
   platformHitRate: number;
+  onPlayerClick?: OnPlayerClick;
 }) {
   const topGood = good[0] ?? null;
   const topBad = bad[0] ?? null;
@@ -36,8 +38,16 @@ export function PlayerHeroVillainTile({
   const textColor = isHero ? "text-neon-green" : "text-bold-red";
   const pillBg = isHero ? "bg-neon-green/10" : "bg-bold-red/10";
 
+  const handleClick = () => {
+    onPlayerClick?.({ playerName: pick.playerName, sport: pick.sport });
+  };
+
   return (
-    <div className={`${TILE} ${tileBorder}`}>
+    <button
+      type="button"
+      className={`${TILE} ${tileBorder} cursor-pointer text-left`}
+      onClick={handleClick}
+    >
       <TileHeader
         icon={isHero ? Check : AlertTriangle}
         label={`${isHero ? "Hero" : "Villain"} of the Day`}
@@ -71,6 +81,6 @@ export function PlayerHeroVillainTile({
           rightColor={textColor}
         />
       </div>
-    </div>
+    </button>
   );
 }

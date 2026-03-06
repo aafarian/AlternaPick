@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   Check,
   Flame,
+  Minus,
   Snowflake,
   TrendingUp,
   TrendingDown,
@@ -9,11 +10,31 @@ import {
   Users,
   Shield,
   BarChart3,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { isValidSport, SPORT_CONFIG } from "@/lib/sports/config";
 import { CATEGORY_LABELS, catLabel } from "@/lib/constants";
 import type { SpotlightType } from "@/lib/recaps/compute";
+
+/* ─── Click callbacks ─── */
+
+export interface PropClickInfo {
+  propId: string;
+  playerName: string;
+  statCategory: string;
+  line: number;
+}
+
+export type OnPropClick = (info: PropClickInfo) => void;
+
+export interface PlayerClickInfo {
+  playerName: string;
+  sport?: string;
+  statCategory?: string;
+}
+
+export type OnPlayerClick = (info: PlayerClickInfo) => void;
 
 /* ─── Constants ─── */
 
@@ -198,6 +219,63 @@ export function SportBadge({ sport }: { sport: string }) {
       <span>{cfg.shortLabel}</span>
     </span>
   );
+}
+
+/* ─── Modal shared types & components ─── */
+
+export interface PickerInfo {
+  username: string;
+  selection: string;
+  result: string;
+  actualValue: number | null;
+}
+
+export function sportLabel(sport: string): string {
+  if (isValidSport(sport)) return SPORT_CONFIG[sport].shortLabel;
+  return sport.toUpperCase();
+}
+
+export function ResultIcon({
+  result,
+  size = "sm",
+}: {
+  result: string;
+  size?: "sm" | "md";
+}) {
+  const outer = size === "sm" ? "h-4 w-4" : "h-5 w-5";
+  const inner = size === "sm" ? "h-2.5 w-2.5" : "h-3 w-3";
+
+  if (result === "hit") {
+    return (
+      <div className={`flex ${outer} items-center justify-center rounded-full bg-neon-green/20 shrink-0`}>
+        <Check className={`${inner} text-neon-green`} />
+      </div>
+    );
+  }
+  if (result === "miss") {
+    return (
+      <div className={`flex ${outer} items-center justify-center rounded-full bg-bold-red/20 shrink-0`}>
+        <X className={`${inner} text-bold-red`} />
+      </div>
+    );
+  }
+  return (
+    <div className={`flex ${outer} items-center justify-center rounded-full bg-border/40 shrink-0`}>
+      <Minus className={`${inner} text-muted-foreground`} />
+    </div>
+  );
+}
+
+export function hitRateColor(rate: number): string {
+  if (rate >= 0.6) return "text-neon-green";
+  if (rate >= 0.4) return "text-electric-blue";
+  return "text-bold-red";
+}
+
+export function hitRateBg(rate: number): string {
+  if (rate >= 0.6) return "bg-neon-green/5";
+  if (rate >= 0.4) return "bg-electric-blue/5";
+  return "bg-bold-red/5";
 }
 
 /* ─── Helpers ─── */

@@ -1,14 +1,16 @@
 import { TrendingUp } from "lucide-react";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
 import type { MostPickedPlayer } from "@/lib/recaps/compute";
-import { TILE, TileHeader } from "./shared";
+import { TILE, TileHeader, type OnPlayerClick } from "./shared";
 
 const MAX_PLAYERS = 4;
 
 export function MostPickedPlayersTile({
   players,
+  onPlayerClick,
 }: {
   players: MostPickedPlayer[];
+  onPlayerClick?: OnPlayerClick;
 }) {
   if (players.length === 0) return null;
   const top = players.slice(0, MAX_PLAYERS);
@@ -21,7 +23,12 @@ export function MostPickedPlayersTile({
       />
       <div className="mt-2 flex flex-col gap-2 flex-1">
         {top.map((p) => (
-          <div key={p.playerName} className="flex items-center gap-2">
+          <button
+            key={p.playerName}
+            type="button"
+            className="flex items-center gap-2 w-full text-left rounded-md px-1 -mx-1 transition-colors hover:bg-foreground/5 cursor-pointer"
+            onClick={() => onPlayerClick?.({ playerName: p.playerName, sport: p.sport })}
+          >
             <PlayerAvatar
               playerId={p.playerId}
               playerName={p.playerName}
@@ -41,7 +48,7 @@ export function MostPickedPlayersTile({
             <span className="text-xs font-bold tabular-nums text-electric-blue shrink-0">
               {p.pickCount}
             </span>
-          </div>
+          </button>
         ))}
       </div>
     </div>

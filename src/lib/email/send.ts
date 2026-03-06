@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { getResendClient } from "./client";
 import { logError } from "@/lib/logger";
+import { getFlag, getFlagValue } from "@/lib/feature-flags";
 import type {
   NotificationType,
   NotificationPreferences,
@@ -62,6 +63,12 @@ export async function sendEmail({
   react,
 }: SendEmailParams): Promise<SendEmailResult> {
   try {
+    // Step 0: Check global email toggle
+    const emailEnabledFlag = await getFlag("email_enabled");
+    if (emailEnabledFlag !== null && !emailEnabledFlag.enabled) {
+      return { success: false, error: "Email sending is disabled" };
+    }
+
     // Step 1: Get Resend client
     const resend = getResendClient();
     if (!resend) {
@@ -70,7 +77,7 @@ export async function sendEmail({
     }
 
     // Step 2: Parse EMAIL_ALLOWLIST
-    const allowlistRaw = process.env.EMAIL_ALLOWLIST ?? "";
+    const allowlistRaw = (await getFlagValue("email_allowlist")) ?? "";
     const recipientLower = to.toLowerCase().trim();
 
     if (allowlistRaw.trim() !== "*") {

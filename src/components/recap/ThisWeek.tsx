@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS } from "@/lib/constants";
@@ -15,9 +16,11 @@ import { WeeklyTrendChart } from "@/components/recap/WeeklyTrendChart";
 import type {
   WeeklyRecapData,
   WeeklyPersonalStats,
+  TrapOrLockProp,
 } from "@/lib/recaps/compute";
 import { SpotlightsCard } from "@/components/recap/FunFactsCard";
 import { AnimatedNumber } from "@/components/recap/AnimatedNumber";
+import { PropPicksModal } from "@/components/recap/PropPicksModal";
 
 interface ThisWeekProps {
   weeklyData: WeeklyRecapData;
@@ -57,10 +60,26 @@ export function ThisWeek({ weeklyData, personalWeekly, hideStats }: ThisWeekProp
     endDate,
   } = weeklyData;
 
+  const [selectedProp, setSelectedProp] = useState<{
+    propId: string;
+    playerName: string;
+    statCategory: string;
+    line: number;
+  } | null>(null);
+
   // Guard: if no data at all, don't render
   if (totalPicks === 0 && dailyTrend.length === 0) return null;
 
   const hitPercent = Math.round(weeklyHitRate * 100);
+
+  const openPropModal = (prop: TrapOrLockProp) => {
+    setSelectedProp({
+      propId: prop.propId,
+      playerName: prop.playerName,
+      statCategory: prop.statCategory,
+      line: prop.line,
+    });
+  };
 
   return (
     <Card className="border-primary/20 bg-primary/5">
@@ -152,47 +171,78 @@ export function ThisWeek({ weeklyData, personalWeekly, hideStats }: ThisWeekProp
 
             {/* Worst Trap */}
             {worstTrap && (
-              <div className="flex items-start gap-2 rounded-lg bg-bold-red/10 px-3 py-2">
-                <TrendingDown className="mt-0.5 h-4 w-4 shrink-0 text-bold-red" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-bold-red">
-                    Worst Trap
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-foreground truncate">
-                    {worstTrap.playerName}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {worstTrap.line}{" "}
-                    {CATEGORY_LABELS[worstTrap.statCategory.toLowerCase() as keyof typeof CATEGORY_LABELS] ??
-                      worstTrap.statCategory}{" "}
-                    &mdash; {Math.round(worstTrap.hitRate * 100)}% hit rate
-                  </p>
+              <button
+                type="button"
+                className="w-full text-left cursor-pointer"
+                onClick={() => openPropModal(worstTrap)}
+              >
+                <div className="flex items-start gap-2 rounded-lg bg-bold-red/10 px-3 py-2 transition-colors hover:bg-bold-red/15">
+                  <TrendingDown className="mt-0.5 h-4 w-4 shrink-0 text-bold-red" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-bold-red">
+                      Worst Trap
+                    </p>
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {worstTrap.playerName}
+                      </p>
+                      <Badge className="shrink-0 text-[9px] bg-primary/15 text-primary border-primary/30">
+                        {sportLabel(worstTrap.sport)}
+                      </Badge>
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {worstTrap.line}{" "}
+                      {CATEGORY_LABELS[worstTrap.statCategory.toLowerCase() as keyof typeof CATEGORY_LABELS] ??
+                        worstTrap.statCategory}{" "}
+                      &mdash; {Math.round(worstTrap.hitRate * 100)}% hit rate
+                    </p>
+                  </div>
                 </div>
-              </div>
+              </button>
             )}
 
             {/* Best Lock */}
             {bestLock && (
-              <div className="flex items-start gap-2 rounded-lg bg-neon-green/10 px-3 py-2">
-                <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-neon-green" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-neon-green">
-                    Best Lock
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-foreground truncate">
-                    {bestLock.playerName}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {bestLock.line}{" "}
-                    {CATEGORY_LABELS[bestLock.statCategory.toLowerCase() as keyof typeof CATEGORY_LABELS] ??
-                      bestLock.statCategory}{" "}
-                    &mdash; {Math.round(bestLock.hitRate * 100)}% hit rate
-                  </p>
+              <button
+                type="button"
+                className="w-full text-left cursor-pointer"
+                onClick={() => openPropModal(bestLock)}
+              >
+                <div className="flex items-start gap-2 rounded-lg bg-neon-green/10 px-3 py-2 transition-colors hover:bg-neon-green/15">
+                  <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-neon-green" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-neon-green">
+                      Best Lock
+                    </p>
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {bestLock.playerName}
+                      </p>
+                      <Badge className="shrink-0 text-[9px] bg-primary/15 text-primary border-primary/30">
+                        {sportLabel(bestLock.sport)}
+                      </Badge>
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {bestLock.line}{" "}
+                      {CATEGORY_LABELS[bestLock.statCategory.toLowerCase() as keyof typeof CATEGORY_LABELS] ??
+                        bestLock.statCategory}{" "}
+                      &mdash; {Math.round(bestLock.hitRate * 100)}% hit rate
+                    </p>
+                  </div>
                 </div>
-              </div>
+              </button>
             )}
           </div>
         )}
+
+        {/* Prop Picks Modal */}
+        <PropPicksModal
+          propId={selectedProp?.propId ?? null}
+          playerName={selectedProp?.playerName ?? ""}
+          statCategory={selectedProp?.statCategory ?? ""}
+          line={selectedProp?.line ?? 0}
+          onClose={() => setSelectedProp(null)}
+        />
 
         {/* Weekly Spotlights */}
         {weeklyData.recapData?.spotlights && weeklyData.recapData.spotlights.length > 0 && (

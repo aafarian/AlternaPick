@@ -6,16 +6,44 @@ import {
   spotlightConfig,
   SportBadge,
   sanitizeSpotlightText,
+  type OnPlayerClick,
 } from "./shared";
 
-export function SpotlightTile({ spotlight }: { spotlight: Spotlight }) {
+export function SpotlightTile({
+  spotlight,
+  onPlayerClick,
+}: {
+  spotlight: Spotlight;
+  onPlayerClick?: OnPlayerClick;
+}) {
   const cfg = spotlightConfig[spotlight.type];
   const Icon = cfg.icon;
   const hasPlayer =
     PLAYER_TYPES.includes(spotlight.type) && spotlight.subject;
 
+  // All player-type spotlights open the player modal (with optional stat filter)
+  const isClickable = hasPlayer && spotlight.subject && onPlayerClick;
+
+  const handleClick = () => {
+    if (hasPlayer && spotlight.subject && onPlayerClick) {
+      onPlayerClick({
+        playerName: spotlight.subject,
+        sport: spotlight.sport,
+        statCategory: spotlight.statCategory,
+      });
+    }
+  };
+
+  const Wrapper = isClickable ? "button" : "div";
+  const wrapperProps = isClickable
+    ? { type: "button" as const, onClick: handleClick }
+    : {};
+
   return (
-    <div className={`${TILE} ${cfg.border} ${cfg.bg}`}>
+    <Wrapper
+      {...wrapperProps}
+      className={`${TILE} ${cfg.border} ${cfg.bg} ${isClickable ? "cursor-pointer text-left" : ""}`}
+    >
       <div className="flex items-start justify-between gap-1">
         <div className="flex items-center gap-1.5">
           {hasPlayer && spotlight.playerId ? (
@@ -50,6 +78,6 @@ export function SpotlightTile({ spotlight }: { spotlight: Spotlight }) {
           </p>
         )}
       </div>
-    </div>
+    </Wrapper>
   );
 }

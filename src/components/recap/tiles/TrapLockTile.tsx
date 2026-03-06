@@ -1,14 +1,16 @@
 import { AlertTriangle, Check } from "lucide-react";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
 import type { TrapOrLockProp } from "@/lib/recaps/compute";
-import { TILE, TileHeader, MAX_TILE_ITEMS, catLabel } from "./shared";
+import { TILE, TileHeader, MAX_TILE_ITEMS, catLabel, type OnPropClick } from "./shared";
 
 export function TrapLockTile({
   items,
   variant,
+  onPropClick,
 }: {
   items: TrapOrLockProp[];
   variant: "trap" | "lock";
+  onPropClick?: OnPropClick;
 }) {
   if (items.length === 0) return null;
   const top = items.slice(0, MAX_TILE_ITEMS);
@@ -27,7 +29,17 @@ export function TrapLockTile({
       />
       <div className="mt-2 flex flex-col gap-2 flex-1">
         {top.map((p) => (
-          <div key={p.propId} className="flex items-center gap-2">
+          <button
+            key={p.propId}
+            type="button"
+            className="flex items-center gap-2 w-full text-left rounded-md px-1 -mx-1 transition-colors hover:bg-foreground/5 cursor-pointer"
+            onClick={() => onPropClick?.({
+              propId: p.propId,
+              playerName: p.playerName,
+              statCategory: p.statCategory,
+              line: p.line,
+            })}
+          >
             <PlayerAvatar
               playerId={p.playerId}
               playerName={p.playerName}
@@ -47,7 +59,7 @@ export function TrapLockTile({
             >
               {Math.round(p.hitRate * 100)}%
             </span>
-          </div>
+          </button>
         ))}
       </div>
     </div>
