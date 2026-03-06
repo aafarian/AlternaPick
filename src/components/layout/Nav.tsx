@@ -17,16 +17,57 @@ import {
   LayoutGrid,
   Swords,
   Users,
+  UserPlus,
   User,
   Settings,
   LogOut,
   LogIn,
   BarChart3,
+  TrendingUp,
   Newspaper,
   Shield,
   ChevronDown,
 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
+
+function NavBadge({
+  count,
+  animationKey,
+  animated = true,
+  className = "ml-1",
+}: {
+  count: number;
+  animationKey: string;
+  animated?: boolean;
+  className?: string;
+}) {
+  const prefersReducedMotion = useReducedMotion();
+
+  if (count <= 0) return null;
+
+  const badge = (
+    <Badge variant="destructive" className={`${className} h-5 min-w-5 px-1.5 text-[10px] font-bold`}>
+      {count > 9 ? "9+" : count}
+    </Badge>
+  );
+
+  if (!animated) return badge;
+
+  return (
+    <AnimatePresence>
+      <motion.span
+        key={animationKey}
+        initial={prefersReducedMotion ? false : { scale: 0, opacity: 0 }}
+        animate={prefersReducedMotion ? {} : { scale: 1, opacity: 1 }}
+        exit={prefersReducedMotion ? {} : { scale: 0, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 500, damping: 25 }}
+        className="inline-flex"
+      >
+        {badge}
+      </motion.span>
+    </AnimatePresence>
+  );
+}
 
 interface NavLink {
   href: string;
@@ -55,7 +96,7 @@ const authenticatedItems: NavItem[] = [
     label: "Social",
     icon: Users,
     children: [
-      { href: "/friends", label: "Friends", icon: Users, badgeKey: "friends" },
+      { href: "/friends", label: "Friends", icon: UserPlus, badgeKey: "friends" },
       { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
     ],
   },
@@ -63,7 +104,7 @@ const authenticatedItems: NavItem[] = [
     label: "Insights",
     icon: BarChart3,
     children: [
-      { href: "/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/analytics", label: "Analytics", icon: TrendingUp },
       { href: "/recap", label: "Wrapped", icon: Newspaper },
     ],
   },
@@ -148,22 +189,7 @@ export default function Nav({
           <span className="relative z-[1] flex items-center gap-2">
             <Icon className="h-4 w-4 md:hidden" />
             {link.label}
-            <AnimatePresence>
-              {badgeCount > 0 && (
-                <motion.span
-                  key={`badge-${link.badgeKey}`}
-                  initial={prefersReducedMotion ? false : { scale: 0, opacity: 0 }}
-                  animate={prefersReducedMotion ? {} : { scale: 1, opacity: 1 }}
-                  exit={prefersReducedMotion ? {} : { scale: 0, opacity: 0 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                  className="inline-flex"
-                >
-                  <Badge variant="destructive" className="ml-1 h-5 min-w-5 px-1.5 text-[10px] font-bold">
-                    {badgeCount > 9 ? "9+" : badgeCount}
-                  </Badge>
-                </motion.span>
-              )}
-            </AnimatePresence>
+            <NavBadge count={badgeCount} animationKey={`badge-${link.badgeKey}`} />
           </span>
         </Button>
       </Link>
@@ -195,22 +221,7 @@ export default function Nav({
             <Icon className="h-4 w-4 md:hidden" />
             {group.label}
             <ChevronDown className={`h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180 ${isGroupActive ? "text-primary" : "text-muted-foreground"}`} />
-            <AnimatePresence>
-              {groupBadgeCount > 0 && (
-                <motion.span
-                  key={`badge-${group.label}`}
-                  initial={prefersReducedMotion ? false : { scale: 0, opacity: 0 }}
-                  animate={prefersReducedMotion ? {} : { scale: 1, opacity: 1 }}
-                  exit={prefersReducedMotion ? {} : { scale: 0, opacity: 0 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                  className="inline-flex"
-                >
-                  <Badge variant="destructive" className="ml-1 h-5 min-w-5 px-1.5 text-[10px] font-bold">
-                    {groupBadgeCount > 9 ? "9+" : groupBadgeCount}
-                  </Badge>
-                </motion.span>
-              )}
-            </AnimatePresence>
+            <NavBadge count={groupBadgeCount} animationKey={`badge-${group.label}`} />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-44">
@@ -229,11 +240,7 @@ export default function Nav({
                 >
                   <ChildIcon className="h-4 w-4" />
                   {child.label}
-                  {childBadgeCount > 0 && (
-                    <Badge variant="destructive" className="ml-auto h-5 min-w-5 px-1.5 text-[10px] font-bold">
-                      {childBadgeCount > 9 ? "9+" : childBadgeCount}
-                    </Badge>
-                  )}
+                  <NavBadge count={childBadgeCount} animationKey={`badge-${child.badgeKey}`} animated={false} className="ml-auto" />
                 </Link>
               </DropdownMenuItem>
             );
