@@ -64,7 +64,7 @@ const authenticatedItems: NavItem[] = [
     icon: BarChart3,
     children: [
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
-      { href: "/recap", label: "Recap", icon: Newspaper },
+      { href: "/recap", label: "Wrapped", icon: Newspaper },
     ],
   },
 ];

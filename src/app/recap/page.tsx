@@ -26,7 +26,7 @@ import { Newspaper } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recap | Sports Tower",
+  title: "Wrapped | Sports Tower",
   description: "Prop pick highlights and platform stats.",
 };
 
@@ -316,7 +316,7 @@ export default async function RecapPage({
       return (
         <div className="flex flex-col gap-6 py-8">
           <SlideUp>
-            <RecapHeader title="Weekly Recap" subtitle={weekLabel} mode="weekly" />
+            <RecapHeader title="Weekly Wrapped" subtitle={weekLabel} mode="weekly" />
           </SlideUp>
           {availableDates.length > 0 && (
             <FadeIn delay={0.05}>
@@ -330,7 +330,7 @@ export default async function RecapPage({
           <FadeIn delay={0.2}>
             <AnimatedEmptyState
               icon={<Newspaper className="h-8 w-8" />}
-              title="No weekly recap available"
+              title="No weekly wrapped available"
               description="Check back after the week wraps up!"
             />
           </FadeIn>
@@ -355,7 +355,7 @@ export default async function RecapPage({
         {/* Header + Mode Toggle */}
         <SlideUp>
           <RecapHeader
-            title={`Weekly Recap \u2014 ${weekLabel}`}
+            title={`Weekly Wrapped \u2014 ${weekLabel}`}
             subtitle={`${weeklyData.totalPicks.toLocaleString()} pick${weeklyData.totalPicks !== 1 ? "s" : ""} across ${weeklyData.totalCards.toLocaleString()} card${weeklyData.totalCards !== 1 ? "s" : ""}`}
             mode="weekly"
           />
@@ -430,7 +430,7 @@ export default async function RecapPage({
       <div className="flex flex-col gap-6 py-8">
         <SlideUp>
           <RecapHeader
-            title="Daily Recap"
+            title="Daily Wrapped"
             subtitle="Yesterday's prop pick highlights and platform stats"
             mode="daily"
           />
@@ -446,7 +446,7 @@ export default async function RecapPage({
         <FadeIn delay={0.2}>
           <AnimatedEmptyState
             icon={<Newspaper className="h-8 w-8" />}
-            title="No recap available"
+            title="No wrapped available"
             description="Check back after games resolve!"
           />
         </FadeIn>
@@ -480,7 +480,7 @@ export default async function RecapPage({
       {/* 1. Header + Mode Toggle + Date Navigator */}
       <SlideUp>
         <RecapHeader
-          title={`Daily Recap \u2014 ${dateLabel}`}
+          title={`Daily Wrapped \u2014 ${dateLabel}`}
           subtitle={`${recapData.totalPicks.toLocaleString()} pick${recapData.totalPicks !== 1 ? "s" : ""} across ${recapData.totalCards.toLocaleString()} card${recapData.totalCards !== 1 ? "s" : ""}`}
           mode="daily"
         />
