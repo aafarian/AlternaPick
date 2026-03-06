@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { getResendClient } from "./client";
 import { logError } from "@/lib/logger";
+import { getFlagValue } from "@/lib/feature-flags";
 import type {
   NotificationType,
   NotificationPreferences,
@@ -70,7 +71,7 @@ export async function sendEmail({
     }
 
     // Step 2: Parse EMAIL_ALLOWLIST
-    const allowlistRaw = process.env.EMAIL_ALLOWLIST ?? "";
+    const allowlistRaw = (await getFlagValue("email_allowlist")) ?? "";
     const recipientLower = to.toLowerCase().trim();
 
     if (allowlistRaw.trim() !== "*") {

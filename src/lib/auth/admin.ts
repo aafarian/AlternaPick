@@ -1,22 +1,21 @@
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { getFlagValue } from "@/lib/feature-flags";
 
 /**
- * Comma-separated list of admin emails.
- * Set via ADMIN_EMAILS in .env.local / deploy secrets.
- * Fails closed (no admins) if the env var is missing.
+ * Check whether the given email is in the admin list.
+ *
+ * Reads admin emails from the `admin_emails` feature flag (with env var
+ * fallback handled by `getFlagValue`). Fails closed: if the flag is
+ * missing or empty, no email is considered admin.
  */
-const ADMIN_EMAILS: string[] = (process.env.ADMIN_EMAILS ?? "")
-  .split(",")
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean);
-
-/**
- * Synchronous check: is the given email in the admin list?
- * Useful in middleware where the user is already resolved.
- */
-export function isAdminEmail(email: string): boolean {
-  return ADMIN_EMAILS.includes(email.toLowerCase());
+export async function isAdminEmail(email: string): Promise<boolean> {
+  const raw = await getFlagValue("admin_emails");
+  const adminEmails = (raw ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return adminEmails.includes(email.toLowerCase());
 }
 
 /**
@@ -36,7 +35,7 @@ export async function isAdmin(): Promise<{
     return { isAdmin: false, user: null };
   }
 
-  return { isAdmin: isAdminEmail(user.email ?? ""), user };
+  return { isAdmin: await isAdminEmail(user.email ?? ""), user };
 }
 
 /**
