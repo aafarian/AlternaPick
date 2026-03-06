@@ -101,7 +101,7 @@ export default function Nav({
                 mobileSecondaryOnly ? "h-10 text-sm" : ""
               } ${
                 isActive
-                  ? "text-primary hover:text-primary"
+                  ? "text-primary hover:text-primary hover:bg-transparent"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
             >
@@ -150,7 +150,7 @@ export default function Nav({
               mobileSecondaryOnly ? "h-10 text-sm" : ""
             } ${
               isAdminActive
-                ? "text-primary hover:text-primary"
+                ? "text-primary hover:text-primary hover:bg-transparent"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}
           >
