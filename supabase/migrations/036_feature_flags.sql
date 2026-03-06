@@ -34,10 +34,10 @@ CREATE TABLE IF NOT EXISTS feature_flags (
 
 ALTER TABLE feature_flags ENABLE ROW LEVEL SECURITY;
 
--- Any authenticated user can read feature flags
-CREATE POLICY "feature_flags_select_authenticated"
+-- Only service_role can read feature flags (contains sensitive data like admin_emails)
+CREATE POLICY "feature_flags_select_service"
   ON feature_flags FOR SELECT
-  TO authenticated
+  TO service_role
   USING (true);
 
 -- Only service_role (server-side admin) can insert new flags
