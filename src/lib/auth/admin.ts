@@ -3,19 +3,34 @@ import { createClient } from "@/lib/supabase/server";
 import { getFlagValue } from "@/lib/feature-flags";
 
 /**
- * Check whether the given email is in the admin list.
- *
- * Reads admin emails from the `admin_emails` feature flag (with env var
- * fallback handled by `getFlagValue`). Fails closed: if the flag is
- * missing or empty, no email is considered admin.
+ * Parse a comma-separated email string into a normalized lowercase set.
  */
-export async function isAdminEmail(email: string): Promise<boolean> {
-  const raw = await getFlagValue("admin_emails");
-  const adminEmails = (raw ?? "")
+function parseEmails(raw: string | null | undefined): string[] {
+  return (raw ?? "")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
-  return adminEmails.includes(email.toLowerCase());
+}
+
+/**
+ * Check whether the given email is in the admin list.
+ *
+ * Fast path: checks ADMIN_EMAILS env var first to avoid a DB round-trip
+ * in middleware (important for serverless cold starts). Falls through to
+ * the feature flag (DB-first with env var fallback) when the env var
+ * doesn't contain the email, so admins added via the UI are still recognized.
+ */
+export async function isAdminEmail(email: string): Promise<boolean> {
+  const normalized = email.toLowerCase();
+
+  // Fast path: check env var directly (avoids DB query in middleware)
+  const envAdmins = parseEmails(process.env.ADMIN_EMAILS);
+  if (envAdmins.includes(normalized)) return true;
+
+  // Full check: consult feature flag (DB-first, env var fallback)
+  const raw = await getFlagValue("admin_emails");
+  const flagAdmins = parseEmails(raw);
+  return flagAdmins.includes(normalized);
 }
 
 /**

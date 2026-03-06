@@ -17,6 +17,7 @@ import {
   Search,
   Server,
   Settings,
+  RefreshCw,
   Menu,
 } from "lucide-react";
 
@@ -32,6 +33,7 @@ const adminLinks: AdminNavLink[] = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/lookup", label: "Lookup", icon: Search },
   { href: "/admin/system", label: "System", icon: Server },
+  { href: "/admin/resync", label: "Resync", icon: RefreshCw },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

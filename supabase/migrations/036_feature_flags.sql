@@ -71,7 +71,7 @@ VALUES
     '',
     'string_list',
     'Comma-separated list of emails allowed to receive emails, or * for all',
-    true,
+    false,
     'EMAIL_ALLOWLIST'
   ),
   (
@@ -79,7 +79,7 @@ VALUES
     '',
     'string_list',
     'Comma-separated list of admin email addresses',
-    true,
+    false,
     'ADMIN_EMAILS'
   ),
   (

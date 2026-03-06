@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { BarChart3, Shield } from "lucide-react";
 import type {
   RecapData,
@@ -24,6 +24,9 @@ import { CardScoreboardTile } from "./tiles/CardScoreboardTile";
 import { PlayerHeroVillainTile } from "./tiles/PlayerHeroVillainTile";
 import { MostPopularStatTile } from "./tiles/MostPopularStatTile";
 import { BreakdownTile } from "./tiles/BreakdownTile";
+import { PropPicksModal } from "@/components/recap/PropPicksModal";
+import { PlayerPicksModal } from "@/components/recap/PlayerPicksModal";
+import type { PropClickInfo, PlayerClickInfo } from "./tiles/shared";
 
 // Spotlight types that are rendered as dedicated grouped tiles
 const GROUPED_TYPES: Set<SpotlightType> = new Set([
@@ -38,9 +41,15 @@ const GROUPED_TYPES: Set<SpotlightType> = new Set([
   "over_under_skew",
   "player_trap",
   "player_lock",
+  "prop_unanimous",
+  "consensus_upset",
 ]);
 
 export function RecapTileGrid({ recapData }: { recapData: RecapData }) {
+  const [selectedProp, setSelectedProp] = useState<PropClickInfo | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerClickInfo | null>(null);
+  const onPropClick = useCallback((info: PropClickInfo) => setSelectedProp(info), []);
+  const onPlayerClick = useCallback((info: PlayerClickInfo) => setSelectedPlayer(info), []);
   const avgRate = recapData.platformHitRate;
 
   // Pre-compute derived data once
@@ -121,43 +130,43 @@ export function RecapTileGrid({ recapData }: { recapData: RecapData }) {
       {/* Individual spotlight tiles */}
       {spotlights.map((s) => (
         <StaggerItem key={`spot-${s.type}-${s.subject ?? ""}-${s.value}`}>
-          <SpotlightTile spotlight={s} />
+          <SpotlightTile spotlight={s} onPlayerClick={onPlayerClick} />
         </StaggerItem>
       ))}
 
       {/* Most Picked Players */}
       {players.length > 0 && (
-        <StaggerItem><MostPickedPlayersTile players={players} /></StaggerItem>
+        <StaggerItem><MostPickedPlayersTile players={players} onPlayerClick={onPlayerClick} /></StaggerItem>
       )}
 
       {/* Top Props */}
       {props.length > 0 && (
-        <StaggerItem><MostPickedPropsTile props={props} /></StaggerItem>
+        <StaggerItem><MostPickedPropsTile props={props} onPropClick={onPropClick} /></StaggerItem>
       )}
 
       {/* Consensus Trap */}
       {consensusTrap.length > 0 && (
-        <StaggerItem><ConsensusTile picks={consensusTrap} variant="trap" /></StaggerItem>
+        <StaggerItem><ConsensusTile picks={consensusTrap} variant="trap" onPropClick={onPropClick} /></StaggerItem>
       )}
 
       {/* Consensus Win */}
       {consensusWin.length > 0 && (
-        <StaggerItem><ConsensusTile picks={consensusWin} variant="win" /></StaggerItem>
+        <StaggerItem><ConsensusTile picks={consensusWin} variant="win" onPropClick={onPropClick} /></StaggerItem>
       )}
 
       {/* Unanimous Props */}
       {unanimousProps.length > 0 && (
-        <StaggerItem><UnanimousPropsTile picks={unanimousProps} /></StaggerItem>
+        <StaggerItem><UnanimousPropsTile picks={unanimousProps} onPropClick={onPropClick} /></StaggerItem>
       )}
 
       {/* Traps */}
       {traps.length > 0 && (
-        <StaggerItem><TrapLockTile items={traps} variant="trap" /></StaggerItem>
+        <StaggerItem><TrapLockTile items={traps} variant="trap" onPropClick={onPropClick} /></StaggerItem>
       )}
 
       {/* Locks */}
       {locks.length > 0 && (
-        <StaggerItem><TrapLockTile items={locks} variant="lock" /></StaggerItem>
+        <StaggerItem><TrapLockTile items={locks} variant="lock" onPropClick={onPropClick} /></StaggerItem>
       )}
 
       {/* Perfect Cards */}
@@ -209,7 +218,7 @@ export function RecapTileGrid({ recapData }: { recapData: RecapData }) {
       {/* Player Hero/Villain */}
       {(good.length > 0 || bad.length > 0) && (
         <StaggerItem>
-          <PlayerHeroVillainTile good={good} bad={bad} platformHitRate={avgRate} />
+          <PlayerHeroVillainTile good={good} bad={bad} platformHitRate={avgRate} onPlayerClick={onPlayerClick} />
         </StaggerItem>
       )}
 
@@ -258,6 +267,19 @@ export function RecapTileGrid({ recapData }: { recapData: RecapData }) {
           />
         </StaggerItem>
       )}
+      <PropPicksModal
+        propId={selectedProp?.propId ?? null}
+        playerName={selectedProp?.playerName ?? ""}
+        statCategory={selectedProp?.statCategory ?? ""}
+        line={selectedProp?.line ?? 0}
+        onClose={() => setSelectedProp(null)}
+      />
+      <PlayerPicksModal
+        playerName={selectedPlayer?.playerName ?? null}
+        sport={selectedPlayer?.sport}
+        statCategory={selectedPlayer?.statCategory}
+        onClose={() => setSelectedPlayer(null)}
+      />
     </StaggerChildren>
   );
 }

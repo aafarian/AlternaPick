@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS } from "@/lib/constants";
 import { Users, Check, X } from "lucide-react";
 import type { ConsensusPick } from "@/lib/recaps/compute";
 import type { StatCategory } from "@/lib/supabase/types";
+import { PropPicksModal } from "@/components/recap/PropPicksModal";
 
 interface ConsensusCardProps {
   picks: ConsensusPick[];
@@ -14,6 +16,12 @@ interface ConsensusCardProps {
 const MAX_DISPLAY = 6;
 
 export function ConsensusCard({ picks }: ConsensusCardProps) {
+  const [selectedProp, setSelectedProp] = useState<{
+    propId: string;
+    playerName: string;
+    statCategory: string;
+    line: number;
+  } | null>(null);
   if (picks.length === 0) return null;
 
   const displayPicks = picks.slice(0, MAX_DISPLAY);
@@ -44,11 +52,18 @@ export function ConsensusCard({ picks }: ConsensusCardProps) {
               pick.statCategory;
 
             return (
-              <div
+              <button
                 key={pick.propId}
-                className={`rounded-lg px-3 py-2.5 ${
-                  pick.wasCorrect ? "bg-neon-green/5" : "bg-bold-red/5"
+                type="button"
+                className={`rounded-lg px-3 py-2.5 w-full text-left cursor-pointer transition-colors ${
+                  pick.wasCorrect ? "bg-neon-green/5 hover:bg-neon-green/10" : "bg-bold-red/5 hover:bg-bold-red/10"
                 }`}
+                onClick={() => setSelectedProp({
+                  propId: pick.propId,
+                  playerName: pick.playerName,
+                  statCategory: pick.statCategory,
+                  line: pick.line,
+                })}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -102,10 +117,18 @@ export function ConsensusCard({ picks }: ConsensusCardProps) {
                     {pick.wasCorrect ? "Crowd was right" : "Crowd was wrong"}
                   </p>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
+
+        <PropPicksModal
+          propId={selectedProp?.propId ?? null}
+          playerName={selectedProp?.playerName ?? ""}
+          statCategory={selectedProp?.statCategory ?? ""}
+          line={selectedProp?.line ?? 0}
+          onClose={() => setSelectedProp(null)}
+        />
       </CardContent>
     </Card>
   );

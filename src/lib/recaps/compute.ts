@@ -122,6 +122,8 @@ export interface Spotlight {
   sport?: string;        // sport key for player/team spotlights
   playerId?: string;     // player external ID for headshot rendering
   team?: string;         // team name
+  propId?: string;       // prop ID for prop-level spotlights (unanimous, consensus)
+  statCategory?: string; // stat category for prop-level spotlights
 }
 
 export interface RecapData {
@@ -973,6 +975,12 @@ export async function computeWeeklyRecap(
       if (rate < lowestRate) { lowestRate = rate; worstTrap = entry; }
       if (rate > highestRate) { highestRate = rate; bestLock = entry; }
     }
+
+    // Deduplicate: if the same prop is both trap and lock, keep only the more fitting role
+    if (worstTrap && bestLock && worstTrap.propId === bestLock.propId) {
+      if (worstTrap.hitRate < 0.5) bestLock = null;
+      else worstTrap = null;
+    }
   }
 
   // ------------------------------------------------------------------
@@ -1122,26 +1130,44 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
     })
     .sort((a, b) => b[1].length - a[1].length);
 
-  for (const [, picks] of unanimousProps.slice(0, 3)) {
+  for (const [unanimousPropId, picks] of unanimousProps.slice(0, 3)) {
     const overCount = picks.filter((p) => p.selection === "over").length;
     const side = overCount > 0 ? "OVER" : "UNDER";
-    const allHit = picks.every((p) => p.result === "hit");
-    const allMiss = picks.every((p) => p.result === "miss");
     const rep = picks[0];
     const name = rep.props?.player_name ?? "Unknown";
-    const line = rep.props?.line ?? 0;
     const stat = rep.props?.stat_category ?? "points";
+
+    // Aggregate across ALL props for this player+stat this week
+    const weeklyPicks = allPicks.filter(
+      (p) =>
+        p.props?.player_name === name &&
+        p.props?.stat_category === stat,
+    );
+    const weeklyHits = weeklyPicks.filter((p) => p.result === "hit").length;
+    const weeklyTotal = weeklyPicks.length;
+    const weeklyHitRate = weeklyTotal > 0 ? weeklyHits / weeklyTotal : 0;
+    const weeklyAllHit = weeklyTotal > 0 && weeklyHits === weeklyTotal;
+    const weeklyAllMiss = weeklyTotal > 0 && weeklyHits === 0;
+
+    const statSuffix = weeklyAllHit
+      ? " — all correct"
+      : weeklyAllMiss
+        ? " — all wrong"
+        : ` — ${Math.round(weeklyHitRate * 100)}% hit rate`;
+
     spotlights.push({
       type: "prop_unanimous",
-      sentiment: allHit ? "positive" : allMiss ? "negative" : "neutral",
+      sentiment: weeklyAllHit ? "positive" : weeklyAllMiss ? "negative" : "neutral",
       headline: `Unanimous ${side} on ${name}`,
-      detail: `${picks.length === 2 ? "2 people chose" : `All ${picks.length} chose`} ${side} on ${line} ${catLabel(stat)}${allHit ? " — all correct" : allMiss ? " — all wrong" : ""}`,
+      detail: `${weeklyTotal} ${catLabel(stat)} pick${weeklyTotal !== 1 ? "s" : ""} this week${statSuffix}`,
       value: picks.length,
       valueSuffix: ` picked ${side}`,
       subject: name,
       sport: rep.props?.games?.sport ?? undefined,
       playerId: rep.props?.player_id ?? undefined,
       team: rep.props?.player_team ?? undefined,
+      propId: unanimousPropId,
+      statCategory: stat,
     });
   }
 
@@ -1214,15 +1240,32 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
   // 6. Consensus upset — crowd agreed but was wrong
   const wrongConsensus = consensusPicks.filter((c) => !c.wasCorrect);
   for (const entry of wrongConsensus.slice(0, 2)) {
+    // Aggregate across ALL props for this player+stat this week
+    const weeklyPicks = allPicks.filter(
+      (p) =>
+        p.props?.player_name === entry.playerName &&
+        p.props?.stat_category === entry.statCategory,
+    );
+    const weeklyHits = weeklyPicks.filter((p) => p.result === "hit").length;
+    const weeklyTotal = weeklyPicks.length;
+    const weeklyHitRate = weeklyTotal > 0 ? weeklyHits / weeklyTotal : 0;
+    const weeklyAllMiss = weeklyTotal > 0 && weeklyHits === 0;
+
+    const statSuffix = weeklyAllMiss
+      ? " — all wrong"
+      : ` — ${Math.round(weeklyHitRate * 100)}% hit rate`;
+
     spotlights.push({
       type: "consensus_upset",
       sentiment: "negative",
       headline: `Crowd got burned on ${entry.playerName}`,
-      detail: `${Math.round(entry.dominantPct * 100)}% picked ${entry.dominantSide.toUpperCase()} on ${entry.line} ${catLabel(entry.statCategory)} — wrong`,
+      detail: `${weeklyTotal} ${catLabel(entry.statCategory)} pick${weeklyTotal !== 1 ? "s" : ""} this week${statSuffix}`,
       value: Math.round(entry.dominantPct * 100),
       valueSuffix: `% ${entry.dominantSide}`,
       subject: entry.playerName,
       sport: entry.sport,
+      propId: entry.propId,
+      statCategory: entry.statCategory,
     });
   }
 

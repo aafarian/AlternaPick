@@ -15,6 +15,25 @@ import { isValidSport, SPORT_CONFIG } from "@/lib/sports/config";
 import { CATEGORY_LABELS, catLabel } from "@/lib/constants";
 import type { SpotlightType } from "@/lib/recaps/compute";
 
+/* ─── Click callbacks ─── */
+
+export interface PropClickInfo {
+  propId: string;
+  playerName: string;
+  statCategory: string;
+  line: number;
+}
+
+export type OnPropClick = (info: PropClickInfo) => void;
+
+export interface PlayerClickInfo {
+  playerName: string;
+  sport?: string;
+  statCategory?: string;
+}
+
+export type OnPlayerClick = (info: PlayerClickInfo) => void;
+
 /* ─── Constants ─── */
 
 export const TILE =

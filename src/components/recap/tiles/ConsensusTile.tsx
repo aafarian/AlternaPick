@@ -1,13 +1,15 @@
 import { AlertTriangle, Check } from "lucide-react";
 import type { ConsensusPick } from "@/lib/recaps/compute";
-import { TILE, TileHeader, MAX_TILE_ITEMS, catLabel } from "./shared";
+import { TILE, TileHeader, MAX_TILE_ITEMS, catLabel, type OnPropClick } from "./shared";
 
 export function ConsensusTile({
   picks,
   variant,
+  onPropClick,
 }: {
   picks: ConsensusPick[];
   variant: "trap" | "win";
+  onPropClick?: OnPropClick;
 }) {
   if (picks.length === 0) return null;
   const top = picks.slice(0, MAX_TILE_ITEMS);
@@ -27,7 +29,17 @@ export function ConsensusTile({
       />
       <div className="mt-2 flex flex-col gap-2 flex-1">
         {top.map((c) => (
-          <div key={c.propId} className="flex items-center gap-2">
+          <button
+            key={c.propId}
+            type="button"
+            className="flex items-center gap-2 w-full text-left rounded-md px-1 -mx-1 transition-colors hover:bg-foreground/5 cursor-pointer"
+            onClick={() => onPropClick?.({
+              propId: c.propId,
+              playerName: c.playerName,
+              statCategory: c.statCategory,
+              line: c.line,
+            })}
+          >
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-foreground truncate">
                 {c.playerName}
@@ -41,7 +53,7 @@ export function ConsensusTile({
             >
               {Math.round(c.dominantPct * 100)}% {c.dominantSide}
             </span>
-          </div>
+          </button>
         ))}
       </div>
     </div>
