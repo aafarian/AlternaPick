@@ -472,11 +472,13 @@ export async function reResolveStaleCards(): Promise<{
         skipped.push({ ...pickMeta(pick), reason: "Already DNP (no-op)" });
         continue;
       }
+      logWarn("resolution", `Player "${pick.props.player_name}" not in boxscore for pick ${pick.id} (event ${eventId}), marking as DNP`);
       const { error: updateErr } = await (supabase.from("picks") as any)
         .update({ actual_value: null, result: "dnp" })
         .eq("id", pick.id);
       if (updateErr) {
         logError("resolution", `Failed to update pick ${pick.id} to dnp: ${updateErr.message}`);
+        continue;
       }
       logs.push({
         ...pickMeta(pick),
