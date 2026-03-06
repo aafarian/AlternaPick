@@ -206,6 +206,10 @@ export function buildLivePicksForCard(
               trending = "miss";
             }
           }
+        } else if (boxscore.length > 0 && effectiveStatus === "final") {
+          // Player absent from a non-empty final boxscore = inactive (DNP).
+          // ESPN omits players ruled out before the game entirely.
+          trending = "dnp";
         }
       }
 
