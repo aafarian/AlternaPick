@@ -27,6 +27,11 @@ export async function isSyncOverlapping(): Promise<boolean> {
     .gte("fetched_at", fiveMinAgo)
     .limit(1);
 
+  if (result.error) {
+    logError("props-cache", "isSyncOverlapping query failed", undefined, result.error);
+    return false;
+  }
+
   return (result.data ?? []).length > 0;
 }
 
@@ -145,6 +150,11 @@ async function getCachedPropsInternal(sport?: SportKey): Promise<
 
   const result = await query;
 
+  if (result.error) {
+    logError("props-cache", "getCachedProps query failed", undefined, result.error);
+    return null;
+  }
+
   return result.data as (Game & { props: Prop[] })[] | null;
 }
 
@@ -171,6 +181,11 @@ async function getPropCountsBySportInternal(): Promise<Record<string, number>> {
     .select("sport, props(count)")
     .gte("commence_time", rangeStart.toISOString())
     .lte("commence_time", rangeEnd.toISOString());
+
+  if (result.error) {
+    logError("props-cache", "getPropCountsBySport query failed", undefined, result.error);
+    return {};
+  }
 
   const games = (result.data ?? []) as { sport: string; props: { count: number }[] }[];
 
@@ -511,7 +526,6 @@ async function _cachePropsInternal(
 
   if (gameRows.length === 0) return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
 
-   
   const { data: upsertedGames, error: gamesError } = await (supabase.from("games") as any)
     .upsert(gameRows, { onConflict: "odds_api_event_id" })
     .select("id, odds_api_event_id") as {
@@ -537,6 +551,10 @@ async function _cachePropsInternal(
     .from("props")
     .select("id, game_id, player_name, stat_category, line, line_history, player_id, player_team, player_position")
     .in("game_id", gameIds);
+  if (allPropsResult.error) {
+    logError(`${sport} cache`, "Failed to fetch existing props", undefined, allPropsResult.error);
+    return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
+  }
   const allProps = (allPropsResult.data ?? []) as {
     id: string; game_id: string; player_name: string; stat_category: string;
     line: number; line_history: Array<{ t: string; l: number }> | null;
@@ -552,6 +570,10 @@ async function _cachePropsInternal(
       .from("picks")
       .select("prop_id")
       .in("prop_id", allPropIds);
+    if (picksResult.error) {
+      logError(`${sport} cache`, "Failed to fetch picks", undefined, picksResult.error);
+      return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
+    }
     pickedPropIds = new Set(
       ((picksResult.data ?? []) as { prop_id: string }[]).map((r) => r.prop_id)
     );
@@ -577,11 +599,15 @@ async function _cachePropsInternal(
   // Uses a single join query instead of two-step games→props to reduce DB calls.
   const playerNameCache = new Map<string, { player_id: string; player_team: string | null; player_position: string | null }>();
   try {
-    const { data: knownPlayers } = await supabase
+    const { data: knownPlayers, error: knownPlayersError } = await supabase
       .from("props")
       .select("player_name, player_id, player_team, player_position, games!inner(sport)")
       .not("player_id", "is", null)
       .eq("games.sport", sport);
+
+    if (knownPlayersError) {
+      logWarn(`${sport} cache`, "Cross-game player cache query failed", knownPlayersError);
+    }
 
     for (const p of (knownPlayers ?? []) as {
       player_name: string; player_id: string;
@@ -605,7 +631,11 @@ async function _cachePropsInternal(
   if (deletableIds.length > 0) {
     for (let i = 0; i < deletableIds.length; i += 500) {
       const batch = deletableIds.slice(i, i + 500);
-      await supabase.from("props").delete().in("id", batch);
+      const { error: deleteError } = await supabase.from("props").delete().in("id", batch);
+      if (deleteError) {
+        logError(`${sport} cache`, `Props delete failed (batch ${i / 500 + 1})`, undefined, deleteError);
+        return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
+      }
     }
   }
 
@@ -689,10 +719,12 @@ async function _cachePropsInternal(
       if (match.player_team !== null) updatePayload.player_team = match.player_team;
       if (match.player_position !== null) updatePayload.player_position = match.player_position;
 
-       
-      await (supabase.from("props") as any)
+      const { error: updateError } = await (supabase.from("props") as any)
         .update(updatePayload)
         .eq("id", kept.id);
+      if (updateError) {
+        logError(`${sport} cache`, `Prop update failed for ${kept.id}`, undefined, updateError);
+      }
     }
   }
 

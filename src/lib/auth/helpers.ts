@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Profile } from "@/lib/supabase/types";
 import type { AuthUser } from "./types";
+import { logError } from "@/lib/logger";
 
 export const PROTECTED_ROUTES = ["/picks", "/profile", "/friends", "/challenges"];
 export const AUTH_ROUTES = ["/auth/login", "/auth/signup"];
@@ -32,11 +33,14 @@ export async function getUserProfile(
   supabase: SupabaseClient<Database>,
   userId: string
 ): Promise<Profile | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", userId)
     .single();
+  if (error && error.code !== "PGRST116") {
+    logError("auth", `getUserProfile failed for ${userId}`, undefined, error);
+  }
   return data;
 }
 

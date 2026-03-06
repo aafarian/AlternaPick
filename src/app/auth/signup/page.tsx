@@ -52,8 +52,6 @@ function SignupForm() {
       });
     } catch {
       // Non-fatal: referral processing failure should not block signup flow
-      // eslint-disable-next-line no-console
-      console.error("Failed to process referral");
     } finally {
       localStorage.removeItem("sports_tower_ref");
     }
