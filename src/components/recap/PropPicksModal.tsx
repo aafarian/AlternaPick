@@ -81,8 +81,8 @@ export function PropPicksModal({
         setPickers(data.pickers ?? []);
         setSport(data.sport ?? "unknown");
       })
-      .catch((err) => {
-        console.error("Failed to fetch prop picks", err);
+      .catch(() => {
+        // Silently fail — empty state is shown in the UI
       })
       .finally(() => setLoading(false));
   }, [propId]);

@@ -105,8 +105,8 @@ export function PlayerPicksModal({
       .then((data) => {
         setPropResults(data.props ?? []);
       })
-      .catch((err) => {
-        console.error("Failed to fetch player picks", err);
+      .catch(() => {
+        // Silently fail — empty state is shown in the UI
       })
       .finally(() => setLoading(false));
   }, [playerName, filterStat]);
