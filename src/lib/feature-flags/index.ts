@@ -165,8 +165,8 @@ export async function setFlag(
       return false;
     }
 
-    if (!data || (data as unknown[]).length === 0) {
-      logError("feature-flags", `Flag "${key}" not found`);
+    if (!data || data.length === 0) {
+      logWarn("feature-flags", `Flag "${key}" not found`);
       return false;
     }
 
