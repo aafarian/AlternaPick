@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { toast } from "sonner";
 import { useAuth } from "@/lib/auth/auth-context";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, AlertCircle, Bell, Trophy, Users, Swords, UserPlus, Award } from "lucide-react";
+import { Bell, Trophy, Users, Swords, UserPlus, Award } from "lucide-react";
 import type { NotificationType, EmailNotificationType, NotificationPreferences } from "@/lib/supabase/types";
 
 const NOTIFICATION_TYPES: {
@@ -89,10 +89,6 @@ export default function NotificationPreferencesSection({
     initialPreferences ?? DEFAULT_PREFERENCES
   );
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
 
   const handleToggle = useCallback(
     async (key: NotificationType | EmailNotificationType) => {
@@ -101,9 +97,7 @@ export default function NotificationPreferencesSection({
       const updated = { ...preferences, [key]: !preferences[key] };
       setPreferences(updated);
       setSaving(true);
-      setMessage(null);
 
-       
       const { error } = await (supabase.from("profiles") as any)
         .update({ notification_preferences: updated })
         .eq("id", user.id);
@@ -111,13 +105,10 @@ export default function NotificationPreferencesSection({
       setSaving(false);
 
       if (error) {
-        // Revert on failure
         setPreferences(preferences);
-        setMessage({ type: "error", text: "Failed to save preference." });
+        toast.error("Failed to save preference.");
       } else {
-        setMessage({ type: "success", text: "Preference saved!" });
-        // Auto-clear success message after 2s
-        setTimeout(() => setMessage(null), 2000);
+        toast.success("Preference saved!");
       }
     },
     [user, supabase, preferences, saving]
@@ -133,24 +124,6 @@ export default function NotificationPreferencesSection({
         Control which in-app and email notifications you receive. Disabling a
         type will stop new notifications of that kind from being created.
       </p>
-
-      {message && (
-        <Alert
-          variant={message.type === "error" ? "destructive" : "default"}
-          className={
-            message.type === "success"
-              ? "mb-4 border-neon-green/30 bg-neon-green/10 text-neon-green"
-              : "mb-4"
-          }
-        >
-          {message.type === "success" ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <AlertCircle className="h-4 w-4" />
-          )}
-          <AlertDescription>{message.text}</AlertDescription>
-        </Alert>
-      )}
 
       {/* Column headers */}
       <div className="mb-1 flex items-center justify-end gap-4 px-3 pr-4">
