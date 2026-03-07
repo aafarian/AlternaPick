@@ -89,7 +89,7 @@ function isDropdownGroup(item: NavItem): item is NavDropdownGroup {
   return "children" in item;
 }
 
-const activeChildStyle = "${activeChildStyle}";
+const activeChildStyle = "text-primary bg-primary/10 data-[highlighted]:bg-primary/15 data-[highlighted]:text-primary";
 
 const authenticatedItems: NavItem[] = [
   { href: "/props", label: "Props", icon: LayoutGrid },
@@ -242,7 +242,7 @@ export default function Nav({
                 <Link
                   href={child.href}
                   onClick={() => { setPendingPath(child.href); onNavigate?.(); }}
-                  className={`gap-2 ${isChildActive ? "${activeChildStyle}" : ""}`}
+                  className={`gap-2 ${isChildActive ? activeChildStyle : ""}`}
                 >
                   <ChildIcon className="h-4 w-4" />
                   {child.label}
@@ -326,7 +326,7 @@ export default function Nav({
               <Link
                 href="/profile"
                 onClick={() => { setPendingPath("/profile"); onNavigate?.(); }}
-                className={`gap-2 ${activePath === "/profile" ? "${activeChildStyle}" : ""}`}
+                className={`gap-2 ${activePath === "/profile" ? activeChildStyle : ""}`}
               >
                 <User className="h-4 w-4" />
                 My Profile
@@ -336,7 +336,7 @@ export default function Nav({
               <Link
                 href="/settings"
                 onClick={() => { setPendingPath("/settings"); onNavigate?.(); }}
-                className={`gap-2 ${activePath === "/settings" ? "${activeChildStyle}" : ""}`}
+                className={`gap-2 ${activePath === "/settings" ? activeChildStyle : ""}`}
               >
                 <Settings className="h-4 w-4" />
                 Settings
