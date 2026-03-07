@@ -180,14 +180,24 @@ function PropSyncSection({ data }: { data: AdminSystemHealth["propSync"] }) {
                   <span className="text-sm font-normal text-muted-foreground ml-1">remaining</span>
                 </p>
               </div>
-              {data.creditsUsed !== null && (
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Used</p>
-                  <p className="text-lg font-semibold tracking-tight text-muted-foreground">
-                    {data.creditsUsed.toLocaleString()}
-                  </p>
-                </div>
-              )}
+              <div className="flex items-center gap-4">
+                {data.avgCreditsPerHour !== null && (
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">Avg/Hour (24h)</p>
+                    <p className="text-lg font-semibold tracking-tight text-muted-foreground">
+                      {data.avgCreditsPerHour}
+                    </p>
+                  </div>
+                )}
+                {data.creditsUsed !== null && (
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">Used</p>
+                    <p className="text-lg font-semibold tracking-tight text-muted-foreground">
+                      {data.creditsUsed.toLocaleString()}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

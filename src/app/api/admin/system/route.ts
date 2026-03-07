@@ -59,6 +59,7 @@ export async function GET() {
       stalePendingPicksResult,
       stuckLockedCardsResult,
       oddsCredits,
+      creditDrainResult,
     ] = await Promise.all([
       // Total props count
       supabase
@@ -120,6 +121,9 @@ export async function GET() {
 
       // Odds API credit check (free endpoint, 0 credits)
       fetchOddsApiCredits(),
+
+      // Average credit drain per hour (last 24h)
+      supabase.rpc("get_credit_drain_per_hour"),
     ]);
 
     // Parse last sync time
@@ -249,6 +253,9 @@ export async function GET() {
         propsToday: propsTodayResult.count ?? 0,
         creditsRemaining: oddsCredits.remaining,
         creditsUsed: oddsCredits.used,
+        avgCreditsPerHour:
+          (creditDrainResult.data as { avg_credits_per_hour: number }[] | null)?.[0]
+            ?.avg_credits_per_hour ?? null,
       },
       games: {
         scheduledToday: gamesScheduledResult.count ?? 0,
