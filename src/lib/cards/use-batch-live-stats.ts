@@ -134,7 +134,8 @@ export function useBatchLiveStats(
               const json = await res.json();
               const confirmed = json.cards as Record<string, LiveCardData>;
               if (stoppedRef.current) return;
-              const stillAllFinal = Object.values(confirmed).every((c) => c.all_games_final);
+              const confirmedValues = Object.values(confirmed);
+              const stillAllFinal = confirmedValues.length > 0 && confirmedValues.every((c) => c.all_games_final);
               if (stillAllFinal) {
                 stoppedRef.current = true;
                 onAllSettledRef.current?.();
