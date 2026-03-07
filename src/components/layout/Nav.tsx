@@ -15,6 +15,7 @@ import {
 import {
   Trophy,
   LayoutGrid,
+  ClipboardList,
   Swords,
   Users,
   UserPlus,
@@ -88,9 +89,11 @@ function isDropdownGroup(item: NavItem): item is NavDropdownGroup {
   return "children" in item;
 }
 
+const activeChildStyle = "${activeChildStyle}";
+
 const authenticatedItems: NavItem[] = [
   { href: "/props", label: "Props", icon: LayoutGrid },
-  { href: "/picks", label: "My Picks", icon: LayoutGrid },
+  { href: "/picks", label: "My Picks", icon: ClipboardList },
   { href: "/challenges", label: "Challenges", icon: Swords, badgeKey: "challenges" },
   {
     label: "Social",
@@ -213,6 +216,8 @@ export default function Nav({
             variant="ghost"
             size="sm"
             className={`group w-full justify-start gap-2 md:w-auto focus-visible:ring-0 focus-visible:border-transparent ${
+              mobileSecondaryOnly ? "h-10 text-sm" : ""
+            } ${
               isGroupActive
                 ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -237,7 +242,7 @@ export default function Nav({
                 <Link
                   href={child.href}
                   onClick={() => { setPendingPath(child.href); onNavigate?.(); }}
-                  className={`gap-2 ${isChildActive ? "text-primary bg-primary/10" : ""}`}
+                  className={`gap-2 ${isChildActive ? "${activeChildStyle}" : ""}`}
                 >
                   <ChildIcon className="h-4 w-4" />
                   {child.label}
@@ -318,13 +323,21 @@ export default function Nav({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem asChild>
-              <Link href="/profile" onClick={() => { setPendingPath("/profile"); onNavigate?.(); }} className="gap-2">
+              <Link
+                href="/profile"
+                onClick={() => { setPendingPath("/profile"); onNavigate?.(); }}
+                className={`gap-2 ${activePath === "/profile" ? "${activeChildStyle}" : ""}`}
+              >
                 <User className="h-4 w-4" />
                 My Profile
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/settings" onClick={() => { setPendingPath("/settings"); onNavigate?.(); }} className="gap-2">
+              <Link
+                href="/settings"
+                onClick={() => { setPendingPath("/settings"); onNavigate?.(); }}
+                className={`gap-2 ${activePath === "/settings" ? "${activeChildStyle}" : ""}`}
+              >
                 <Settings className="h-4 w-4" />
                 Settings
               </Link>
