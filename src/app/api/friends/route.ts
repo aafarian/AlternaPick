@@ -118,9 +118,7 @@ export async function POST(request: NextRequest) {
           requesterUsername: requesterName,
           addresseeUsername: addresseeName,
         });
-        sendEmail({ to: addresseeProfile.email, subject, react, text }).catch(
-          (err) => logWarn("friends", "Failed to send friend_request email", err)
-        );
+        void sendEmail({ to: addresseeProfile.email, subject, react, text });
       }
     } catch (notifError) {
       logError("friends", "Failed to create friend_request notification", undefined, notifError);

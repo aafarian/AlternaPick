@@ -12,8 +12,7 @@ const colors = {
   zinc500: "#71717a",
   zinc400: "#a1a1aa",
   zinc200: "#e4e4e7",
-  zinc100: "#f4f4f5",
-  white: "#ffffff",
+  sky700: "#0369a1",
   sky600: "#0284c7",
   green600: "#16a34a",
 } as const;
@@ -54,7 +53,7 @@ export const emailStyles = {
     lineHeight: "1.5",
   },
   button: {
-    color: colors.sky600,
+    color: colors.sky700,
     textDecoration: "underline" as const,
     fontWeight: 600 as const,
     fontSize: "15px",

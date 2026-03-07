@@ -309,7 +309,7 @@ export async function POST(request: NextRequest) {
           message,
           challengeId: challenge.id,
         });
-        sendEmail({ to: opponent.email, subject, react, text }).catch((err) => logWarn("challenges", "Failed to send challenge_received email", err));
+        void sendEmail({ to: opponent.email, subject, react, text });
       }
     } catch (notifError) {
       logError("challenges", "Failed to create challenge_received notification", undefined, notifError);

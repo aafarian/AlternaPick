@@ -20,6 +20,8 @@ export interface FriendRequestEmailProps {
   addresseeUsername: string;
 }
 
+const friendsUrl = `${baseUrl}/friends`;
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -28,7 +30,6 @@ export function FriendRequestEmail({
   requesterUsername,
   addresseeUsername,
 }: FriendRequestEmailProps): ReactElement {
-  const friendsUrl = `${baseUrl}/friends`;
 
   return (
     <Html lang="en">
@@ -66,8 +67,6 @@ export function getFriendRequestEmailProps(
   react: ReactElement;
   text: string;
 } {
-  const friendsUrl = `${baseUrl}/friends`;
-
   return {
     subject: `${props.requesterUsername} sent you a friend request`,
     react: <FriendRequestEmail {...props} />,

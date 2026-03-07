@@ -200,12 +200,12 @@ export async function resolveEligibleChallenges(): Promise<
             isTie,
             challengeId: challenge.id,
           });
-          sendEmail({
+          void sendEmail({
             to: challengerEmail,
             subject: challengerEmailProps.subject,
             react: challengerEmailProps.react,
             text: challengerEmailProps.text,
-          }).catch((err) => logWarn("challenge-resolution", "Failed to send challenge_resolved email to challenger", err));
+          });
         }
 
         if (
@@ -221,12 +221,12 @@ export async function resolveEligibleChallenges(): Promise<
             isTie,
             challengeId: challenge.id,
           });
-          sendEmail({
+          void sendEmail({
             to: opponentEmail,
             subject: opponentEmailProps.subject,
             react: opponentEmailProps.react,
             text: opponentEmailProps.text,
-          }).catch((err) => logWarn("challenge-resolution", "Failed to send challenge_resolved email to opponent", err));
+          });
         }
       } catch (emailError) {
         logError(

@@ -903,7 +903,7 @@ export async function handlePostResolution(
           total: result.total,
           cardId: result.card_id,
         });
-        sendEmail({ to: profile.email, subject, react, text }).catch((err) => logWarn("card-resolution", "Failed to send card_resolved email", err));
+        void sendEmail({ to: profile.email, subject, react, text });
       }
     } catch (emailError) {
       logError("card-resolution", `Failed to send card_resolved email: ${emailError}`);
