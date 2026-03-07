@@ -66,6 +66,15 @@ These rules are derived from recurring review feedback. Follow them on every cha
 - Do not conditionally render `AnimatePresence` itself based on the same condition that controls its children.
 - Use stable, unique keys for animated elements — avoid keys that resolve to the same value across different instances (e.g., `badge-undefined`).
 
+## Pre-Push Verification (MANDATORY)
+
+Before pushing, ALWAYS run these checks against the full codebase — not just staged files:
+```bash
+npx eslint src/ --max-warnings=0
+npx tsc --noEmit
+```
+Do NOT push if either fails. This catches issues that lint-staged misses (e.g., files already on the branch but not in the current commit).
+
 ## Pre-Commit Checklist
 
 Before committing, mentally verify:
