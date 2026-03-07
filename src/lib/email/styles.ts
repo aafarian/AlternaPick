@@ -1,16 +1,17 @@
 /**
  * Shared email styles for all templates.
- * Clean, minimal transactional style to maximize inbox placement.
+ * Minimal, text-forward transactional style to maximize inbox placement.
+ * Avoids heavy HTML, background colors, and marketing patterns.
  */
 export const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://alternapick.com";
 
-/** Reusable color palette — single source of truth for email hex values. */
 const colors = {
-  zinc950: "#18181b",
+  zinc950: "#09090b",
   zinc700: "#3f3f46",
   zinc500: "#71717a",
   zinc400: "#a1a1aa",
+  zinc300: "#d4d4d8",
   zinc200: "#e4e4e7",
   sky700: "#0369a1",
   sky600: "#0284c7",
@@ -27,20 +28,33 @@ export const emailStyles = {
   container: {
     maxWidth: "480px",
     margin: "0 auto",
-    padding: "32px 24px",
+    padding: "40px 24px",
   },
   heading: {
-    fontSize: "20px",
+    fontSize: "18px",
     fontWeight: 600 as const,
     color: colors.zinc950,
-    margin: "0 0 16px 0",
-    lineHeight: "1.3",
+    margin: "0 0 12px 0",
+    lineHeight: "1.4",
   },
   text: {
-    fontSize: "15px",
+    fontSize: "14px",
     color: colors.zinc700,
     margin: "0 0 16px 0",
-    lineHeight: "1.5",
+    lineHeight: "1.6",
+  },
+  muted: {
+    fontSize: "14px",
+    color: colors.zinc400,
+    margin: "0 0 16px 0",
+    lineHeight: "1.6",
+    fontStyle: "italic" as const,
+  },
+  link: {
+    color: colors.sky700,
+    textDecoration: "none" as const,
+    fontWeight: 500 as const,
+    fontSize: "14px",
   },
   hr: {
     borderColor: colors.zinc200,
@@ -48,22 +62,17 @@ export const emailStyles = {
   },
   footer: {
     fontSize: "12px",
-    color: colors.zinc400,
+    color: colors.zinc300,
     margin: "0",
     lineHeight: "1.5",
   },
-  button: {
-    color: colors.sky700,
-    textDecoration: "underline" as const,
-    fontWeight: 600 as const,
-    fontSize: "15px",
-  },
   scoreBlock: {
-    fontSize: "24px",
-    fontWeight: 600 as const,
+    fontSize: "28px",
+    fontWeight: 700 as const,
     textAlign: "center" as const,
-    padding: "8px 0",
-    margin: "0",
+    padding: "12px 0",
+    margin: "0 0 8px 0",
+    letterSpacing: "-0.02em",
     color: colors.zinc950,
   },
   accentWin: { color: colors.green600 },

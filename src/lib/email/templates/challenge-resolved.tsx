@@ -6,10 +6,10 @@ import {
   Text,
   Link,
   Preview,
-  Hr,
 } from "@react-email/components";
 import type { ReactElement } from "react";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
+import { EmailFooter } from "@/lib/email/components/email-footer";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -29,28 +29,6 @@ export interface ChallengeResolvedEmailProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getHeadline(isWinner: boolean, isTie: boolean, margin: number): string {
-  if (isTie) return "Dead Heat";
-  if (isWinner) {
-    if (margin >= 3) return "Dominant Win!";
-    if (margin === 1) return "Clutch Win!";
-    return "Victory!";
-  }
-  if (margin >= 3) return "Tough Loss";
-  if (margin === 1) return "So Close!";
-  return "Better Luck Next Time";
-}
-
-function getSubtext(
-  isWinner: boolean,
-  isTie: boolean,
-  opponentName: string
-): string {
-  if (isTie) return `You and ${opponentName} are dead even. Run it back?`;
-  if (isWinner) return `Nice work against ${opponentName}.`;
-  return `${opponentName} got this one. Shake it off.`;
-}
-
 function getSubject(
   isWinner: boolean,
   isTie: boolean,
@@ -58,9 +36,20 @@ function getSubject(
   theirScore: number,
   opponentName: string
 ): string {
-  if (isTie) return `Dead Heat: ${myScore}-${theirScore} vs ${opponentName}`;
-  if (isWinner) return `Victory! You beat ${opponentName} ${myScore}-${theirScore}`;
-  return `You fell to ${opponentName} ${theirScore}-${myScore}`;
+  if (isTie) return `Tied ${myScore}\u2013${theirScore} with ${opponentName}`;
+  if (isWinner)
+    return `You beat ${opponentName} ${myScore}\u2013${theirScore}`;
+  return `${opponentName} won ${theirScore}\u2013${myScore}`;
+}
+
+function getSummary(
+  isWinner: boolean,
+  isTie: boolean,
+  opponentName: string
+): string {
+  if (isTie) return `you and ${opponentName} finished even.`;
+  if (isWinner) return `you came out on top against ${opponentName}.`;
+  return `${opponentName} took this one.`;
 }
 
 function getScoreAccent(isWinner: boolean, isTie: boolean) {
@@ -82,33 +71,31 @@ export function ChallengeResolvedEmail({
   isTie,
   challengeId,
 }: ChallengeResolvedEmailProps): ReactElement {
-  const margin = Math.abs(myScore - theirScore);
-  const headline = getHeadline(isWinner, isTie, margin);
-  const subtext = getSubtext(isWinner, isTie, opponentName);
   const challengeUrl = `${baseUrl}/challenges/${challengeId}`;
+  const subject = getSubject(isWinner, isTie, myScore, theirScore, opponentName);
+  const summary = getSummary(isWinner, isTie, opponentName);
   const scoreAccent = getScoreAccent(isWinner, isTie);
 
   return (
     <Html lang="en">
       <Head />
-      <Preview>
-        {`${headline} ${myScore}-${theirScore} vs ${opponentName}.`}
-      </Preview>
+      <Preview>{subject}</Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
-          <Text style={styles.heading}>{headline}</Text>
+          <Text style={styles.heading}>Challenge Result</Text>
           <Text style={{ ...styles.scoreBlock, ...scoreAccent }}>
-            {myScore} - {theirScore}
+            {myScore} &ndash; {theirScore}
           </Text>
           <Text style={styles.text}>
-            {username}, you went {myScore}-{theirScore} vs {opponentName}. {subtext}
+            {username}, {summary}
           </Text>
-          <Link style={styles.button} href={challengeUrl}>
-            View challenge →
-          </Link>
+          <Text style={{ ...styles.text, textAlign: "center" }}>
+            <Link style={styles.link} href={challengeUrl}>
+              View details &rarr;
+            </Link>
+          </Text>
 
-          <Hr style={styles.hr} />
-          <Text style={styles.footer}>alternapick.com</Text>
+          <EmailFooter />
         </Container>
       </Body>
     </Html>
@@ -126,28 +113,19 @@ export function getChallengeResolvedEmailProps(
   react: ReactElement;
   text: string;
 } {
-  const margin = Math.abs(props.myScore - props.theirScore);
-  const headline = getHeadline(props.isWinner, props.isTie, margin);
-  const subtext = getSubtext(props.isWinner, props.isTie, props.opponentName);
+  const subject = getSubject(
+    props.isWinner,
+    props.isTie,
+    props.myScore,
+    props.theirScore,
+    props.opponentName
+  );
+  const summary = getSummary(props.isWinner, props.isTie, props.opponentName);
   const challengeUrl = `${baseUrl}/challenges/${props.challengeId}`;
 
-  const text = [
-    headline,
-    "",
-    `${props.username}, you went ${props.myScore}-${props.theirScore} vs ${props.opponentName}. ${subtext}`,
-    "",
-    `View challenge: ${challengeUrl}`,
-  ].join("\n");
-
   return {
-    subject: getSubject(
-      props.isWinner,
-      props.isTie,
-      props.myScore,
-      props.theirScore,
-      props.opponentName
-    ),
+    subject,
     react: <ChallengeResolvedEmail {...props} />,
-    text,
+    text: `Challenge Result\n\n${props.myScore}-${props.theirScore}\n\n${props.username}, ${summary}\n\nView details: ${challengeUrl}`,
   };
 }
