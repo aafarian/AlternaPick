@@ -3,7 +3,6 @@ import {
   Head,
   Body,
   Container,
-  Section,
   Text,
   Link,
   Preview,
@@ -97,20 +96,16 @@ export function ChallengeResolvedEmail({
       </Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
-          <Section style={styles.card}>
-            <Text style={styles.heading}>{headline}</Text>
-            <Text style={{ ...styles.scoreBlock, ...scoreAccent }}>
-              {myScore} - {theirScore}
-            </Text>
-            <Text style={styles.text}>
-              {username}, you went {myScore}-{theirScore} vs {opponentName}. {subtext}
-            </Text>
-            <Section style={styles.buttonWrapper}>
-              <Link style={styles.button} href={challengeUrl}>
-                View challenge →
-              </Link>
-            </Section>
-          </Section>
+          <Text style={styles.heading}>{headline}</Text>
+          <Text style={{ ...styles.scoreBlock, ...scoreAccent }}>
+            {myScore} - {theirScore}
+          </Text>
+          <Text style={styles.text}>
+            {username}, you went {myScore}-{theirScore} vs {opponentName}. {subtext}
+          </Text>
+          <Link style={styles.button} href={challengeUrl}>
+            View challenge →
+          </Link>
 
           <Hr style={styles.hr} />
           <Text style={styles.footer}>alternapick.com</Text>
@@ -129,7 +124,21 @@ export function getChallengeResolvedEmailProps(
 ): {
   subject: string;
   react: ReactElement;
+  text: string;
 } {
+  const margin = Math.abs(props.myScore - props.theirScore);
+  const headline = getHeadline(props.isWinner, props.isTie, margin);
+  const subtext = getSubtext(props.isWinner, props.isTie, props.opponentName);
+  const challengeUrl = `${baseUrl}/challenges/${props.challengeId}`;
+
+  const text = [
+    headline,
+    "",
+    `${props.username}, you went ${props.myScore}-${props.theirScore} vs ${props.opponentName}. ${subtext}`,
+    "",
+    `View challenge: ${challengeUrl}`,
+  ].join("\n");
+
   return {
     subject: getSubject(
       props.isWinner,
@@ -139,5 +148,6 @@ export function getChallengeResolvedEmailProps(
       props.opponentName
     ),
     react: <ChallengeResolvedEmail {...props} />,
+    text,
   };
 }

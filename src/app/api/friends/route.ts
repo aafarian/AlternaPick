@@ -5,7 +5,7 @@ import { createNotification } from "@/lib/notifications/queries";
 import { sendEmail, shouldSendEmail } from "@/lib/email/send";
 import { getFriendRequestEmailProps } from "@/lib/email/templates/friend-request";
 import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
-import { logError } from "@/lib/logger";
+import { logError, logWarn } from "@/lib/logger";
 import type { NotificationPreferences } from "@/lib/supabase/types";
 import {
   getFriends,
@@ -75,21 +75,29 @@ export async function POST(request: NextRequest) {
     // Fire-and-forget: notify addressee about the friend request
     try {
       const adminClient = createAdminClient();
-      const [{ data: requesterProfile }, { data: addresseeProfile }] =
+      const [{ data: requesterProfile, error: requesterErr }, { data: addresseeProfile, error: addresseeErr }] =
         await Promise.all([
           (adminClient.from("profiles") as any)
             .select("username")
             .eq("id", user.id)
             .single() as Promise<{
             data: { username: string } | null;
+            error: unknown;
           }>,
           (adminClient.from("profiles") as any)
             .select("username, email, notification_preferences")
             .eq("id", friendship.addressee_id)
             .single() as Promise<{
             data: { username: string; email: string; notification_preferences: NotificationPreferences | null } | null;
+            error: unknown;
           }>,
         ]);
+      if (requesterErr) {
+        logWarn("friends", "Failed to fetch requester profile for email", requesterErr);
+      }
+      if (addresseeErr) {
+        logWarn("friends", "Failed to fetch addressee profile for email", addresseeErr);
+      }
 
       const requesterName = requesterProfile?.username ?? "Someone";
       const addresseeName = addresseeProfile?.username ?? "Friend";
@@ -106,13 +114,11 @@ export async function POST(request: NextRequest) {
 
       // Send email notification (fire-and-forget, never blocks)
       if (addresseeProfile?.email && shouldSendEmail("friend_request", addresseePrefs)) {
-        const { subject, react } = getFriendRequestEmailProps({
+        const { subject, react, text } = getFriendRequestEmailProps({
           requesterUsername: requesterName,
           addresseeUsername: addresseeName,
         });
-        sendEmail({ to: addresseeProfile.email, subject, react }).catch(
-          () => {}
-        );
+        void sendEmail({ to: addresseeProfile.email, subject, react, text });
       }
     } catch (notifError) {
       logError("friends", "Failed to create friend_request notification", undefined, notifError);

@@ -897,13 +897,13 @@ export async function handlePostResolution(
   if (!result.challenge_id) {
     try {
       if (profile?.email && shouldSendEmail("card_resolved", profile.notification_preferences)) {
-        const { subject, react } = getCardResolvedEmailProps({
+        const { subject, react, text } = getCardResolvedEmailProps({
           username: profile.username ?? "Player",
           score: result.score,
           total: result.total,
           cardId: result.card_id,
         });
-        sendEmail({ to: profile.email, subject, react }).catch(() => {});
+        void sendEmail({ to: profile.email, subject, react, text });
       }
     } catch (emailError) {
       logError("card-resolution", `Failed to send card_resolved email: ${emailError}`);

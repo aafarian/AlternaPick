@@ -3,7 +3,6 @@ import {
   Head,
   Body,
   Container,
-  Section,
   Text,
   Link,
   Preview,
@@ -21,6 +20,8 @@ export interface FriendRequestEmailProps {
   addresseeUsername: string;
 }
 
+const friendsUrl = `${baseUrl}/friends`;
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -29,7 +30,6 @@ export function FriendRequestEmail({
   requesterUsername,
   addresseeUsername,
 }: FriendRequestEmailProps): ReactElement {
-  const friendsUrl = `${baseUrl}/friends`;
 
   return (
     <Html lang="en">
@@ -39,18 +39,14 @@ export function FriendRequestEmail({
       </Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
-          <Section style={styles.card}>
-            <Text style={styles.heading}>New Friend Request</Text>
-            <Text style={styles.text}>
-              Hey {addresseeUsername}, {requesterUsername} wants to be your friend
-              on AlternaPick.
-            </Text>
-            <Section style={styles.buttonWrapper}>
-              <Link style={styles.button} href={friendsUrl}>
-                View request →
-              </Link>
-            </Section>
-          </Section>
+          <Text style={styles.heading}>New Friend Request</Text>
+          <Text style={styles.text}>
+            Hey {addresseeUsername}, {requesterUsername} wants to be your friend
+            on AlternaPick.
+          </Text>
+          <Link style={styles.button} href={friendsUrl}>
+            View request →
+          </Link>
 
           <Hr style={styles.hr} />
           <Text style={styles.footer}>alternapick.com</Text>
@@ -69,9 +65,11 @@ export function getFriendRequestEmailProps(
 ): {
   subject: string;
   react: ReactElement;
+  text: string;
 } {
   return {
     subject: `${props.requesterUsername} sent you a friend request`,
     react: <FriendRequestEmail {...props} />,
+    text: `New Friend Request\n\nHey ${props.addresseeUsername}, ${props.requesterUsername} wants to be your friend on AlternaPick.\n\nView request: ${friendsUrl}`,
   };
 }
