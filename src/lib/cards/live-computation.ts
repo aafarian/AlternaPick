@@ -84,8 +84,11 @@ export function buildLivePicksForCard(
   picks: PickWithPropAndGame[],
   gameStatusMap: Map<string, StatsGame>,
   boxscoreMap: Map<string, PlayerBoxScore[]>,
-): { livePicks: LivePickData[]; games: LiveGameStatus[]; hasLiveGames: boolean } {
+): { livePicks: LivePickData[]; games: LiveGameStatus[]; hasLiveGames: boolean; allGamesFinal: boolean } {
   const liveGamesSet = new Set<string>();
+  // Track whether every game has been confirmed "final" by the stats service.
+  // Starts true and is set to false if ANY game is not definitively final.
+  let allGamesFinal = true;
   const livePicks: LivePickData[] = [];
 
   // Build reverse lookup by team name for games without external_event_id
@@ -136,6 +139,10 @@ export function buildLivePicksForCard(
       if (gameInfo.status === "live" && resolvedEventId) {
         liveGamesSet.add(resolvedEventId);
       }
+      // Any game not "final" means we can't confirm all games are done
+      if (gameInfo.status !== "final") {
+        allGamesFinal = false;
+      }
     } else {
       // Not in today's stats service — use DB status.
       // Do NOT assume "final" just because the game has an external_event_id;
@@ -165,6 +172,11 @@ export function buildLivePicksForCard(
 
       if (dbStatus === "live") {
         liveGamesSet.add(eventId ?? pick.props.game_id);
+      }
+      // Stats service didn't return this game — we can't confirm it's final.
+      // Only trust DB "final" status here; anything else means keep polling.
+      if (dbStatus !== "final") {
+        allGamesFinal = false;
       }
     }
 
@@ -265,6 +277,7 @@ export function buildLivePicksForCard(
     livePicks,
     games,
     hasLiveGames: liveGamesSet.size > 0,
+    allGamesFinal,
   };
 }
 

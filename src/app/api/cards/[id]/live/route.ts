@@ -38,7 +38,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     const { gameStatusMap, boxscoreMap } = await fetchLiveMaps(card.picks);
 
-    const { livePicks, games, hasLiveGames } = buildLivePicksForCard(
+    const { livePicks, games, hasLiveGames, allGamesFinal } = buildLivePicksForCard(
       card.picks,
       gameStatusMap,
       boxscoreMap,
@@ -68,6 +68,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       card_id: card.id,
       picks: livePicks,
       has_live_games: hasLiveGames,
+      all_games_final: allGamesFinal,
       games,
       card_resolved: cardResolved || undefined,
     };

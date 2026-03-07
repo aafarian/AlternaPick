@@ -42,6 +42,8 @@ export interface LiveCardData {
   card_id: string;
   picks: LivePickData[];
   has_live_games: boolean;
+  /** True when every game on the card has definitively reached "final" status */
+  all_games_final: boolean;
   games: LiveGameStatus[];
   /** True when the card was resolved during this request */
   card_resolved?: boolean;
@@ -109,14 +111,18 @@ export interface LiveChallengeData {
     card_id: string;
     picks: LivePickData[];
     has_live_games: boolean;
+    all_games_final: boolean;
   } | null;
   opponent_card: {
     card_id: string;
     picks: LivePickData[];
     has_live_games: boolean;
+    all_games_final: boolean;
   } | null;
   games: LiveGameStatus[];
   has_live_games: boolean;
+  /** True when every game across both cards has definitively reached "final" status */
+  all_games_final: boolean;
   /** True when cards/challenge were resolved during this request */
   challenge_resolved?: boolean;
 }

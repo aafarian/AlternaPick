@@ -443,8 +443,8 @@ describe("buildLivePicksForCard", () => {
     });
   });
 
-  describe("isFullyResolved (hasLiveGames)", () => {
-    it("all picks final with no live games -> hasLiveGames is false", () => {
+  describe("hasLiveGames and allGamesFinal", () => {
+    it("all picks final with no live games -> hasLiveGames=false, allGamesFinal=true", () => {
       const pick = makePick({ result: "hit", actual_value: 30 });
       const game = makeGame({ status: "final" });
       const gameStatusMap = new Map([["401584700", game]]);
@@ -453,9 +453,10 @@ describe("buildLivePicksForCard", () => {
       const result = buildLivePicksForCard([pick], gameStatusMap, boxscoreMap);
 
       expect(result.hasLiveGames).toBe(false);
+      expect(result.allGamesFinal).toBe(true);
     });
 
-    it("at least one live game -> hasLiveGames is true", () => {
+    it("at least one live game -> hasLiveGames=true, allGamesFinal=false", () => {
       const pick1 = makePick({ id: "pick-1" });
       const pick2 = makePick({ id: "pick-2" });
       pick2.props.games.external_event_id = "401584701";
@@ -472,6 +473,51 @@ describe("buildLivePicksForCard", () => {
       const result = buildLivePicksForCard([pick1, pick2], gameStatusMap, boxscoreMap);
 
       expect(result.hasLiveGames).toBe(true);
+      expect(result.allGamesFinal).toBe(false);
+    });
+
+    it("scheduled game -> hasLiveGames=false, allGamesFinal=false", () => {
+      const pick = makePick();
+      const game = makeGame({ status: "scheduled" });
+      const gameStatusMap = new Map([["401584700", game]]);
+      const boxscoreMap = new Map<string, PlayerBoxScore[]>();
+
+      const result = buildLivePicksForCard([pick], gameStatusMap, boxscoreMap);
+
+      expect(result.hasLiveGames).toBe(false);
+      expect(result.allGamesFinal).toBe(false);
+    });
+
+    it("game not in stats service (DB fallback, scheduled) -> allGamesFinal=false", () => {
+      const pick = makePick();
+      // No game in gameStatusMap — falls back to DB status which defaults to "scheduled"
+      const gameStatusMap = new Map<string, StatsGame>();
+      const boxscoreMap = new Map<string, PlayerBoxScore[]>();
+
+      const result = buildLivePicksForCard([pick], gameStatusMap, boxscoreMap);
+
+      expect(result.allGamesFinal).toBe(false);
+    });
+
+    it("game not in stats service but DB says final -> allGamesFinal=true", () => {
+      const pick = makePick();
+      pick.props.games.status = "final";
+      const gameStatusMap = new Map<string, StatsGame>();
+      const boxscoreMap = new Map<string, PlayerBoxScore[]>();
+
+      const result = buildLivePicksForCard([pick], gameStatusMap, boxscoreMap);
+
+      expect(result.allGamesFinal).toBe(true);
+    });
+
+    it("empty picks -> allGamesFinal=true (vacuously true)", () => {
+      const result = buildLivePicksForCard(
+        [],
+        new Map<string, StatsGame>(),
+        new Map<string, PlayerBoxScore[]>(),
+      );
+
+      expect(result.allGamesFinal).toBe(true);
     });
   });
 
@@ -539,6 +585,7 @@ describe("buildLivePicksForCard", () => {
       expect(result.livePicks).toHaveLength(0);
       expect(result.games).toHaveLength(0);
       expect(result.hasLiveGames).toBe(false);
+      expect(result.allGamesFinal).toBe(true);
     });
 
     it("pick with no games object fields still works", () => {

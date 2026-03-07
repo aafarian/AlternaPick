@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import type { LiveCardData } from "./live-types";
-import { POLL_INTERVAL_MS } from "@/lib/constants";
+import { POLL_INTERVAL_MS, POLL_TIMEOUT_MS } from "@/lib/constants";
+import { schedulePollingConfirmation } from "@/lib/polling/schedule-confirmation";
 
 export function useBatchLiveStats(
   cardIds: string[],
@@ -22,10 +23,11 @@ export function useBatchLiveStats(
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const stoppedRef = useRef(false);
-  const hadLiveRef = useRef(false);
   const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmAbortRef = useRef<AbortController | null>(null);
   const consecutiveErrorsRef = useRef(0);
   const skipCountRef = useRef(0);
+  const startTimeRef = useRef(0);
 
   // Stable stringified key to prevent re-renders when array reference changes
   const idsKey = useMemo(() => cardIds.slice().sort().join(","), [cardIds]);
@@ -39,9 +41,31 @@ export function useBatchLiveStats(
 
     stoppedRef.current = false;
     setHasFetched(false);
+    startTimeRef.current = Date.now();
+
+    function stopPolling() {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (confirmTimeoutRef.current) {
+        clearTimeout(confirmTimeoutRef.current);
+        confirmTimeoutRef.current = null;
+      }
+      confirmAbortRef.current?.abort();
+      confirmAbortRef.current = null;
+      stoppedRef.current = true;
+      onAllSettledRef.current?.();
+    }
 
     async function fetchBatch() {
       if (stoppedRef.current || !idsKey) return;
+
+      // 6-hour hard timeout — stop polling no matter what
+      if (Date.now() - startTimeRef.current > POLL_TIMEOUT_MS) {
+        stopPolling();
+        return;
+      }
 
       // Back off when seeing consecutive errors — skip polls exponentially
       if (consecutiveErrorsRef.current > 0) {
@@ -98,42 +122,48 @@ export function useBatchLiveStats(
         setHasFetched(true);
         consecutiveErrorsRef.current = 0;
 
-        // Track and detect transition from "had live games" to "no live games"
-        const anyLive = Object.values(cardsObj).some((c) => c.has_live_games);
-        if (anyLive) hadLiveRef.current = true;
-        if (!anyLive && hadLiveRef.current && intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-          // Confirmation fetch after 5s — catches transient "no live" responses
-          // where the write-through hasn't updated the DB yet.
-          if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
-          confirmTimeoutRef.current = setTimeout(async () => {
-            confirmTimeoutRef.current = null;
-            if (stoppedRef.current) return;
-            try {
-              const res = await fetch(`/api/cards/live?ids=${idsKey}`);
-              if (!res.ok) throw new Error(`HTTP ${res.status}`);
-              const json = await res.json();
-              const confirmed = json.cards as Record<string, LiveCardData>;
-              if (stoppedRef.current) return;
-              const stillLive = Object.values(confirmed).some((c) => c.has_live_games);
-              if (stillLive) {
-                // Games are still live — resume polling
-                intervalRef.current = setInterval(fetchBatch, POLL_INTERVAL_MS);
-              } else {
-                stoppedRef.current = true;
-                if (hadLiveRef.current) {
-                  onAllSettledRef.current?.();
+        // Only stop when the server confirms ALL games are final across all cards.
+        // Use a confirmation re-fetch to guard against transient false positives.
+        const cardValues = Object.values(cardsObj);
+        const allFinal = cardValues.length > 0 && cardValues.every((c) => c.all_games_final);
+        if (allFinal && intervalRef.current) {
+          schedulePollingConfirmation({
+            url: `/api/cards/live?ids=${idsKey}`,
+            intervalRef,
+            confirmTimeoutRef,
+            confirmAbortRef,
+            stoppedRef,
+            isStillAllFinal: (json) => {
+              const cards = (json as { cards: Record<string, LiveCardData> }).cards;
+              const values = Object.values(cards);
+              return values.length > 0 && values.every((c) => c.all_games_final);
+            },
+            onData: (json) => {
+              const confirmed = (json as { cards: Record<string, LiveCardData> }).cards;
+              setDataMap((prev) => {
+                const merged = new Map<string, LiveCardData>(prev);
+                for (const [id, data] of Object.entries(confirmed)) {
+                  const prevCard = prev.get(id);
+                  if (prevCard && data.picks) {
+                    for (const pick of data.picks) {
+                      if (pick.current_value === null) {
+                        const prevPick = prevCard.picks?.find((p) => p.pick_id === pick.pick_id);
+                        if (prevPick?.current_value !== null && prevPick?.current_value !== undefined) {
+                          pick.current_value = prevPick.current_value;
+                        }
+                      }
+                    }
+                  }
+                  merged.set(id, data);
                 }
-              }
-            } catch {
-              // Confirmation failed — stop gracefully
-              stoppedRef.current = true;
-              if (hadLiveRef.current) {
-                onAllSettledRef.current?.();
-              }
-            }
-          }, 5000);
+                return merged;
+              });
+            },
+            stopPolling,
+            resumePolling: () => {
+              intervalRef.current = setInterval(fetchBatch, POLL_INTERVAL_MS);
+            },
+          });
         }
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
@@ -166,6 +196,8 @@ export function useBatchLiveStats(
       }
       abortRef.current?.abort();
       abortRef.current = null;
+      confirmAbortRef.current?.abort();
+      confirmAbortRef.current = null;
       stoppedRef.current = true;
     };
   }, [enabled, idsKey]);

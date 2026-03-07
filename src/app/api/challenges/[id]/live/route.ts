@@ -124,6 +124,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       }
     }
 
+    const allFinal =
+      (challengerLive !== null || opponentLive !== null) &&
+      (challengerLive?.allGamesFinal ?? true) &&
+      (opponentLive?.allGamesFinal ?? true);
+
     const response: LiveChallengeData = {
       challenge_id: id,
       challenger_card: challengerLive
@@ -131,6 +136,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
             card_id: challengerCardRaw!.id,
             picks: challengerLive.livePicks,
             has_live_games: challengerLive.hasLiveGames,
+            all_games_final: challengerLive.allGamesFinal,
           }
         : null,
       opponent_card: opponentLive
@@ -138,10 +144,12 @@ export async function GET(_request: NextRequest, context: RouteContext) {
             card_id: opponentCardRaw!.id,
             picks: opponentLive.livePicks,
             has_live_games: opponentLive.hasLiveGames,
+            all_games_final: opponentLive.allGamesFinal,
           }
         : null,
       games,
       has_live_games: (challengerLive?.hasLiveGames || opponentLive?.hasLiveGames) ?? false,
+      all_games_final: allFinal,
       challenge_resolved: challengeResolved || undefined,
     };
 
