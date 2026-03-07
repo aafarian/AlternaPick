@@ -42,17 +42,27 @@ export function useBatchLiveStats(
     setHasFetched(false);
     startTimeRef.current = Date.now();
 
+    function stopPolling() {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (confirmTimeoutRef.current) {
+        clearTimeout(confirmTimeoutRef.current);
+        confirmTimeoutRef.current = null;
+      }
+      confirmAbortRef.current?.abort();
+      confirmAbortRef.current = null;
+      stoppedRef.current = true;
+      onAllSettledRef.current?.();
+    }
+
     async function fetchBatch() {
       if (stoppedRef.current || !idsKey) return;
 
       // 6-hour hard timeout — stop polling no matter what
       if (Date.now() - startTimeRef.current > POLL_TIMEOUT_MS) {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        stoppedRef.current = true;
-        onAllSettledRef.current?.();
+        stopPolling();
         return;
       }
 
@@ -144,8 +154,7 @@ export function useBatchLiveStats(
                   }
                   return merged;
                 });
-                stoppedRef.current = true;
-                onAllSettledRef.current?.();
+                stopPolling();
               } else {
                 // Not actually all final — resume polling
                 intervalRef.current = setInterval(fetchBatch, POLL_INTERVAL_MS);
