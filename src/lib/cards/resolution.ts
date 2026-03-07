@@ -26,6 +26,7 @@ import type {
   Game,
   StatCategory,
   PickResult,
+  NotificationPreferences,
 } from "@/lib/supabase/types";
 import { extractStatValue, fuzzyMatchPlayer } from "@/lib/cards/resolution-utils";
 
@@ -867,7 +868,7 @@ export async function handlePostResolution(
   if (!result.user_id) return;
 
   // Fetch profile with notification preferences (used by both notification + email)
-  let profile: { email: string | null; username: string | null; notification_preferences: import("@/lib/supabase/types").NotificationPreferences | null } | null = null;
+  let profile: { email: string | null; username: string | null; notification_preferences: NotificationPreferences | null } | null = null;
   try {
     const { data } = await (supabase.from("profiles") as any)
       .select("email, username, notification_preferences")

@@ -1,4 +1,5 @@
 import type { User } from "@supabase/supabase-js";
+import { type NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getFlagValue } from "@/lib/feature-flags";
 
@@ -60,7 +61,7 @@ export async function isAdmin(): Promise<{
  */
 export async function requireAdmin(): Promise<
   | { isAdmin: true; user: User }
-  | { isAdmin: false; response: import("next/server").NextResponse }
+  | { isAdmin: false; response: NextResponse }
 > {
   const result = await isAdmin();
 

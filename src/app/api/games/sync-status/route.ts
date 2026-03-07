@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchTodaysGames, fetchNbaGamesByDate, fetchSoccerGames, fetchSoccerGamesByDate, fetchLaLigaGames, fetchLaLigaGamesByDate, fetchNcaabGames, fetchNcaabGamesByDate } from "@/lib/stats-service/client";
 import { resolveEligibleCards, reResolveStaleCards } from "@/lib/cards/resolution";

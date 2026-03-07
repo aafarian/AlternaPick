@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
 import { logError } from "@/lib/logger";
-import type { ChallengeStatus } from "@/lib/supabase/types";
+import type { ChallengeStatus, NotificationPreferences } from "@/lib/supabase/types";
 import { isValidGameMode } from "@/lib/modes/definitions";
 import { modeLabel } from "@/lib/modes/utils";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE } from "@/lib/modes/types";
@@ -281,7 +281,7 @@ export async function POST(request: NextRequest) {
       const opponent = opponentProfile as {
         username: string;
         email: string | null;
-        notification_preferences: import("@/lib/supabase/types").NotificationPreferences | null;
+        notification_preferences: NotificationPreferences | null;
       } | null;
 
       await createNotification(adminClient, {

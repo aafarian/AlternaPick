@@ -31,7 +31,7 @@ function SignupForm() {
   // Persist ref in localStorage so it survives OAuth redirects
   useEffect(() => {
     if (refParam) {
-      localStorage.setItem("sports_tower_ref", refParam);
+      localStorage.setItem("alternapick_ref", refParam);
     }
   }, [refParam]);
 
@@ -40,8 +40,15 @@ function SignupForm() {
    * Reads from URL param or localStorage fallback (for OAuth flow).
    */
   async function processReferralIfNeeded() {
+    // Migrate legacy key from pre-rename (sports_tower_ref -> alternapick_ref)
+    const legacyRef = localStorage.getItem("sports_tower_ref");
+    if (legacyRef) {
+      localStorage.setItem("alternapick_ref", legacyRef);
+      localStorage.removeItem("sports_tower_ref");
+    }
+
     const referrer =
-      refParam || localStorage.getItem("sports_tower_ref");
+      refParam || localStorage.getItem("alternapick_ref");
     if (!referrer) return;
 
     try {
@@ -53,7 +60,7 @@ function SignupForm() {
     } catch {
       // Non-fatal: referral processing failure should not block signup flow
     } finally {
-      localStorage.removeItem("sports_tower_ref");
+      localStorage.removeItem("alternapick_ref");
     }
   }
 
@@ -104,10 +111,16 @@ function SignupForm() {
     if (anonId) syncCookie(anonId);
 
     const supabase = createClient();
-    const ref = refParam || localStorage.getItem("sports_tower_ref");
+    // Migrate legacy key if present
+    const legacyRef = localStorage.getItem("sports_tower_ref");
+    if (legacyRef) {
+      localStorage.setItem("alternapick_ref", legacyRef);
+      localStorage.removeItem("sports_tower_ref");
+    }
+    const ref = refParam || localStorage.getItem("alternapick_ref");
     // Persist ref for the OAuth redirect flow
     if (ref) {
-      localStorage.setItem("sports_tower_ref", ref);
+      localStorage.setItem("alternapick_ref", ref);
       // Also set a cookie so the server-side callback route can read it
       document.cookie = `ap_ref=${encodeURIComponent(ref)}; path=/; max-age=3600; SameSite=Lax`;
     }
