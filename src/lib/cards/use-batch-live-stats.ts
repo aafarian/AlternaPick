@@ -23,6 +23,7 @@ export function useBatchLiveStats(
   const abortRef = useRef<AbortController | null>(null);
   const stoppedRef = useRef(false);
   const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmAbortRef = useRef<AbortController | null>(null);
   const consecutiveErrorsRef = useRef(0);
   const skipCountRef = useRef(0);
   const startTimeRef = useRef(0);
@@ -112,17 +113,23 @@ export function useBatchLiveStats(
 
         // Only stop when the server confirms ALL games are final across all cards.
         // Use a confirmation re-fetch to guard against transient false positives.
-        const allFinal = Object.values(cardsObj).every((c) => c.all_games_final);
+        const cardValues = Object.values(cardsObj);
+        const allFinal = cardValues.length > 0 && cardValues.every((c) => c.all_games_final);
         if (allFinal && intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
           // Confirmation fetch after 5s
           if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
+          confirmAbortRef.current?.abort();
           confirmTimeoutRef.current = setTimeout(async () => {
             confirmTimeoutRef.current = null;
             if (stoppedRef.current) return;
+            const confirmController = new AbortController();
+            confirmAbortRef.current = confirmController;
             try {
-              const res = await fetch(`/api/cards/live?ids=${idsKey}`);
+              const res = await fetch(`/api/cards/live?ids=${idsKey}`, {
+                signal: confirmController.signal,
+              });
               if (!res.ok) throw new Error(`HTTP ${res.status}`);
               const json = await res.json();
               const confirmed = json.cards as Record<string, LiveCardData>;
@@ -135,7 +142,8 @@ export function useBatchLiveStats(
                 // Not actually all final — resume polling
                 intervalRef.current = setInterval(fetchBatch, POLL_INTERVAL_MS);
               }
-            } catch {
+            } catch (confirmErr) {
+              if ((confirmErr as Error).name === "AbortError") return;
               // Confirmation failed — resume polling instead of stopping
               if (!stoppedRef.current) {
                 intervalRef.current = setInterval(fetchBatch, POLL_INTERVAL_MS);
@@ -174,6 +182,8 @@ export function useBatchLiveStats(
       }
       abortRef.current?.abort();
       abortRef.current = null;
+      confirmAbortRef.current?.abort();
+      confirmAbortRef.current = null;
       stoppedRef.current = true;
     };
   }, [enabled, idsKey]);

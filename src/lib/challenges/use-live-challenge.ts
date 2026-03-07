@@ -12,6 +12,7 @@ export function useLiveChallenge(challengeId: string, enabled: boolean) {
   const abortRef = useRef<AbortController | null>(null);
   const stoppedRef = useRef(false);
   const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmAbortRef = useRef<AbortController | null>(null);
   const startTimeRef = useRef(0);
 
   const stopPolling = useCallback(() => {
@@ -23,6 +24,8 @@ export function useLiveChallenge(challengeId: string, enabled: boolean) {
       clearTimeout(confirmTimeoutRef.current);
       confirmTimeoutRef.current = null;
     }
+    confirmAbortRef.current?.abort();
+    confirmAbortRef.current = null;
     stoppedRef.current = true;
   }, []);
 
@@ -63,11 +66,16 @@ export function useLiveChallenge(challengeId: string, enabled: boolean) {
         intervalRef.current = null;
 
         if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
+        confirmAbortRef.current?.abort();
         confirmTimeoutRef.current = setTimeout(async () => {
           confirmTimeoutRef.current = null;
           if (stoppedRef.current) return;
+          const confirmController = new AbortController();
+          confirmAbortRef.current = confirmController;
           try {
-            const res = await fetch(`/api/challenges/${challengeId}/live`);
+            const res = await fetch(`/api/challenges/${challengeId}/live`, {
+              signal: confirmController.signal,
+            });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const json: LiveChallengeData = await res.json();
             if (stoppedRef.current) return;
@@ -78,7 +86,8 @@ export function useLiveChallenge(challengeId: string, enabled: boolean) {
               // Not actually final — resume polling
               intervalRef.current = setInterval(fetchLive, POLL_INTERVAL_MS);
             }
-          } catch {
+          } catch (confirmErr) {
+            if ((confirmErr as Error).name === "AbortError") return;
             // Confirmation failed — resume polling instead of stopping
             if (!stoppedRef.current) {
               intervalRef.current = setInterval(fetchLive, POLL_INTERVAL_MS);
@@ -117,6 +126,8 @@ export function useLiveChallenge(challengeId: string, enabled: boolean) {
       }
       abortRef.current?.abort();
       abortRef.current = null;
+      confirmAbortRef.current?.abort();
+      confirmAbortRef.current = null;
       stoppedRef.current = true;
     };
   }, [enabled, fetchLive]);

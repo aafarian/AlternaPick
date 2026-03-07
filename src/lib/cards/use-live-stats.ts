@@ -12,6 +12,7 @@ export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: ()
   const abortRef = useRef<AbortController | null>(null);
   const stoppedRef = useRef(false);
   const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmAbortRef = useRef<AbortController | null>(null);
   const startTimeRef = useRef(0);
 
   // Keep onAllSettled in a ref so the fetch callback doesn't depend on it
@@ -27,6 +28,8 @@ export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: ()
       clearTimeout(confirmTimeoutRef.current);
       confirmTimeoutRef.current = null;
     }
+    confirmAbortRef.current?.abort();
+    confirmAbortRef.current = null;
     stoppedRef.current = true;
     onAllSettledRef.current?.();
   }, []);
@@ -68,11 +71,16 @@ export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: ()
         intervalRef.current = null;
 
         if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
+        confirmAbortRef.current?.abort();
         confirmTimeoutRef.current = setTimeout(async () => {
           confirmTimeoutRef.current = null;
           if (stoppedRef.current) return;
+          const confirmController = new AbortController();
+          confirmAbortRef.current = confirmController;
           try {
-            const res = await fetch(`/api/cards/${cardId}/live`);
+            const res = await fetch(`/api/cards/${cardId}/live`, {
+              signal: confirmController.signal,
+            });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const json: LiveCardData = await res.json();
             if (stoppedRef.current) return;
@@ -83,7 +91,8 @@ export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: ()
               // Not actually final — resume polling
               intervalRef.current = setInterval(fetchLive, POLL_INTERVAL_MS);
             }
-          } catch {
+          } catch (confirmErr) {
+            if ((confirmErr as Error).name === "AbortError") return;
             // Confirmation failed — resume polling instead of stopping
             if (!stoppedRef.current) {
               intervalRef.current = setInterval(fetchLive, POLL_INTERVAL_MS);
@@ -124,6 +133,8 @@ export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: ()
       }
       abortRef.current?.abort();
       abortRef.current = null;
+      confirmAbortRef.current?.abort();
+      confirmAbortRef.current = null;
       stoppedRef.current = true;
     };
   }, [enabled, fetchLive]);
