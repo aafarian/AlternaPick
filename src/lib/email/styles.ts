@@ -53,10 +53,6 @@ export const emailStyles = {
     margin: "0",
     lineHeight: "1.5",
   },
-  card: {
-    padding: "16px 0",
-    marginBottom: "16px",
-  },
   button: {
     color: colors.sky600,
     textDecoration: "underline" as const,
@@ -70,9 +66,6 @@ export const emailStyles = {
     padding: "8px 0",
     margin: "0",
     color: colors.zinc950,
-  },
-  buttonWrapper: {
-    marginTop: "8px",
   },
   accentWin: { color: colors.green600 },
   accentLoss: { color: colors.zinc500 },

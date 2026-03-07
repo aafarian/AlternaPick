@@ -104,7 +104,7 @@ export async function sendEmail({
       to,
       subject,
       react,
-      ...(text ? { text } : {}),
+      text,
     });
 
     return { success: true };
