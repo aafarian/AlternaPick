@@ -17,13 +17,11 @@ import {
   LayoutGrid,
   ClipboardList,
   Swords,
-  Users,
   UserPlus,
   User,
   Settings,
   LogOut,
   LogIn,
-  BarChart3,
   TrendingUp,
   Newspaper,
   Shield,
@@ -79,7 +77,6 @@ interface NavLink {
 
 interface NavDropdownGroup {
   label: string;
-  icon: React.ElementType;
   children: NavLink[];
 }
 
@@ -97,7 +94,6 @@ const authenticatedItems: NavItem[] = [
   { href: "/challenges", label: "Challenges", icon: Swords, badgeKey: "challenges" },
   {
     label: "Social",
-    icon: Users,
     children: [
       { href: "/friends", label: "Friends", icon: UserPlus, badgeKey: "friends" },
       { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
@@ -105,7 +101,6 @@ const authenticatedItems: NavItem[] = [
   },
   {
     label: "Insights",
-    icon: BarChart3,
     children: [
       { href: "/analytics", label: "Analytics", icon: TrendingUp },
       { href: "/recap", label: "Wrapped", icon: Newspaper },
@@ -207,8 +202,6 @@ export default function Nav({
       }
       return sum;
     }, 0);
-    const Icon = group.icon;
-
     return (
       <DropdownMenu key={group.label}>
         <DropdownMenuTrigger asChild>
@@ -223,7 +216,6 @@ export default function Nav({
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}
           >
-            <Icon className="h-4 w-4 md:hidden" />
             {group.label}
             <NavBadge count={groupBadgeCount} animationKey={`badge-${group.label}`} />
             <ChevronDown className={`h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180 ${isGroupActive ? "text-primary" : "text-muted-foreground"}`} />
