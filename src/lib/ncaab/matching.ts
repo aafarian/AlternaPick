@@ -10,6 +10,15 @@ import { normalizeTeam } from "@/lib/team-matching";
 export { normalizeTeam };
 
 /**
+ * Mascot aliases for teams that rebranded.
+ * Applied after school-name normalization — replaces the last word (mascot).
+ */
+export const NCAAB_MASCOT_ALIASES: Record<string, string> = {
+  "kangaroos": "roos",       // UMKC rebranded 2019
+  "antelopes": "lopes",      // Grand Canyon rebranded
+};
+
+/**
  * NCAAB-specific team name aliases.
  * Maps abbreviated Odds API names to the full ESPN displayName.
  * Only the portion before the mascot needs to match.
@@ -62,16 +71,26 @@ export const NCAAB_TEAM_ALIASES: Record<string, string> = {
   "loyola (chi)": "loyola chicago",
   // Shortened school names
   "arkansas-little rock": "little rock",
+  "csu bakersfield": "cal state bakersfield",
 };
 
 export function normalizeNcaabTeam(name: string): string {
   const base = normalizeTeam(name);
+  let result = base;
   for (const [abbrev, full] of Object.entries(NCAAB_TEAM_ALIASES)) {
     if (base.startsWith(abbrev + " ") || base === abbrev) {
-      return full + base.slice(abbrev.length);
+      result = full + base.slice(abbrev.length);
+      break;
     }
   }
-  return base;
+  // Replace mascot aliases (last word)
+  const words = result.split(" ");
+  const mascot = words[words.length - 1];
+  if (mascot && NCAAB_MASCOT_ALIASES[mascot]) {
+    words[words.length - 1] = NCAAB_MASCOT_ALIASES[mascot];
+    result = words.join(" ");
+  }
+  return result;
 }
 
 export function ncaabTeamsMatch(dbTeam: string, espnTeam: string): boolean {

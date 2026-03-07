@@ -6,7 +6,7 @@ import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import { unauthorized, serverError, handleApiError } from "@/lib/api/errors";
 import { registerNcaabTeamIds } from "@/lib/constants";
 import type { Game } from "@/lib/supabase/types";
-import { logError } from "@/lib/logger";
+import { logError, logWarn } from "@/lib/logger";
 import { normalizeTeam } from "@/lib/team-matching";
 import { lookbackDatesForSport } from "@/lib/sports/fetchers";
 import { normalizeNcaabTeam, findNcaabMatch } from "@/lib/ncaab/matching";
@@ -539,15 +539,14 @@ export async function POST(request: NextRequest) {
         // Log unmatched games — only those not matched in-memory above
         const unmatchedDb = ncaabDbGames.filter((g) => !g.external_event_id);
         if (unmatchedDb.length > 0) {
-          // Log each unmatched DB game to admin error dashboard
+          // Log each unmatched DB game for debugging (warn-level, not stored in admin dashboard)
           for (const g of unmatchedDb.slice(0, 20)) {
-            logError(
+            logWarn(
               "ncaab-sync",
               `Unmatched DB game: "${g.away_team} @ ${g.home_team}" | ` +
               `commence: ${g.commence_time} | ` +
               `normalized: "${normalizeNcaabTeam(g.away_team)} @ ${normalizeNcaabTeam(g.home_team)}" | ` +
-              `game_id: ${g.id}`,
-              "/api/games/sync-status"
+              `game_id: ${g.id}`
             );
           }
         }
@@ -650,12 +649,11 @@ export async function POST(request: NextRequest) {
         const stillUnmatched = unmatchedGames.filter((g) => !g.external_event_id);
         if (stillUnmatched.length > 0) {
           for (const g of stillUnmatched.slice(0, 10)) {
-            logError(
+            logWarn(
               "ncaab-sync-lookback",
               `Still unmatched after lookback: "${g.away_team} @ ${g.home_team}" | ` +
               `normalized: "${normalizeNcaabTeam(g.away_team)} @ ${normalizeNcaabTeam(g.home_team)}" | ` +
-              `commence: ${g.commence_time} | game_id: ${g.id}`,
-              "/api/games/sync-status"
+              `commence: ${g.commence_time} | game_id: ${g.id}`
             );
           }
           if (!ncaabDebug) {
