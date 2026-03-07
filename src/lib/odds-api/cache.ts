@@ -61,8 +61,18 @@ export function hasEnoughProps(
   }
 
   if (realTeamCount === 1) {
-    // Only one real team — other team has 0 props, re-poll
-    return false;
+    if (nullCount === 0) {
+      // Only one real team and no unenriched props — other team truly has 0 props
+      return false;
+    }
+    // One enriched team + unenriched props (common for soccer where enrichment
+    // is partial). Fall back to total count — the null bucket likely contains
+    // the other team's players.
+    let total = nullCount;
+    for (const [team, count] of teamCounts) {
+      if (team !== "") total += count;
+    }
+    return total >= threshold;
   }
 
   // 2+ real teams: only skip if every real team meets the threshold
