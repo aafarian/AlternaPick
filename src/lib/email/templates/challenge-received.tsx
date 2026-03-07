@@ -24,6 +24,10 @@ export interface ChallengeReceivedEmailProps {
   challengeId: string;
 }
 
+function getModeSuffix(gameMode: GameMode): string {
+  return gameMode === "classic" ? "" : ` (${modeLabel(gameMode)})`;
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -35,7 +39,7 @@ export function ChallengeReceivedEmail({
   challengeId,
 }: ChallengeReceivedEmailProps): ReactElement {
   const challengeUrl = `${baseUrl}/challenges/${challengeId}`;
-  const modeText = gameMode === "classic" ? "" : ` (${modeLabel(gameMode)})`;
+  const modeText = getModeSuffix(gameMode);
 
   return (
     <Html lang="en">
@@ -77,8 +81,7 @@ export function getChallengeReceivedEmailProps(
   react: ReactElement;
   text: string;
 } {
-  const modeText =
-    props.gameMode === "classic" ? "" : ` (${modeLabel(props.gameMode)})`;
+  const modeText = getModeSuffix(props.gameMode);
   const subject = `${props.challengerUsername} sent you a challenge${modeText}`;
   const challengeUrl = `${baseUrl}/challenges/${props.challengeId}`;
 
