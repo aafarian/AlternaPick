@@ -47,8 +47,8 @@ function getSummary(
   isTie: boolean,
   opponentName: string
 ): string {
-  if (isTie) return `You and ${opponentName} finished even.`;
-  if (isWinner) return `You came out on top against ${opponentName}.`;
+  if (isTie) return `you and ${opponentName} finished even.`;
+  if (isWinner) return `you came out on top against ${opponentName}.`;
   return `${opponentName} took this one.`;
 }
 
@@ -87,7 +87,7 @@ export function ChallengeResolvedEmail({
             {myScore} &ndash; {theirScore}
           </Text>
           <Text style={styles.text}>
-            {username}, {summary.toLowerCase()}
+            {username}, {summary}
           </Text>
           <Text style={styles.text}>
             <Link style={styles.link} href={challengeUrl}>
@@ -126,6 +126,6 @@ export function getChallengeResolvedEmailProps(
   return {
     subject,
     react: <ChallengeResolvedEmail {...props} />,
-    text: `Challenge Result\n\n${props.myScore}-${props.theirScore}\n\n${props.username}, ${summary.toLowerCase()}\n\nView details: ${challengeUrl}`,
+    text: `Challenge Result\n\n${props.myScore}-${props.theirScore}\n\n${props.username}, ${summary}\n\nView details: ${challengeUrl}`,
   };
 }
