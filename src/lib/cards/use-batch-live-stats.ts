@@ -150,6 +150,17 @@ export function useBatchLiveStats(
                 setDataMap((prev) => {
                   const merged = new Map<string, LiveCardData>(prev);
                   for (const [id, data] of Object.entries(confirmed)) {
+                    const prevCard = prev.get(id);
+                    if (prevCard && data.picks) {
+                      for (const pick of data.picks) {
+                        if (pick.current_value === null) {
+                          const prevPick = prevCard.picks?.find((p) => p.pick_id === pick.pick_id);
+                          if (prevPick?.current_value !== null && prevPick?.current_value !== undefined) {
+                            pick.current_value = prevPick.current_value;
+                          }
+                        }
+                      }
+                    }
                     merged.set(id, data);
                   }
                   return merged;

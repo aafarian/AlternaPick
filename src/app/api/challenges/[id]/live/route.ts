@@ -125,7 +125,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     }
 
     const allFinal =
-      (challengerLive?.allGamesFinal ?? true) && (opponentLive?.allGamesFinal ?? true);
+      (challengerLive !== null || opponentLive !== null) &&
+      (challengerLive?.allGamesFinal ?? true) &&
+      (opponentLive?.allGamesFinal ?? true);
 
     const response: LiveChallengeData = {
       challenge_id: id,
