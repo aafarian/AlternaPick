@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logError } from "@/lib/logger";
+import { logError, logWarn } from "@/lib/logger";
 import { createNotification } from "@/lib/notifications/queries";
 import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
 import { sendEmail, shouldSendEmail } from "@/lib/email/send";
@@ -120,18 +120,24 @@ export async function resolveEligibleChallenges(): Promise<
         notification_preferences?: NotificationPreferences | null;
       } | null;
 
-      const { data: challengerProfile } = await (
+      const { data: challengerProfile, error: challengerProfileErr } = await (
         supabase.from("profiles") as any
       )
         .select("username, email, notification_preferences")
         .eq("id", challenge.challenger_id)
         .single();
-      const { data: opponentProfile } = await (
+      if (challengerProfileErr) {
+        logWarn("challenge-resolution", "Failed to fetch challenger profile for email", challengerProfileErr);
+      }
+      const { data: opponentProfile, error: opponentProfileErr } = await (
         supabase.from("profiles") as any
       )
         .select("username, email, notification_preferences")
         .eq("id", challenge.opponent_id)
         .single();
+      if (opponentProfileErr) {
+        logWarn("challenge-resolution", "Failed to fetch opponent profile for email", opponentProfileErr);
+      }
       const challengerName =
         (challengerProfile as ProfileRow)?.username ?? "Opponent";
       const opponentName =
@@ -198,7 +204,7 @@ export async function resolveEligibleChallenges(): Promise<
             to: challengerEmail,
             subject: challengerEmailProps.subject,
             react: challengerEmailProps.react,
-          }).catch(() => {});
+          }).catch((err) => logWarn("challenge-resolution", "Failed to send challenge_resolved email to challenger", err));
         }
 
         if (
@@ -218,7 +224,7 @@ export async function resolveEligibleChallenges(): Promise<
             to: opponentEmail,
             subject: opponentEmailProps.subject,
             react: opponentEmailProps.react,
-          }).catch(() => {});
+          }).catch((err) => logWarn("challenge-resolution", "Failed to send challenge_resolved email to opponent", err));
         }
       } catch (emailError) {
         logError(

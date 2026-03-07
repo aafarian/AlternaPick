@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
-import { logError } from "@/lib/logger";
+import { logError, logWarn } from "@/lib/logger";
 import type { ChallengeStatus, NotificationPreferences } from "@/lib/supabase/types";
 import { isValidGameMode } from "@/lib/modes/definitions";
 import { modeLabel } from "@/lib/modes/utils";
@@ -271,12 +271,15 @@ export async function POST(request: NextRequest) {
       }
 
       // Fetch opponent profile (email + notification preferences)
-      const { data: opponentProfile } = await (
+      const { data: opponentProfile, error: opponentProfileError } = await (
         adminClient.from("profiles") as any
       )
         .select("username, email, notification_preferences")
         .eq("id", body.opponent_id)
         .single();
+      if (opponentProfileError) {
+        logWarn("challenges", "Failed to fetch opponent profile for email", opponentProfileError);
+      }
 
       const opponent = opponentProfile as {
         username: string;
@@ -306,7 +309,7 @@ export async function POST(request: NextRequest) {
           message,
           challengeId: challenge.id,
         });
-        sendEmail({ to: opponent.email, subject, react }).catch(() => {});
+        sendEmail({ to: opponent.email, subject, react }).catch((err) => logWarn("challenges", "Failed to send challenge_received email", err));
       }
     } catch (notifError) {
       logError("challenges", "Failed to create challenge_received notification", undefined, notifError);
