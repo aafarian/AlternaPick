@@ -40,6 +40,13 @@ function SignupForm() {
    * Reads from URL param or localStorage fallback (for OAuth flow).
    */
   async function processReferralIfNeeded() {
+    // Migrate legacy key from pre-rename (sports_tower_ref -> alternapick_ref)
+    const legacyRef = localStorage.getItem("sports_tower_ref");
+    if (legacyRef) {
+      localStorage.setItem("alternapick_ref", legacyRef);
+      localStorage.removeItem("sports_tower_ref");
+    }
+
     const referrer =
       refParam || localStorage.getItem("alternapick_ref");
     if (!referrer) return;
@@ -104,6 +111,12 @@ function SignupForm() {
     if (anonId) syncCookie(anonId);
 
     const supabase = createClient();
+    // Migrate legacy key if present
+    const legacyRef = localStorage.getItem("sports_tower_ref");
+    if (legacyRef) {
+      localStorage.setItem("alternapick_ref", legacyRef);
+      localStorage.removeItem("sports_tower_ref");
+    }
     const ref = refParam || localStorage.getItem("alternapick_ref");
     // Persist ref for the OAuth redirect flow
     if (ref) {

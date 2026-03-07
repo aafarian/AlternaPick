@@ -17,6 +17,16 @@ const eslintConfig = defineConfig([
     files: ["src/**/*.{ts,tsx}"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+      "@typescript-eslint/consistent-type-imports": ["error", { fixStyle: "inline-type-imports" }],
+      "eqeqeq": ["error", "always", { null: "ignore" }],
+      "no-else-return": "error",
+      "no-lonely-if": "error",
+      "no-unneeded-ternary": "error",
+      "prefer-const": "error",
       "react-hooks/purity": "off",
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/static-components": "off",

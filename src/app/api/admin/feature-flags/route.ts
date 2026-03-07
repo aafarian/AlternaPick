@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin";
 import { getAllFlags, setFlag } from "@/lib/feature-flags";
 import { badRequest, handleApiError } from "@/lib/api/errors";

@@ -153,7 +153,7 @@ export default function Nav({
     activePath === "/profile" || activePath === "/settings";
   const isAdminActive = activePath.startsWith("/admin");
 
-  function renderStandaloneLink(link: NavLink) {
+  function renderStandaloneLink(link: NavLink, context: "mobile" | "desktop" = "desktop") {
     const isActive = activePath === link.href;
     const badgeCount =
       link.badgeKey && notificationCounts
@@ -176,7 +176,7 @@ export default function Nav({
         >
           {isActive && (
             <motion.div
-              layoutId="desktop-nav-indicator"
+              layoutId={`${context}-nav-indicator`}
               className="absolute inset-0 rounded-md bg-primary/10"
               transition={
                 prefersReducedMotion
@@ -253,7 +253,7 @@ export default function Nav({
     <nav className={`flex flex-col md:flex-row md:items-center md:gap-0.5 md:overflow-x-auto md:scrollbar-none ${mobileSecondaryOnly ? "gap-1.5" : "gap-1"}`}>
       {/* Mobile: flat links; Desktop: mixed standalone + dropdown groups */}
       <div className="contents md:hidden">
-        {mobileLinks.map((link) => renderStandaloneLink(link))}
+        {mobileLinks.map((link) => renderStandaloneLink(link, "mobile"))}
       </div>
       <div className="hidden md:contents">
         {desktopItems.map((item) =>

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { unauthorized, handleApiError } from "@/lib/api/errors";
 import type { Profile, Friendship } from "@/lib/supabase/types";

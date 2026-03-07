@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams, fetchSoccerPlayers } from "@/lib/stats-service/client";
 import { unauthorized, handleApiError } from "@/lib/api/errors";

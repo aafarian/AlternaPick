@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { isSyncOverlapping, getEventIdsWithProps, cacheProps, PROPS_CACHE_TAG } from "@/lib/odds-api/cache";
 import { fetchAllPropsMultiSport } from "@/lib/odds-api/client";

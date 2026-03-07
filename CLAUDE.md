@@ -1,0 +1,87 @@
+# AlternaPick - Claude Code Guidelines
+
+## Project Overview
+
+Next.js 16 app (App Router) with Supabase, Tailwind CSS v4, Radix UI, and Vitest.
+TypeScript strict mode. ESLint with `--max-warnings=0` in CI.
+
+## Code Quality Rules
+
+These rules are derived from recurring review feedback. Follow them on every change.
+
+### 1. No Code Duplication
+
+- Extract repeated style strings, class name patterns, or JSX blocks into constants or components.
+- If the same Tailwind class combination appears in 2+ places, extract it into a `const`.
+- If the same JSX pattern appears in 2+ render paths, extract a shared component or helper.
+- When fixing duplication, ensure the extracted version covers all variants (animated/non-animated, hover/active states, etc.).
+
+### 2. Guard Existing State Before Overriding
+
+- Before setting a value (result, status, trending), check if it's already been resolved.
+- New conditional branches must not clobber state that downstream code relies on.
+- Trace through all existing code paths with concrete scenarios (resolved pick, unresolved pick, each result state) before adding new logic.
+- Place new branches in the correct order relative to existing fallbacks.
+
+### 3. Handle Errors Properly - Never Swallow Them
+
+- Never use `.catch(() => {})` — always log the error using `logError` or `logWarn` from `@/lib/logger`.
+- After a DB operation fails, do NOT continue to subsequent steps that depend on it. Either `return` early or `continue` to the next iteration.
+- When calling `logError`, always pass the error object as the 4th argument: `logError(category, message, endpoint, error)`.
+- Maintain consistent function signatures across all call sites.
+
+### 4. Consistency Across Parallel Code Paths
+
+- When the same operation exists in multiple code paths (e.g., `resolveCard` and `reResolveStaleCards`), apply the same guards, logging, and error handling in both.
+- If you add a guard in one path, check whether the parallel path needs the same guard.
+- Styling, sizing, and behavioral props must be consistent across parallel render functions (e.g., standalone links and dropdown triggers should both respect `mobileSecondaryOnly`).
+
+### 5. No Dead Code or Unused Props
+
+- Do not define interface fields, function parameters, or variables that are never used in any reachable code path.
+- If a prop is only used conditionally (e.g., only when `animated=true`), make it optional.
+- If a CSS class makes an element invisible in all contexts where it renders (e.g., `md:hidden` inside a `hidden md:contents` container), remove it.
+- Remove redundant conditions that can never be false given prior guards.
+
+### 6. Update All Related References When Renaming/Rebranding
+
+- When changing a feature name (e.g., "Recap" -> "Wrapped"), update titles, descriptions, empty states, metadata, alt text, and any user-facing strings.
+- Maintain consistent capitalization of feature names across the entire codebase.
+
+### 7. Consider Data Volume and Query Efficiency
+
+- When modifying Supabase queries, consider the number of rows returned.
+- Prefer aggregating at the database level (RPC/SQL) over fetching all rows and aggregating in JS.
+- Add `.limit()` when fetching data that could grow unboundedly.
+
+### 8. CSS Specificity and Component Library Interactions
+
+- When adding custom styles to Radix/shadcn components, check if component-level styles (e.g., `data-[highlighted]`) will override your classes.
+- Use the same selector mechanism (e.g., `data-[highlighted]:bg-...`) to ensure your styles survive hover/focus states.
+- Test both mouse hover and keyboard focus interactions.
+
+### 9. Animation and Lifecycle Correctness
+
+- `AnimatePresence` must stay mounted to observe child removal and play exit animations.
+- Do not conditionally render `AnimatePresence` itself based on the same condition that controls its children.
+- Use stable, unique keys for animated elements — avoid keys that resolve to the same value across different instances (e.g., `badge-undefined`).
+
+## Pre-Commit Checklist
+
+Before committing, mentally verify:
+- [ ] No duplicated style strings, logic blocks, or JSX patterns
+- [ ] All error paths either return/continue or log meaningfully
+- [ ] New conditional branches don't override already-resolved state
+- [ ] Parallel code paths have consistent guards and logging
+- [ ] No unused props, variables, or unreachable conditions
+- [ ] All user-facing strings are consistent (capitalization, feature names)
+- [ ] Supabase queries won't fetch unbounded data
+- [ ] Radix/shadcn style overrides survive hover/focus states
+
+## Tech Stack Details
+
+- Logger: Use `logError`, `logWarn`, `logInfo` from `@/lib/logger` — never raw `console.*` (enforced by ESLint `no-console` rule)
+- Testing: Vitest with `@testing-library/react`
+- Styling: Tailwind CSS v4 with `tailwind-merge` and `clsx`
+- UI Components: Radix UI via shadcn
+- Animation: `motion` (Framer Motion)
