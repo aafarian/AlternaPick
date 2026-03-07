@@ -30,7 +30,7 @@ import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { BarChart3 } from "lucide-react";
 
 export const metadata = {
-  title: "Analytics | Sports Tower",
+  title: "Analytics | AlternaPick",
   description: "Your prop pick analytics and hit rate breakdown.",
 };
 

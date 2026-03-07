@@ -26,8 +26,8 @@ import { Newspaper } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Wrapped | Sports Tower",
-  description: "Prop pick highlights and platform stats.",
+  title: "Wrapped | AlternaPick",
+  description: "Your weekly and daily Wrapped — prop pick highlights and platform stats.",
 };
 
 interface RecapRow {

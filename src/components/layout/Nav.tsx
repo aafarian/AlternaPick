@@ -86,6 +86,7 @@ function isDropdownGroup(item: NavItem): item is NavDropdownGroup {
   return "children" in item;
 }
 
+const activeTriggerStyle = "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary";
 const activeChildStyle = "text-primary bg-primary/10 data-[highlighted]:bg-primary/15 data-[highlighted]:text-primary";
 
 const authenticatedItems: NavItem[] = [
@@ -212,7 +213,7 @@ export default function Nav({
               mobileSecondaryOnly ? "h-10 text-sm" : ""
             } ${
               isGroupActive
-                ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                ? activeTriggerStyle
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}
           >
@@ -304,7 +305,7 @@ export default function Nav({
                 mobileSecondaryOnly ? "h-10 text-sm" : ""
               } ${
                 isProfileActive
-                  ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                  ? activeTriggerStyle
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
             >
