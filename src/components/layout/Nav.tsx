@@ -231,12 +231,13 @@ export default function Nav({
                 ? notificationCounts[child.badgeKey]
                 : 0;
             const ChildIcon = child.icon;
+            const isChildActive = activePath === child.href;
             return (
               <DropdownMenuItem key={child.href} asChild>
                 <Link
                   href={child.href}
                   onClick={() => { setPendingPath(child.href); onNavigate?.(); }}
-                  className="gap-2"
+                  className={`gap-2 ${isChildActive ? "text-primary bg-primary/10" : ""}`}
                 >
                   <ChildIcon className="h-4 w-4" />
                   {child.label}
