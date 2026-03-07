@@ -34,9 +34,13 @@ describe("hasEnoughProps", () => {
     expect(hasEnoughProps(counts({ "": MIN_PROPS_TO_SKIP - 1 }))).toBe(false);
   });
 
-  it("treats mixed null-bucket + single real team as insufficient", () => {
-    // 15 for LAL + 10 unenriched — only 1 real team, should re-poll
-    expect(hasEnoughProps(counts({ LAL: 15, "": 10 }))).toBe(false);
+  it("skips when one real team + null bucket meet total threshold (partial enrichment)", () => {
+    // 15 for LAL + 10 unenriched — null bucket likely has the other team's props
+    expect(hasEnoughProps(counts({ LAL: 15, "": 10 }))).toBe(true);
+  });
+
+  it("re-polls when one real team + null bucket are below threshold", () => {
+    expect(hasEnoughProps(counts({ LAL: 5, "": 3 }))).toBe(false);
   });
 
   it("ignores null-team bucket when two real teams are present", () => {
