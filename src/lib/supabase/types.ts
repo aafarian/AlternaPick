@@ -33,6 +33,7 @@ export type PickSelection = "over" | "under";
 export type PickResult = "pending" | "hit" | "miss" | "push" | "dnp";
 
 export type ChallengeStatus =
+  | "draft"
   | "pending"
   | "accepted"
   | "declined"
