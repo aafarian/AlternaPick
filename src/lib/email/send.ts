@@ -91,7 +91,7 @@ export async function sendEmail({
 
       // Step 3: Check if recipient is allowed
       if (!allowedEmails.includes(recipientLower)) {
-        logError("email", `sendEmail skipped: ${to} not in allowlist`);
+        logWarn("email", `sendEmail skipped: ${to} not in allowlist`);
         return { success: true };
       }
     }

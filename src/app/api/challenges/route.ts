@@ -302,9 +302,9 @@ export async function POST(request: NextRequest) {
       if (!opponent) {
         logError("challenges", `Challenge email skipped: opponent profile null for ${body.opponent_id}`);
       } else if (!opponent.email) {
-        logError("challenges", `Challenge email skipped: no email on profile for ${body.opponent_id}`);
+        logWarn("challenges", `Challenge email skipped: no email on profile for ${body.opponent_id}`);
       } else if (!shouldSendEmail("challenge_received", opponent.notification_preferences)) {
-        logError("challenges", `Challenge email skipped: preferences disabled for ${body.opponent_id}`);
+        logWarn("challenges", `Challenge email skipped: preferences disabled for ${body.opponent_id}`);
       } else {
         const { subject, react, text } = getChallengeReceivedEmailProps({
           challengerUsername: challengerName,
