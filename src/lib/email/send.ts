@@ -68,7 +68,7 @@ export async function sendEmail({
     // Step 0: Check global email toggle
     const emailEnabledFlag = await getFlag("email_enabled");
     if (emailEnabledFlag !== null && !emailEnabledFlag.enabled) {
-      logError("email", `sendEmail skipped: email_enabled flag is off (to: ${to})`);
+      logWarn("email", `sendEmail skipped: email_enabled flag is off (to: ${to})`);
       return { success: false, error: "Email sending is disabled" };
     }
 

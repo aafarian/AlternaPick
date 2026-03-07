@@ -6,10 +6,10 @@ import {
   Text,
   Link,
   Preview,
-  Hr,
 } from "@react-email/components";
 import type { ReactElement } from "react";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
+import { EmailFooter } from "@/lib/email/components/email-footer";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -95,13 +95,7 @@ export function ChallengeResolvedEmail({
             </Link>
           </Text>
 
-          <Hr style={styles.hr} />
-          <Text style={styles.footer}>
-            AlternaPick &middot;{" "}
-            <Link style={{ ...styles.footer, color: styles.footer.color }} href={baseUrl}>
-              alternapick.com
-            </Link>
-          </Text>
+          <EmailFooter />
         </Container>
       </Body>
     </Html>
