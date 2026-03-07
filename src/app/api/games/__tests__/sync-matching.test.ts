@@ -104,6 +104,18 @@ describe("ncaabTeamsMatch", () => {
     expect(ncaabTeamsMatch("Arkansas-Little Rock Trojans", "Little Rock Trojans")).toBe(true);
   });
 
+  it("matches UMKC Kangaroos → Kansas City Roos (mascot rebrand)", () => {
+    expect(ncaabTeamsMatch("UMKC Kangaroos", "Kansas City Roos")).toBe(true);
+  });
+
+  it("matches Grand Canyon Antelopes → Grand Canyon Lopes (mascot rebrand)", () => {
+    expect(ncaabTeamsMatch("Grand Canyon Antelopes", "Grand Canyon Lopes")).toBe(true);
+  });
+
+  it("matches CSU Bakersfield → Cal State Bakersfield", () => {
+    expect(ncaabTeamsMatch("CSU Bakersfield Roadrunners", "Cal State Bakersfield Roadrunners")).toBe(true);
+  });
+
   it("does not match unrelated teams", () => {
     expect(ncaabTeamsMatch("Duke Blue Devils", "North Carolina Tar Heels")).toBe(false);
   });
