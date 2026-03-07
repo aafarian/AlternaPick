@@ -539,7 +539,7 @@ export async function POST(request: NextRequest) {
         // Log unmatched games — only those not matched in-memory above
         const unmatchedDb = ncaabDbGames.filter((g) => !g.external_event_id);
         if (unmatchedDb.length > 0) {
-          // Log each unmatched DB game to admin error dashboard
+          // Log each unmatched DB game for debugging (warn-level, not stored in admin dashboard)
           for (const g of unmatchedDb.slice(0, 20)) {
             logWarn(
               "ncaab-sync",
