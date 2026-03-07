@@ -220,8 +220,8 @@ export default function Nav({
           >
             <Icon className="h-4 w-4 md:hidden" />
             {group.label}
-            <ChevronDown className={`h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180 ${isGroupActive ? "text-primary" : "text-muted-foreground"}`} />
             <NavBadge count={groupBadgeCount} animationKey={`badge-${group.label}`} />
+            <ChevronDown className={`h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180 ${isGroupActive ? "text-primary" : "text-muted-foreground"}`} />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-44">
