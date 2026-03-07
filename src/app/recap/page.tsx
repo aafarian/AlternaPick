@@ -446,7 +446,7 @@ export default async function RecapPage({
         <FadeIn delay={0.2}>
           <AnimatedEmptyState
             icon={<Newspaper className="h-8 w-8" />}
-            title="No Wrapped available"
+            title="No Daily Wrapped available"
             description="Check back after games resolve!"
           />
         </FadeIn>

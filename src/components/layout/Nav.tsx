@@ -37,7 +37,7 @@ function NavBadge({
   className = "ml-1",
 }: {
   count: number;
-  animationKey: string;
+  animationKey?: string;
   animated?: boolean;
   className?: string;
 }) {
