@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { LiveCardData } from "./live-types";
 import { POLL_INTERVAL_MS, POLL_TIMEOUT_MS } from "@/lib/constants";
+import { schedulePollingConfirmation } from "@/lib/polling/schedule-confirmation";
 
 export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: () => void) {
   const [data, setData] = useState<LiveCardData | null>(null);
@@ -67,38 +68,19 @@ export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: ()
       // Only stop when the server confirms ALL games are final.
       // Use a confirmation re-fetch to guard against transient false positives.
       if (result.all_games_final && intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-
-        if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
-        confirmAbortRef.current?.abort();
-        confirmTimeoutRef.current = setTimeout(async () => {
-          confirmTimeoutRef.current = null;
-          if (stoppedRef.current) return;
-          const confirmController = new AbortController();
-          confirmAbortRef.current = confirmController;
-          try {
-            const res = await fetch(`/api/cards/${cardId}/live`, {
-              signal: confirmController.signal,
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const json: LiveCardData = await res.json();
-            if (stoppedRef.current) return;
-            setData(json);
-            if (json.all_games_final) {
-              stopPolling();
-            } else {
-              // Not actually final — resume polling
-              intervalRef.current = setInterval(fetchLive, POLL_INTERVAL_MS);
-            }
-          } catch (confirmErr) {
-            if ((confirmErr as Error).name === "AbortError") return;
-            // Confirmation failed — resume polling instead of stopping
-            if (!stoppedRef.current) {
-              intervalRef.current = setInterval(fetchLive, POLL_INTERVAL_MS);
-            }
-          }
-        }, 5000);
+        schedulePollingConfirmation({
+          url: `/api/cards/${cardId}/live`,
+          intervalRef,
+          confirmTimeoutRef,
+          confirmAbortRef,
+          stoppedRef,
+          isStillAllFinal: (json) => (json as LiveCardData).all_games_final,
+          onConfirmed: (json) => setData(json as LiveCardData),
+          stopPolling,
+          resumePolling: () => {
+            intervalRef.current = setInterval(fetchLive, POLL_INTERVAL_MS);
+          },
+        });
       }
     } catch (err) {
       if ((err as Error).name === "AbortError") return;

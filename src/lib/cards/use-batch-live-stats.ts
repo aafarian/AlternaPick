@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import type { LiveCardData } from "./live-types";
 import { POLL_INTERVAL_MS, POLL_TIMEOUT_MS } from "@/lib/constants";
+import { schedulePollingConfirmation } from "@/lib/polling/schedule-confirmation";
 
 export function useBatchLiveStats(
   cardIds: string[],
@@ -126,58 +127,43 @@ export function useBatchLiveStats(
         const cardValues = Object.values(cardsObj);
         const allFinal = cardValues.length > 0 && cardValues.every((c) => c.all_games_final);
         if (allFinal && intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-          // Confirmation fetch after 5s
-          if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
-          confirmAbortRef.current?.abort();
-          confirmTimeoutRef.current = setTimeout(async () => {
-            confirmTimeoutRef.current = null;
-            if (stoppedRef.current) return;
-            const confirmController = new AbortController();
-            confirmAbortRef.current = confirmController;
-            try {
-              const res = await fetch(`/api/cards/live?ids=${idsKey}`, {
-                signal: confirmController.signal,
-              });
-              if (!res.ok) throw new Error(`HTTP ${res.status}`);
-              const json = await res.json();
-              const confirmed = json.cards as Record<string, LiveCardData>;
-              if (stoppedRef.current) return;
-              const confirmedValues = Object.values(confirmed);
-              const stillAllFinal = confirmedValues.length > 0 && confirmedValues.every((c) => c.all_games_final);
-              if (stillAllFinal) {
-                setDataMap((prev) => {
-                  const merged = new Map<string, LiveCardData>(prev);
-                  for (const [id, data] of Object.entries(confirmed)) {
-                    const prevCard = prev.get(id);
-                    if (prevCard && data.picks) {
-                      for (const pick of data.picks) {
-                        if (pick.current_value === null) {
-                          const prevPick = prevCard.picks?.find((p) => p.pick_id === pick.pick_id);
-                          if (prevPick?.current_value !== null && prevPick?.current_value !== undefined) {
-                            pick.current_value = prevPick.current_value;
-                          }
+          schedulePollingConfirmation({
+            url: `/api/cards/live?ids=${idsKey}`,
+            intervalRef,
+            confirmTimeoutRef,
+            confirmAbortRef,
+            stoppedRef,
+            isStillAllFinal: (json) => {
+              const cards = (json as { cards: Record<string, LiveCardData> }).cards;
+              const values = Object.values(cards);
+              return values.length > 0 && values.every((c) => c.all_games_final);
+            },
+            onConfirmed: (json) => {
+              const confirmed = (json as { cards: Record<string, LiveCardData> }).cards;
+              setDataMap((prev) => {
+                const merged = new Map<string, LiveCardData>(prev);
+                for (const [id, data] of Object.entries(confirmed)) {
+                  const prevCard = prev.get(id);
+                  if (prevCard && data.picks) {
+                    for (const pick of data.picks) {
+                      if (pick.current_value === null) {
+                        const prevPick = prevCard.picks?.find((p) => p.pick_id === pick.pick_id);
+                        if (prevPick?.current_value !== null && prevPick?.current_value !== undefined) {
+                          pick.current_value = prevPick.current_value;
                         }
                       }
                     }
-                    merged.set(id, data);
                   }
-                  return merged;
-                });
-                stopPolling();
-              } else {
-                // Not actually all final — resume polling
-                intervalRef.current = setInterval(fetchBatch, POLL_INTERVAL_MS);
-              }
-            } catch (confirmErr) {
-              if ((confirmErr as Error).name === "AbortError") return;
-              // Confirmation failed — resume polling instead of stopping
-              if (!stoppedRef.current) {
-                intervalRef.current = setInterval(fetchBatch, POLL_INTERVAL_MS);
-              }
-            }
-          }, 5000);
+                  merged.set(id, data);
+                }
+                return merged;
+              });
+            },
+            stopPolling,
+            resumePolling: () => {
+              intervalRef.current = setInterval(fetchBatch, POLL_INTERVAL_MS);
+            },
+          });
         }
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
