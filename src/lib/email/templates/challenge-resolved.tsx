@@ -89,7 +89,7 @@ export function ChallengeResolvedEmail({
           <Text style={styles.text}>
             {username}, {summary}
           </Text>
-          <Text style={styles.text}>
+          <Text style={{ ...styles.text, textAlign: "center" }}>
             <Link style={styles.link} href={challengeUrl}>
               View details &rarr;
             </Link>
