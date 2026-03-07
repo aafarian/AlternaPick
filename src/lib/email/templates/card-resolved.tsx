@@ -3,7 +3,6 @@ import {
   Head,
   Body,
   Container,
-  Section,
   Text,
   Link,
   Preview,
@@ -43,20 +42,16 @@ export function CardResolvedEmail({
       <Preview>{`${headline} You went ${score} for ${total}.`}</Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
-          <Section style={styles.card}>
-            <Text style={styles.heading}>{headline}</Text>
-            <Text style={styles.scoreBlock}>
-              {score} for {total}
-            </Text>
-            <Text style={styles.text}>
-              {username}, you went {score} for {total}. {subtext}
-            </Text>
-            <Section style={styles.buttonWrapper}>
-              <Link style={styles.button} href={cardUrl}>
-                View card →
-              </Link>
-            </Section>
-          </Section>
+          <Text style={styles.heading}>{headline}</Text>
+          <Text style={styles.scoreBlock}>
+            {score} for {total}
+          </Text>
+          <Text style={styles.text}>
+            {username}, you went {score} for {total}. {subtext}
+          </Text>
+          <Link style={styles.button} href={cardUrl}>
+            View card →
+          </Link>
 
           <Hr style={styles.hr} />
           <Text style={styles.footer}>alternapick.com</Text>
@@ -73,10 +68,13 @@ export function CardResolvedEmail({
 export function getCardResolvedEmailProps(props: CardResolvedEmailProps): {
   subject: string;
   react: ReactElement;
+  text: string;
 } {
-  const { headline } = getCardTier(props.score, props.total);
+  const { headline, subtext } = getCardTier(props.score, props.total);
+  const cardUrl = `${baseUrl}/cards/${props.cardId}`;
   return {
     subject: `${headline} You went ${props.score} for ${props.total}`,
     react: <CardResolvedEmail {...props} />,
+    text: `${headline}\n\n${props.username}, you went ${props.score} for ${props.total}. ${subtext}\n\nView card: ${cardUrl}`,
   };
 }

@@ -114,11 +114,11 @@ export async function POST(request: NextRequest) {
 
       // Send email notification (fire-and-forget, never blocks)
       if (addresseeProfile?.email && shouldSendEmail("friend_request", addresseePrefs)) {
-        const { subject, react } = getFriendRequestEmailProps({
+        const { subject, react, text } = getFriendRequestEmailProps({
           requesterUsername: requesterName,
           addresseeUsername: addresseeName,
         });
-        sendEmail({ to: addresseeProfile.email, subject, react }).catch(
+        sendEmail({ to: addresseeProfile.email, subject, react, text }).catch(
           (err) => logWarn("friends", "Failed to send friend_request email", err)
         );
       }

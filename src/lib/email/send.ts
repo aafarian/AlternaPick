@@ -41,6 +41,7 @@ interface SendEmailParams {
   to: string;
   subject: string;
   react: ReactElement;
+  text?: string;
 }
 
 interface SendEmailResult {
@@ -61,6 +62,7 @@ export async function sendEmail({
   to,
   subject,
   react,
+  text,
 }: SendEmailParams): Promise<SendEmailResult> {
   try {
     // Step 0: Check global email toggle
@@ -102,6 +104,7 @@ export async function sendEmail({
       to,
       subject,
       react,
+      ...(text ? { text } : {}),
     });
 
     return { success: true };

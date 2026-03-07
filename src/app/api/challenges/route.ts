@@ -303,13 +303,13 @@ export async function POST(request: NextRequest) {
         opponent?.email &&
         shouldSendEmail("challenge_received", opponent.notification_preferences)
       ) {
-        const { subject, react } = getChallengeReceivedEmailProps({
+        const { subject, react, text } = getChallengeReceivedEmailProps({
           challengerUsername: challengerName,
           gameMode,
           message,
           challengeId: challenge.id,
         });
-        sendEmail({ to: opponent.email, subject, react }).catch((err) => logWarn("challenges", "Failed to send challenge_received email", err));
+        sendEmail({ to: opponent.email, subject, react, text }).catch((err) => logWarn("challenges", "Failed to send challenge_received email", err));
       }
     } catch (notifError) {
       logError("challenges", "Failed to create challenge_received notification", undefined, notifError);

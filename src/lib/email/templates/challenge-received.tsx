@@ -3,7 +3,6 @@ import {
   Head,
   Body,
   Container,
-  Section,
   Text,
   Link,
   Preview,
@@ -53,22 +52,20 @@ export function ChallengeReceivedEmail({
       <Preview>{headlineText}</Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
-          <Section style={styles.card}>
-            <Text style={styles.heading}>{headlineText}</Text>
-            <Text style={styles.text}>
-              Think you can beat them? Accept the challenge and prove it.
+          <Text style={styles.heading}>{headlineText}</Text>
+          <Text style={styles.text}>
+            Think you can beat them? Accept the challenge and prove it.
+          </Text>
+          {message && (
+            <Text style={{ ...styles.text, fontStyle: "italic" as const }}>
+              &ldquo;{message}&rdquo;
             </Text>
-            {message && (
-              <Text style={{ ...styles.text, fontStyle: "italic" as const }}>
-                &ldquo;{message}&rdquo;
-              </Text>
-            )}
-            <Section style={styles.buttonWrapper}>
-              <Link style={styles.button} href={challengeUrl}>
-                View challenge →
-              </Link>
-            </Section>
-          </Section>
+          )}
+          <Text style={styles.text}>
+            <Link style={styles.button} href={challengeUrl}>
+              View challenge
+            </Link>
+          </Text>
 
           <Hr style={styles.hr} />
           <Text style={styles.footer}>alternapick.com</Text>
@@ -87,9 +84,24 @@ export function getChallengeReceivedEmailProps(
 ): {
   subject: string;
   react: ReactElement;
+  text: string;
 } {
+  const headline = getHeadline(props.challengerUsername, props.gameMode);
+  const challengeUrl = `${baseUrl}/challenges/${props.challengeId}`;
+
+  const lines = [
+    headline,
+    "",
+    "Think you can beat them? Accept the challenge and prove it.",
+  ];
+  if (props.message) {
+    lines.push("", `"${props.message}"`);
+  }
+  lines.push("", `View challenge: ${challengeUrl}`);
+
   return {
-    subject: getHeadline(props.challengerUsername, props.gameMode),
+    subject: headline,
     react: <ChallengeReceivedEmail {...props} />,
+    text: lines.join("\n"),
   };
 }

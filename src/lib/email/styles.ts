@@ -20,7 +20,6 @@ const colors = {
 
 export const emailStyles = {
   body: {
-    backgroundColor: colors.zinc100,
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     margin: "0" as const,
@@ -55,31 +54,24 @@ export const emailStyles = {
     lineHeight: "1.5",
   },
   card: {
-    backgroundColor: colors.white,
-    borderRadius: "12px",
-    padding: "32px",
+    padding: "16px 0",
     marginBottom: "16px",
   },
   button: {
-    backgroundColor: colors.zinc950,
-    color: colors.white,
-    padding: "12px 24px",
-    borderRadius: "8px",
-    textDecoration: "none" as const,
+    color: colors.sky600,
+    textDecoration: "underline" as const,
     fontWeight: 600 as const,
-    display: "inline-block" as const,
     fontSize: "15px",
   },
   scoreBlock: {
-    fontSize: "36px",
-    fontWeight: 700 as const,
+    fontSize: "24px",
+    fontWeight: 600 as const,
     textAlign: "center" as const,
-    padding: "16px 0",
+    padding: "8px 0",
     margin: "0",
     color: colors.zinc950,
   },
   buttonWrapper: {
-    textAlign: "center" as const,
     marginTop: "8px",
   },
   accentWin: { color: colors.green600 },
