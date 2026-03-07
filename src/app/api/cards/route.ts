@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
       // The opponent can only create a card after accepting (status = "accepted" or "active").
       const isChallenger = challenge.challenger_id === user.id;
       const validStatuses = isChallenger
-        ? ["pending", "accepted", "active"]
+        ? ["draft", "pending", "accepted", "active"]
         : ["accepted", "active"];
 
       if (!validStatuses.includes(challenge.status)) {

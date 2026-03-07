@@ -6,7 +6,7 @@ import { logError } from "@/lib/logger";
 import type { ChallengeStatus } from "@/lib/supabase/types";
 import { isValidGameMode } from "@/lib/modes/definitions";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE } from "@/lib/modes/types";
-import { typedFrom } from "@/lib/supabase/typed-queries";
+
 import { getCachedProps } from "@/lib/odds-api/cache";
 import {
   getChallenges,
@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
     if (statusParam) {
       statusFilter = statusParam.split(",").map((s) => s.trim()) as ChallengeStatus[];
       const validStatuses: ChallengeStatus[] = [
+        "draft",
         "pending",
         "accepted",
         "declined",
@@ -155,7 +156,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ---- Validate card_size ----
-    let cardSize = body.card_size ?? 6;
+    const cardSize = body.card_size ?? 6;
     if (
       typeof cardSize !== "number" ||
       !Number.isInteger(cardSize) ||
@@ -169,40 +170,10 @@ export async function POST(request: NextRequest) {
 
     // ---- Validate mirror_props for mirror mode / auto-select for random ----
     let mirrorProps: string[] | null = null;
+    // Mirror mode: props will be selected on /props page after challenge creation
+    // Challenge is created as "draft" and activated when challenger submits their card
     if (gameMode === "mirror") {
-      if (!body.mirror_props || !Array.isArray(body.mirror_props) || body.mirror_props.length === 0) {
-        return badRequest("mirror_props is required for mirror mode (array of prop IDs)");
-      }
-
-      if (body.mirror_props.length < MIN_CARD_SIZE || body.mirror_props.length > MAX_CARD_SIZE) {
-        return badRequest(
-          `mirror_props must contain ${MIN_CARD_SIZE}-${MAX_CARD_SIZE} prop IDs, got ${body.mirror_props.length}`
-        );
-      }
-
-      // Validate that mirror_props are real prop IDs
-      const { data: validProps, error: propsError } = await typedFrom(supabase, "props")
-        .select("id")
-        .in("id", body.mirror_props);
-
-      if (propsError) {
-        return badRequest("Failed to validate mirror props");
-      }
-
-      const validPropIds = new Set(
-        ((validProps ?? []) as Array<{ id: string }>).map((p) => p.id)
-      );
-      const invalidIds = body.mirror_props.filter((id) => !validPropIds.has(id));
-
-      if (invalidIds.length > 0) {
-        return badRequest(
-          `Invalid prop IDs in mirror_props: ${invalidIds.join(", ")}`
-        );
-      }
-
-      mirrorProps = body.mirror_props;
-      // Mirror mode: card_size is always the number of mirror props
-      cardSize = mirrorProps.length;
+      mirrorProps = null;
     } else if (gameMode === "random") {
       // Use the same data source as the props page so random mode
       // sees the exact same props the user sees.
@@ -244,16 +215,20 @@ export async function POST(request: NextRequest) {
       message,
       cardSize,
       mirrorProps,
+      status: gameMode === "mirror" ? "draft" : "pending",
     });
 
-    // Fire-and-forget: notify opponent about the challenge
-    void notifyChallengeOpponent(createAdminClient(), {
-      challengeId: challenge.id,
-      challengerId: user.id,
-      opponentId: body.opponent_id,
-      gameMode,
-      message,
-    });
+    // Skip notification for draft (mirror) challenges — opponent will be
+    // notified when the challenger finishes selecting props
+    if (challenge.status !== "draft") {
+      void notifyChallengeOpponent(createAdminClient(), {
+        challengeId: challenge.id,
+        challengerId: user.id,
+        opponentId: body.opponent_id,
+        gameMode,
+        message,
+      });
+    }
 
     return NextResponse.json({ challenge }, { status: 201 });
   } catch (error) {

@@ -87,10 +87,17 @@ export async function getChallenges(
   }
 
   const results = (data ?? []) as ChallengeWithProfiles[];
-  const hasMore = limit !== undefined && results.length > limit;
+
+  // Exclude draft challenges where the querying user is the opponent
+  // (challenger should see their own drafts to continue prop selection)
+  const filtered = results.filter(
+    (c) => c.status !== "draft" || c.challenger_id === userId
+  );
+
+  const hasMore = limit !== undefined && filtered.length > limit;
 
   return {
-    challenges: hasMore ? results.slice(0, limit) : results,
+    challenges: hasMore ? filtered.slice(0, limit) : filtered,
     hasMore,
   };
 }
@@ -178,6 +185,7 @@ export interface CreateChallengeOptions {
   message?: string | null;
   cardSize?: number;
   mirrorProps?: string[] | null;
+  status?: ChallengeStatus;
 }
 
 /**
@@ -195,6 +203,7 @@ export async function createChallenge(
     message = null,
     cardSize = 6,
     mirrorProps = null,
+    status = "pending",
   } = options;
 
   if (challengerId === opponentId) {
@@ -228,7 +237,7 @@ export async function createChallenge(
   const insertPayload: Record<string, unknown> = {
     challenger_id: challengerId,
     opponent_id: opponentId,
-    status: "pending",
+    status,
     game_mode: gameMode,
     card_size: cardSize,
   };
@@ -372,7 +381,7 @@ export async function expireStaleChallenges(
   // Find stale challenges: pending/accepted and older than 24h
   const { data: stale } = await (admin.from("challenges") as any)
     .select("id, challenger_id, game_mode, status, mirror_props")
-    .in("status", ["pending", "accepted"])
+    .in("status", ["draft", "pending", "accepted"])
     .lt("created_at", cutoff);
 
   const staleChallenges = (stale ?? []) as Array<{
