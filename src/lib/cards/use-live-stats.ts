@@ -75,7 +75,7 @@ export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: ()
           confirmAbortRef,
           stoppedRef,
           isStillAllFinal: (json) => (json as LiveCardData).all_games_final,
-          onConfirmed: (json) => setData(json as LiveCardData),
+          onData: (json) => setData(json as LiveCardData),
           stopPolling,
           resumePolling: () => {
             intervalRef.current = setInterval(fetchLive, POLL_INTERVAL_MS);

@@ -1,6 +1,5 @@
 import type { MutableRefObject } from "react";
-
-const CONFIRMATION_DELAY_MS = 5000;
+import { CONFIRMATION_DELAY_MS } from "@/lib/constants";
 
 interface PollingConfirmationOptions {
   url: string;
@@ -10,8 +9,8 @@ interface PollingConfirmationOptions {
   stoppedRef: MutableRefObject<boolean>;
   /** Parse the JSON response and return whether all games are still final. */
   isStillAllFinal: (json: unknown) => boolean;
-  /** Apply the confirmed data to component state before stopping. */
-  onConfirmed: (json: unknown) => void;
+  /** Apply the confirmation response data to component state. */
+  onData: (json: unknown) => void;
   stopPolling: () => void;
   resumePolling: () => void;
 }
@@ -21,11 +20,14 @@ interface PollingConfirmationOptions {
  *
  * After the primary fetch reports all games final, this schedules a delayed
  * re-fetch to guard against transient false positives. If the confirmation
- * agrees, polling stops. Otherwise (or on error), polling resumes.
+ * agrees, data is applied and polling stops. If not (or on error), data is
+ * still applied (so the UI shows the freshest scores) and polling resumes.
  */
 export function schedulePollingConfirmation(opts: PollingConfirmationOptions) {
-  clearInterval(opts.intervalRef.current!);
-  opts.intervalRef.current = null;
+  if (opts.intervalRef.current) {
+    clearInterval(opts.intervalRef.current);
+    opts.intervalRef.current = null;
+  }
 
   if (opts.confirmTimeoutRef.current) clearTimeout(opts.confirmTimeoutRef.current);
   opts.confirmAbortRef.current?.abort();
@@ -43,8 +45,9 @@ export function schedulePollingConfirmation(opts: PollingConfirmationOptions) {
       const json: unknown = await res.json();
       if (opts.stoppedRef.current) return;
 
+      opts.onData(json);
+
       if (opts.isStillAllFinal(json)) {
-        opts.onConfirmed(json);
         opts.stopPolling();
       } else {
         opts.resumePolling();

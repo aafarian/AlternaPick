@@ -70,7 +70,7 @@ export function useLiveChallenge(challengeId: string, enabled: boolean) {
           confirmAbortRef,
           stoppedRef,
           isStillAllFinal: (json) => (json as LiveChallengeData).all_games_final,
-          onConfirmed: (json) => setData(json as LiveChallengeData),
+          onData: (json) => setData(json as LiveChallengeData),
           stopPolling,
           resumePolling: () => {
             intervalRef.current = setInterval(fetchLive, POLL_INTERVAL_MS);

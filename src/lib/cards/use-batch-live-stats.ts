@@ -138,7 +138,7 @@ export function useBatchLiveStats(
               const values = Object.values(cards);
               return values.length > 0 && values.every((c) => c.all_games_final);
             },
-            onConfirmed: (json) => {
+            onData: (json) => {
               const confirmed = (json as { cards: Record<string, LiveCardData> }).cards;
               setDataMap((prev) => {
                 const merged = new Map<string, LiveCardData>(prev);
