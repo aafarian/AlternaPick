@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { LiveCardData } from "./live-types";
-import { POLL_INTERVAL_MS } from "@/lib/constants";
+import { POLL_INTERVAL_MS, POLL_TIMEOUT_MS } from "@/lib/constants";
 
 export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: () => void) {
   const [data, setData] = useState<LiveCardData | null>(null);
@@ -11,14 +11,34 @@ export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: ()
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const stoppedRef = useRef(false);
-  const hadLiveRef = useRef(false);
+  const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startTimeRef = useRef(0);
 
   // Keep onAllSettled in a ref so the fetch callback doesn't depend on it
   const onAllSettledRef = useRef(onAllSettled);
   onAllSettledRef.current = onAllSettled;
 
+  const stopPolling = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (confirmTimeoutRef.current) {
+      clearTimeout(confirmTimeoutRef.current);
+      confirmTimeoutRef.current = null;
+    }
+    stoppedRef.current = true;
+    onAllSettledRef.current?.();
+  }, []);
+
   const fetchLive = useCallback(async () => {
     if (stoppedRef.current) return;
+
+    // 6-hour hard timeout — stop polling no matter what
+    if (Date.now() - startTimeRef.current > POLL_TIMEOUT_MS) {
+      stopPolling();
+      return;
+    }
 
     // Abort any in-flight request before starting a new one
     abortRef.current?.abort();
@@ -41,13 +61,35 @@ export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: ()
       setData(result);
       setError(null);
 
-      // Track and detect transition from "had live games" to "no live games"
-      if (result.has_live_games) hadLiveRef.current = true;
-      if (!result.has_live_games && hadLiveRef.current && intervalRef.current) {
+      // Only stop when the server confirms ALL games are final.
+      // Use a confirmation re-fetch to guard against transient false positives.
+      if (result.all_games_final && intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
-        stoppedRef.current = true;
-        onAllSettledRef.current?.();
+
+        if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
+        confirmTimeoutRef.current = setTimeout(async () => {
+          confirmTimeoutRef.current = null;
+          if (stoppedRef.current) return;
+          try {
+            const res = await fetch(`/api/cards/${cardId}/live`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const json: LiveCardData = await res.json();
+            if (stoppedRef.current) return;
+            setData(json);
+            if (json.all_games_final) {
+              stopPolling();
+            } else {
+              // Not actually final — resume polling
+              intervalRef.current = setInterval(fetchLive, POLL_INTERVAL_MS);
+            }
+          } catch {
+            // Confirmation failed — resume polling instead of stopping
+            if (!stoppedRef.current) {
+              intervalRef.current = setInterval(fetchLive, POLL_INTERVAL_MS);
+            }
+          }
+        }, 5000);
       }
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
@@ -57,12 +99,13 @@ export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: ()
         setIsLoading(false);
       }
     }
-  }, [cardId]);
+  }, [cardId, stopPolling]);
 
   useEffect(() => {
     if (!enabled) return;
 
     stoppedRef.current = false;
+    startTimeRef.current = Date.now();
 
     // Fetch immediately
     fetchLive();
@@ -74,6 +117,10 @@ export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: ()
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
+      }
+      if (confirmTimeoutRef.current) {
+        clearTimeout(confirmTimeoutRef.current);
+        confirmTimeoutRef.current = null;
       }
       abortRef.current?.abort();
       abortRef.current = null;

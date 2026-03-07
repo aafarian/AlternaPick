@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     // Build LiveCardData for each card using shared maps
     const result: Record<string, LiveCardData> = {};
     for (const card of cards) {
-      const { livePicks, games, hasLiveGames } = buildLivePicksForCard(
+      const { livePicks, games, hasLiveGames, allGamesFinal } = buildLivePicksForCard(
         card.picks,
         gameStatusMap,
         boxscoreMap,
@@ -77,6 +77,7 @@ export async function GET(request: NextRequest) {
         card_id: card.id,
         picks: livePicks,
         has_live_games: hasLiveGames,
+        all_games_final: allGamesFinal,
         games,
       };
     }

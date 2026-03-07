@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { LiveChallengeData } from "@/lib/cards/live-types";
-import { POLL_INTERVAL_MS } from "@/lib/constants";
+import { POLL_INTERVAL_MS, POLL_TIMEOUT_MS } from "@/lib/constants";
 
 export function useLiveChallenge(challengeId: string, enabled: boolean) {
   const [data, setData] = useState<LiveChallengeData | null>(null);
@@ -11,9 +11,29 @@ export function useLiveChallenge(challengeId: string, enabled: boolean) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const stoppedRef = useRef(false);
+  const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startTimeRef = useRef(0);
+
+  const stopPolling = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (confirmTimeoutRef.current) {
+      clearTimeout(confirmTimeoutRef.current);
+      confirmTimeoutRef.current = null;
+    }
+    stoppedRef.current = true;
+  }, []);
 
   const fetchLive = useCallback(async () => {
     if (stoppedRef.current) return;
+
+    // 6-hour hard timeout — stop polling no matter what
+    if (Date.now() - startTimeRef.current > POLL_TIMEOUT_MS) {
+      stopPolling();
+      return;
+    }
 
     // Abort any in-flight request before starting a new one
     abortRef.current?.abort();
@@ -36,10 +56,35 @@ export function useLiveChallenge(challengeId: string, enabled: boolean) {
       setData(result);
       setError(null);
 
-      if (!result.has_live_games && intervalRef.current) {
+      // Only stop when the server confirms ALL games are final.
+      // Use a confirmation re-fetch to guard against transient false positives.
+      if (result.all_games_final && intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
-        stoppedRef.current = true;
+
+        if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
+        confirmTimeoutRef.current = setTimeout(async () => {
+          confirmTimeoutRef.current = null;
+          if (stoppedRef.current) return;
+          try {
+            const res = await fetch(`/api/challenges/${challengeId}/live`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const json: LiveChallengeData = await res.json();
+            if (stoppedRef.current) return;
+            setData(json);
+            if (json.all_games_final) {
+              stopPolling();
+            } else {
+              // Not actually final — resume polling
+              intervalRef.current = setInterval(fetchLive, POLL_INTERVAL_MS);
+            }
+          } catch {
+            // Confirmation failed — resume polling instead of stopping
+            if (!stoppedRef.current) {
+              intervalRef.current = setInterval(fetchLive, POLL_INTERVAL_MS);
+            }
+          }
+        }, 5000);
       }
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
@@ -49,12 +94,14 @@ export function useLiveChallenge(challengeId: string, enabled: boolean) {
         setIsLoading(false);
       }
     }
-  }, [challengeId]);
+  }, [challengeId, stopPolling]);
 
   useEffect(() => {
     if (!enabled) return;
 
     stoppedRef.current = false;
+    startTimeRef.current = Date.now();
+
     fetchLive();
 
     intervalRef.current = setInterval(fetchLive, POLL_INTERVAL_MS);
@@ -63,6 +110,10 @@ export function useLiveChallenge(challengeId: string, enabled: boolean) {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
+      }
+      if (confirmTimeoutRef.current) {
+        clearTimeout(confirmTimeoutRef.current);
+        confirmTimeoutRef.current = null;
       }
       abortRef.current?.abort();
       abortRef.current = null;

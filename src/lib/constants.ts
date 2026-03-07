@@ -103,6 +103,9 @@ export const CHALLENGE_STATUS_STYLES: Record<string, string> = {
 
 export const POLL_INTERVAL_MS = 30_000;
 
+/** Stop polling after 6 hours regardless — safety valve for stuck games */
+export const POLL_TIMEOUT_MS = 6 * 60 * 60 * 1000;
+
 /* ---------- Team data ---------- */
 
 const TEAM_TRICODES: Record<string, string> = {

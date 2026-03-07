@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import type { LiveCardData } from "./live-types";
-import { POLL_INTERVAL_MS } from "@/lib/constants";
+import { POLL_INTERVAL_MS, POLL_TIMEOUT_MS } from "@/lib/constants";
 
 export function useBatchLiveStats(
   cardIds: string[],
@@ -22,10 +22,10 @@ export function useBatchLiveStats(
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const stoppedRef = useRef(false);
-  const hadLiveRef = useRef(false);
   const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const consecutiveErrorsRef = useRef(0);
   const skipCountRef = useRef(0);
+  const startTimeRef = useRef(0);
 
   // Stable stringified key to prevent re-renders when array reference changes
   const idsKey = useMemo(() => cardIds.slice().sort().join(","), [cardIds]);
@@ -39,9 +39,21 @@ export function useBatchLiveStats(
 
     stoppedRef.current = false;
     setHasFetched(false);
+    startTimeRef.current = Date.now();
 
     async function fetchBatch() {
       if (stoppedRef.current || !idsKey) return;
+
+      // 6-hour hard timeout — stop polling no matter what
+      if (Date.now() - startTimeRef.current > POLL_TIMEOUT_MS) {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        stoppedRef.current = true;
+        onAllSettledRef.current?.();
+        return;
+      }
 
       // Back off when seeing consecutive errors — skip polls exponentially
       if (consecutiveErrorsRef.current > 0) {
@@ -98,14 +110,13 @@ export function useBatchLiveStats(
         setHasFetched(true);
         consecutiveErrorsRef.current = 0;
 
-        // Track and detect transition from "had live games" to "no live games"
-        const anyLive = Object.values(cardsObj).some((c) => c.has_live_games);
-        if (anyLive) hadLiveRef.current = true;
-        if (!anyLive && hadLiveRef.current && intervalRef.current) {
+        // Only stop when the server confirms ALL games are final across all cards.
+        // Use a confirmation re-fetch to guard against transient false positives.
+        const allFinal = Object.values(cardsObj).every((c) => c.all_games_final);
+        if (allFinal && intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
-          // Confirmation fetch after 5s — catches transient "no live" responses
-          // where the write-through hasn't updated the DB yet.
+          // Confirmation fetch after 5s
           if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
           confirmTimeoutRef.current = setTimeout(async () => {
             confirmTimeoutRef.current = null;
@@ -116,21 +127,18 @@ export function useBatchLiveStats(
               const json = await res.json();
               const confirmed = json.cards as Record<string, LiveCardData>;
               if (stoppedRef.current) return;
-              const stillLive = Object.values(confirmed).some((c) => c.has_live_games);
-              if (stillLive) {
-                // Games are still live — resume polling
-                intervalRef.current = setInterval(fetchBatch, POLL_INTERVAL_MS);
-              } else {
+              const stillAllFinal = Object.values(confirmed).every((c) => c.all_games_final);
+              if (stillAllFinal) {
                 stoppedRef.current = true;
-                if (hadLiveRef.current) {
-                  onAllSettledRef.current?.();
-                }
+                onAllSettledRef.current?.();
+              } else {
+                // Not actually all final — resume polling
+                intervalRef.current = setInterval(fetchBatch, POLL_INTERVAL_MS);
               }
             } catch {
-              // Confirmation failed — stop gracefully
-              stoppedRef.current = true;
-              if (hadLiveRef.current) {
-                onAllSettledRef.current?.();
+              // Confirmation failed — resume polling instead of stopping
+              if (!stoppedRef.current) {
+                intervalRef.current = setInterval(fetchBatch, POLL_INTERVAL_MS);
               }
             }
           }, 5000);
