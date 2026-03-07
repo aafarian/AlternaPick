@@ -1,35 +1,13 @@
 name: Game Sync & Resolution
 on:
   schedule:
-    # Every hour — props don't change frequently enough to justify 10-min polling
-    - cron: "0 * * * *"
+    # Every 5 minutes — game status, card resolution, challenge expiry
+    - cron: "*/5 * * * *"
   workflow_dispatch: {}
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Sync props (respects 2h cache TTL)
-        run: |
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.APP_URL }}/api/props/sync" \
-            -H "Authorization: Bearer ${{ secrets.SYNC_SECRET }}" \
-            -H "Content-Type: application/json") || true
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          echo "Props sync response (HTTP $HTTP_CODE): $BODY"
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "::warning::Props sync returned HTTP $HTTP_CODE: $BODY"
-          fi
-      - name: Backfill missing player headshots
-        run: |
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.APP_URL }}/api/props/backfill" \
-            -H "Authorization: Bearer ${{ secrets.SYNC_SECRET }}" \
-            -H "Content-Type: application/json") || true
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          echo "Backfill response (HTTP $HTTP_CODE): $BODY"
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "::warning::Backfill returned HTTP $HTTP_CODE: $BODY"
-          fi
       - name: Sync game statuses & resolve cards
         run: |
           curl -sf -X POST "${{ secrets.APP_URL }}/api/games/sync-status" \
