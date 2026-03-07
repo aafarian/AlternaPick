@@ -137,6 +137,13 @@ export function useBatchLiveStats(
               const confirmedValues = Object.values(confirmed);
               const stillAllFinal = confirmedValues.length > 0 && confirmedValues.every((c) => c.all_games_final);
               if (stillAllFinal) {
+                setDataMap((prev) => {
+                  const merged = new Map<string, LiveCardData>(prev);
+                  for (const [id, data] of Object.entries(confirmed)) {
+                    merged.set(id, data);
+                  }
+                  return merged;
+                });
                 stoppedRef.current = true;
                 onAllSettledRef.current?.();
               } else {
