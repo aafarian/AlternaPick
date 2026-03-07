@@ -25,15 +25,6 @@ export interface ChallengeReceivedEmailProps {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getHeadline(challengerUsername: string, gameMode: GameMode): string {
-  if (gameMode === "classic") return `${challengerUsername} challenged you!`;
-  return `${challengerUsername} challenged you to a ${modeLabel(gameMode)} match!`;
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -44,29 +35,37 @@ export function ChallengeReceivedEmail({
   challengeId,
 }: ChallengeReceivedEmailProps): ReactElement {
   const challengeUrl = `${baseUrl}/challenges/${challengeId}`;
-  const headlineText = getHeadline(challengerUsername, gameMode);
+  const modeText = gameMode === "classic" ? "" : ` (${modeLabel(gameMode)})`;
 
   return (
     <Html lang="en">
       <Head />
-      <Preview>{headlineText}</Preview>
+      <Preview>
+        {`${challengerUsername} sent you a challenge${modeText}`}
+      </Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
-          <Text style={styles.heading}>{headlineText}</Text>
-          <Text style={styles.text}>
-            Think you can beat them? Accept the challenge and prove it.
+          <Text style={styles.heading}>
+            {challengerUsername} challenged you{modeText}
           </Text>
           {message && (
-            <Text style={{ ...styles.text, fontStyle: "italic" as const }}>
+            <Text style={styles.muted}>
               &ldquo;{message}&rdquo;
             </Text>
           )}
-          <Link style={styles.button} href={challengeUrl}>
-            View challenge →
-          </Link>
+          <Text style={styles.text}>
+            <Link style={styles.link} href={challengeUrl}>
+              View challenge &rarr;
+            </Link>
+          </Text>
 
           <Hr style={styles.hr} />
-          <Text style={styles.footer}>alternapick.com</Text>
+          <Text style={styles.footer}>
+            AlternaPick &middot;{" "}
+            <Link style={{ ...styles.footer, color: styles.footer.color }} href={baseUrl}>
+              alternapick.com
+            </Link>
+          </Text>
         </Container>
       </Body>
     </Html>
@@ -84,21 +83,19 @@ export function getChallengeReceivedEmailProps(
   react: ReactElement;
   text: string;
 } {
-  const headline = getHeadline(props.challengerUsername, props.gameMode);
+  const modeText =
+    props.gameMode === "classic" ? "" : ` (${modeLabel(props.gameMode)})`;
+  const subject = `${props.challengerUsername} sent you a challenge${modeText}`;
   const challengeUrl = `${baseUrl}/challenges/${props.challengeId}`;
 
-  const lines = [
-    headline,
-    "",
-    "Think you can beat them? Accept the challenge and prove it.",
-  ];
+  const lines = [subject];
   if (props.message) {
     lines.push("", `"${props.message}"`);
   }
   lines.push("", `View challenge: ${challengeUrl}`);
 
   return {
-    subject: headline,
+    subject,
     react: <ChallengeReceivedEmail {...props} />,
     text: lines.join("\n"),
   };

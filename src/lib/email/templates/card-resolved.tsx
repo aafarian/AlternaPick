@@ -39,22 +39,29 @@ export function CardResolvedEmail({
   return (
     <Html lang="en">
       <Head />
-      <Preview>{`${headline} You went ${score} for ${total}.`}</Preview>
+      <Preview>{`Your card is in: ${score} for ${total}`}</Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
           <Text style={styles.heading}>{headline}</Text>
           <Text style={styles.scoreBlock}>
-            {score} for {total}
+            {score}/{total}
           </Text>
           <Text style={styles.text}>
-            {username}, you went {score} for {total}. {subtext}
+            {username}, {subtext.toLowerCase()}
           </Text>
-          <Link style={styles.button} href={cardUrl}>
-            View card →
-          </Link>
+          <Text style={styles.text}>
+            <Link style={styles.link} href={cardUrl}>
+              View card &rarr;
+            </Link>
+          </Text>
 
           <Hr style={styles.hr} />
-          <Text style={styles.footer}>alternapick.com</Text>
+          <Text style={styles.footer}>
+            AlternaPick &middot;{" "}
+            <Link style={{ ...styles.footer, color: styles.footer.color }} href={baseUrl}>
+              alternapick.com
+            </Link>
+          </Text>
         </Container>
       </Body>
     </Html>
@@ -73,8 +80,8 @@ export function getCardResolvedEmailProps(props: CardResolvedEmailProps): {
   const { headline, subtext } = getCardTier(props.score, props.total);
   const cardUrl = `${baseUrl}/cards/${props.cardId}`;
   return {
-    subject: `${headline} You went ${props.score} for ${props.total}`,
+    subject: `Your card is in: ${props.score} for ${props.total}`,
     react: <CardResolvedEmail {...props} />,
-    text: `${headline}\n\n${props.username}, you went ${props.score} for ${props.total}. ${subtext}\n\nView card: ${cardUrl}`,
+    text: `${headline}\n\n${props.score}/${props.total}\n\n${props.username}, ${subtext.toLowerCase()}\n\nView card: ${cardUrl}`,
   };
 }

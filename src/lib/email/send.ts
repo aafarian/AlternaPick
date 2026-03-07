@@ -99,9 +99,12 @@ export async function sendEmail({
     // Step 4: Send the email
     const from =
       process.env.EMAIL_FROM || "AlternaPick <noreply@alternapick.com>";
+    const replyTo =
+      process.env.EMAIL_REPLY_TO || "support@alternapick.com";
 
     await resend.emails.send({
       from,
+      replyTo,
       to,
       subject,
       react,

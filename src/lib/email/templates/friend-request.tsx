@@ -30,7 +30,6 @@ export function FriendRequestEmail({
   requesterUsername,
   addresseeUsername,
 }: FriendRequestEmailProps): ReactElement {
-
   return (
     <Html lang="en">
       <Head />
@@ -39,17 +38,23 @@ export function FriendRequestEmail({
       </Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>
-          <Text style={styles.heading}>New Friend Request</Text>
+          <Text style={styles.heading}>Friend Request</Text>
           <Text style={styles.text}>
-            Hey {addresseeUsername}, {requesterUsername} wants to be your friend
-            on AlternaPick.
+            {addresseeUsername}, {requesterUsername} wants to add you as a friend.
           </Text>
-          <Link style={styles.button} href={friendsUrl}>
-            View request →
-          </Link>
+          <Text style={styles.text}>
+            <Link style={styles.link} href={friendsUrl}>
+              View request &rarr;
+            </Link>
+          </Text>
 
           <Hr style={styles.hr} />
-          <Text style={styles.footer}>alternapick.com</Text>
+          <Text style={styles.footer}>
+            AlternaPick &middot;{" "}
+            <Link style={{ ...styles.footer, color: styles.footer.color }} href={baseUrl}>
+              alternapick.com
+            </Link>
+          </Text>
         </Container>
       </Body>
     </Html>
@@ -70,6 +75,6 @@ export function getFriendRequestEmailProps(
   return {
     subject: `${props.requesterUsername} sent you a friend request`,
     react: <FriendRequestEmail {...props} />,
-    text: `New Friend Request\n\nHey ${props.addresseeUsername}, ${props.requesterUsername} wants to be your friend on AlternaPick.\n\nView request: ${friendsUrl}`,
+    text: `Friend Request\n\n${props.addresseeUsername}, ${props.requesterUsername} wants to add you as a friend.\n\nView request: ${friendsUrl}`,
   };
 }
