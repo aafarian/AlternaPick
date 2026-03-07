@@ -239,7 +239,8 @@ export async function fetchAllPropsMultiSport(
   skipEventIds?: Set<string>,
 ): Promise<Map<SportKey, FetchPropsResult>> {
   const results = new Map<SportKey, FetchPropsResult>();
-  const sports: SportKey[] = [...SPORT_KEYS];
+  // NHL is not yet wired into the frontend — skip to save API credits
+  const sports: SportKey[] = SPORT_KEYS.filter((s) => s !== "nhl");
 
   // Fetch sports sequentially to avoid rate-limiting from concurrent requests
   for (const sport of sports) {
