@@ -19,7 +19,7 @@ AS $$
       date_trunc('hour', p.fetched_at) AS hour,
       COUNT(DISTINCT (p.game_id, p.fetched_at)) AS credits
     FROM props p
-    WHERE p.fetched_at >= NOW() - INTERVAL '24 hours'
+    WHERE p.fetched_at >= date_trunc('hour', NOW() - INTERVAL '23 hours')
     GROUP BY date_trunc('hour', p.fetched_at)
   )
   SELECT

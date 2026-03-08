@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useId, useState, useCallback } from "react";
 import { scaleTime, scaleLinear } from "d3-scale";
 import { line, area, curveMonotoneX } from "d3-shape";
 import {
@@ -25,6 +25,7 @@ function formatHour(d: Date): string {
 }
 
 export default function CreditDrainChart({ data }: CreditDrainChartProps) {
+  const gradientId = `creditDrainFill-${useId()}`;
   const { containerRef, width } = useResponsiveWidth();
   const [hovered, setHovered] = useState<number | null>(null);
 
@@ -66,21 +67,6 @@ export default function CreditDrainChart({ data }: CreditDrainChartProps) {
   const avg = Math.round(
     parsed.reduce((sum, p) => sum + p.credits, 0) / parsed.length,
   );
-
-  // Single data point: just show the number
-  if (parsed.length === 1) {
-    const p = parsed[0];
-    return (
-      <div className="flex items-center gap-3 py-2">
-        <span className="text-2xl font-bold tabular-nums">
-          {p.credits}
-        </span>
-        <span className="text-xs text-muted-foreground">
-          credits at {formatHour(p.dateObj)}
-        </span>
-      </div>
-    );
-  }
 
   const xScale = scaleTime()
     .domain([parsed[0].dateObj, parsed[parsed.length - 1].dateObj])
@@ -131,7 +117,7 @@ export default function CreditDrainChart({ data }: CreditDrainChartProps) {
           >
             <defs>
               <linearGradient
-                id="creditDrainFill"
+                id={gradientId}
                 x1="0"
                 y1="0"
                 x2="0"
@@ -199,7 +185,7 @@ export default function CreditDrainChart({ data }: CreditDrainChartProps) {
               </text>
 
               {/* Area fill */}
-              <path d={areaPath} fill="url(#creditDrainFill)" />
+              <path d={areaPath} fill={`url(#${gradientId})`} />
 
               {/* Line */}
               <path
