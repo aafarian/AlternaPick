@@ -281,7 +281,7 @@ export interface AdminSystemHealth {
     propsToday: number;
     creditsRemaining: number | null;
     creditsUsed: number | null;
-    avgCreditsPerHour: number | null;
+    creditUsageByHour: { hour: string; credits: number }[];
   };
   games: {
     scheduledToday: number;
