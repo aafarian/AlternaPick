@@ -30,6 +30,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Database,
 } from "lucide-react";
 import type { CardScoreFix } from "@/lib/admin/resync";
 
@@ -144,6 +145,7 @@ export default function DataResync() {
   const [leaderboard, setLeaderboard] = useState<StepState>({ status: "idle" });
   const [recap, setRecap] = useState<StepState>({ status: "idle" });
   const [fullResync, setFullResync] = useState<StepState>({ status: "idle" });
+  const [propSync, setPropSync] = useState<StepState>({ status: "idle" });
 
   const [leaderboardUserId, setLeaderboardUserId] = useState("");
   const [recapDate, setRecapDate] = useState("");
@@ -208,6 +210,11 @@ export default function DataResync() {
     [runStep, recapDate],
   );
 
+  const handlePropSync = useCallback(
+    (force: boolean) => runStep(`/api/admin/resync/props${force ? "?force=true" : ""}`, null, setPropSync),
+    [runStep],
+  );
+
   const handleFullResync = useCallback(async () => {
     setFullResync({ status: "running" });
     try {
@@ -262,7 +269,8 @@ export default function DataResync() {
     cardScores.status === "running" ||
     leaderboard.status === "running" ||
     recap.status === "running" ||
-    fullResync.status === "running";
+    fullResync.status === "running" ||
+    propSync.status === "running";
 
   const isRebuildAll = !leaderboardUserId;
 
@@ -529,6 +537,71 @@ export default function DataResync() {
             <p className="mt-2 text-sm text-red-400">{recap.error}</p>
           )}
           {recap.result && <ResultDisplay result={recap.result} />}
+        </CardContent>
+      </Card>
+
+      {/* Prop Sync */}
+      <Card className="py-4">
+        <CardHeader className="pb-0 pt-0 px-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Database className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">Prop Sync</CardTitle>
+              <StatusIcon status={propSync.status} />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePropSync(false)}
+                disabled={anyRunning}
+              >
+                {propSync.status === "running" ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  "Sync"
+                )}
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={anyRunning}
+                  >
+                    Force Sync
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Force Prop Sync?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This bypasses the overlap check and re-fetches props for all
+                      upcoming events, including ones that already have props. This
+                      uses more API credits than a normal sync.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handlePropSync(true)}>
+                      Force Sync
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 pt-2 pb-0">
+          <p className="text-sm text-muted-foreground">
+            Fetches latest player props from the Odds API. Normal sync skips events
+            that already have props and respects the overlap window. Force sync
+            re-fetches everything.
+          </p>
+          {propSync.error && (
+            <p className="mt-2 text-sm text-red-400">{propSync.error}</p>
+          )}
+          {propSync.result && <ResultDisplay result={propSync.result} />}
         </CardContent>
       </Card>
     </div>
