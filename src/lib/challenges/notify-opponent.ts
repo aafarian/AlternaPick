@@ -60,6 +60,9 @@ export async function notifyChallengeOpponent(
       notification_preferences: NotificationPreferences | null;
     } | null;
 
+    // Send in-app notification even if profile fetch failed — createNotification
+    // defaults to enabled when preferences are null/undefined. Email is skipped
+    // below via the `if (!opponent)` guard when the profile is unavailable.
     await createNotification(admin, {
       user_id: opponentId,
       type: "challenge_received",
