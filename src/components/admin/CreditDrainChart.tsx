@@ -42,7 +42,9 @@ export default function CreditDrainChart({ data }: CreditDrainChartProps) {
     [data.length, width],
   );
 
-  if (data.length === 0) {
+  const totalCredits = data.reduce((sum, d) => sum + d.credits, 0);
+
+  if (data.length === 0 || totalCredits === 0) {
     return (
       <p className="text-xs text-muted-foreground py-2">
         No credit usage in the last 24h
