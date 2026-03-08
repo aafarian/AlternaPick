@@ -64,9 +64,7 @@ export default function CreditDrainChart({ data }: CreditDrainChartProps) {
   const maxCredits = Math.max(...parsed.map((d) => d.credits));
   const yMax = Math.max(10, Math.ceil(maxCredits / 5) * 5);
 
-  const avg = Math.round(
-    parsed.reduce((sum, p) => sum + p.credits, 0) / parsed.length,
-  );
+  const avg = parseFloat((totalCredits / parsed.length).toFixed(1));
 
   const xScale = scaleTime()
     .domain([parsed[0].dateObj, parsed[parsed.length - 1].dateObj])
