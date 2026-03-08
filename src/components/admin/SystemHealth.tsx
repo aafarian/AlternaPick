@@ -27,6 +27,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import type { ReResolvePickLog, ReResolveSkipLog } from "@/lib/cards/resolution";
+import CreditDrainChart from "./CreditDrainChart";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -191,6 +192,8 @@ function PropSyncSection({ data }: { data: AdminSystemHealth["propSync"] }) {
             </div>
           </div>
         )}
+
+        <CreditDrainChart data={data.creditUsageByHour} />
       </CardContent>
     </Card>
   );

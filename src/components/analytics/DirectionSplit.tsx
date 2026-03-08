@@ -61,7 +61,7 @@ export default function DirectionSplit({ data }: DirectionSplitProps) {
               <text
                 textAnchor="middle"
                 dy="-0.2em"
-                fill="#e5e5e5"
+                fill={CHART_COLORS.text}
                 fontSize={14}
                 fontWeight="bold"
               >

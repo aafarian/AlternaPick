@@ -9,6 +9,7 @@ export const CHART_COLORS = {
   red: "#ef4444",
   muted: "#6b7280",
   surface: "#1e1e2e",
+  text: "#e5e5e5",
 } as const;
 
 /** Return a color based on hit rate percentage: green (60%+), blue (40-59%), red (<40%) */
@@ -31,6 +32,11 @@ export function BarGradientDef() {
       </linearGradient>
     </defs>
   );
+}
+
+/** Format a Date to a locale-aware hour string (e.g. "3 PM") */
+export function formatHour(d: Date): string {
+  return d.toLocaleTimeString(undefined, { hour: "numeric", hour12: true });
 }
 
 /** Reusable hook: tracks an element's width via ResizeObserver for responsive SVG charts */

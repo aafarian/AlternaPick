@@ -249,7 +249,7 @@ export default function TrendChart({ data }: TrendChartProps) {
                       <text
                         textAnchor="middle"
                         dy="0em"
-                        fill="#e5e5e5"
+                        fill={CHART_COLORS.text}
                         fontSize={10}
                         fontFamily="monospace"
                       >

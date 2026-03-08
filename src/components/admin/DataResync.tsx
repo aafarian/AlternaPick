@@ -30,6 +30,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Database,
 } from "lucide-react";
 import type { CardScoreFix } from "@/lib/admin/resync";
 
@@ -93,14 +94,68 @@ function ResultDisplay({ result }: { result: Record<string, unknown> }) {
     <div className="mt-3 rounded-md bg-muted/50 p-3 text-sm space-y-1">
       {Object.entries(result)
         .filter(([k]) => k !== "fixes" && k !== "errors")
+        .map(([key, value]) => {
+          // Skip objects/arrays that need special rendering
+          if (value !== null && typeof value === "object") return null;
+          return (
+            <div key={key} className="flex justify-between">
+              <span className="text-muted-foreground">{key}</span>
+              <span className="font-mono">
+                {typeof value === "number" ? value.toLocaleString() : String(value ?? "")}
+              </span>
+            </div>
+          );
+        })}
+      {/* Render nested objects (e.g. enrichment) as sub-sections */}
+      {Object.entries(result)
+        .filter(
+          ([k, v]) =>
+            k !== "fixes" &&
+            k !== "errors" &&
+            v !== null &&
+            typeof v === "object" &&
+            !Array.isArray(v),
+        )
         .map(([key, value]) => (
-          <div key={key} className="flex justify-between">
-            <span className="text-muted-foreground">{key}</span>
-            <span className="font-mono">
-              {typeof value === "number" ? value.toLocaleString() : String(value)}
-            </span>
+          <div key={key} className="mt-2 pt-2 border-t border-border">
+            <p className="text-xs text-muted-foreground mb-1">{key}:</p>
+            {Object.entries(value as Record<string, unknown>).map(
+              ([subKey, subVal]) => (
+                <div key={subKey} className="flex justify-between">
+                  <span className="text-muted-foreground ml-2">{subKey}</span>
+                  <span className="font-mono">
+                    {typeof subVal === "object" && subVal !== null
+                      ? Object.entries(subVal as Record<string, unknown>)
+                          .map(([k, v]) => `${k}: ${v}`)
+                          .join(", ")
+                      : String(subVal ?? "")}
+                  </span>
+                </div>
+              ),
+            )}
           </div>
         ))}
+      {/* Render array values (e.g. warnings) as lists */}
+      {Object.entries(result)
+        .filter(
+          ([k, v]) => k !== "fixes" && k !== "errors" && Array.isArray(v),
+        )
+        .map(([key, value]) => {
+          const items = value as unknown[];
+          if (items.length === 0) return null;
+          return (
+            <div key={key} className="mt-2 pt-2 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-1">
+                {key} ({items.length}):
+              </p>
+              {items.map((item, i) => (
+                <p key={i} className="text-xs font-mono text-amber-400">
+                  {String(item)}
+                </p>
+              ))}
+            </div>
+          );
+        })}
       {fixes && fixes.length > 0 && (
         <div className="mt-2 pt-2 border-t border-border">
           <p className="text-xs text-muted-foreground mb-1">
@@ -144,6 +199,7 @@ export default function DataResync() {
   const [leaderboard, setLeaderboard] = useState<StepState>({ status: "idle" });
   const [recap, setRecap] = useState<StepState>({ status: "idle" });
   const [fullResync, setFullResync] = useState<StepState>({ status: "idle" });
+  const [propSync, setPropSync] = useState<StepState>({ status: "idle" });
 
   const [leaderboardUserId, setLeaderboardUserId] = useState("");
   const [recapDate, setRecapDate] = useState("");
@@ -208,6 +264,11 @@ export default function DataResync() {
     [runStep, recapDate],
   );
 
+  const handlePropSync = useCallback(
+    (force: boolean) => runStep(`/api/admin/resync/props${force ? "?force=true" : ""}`, null, setPropSync),
+    [runStep],
+  );
+
   const handleFullResync = useCallback(async () => {
     setFullResync({ status: "running" });
     try {
@@ -262,7 +323,8 @@ export default function DataResync() {
     cardScores.status === "running" ||
     leaderboard.status === "running" ||
     recap.status === "running" ||
-    fullResync.status === "running";
+    fullResync.status === "running" ||
+    propSync.status === "running";
 
   const isRebuildAll = !leaderboardUserId;
 
@@ -529,6 +591,78 @@ export default function DataResync() {
             <p className="mt-2 text-sm text-red-400">{recap.error}</p>
           )}
           {recap.result && <ResultDisplay result={recap.result} />}
+        </CardContent>
+      </Card>
+
+      {/* Prop Sync */}
+      <Card className="py-4">
+        <CardHeader className="pb-0 pt-0 px-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Database className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">Prop Sync</CardTitle>
+              <StatusIcon status={propSync.status} />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePropSync(false)}
+                disabled={anyRunning}
+              >
+                {propSync.status === "running" ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  "Sync"
+                )}
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={anyRunning}
+                  >
+                    Force Sync
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Force Prop Sync?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This bypasses the overlap check and re-fetches props for all
+                      upcoming events, including ones that already have props. This
+                      uses more API credits than a normal sync.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handlePropSync(true)}>
+                      {propSync.status === "running" ? (
+                        <>
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          Syncing...
+                        </>
+                      ) : (
+                        "Force Sync"
+                      )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 pt-2 pb-0">
+          <p className="text-sm text-muted-foreground">
+            Fetches latest player props from the Odds API. Normal sync skips events
+            that already have props and respects the overlap window. Force sync
+            re-fetches everything.
+          </p>
+          {propSync.error && (
+            <p className="mt-2 text-sm text-red-400">{propSync.error}</p>
+          )}
+          {propSync.result && <ResultDisplay result={propSync.result} />}
         </CardContent>
       </Card>
     </div>

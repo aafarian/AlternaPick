@@ -74,7 +74,7 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
                       y={y + bh / 2}
                       dy="0.35em"
                       textAnchor="end"
-                      fill="#e5e5e5"
+                      fill={CHART_COLORS.text}
                       fontSize={10}
                     >
                       {label.length > 16 ? label.slice(0, 15) + "…" : label}

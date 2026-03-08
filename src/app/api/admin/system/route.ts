@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { handleApiError } from "@/lib/api/errors";
 import type { AdminSystemHealth } from "@/lib/admin/types";
 import { ODDS_API_BASE_URL } from "@/lib/odds-api/constants";
-import { getRecentErrors } from "@/lib/logger";
+import { getRecentErrors, logWarn } from "@/lib/logger";
 
 /** Lightweight call to The Odds API /v4/sports (costs 0 credits) to read credit headers. */
 async function fetchOddsApiCredits(): Promise<{ remaining: number | null; used: number | null }> {
@@ -59,6 +59,7 @@ export async function GET() {
       stalePendingPicksResult,
       stuckLockedCardsResult,
       oddsCredits,
+      creditDrainResult,
     ] = await Promise.all([
       // Total props count
       supabase
@@ -120,6 +121,9 @@ export async function GET() {
 
       // Odds API credit check (free endpoint, 0 credits)
       fetchOddsApiCredits(),
+
+      // Hourly credit usage (last 24h)
+      supabase.rpc("get_credit_usage_by_hour"),
     ]);
 
     // Parse last sync time
@@ -249,6 +253,13 @@ export async function GET() {
         propsToday: propsTodayResult.count ?? 0,
         creditsRemaining: oddsCredits.remaining,
         creditsUsed: oddsCredits.used,
+        creditUsageByHour: (() => {
+          if (creditDrainResult.error) {
+            logWarn("admin", `get_credit_usage_by_hour RPC error: ${creditDrainResult.error.message}`, "/api/admin/system");
+          }
+          const rows = (creditDrainResult.data as { hour: string; credits: string | number }[] | null) ?? [];
+          return rows.map((r) => ({ hour: r.hour, credits: Number(r.credits) }));
+        })(),
       },
       games: {
         scheduledToday: gamesScheduledResult.count ?? 0,
