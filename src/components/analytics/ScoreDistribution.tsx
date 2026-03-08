@@ -115,7 +115,7 @@ export default function ScoreDistribution({ data }: ScoreDistributionProps) {
                               x={x + bw / 2}
                               y={y - 3}
                               textAnchor="middle"
-                              fill="#e5e5e5"
+                              fill={CHART_COLORS.text}
                               fontSize={9}
                               fontWeight="bold"
                             >

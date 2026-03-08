@@ -9,6 +9,7 @@ export const CHART_COLORS = {
   red: "#ef4444",
   muted: "#6b7280",
   surface: "#1e1e2e",
+  text: "#e5e5e5",
 } as const;
 
 /** Return a color based on hit rate percentage: green (60%+), blue (40-59%), red (<40%) */

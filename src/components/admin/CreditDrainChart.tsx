@@ -104,7 +104,7 @@ export default function CreditDrainChart({ data }: CreditDrainChartProps) {
 
   const hoveredPoint = hovered !== null ? parsed[hovered] : null;
 
-  /** Color a dot amber if it's a spike (>2x average) */
+  /** Color a dot red if it's a spike (>2x average) */
   function dotColor(credits: number): string {
     if (avg > 0 && credits > avg * 2) return CHART_COLORS.red;
     return CHART_COLORS.blue;
@@ -262,7 +262,7 @@ export default function CreditDrainChart({ data }: CreditDrainChartProps) {
                         <text
                           textAnchor="middle"
                           dy="0em"
-                          fill="#e5e5e5"
+                          fill={CHART_COLORS.text}
                           fontSize={9}
                           fontFamily="monospace"
                         >

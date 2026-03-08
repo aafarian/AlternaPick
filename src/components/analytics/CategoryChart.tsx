@@ -78,7 +78,7 @@ export default function CategoryChart({ data }: CategoryChartProps) {
                       y={y + bh / 2}
                       dy="0.35em"
                       textAnchor="end"
-                      fill="#e5e5e5"
+                      fill={CHART_COLORS.text}
                       fontSize={11}
                     >
                       {label}

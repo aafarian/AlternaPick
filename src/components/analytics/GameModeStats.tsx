@@ -90,7 +90,7 @@ export default function GameModeStats({ data }: GameModeStatsProps) {
                       y={y + bh / 2}
                       dy="0.35em"
                       textAnchor="end"
-                      fill="#e5e5e5"
+                      fill={CHART_COLORS.text}
                       fontSize={11}
                     >
                       {label}
