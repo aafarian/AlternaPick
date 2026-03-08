@@ -98,7 +98,7 @@ export async function sendEmail({
 
     // Step 4: Send the email
     const from =
-      process.env.EMAIL_FROM || "AlternaPick <noreply@alternapick.com>";
+      process.env.EMAIL_FROM || "AlternaPick <picks@alternapick.com>";
     const replyTo =
       process.env.EMAIL_REPLY_TO || "support@alternapick.com";
 
@@ -109,6 +109,11 @@ export async function sendEmail({
       subject,
       react,
       text,
+      headers: {
+        // Unique per email — prevents Gmail from collapsing unrelated
+        // transactional emails into the same conversation thread.
+        "X-Entity-Ref-ID": crypto.randomUUID(),
+      },
     });
 
     return { success: true };
