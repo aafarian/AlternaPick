@@ -25,12 +25,15 @@ export async function notifyChallengeOpponent(
 
   try {
     // Fetch challenger name
-    const { data: challengerProfile } = await (
+    const { data: challengerProfile, error: challengerProfileError } = await (
       admin.from("profiles") as any
     )
       .select("username")
       .eq("id", challengerId)
       .single();
+    if (challengerProfileError) {
+      logWarn("challenges", "Failed to fetch challenger profile for notification", challengerProfileError);
+    }
     const challengerName =
       (challengerProfile as { username: string } | null)?.username ?? "Someone";
 
