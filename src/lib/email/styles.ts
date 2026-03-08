@@ -12,6 +12,7 @@ const colors = {
   zinc700: "#3f3f46",
   zinc500: "#71717a",
   zinc400: "#a1a1aa",
+  zinc300: "#d4d4d8",
   zinc200: "#e4e4e7",
   sky700: "#0369a1",
   sky600: "#0284c7",
@@ -78,7 +79,7 @@ export const emailStyles = {
   },
   footer: {
     fontSize: "12px",
-    color: colors.zinc400,
+    color: colors.zinc300,
     margin: "0",
     lineHeight: "1.5",
   },
