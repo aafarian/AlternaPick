@@ -257,7 +257,8 @@ export async function GET() {
           if (creditDrainResult.error) {
             logWarn("admin", `get_credit_usage_by_hour RPC error: ${creditDrainResult.error.message}`, "/api/admin/system");
           }
-          return (creditDrainResult.data as { hour: string; credits: number }[] | null) ?? [];
+          const rows = (creditDrainResult.data as { hour: string; credits: string | number }[] | null) ?? [];
+          return rows.map((r) => ({ hour: r.hour, credits: Number(r.credits) }));
         })(),
       },
       games: {
