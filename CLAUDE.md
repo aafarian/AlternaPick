@@ -1,9 +1,28 @@
 # AlternaPick - Claude Code Guidelines
 
+## Primary Goal
+
+Produce mergeable code with minimal reviewer objections.
+Favor correctness, explicitness, and small diffs over cleverness.
+
 ## Project Overview
 
 Next.js 16 app (App Router) with Supabase, Tailwind CSS v4, Radix UI, and Vitest.
 TypeScript strict mode. ESLint with `--max-warnings=0` in CI.
+
+## General Standards
+
+- Follow existing repo patterns before inventing new ones.
+- Keep changes tightly scoped to the requested task. Do not do unrelated refactors.
+- Avoid `any`, non-null assertions (`!`), and lint/type suppressions unless explicitly justified.
+- Prefer reusing existing utilities, helpers, and components over creating new ones.
+- Resolve root causes, not just surface symptoms.
+
+## Before Writing Code
+
+- Inspect nearby files and similar implementations first.
+- Identify local conventions for naming, typing, error handling, tests, and data flow.
+- Match those conventions exactly.
 
 ## Code Quality Rules
 
@@ -66,6 +85,26 @@ These rules are derived from recurring review feedback. Follow them on every cha
 - Do not conditionally render `AnimatePresence` itself based on the same condition that controls its children.
 - Use stable, unique keys for animated elements — avoid keys that resolve to the same value across different instances (e.g., `badge-undefined`).
 
+## Diff Discipline
+
+- Keep the diff minimal. Only change what the task requires.
+- No opportunistic renames, code movement, or formatting changes.
+- No new abstractions unless they clearly simplify or de-risk the change.
+- Preserve existing public interfaces unless the task explicitly requires otherwise.
+
+## Architecture Guidance
+
+- Keep route handlers thin — put business logic in domain/service modules.
+- Keep validation close to inputs (API boundaries, form handlers).
+- Keep persistence concerns (Supabase queries) out of UI components.
+
+## Unsafe Shortcuts to Avoid
+
+- Don't silence lint or type errors just to pass checks.
+- Don't patch only the exact failing line if the root cause is broader.
+- Don't follow broken existing patterns when they clearly conflict with current standards.
+- Don't log secrets or sensitive data (tokens, keys, PII).
+
 ## Pre-Push Verification (MANDATORY)
 
 Before pushing, ALWAYS run these checks against the full codebase — not just staged files:
@@ -77,15 +116,21 @@ Do NOT push if either fails. This catches issues that lint-staged misses (e.g., 
 
 ## Pre-Commit Checklist
 
-Before committing, mentally verify:
+Before committing, self-review for:
 - [ ] No duplicated style strings, logic blocks, or JSX patterns
 - [ ] All error paths either return/continue or log meaningfully
 - [ ] New conditional branches don't override already-resolved state
 - [ ] Parallel code paths have consistent guards and logging
-- [ ] No unused props, variables, or unreachable conditions
+- [ ] No unused props, variables, imports, or unreachable conditions
 - [ ] All user-facing strings are consistent (capitalization, feature names)
 - [ ] Supabase queries won't fetch unbounded data
 - [ ] Radix/shadcn style overrides survive hover/focus states
+- [ ] Null/undefined and edge cases are handled
+- [ ] Async and error states are handled
+- [ ] API contracts remain correct (types match runtime data)
+- [ ] No hidden regressions in adjacent flows
+- [ ] No secrets or sensitive data logged
+- [ ] If something cannot be validated, say exactly what was not checked
 
 ## Tech Stack Details
 

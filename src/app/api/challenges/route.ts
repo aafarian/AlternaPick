@@ -1,12 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createNotification } from "@/lib/notifications/queries";
 import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
-import { logError, logWarn } from "@/lib/logger";
-import type { ChallengeStatus, NotificationPreferences } from "@/lib/supabase/types";
+import { logError } from "@/lib/logger";
+import type { ChallengeStatus } from "@/lib/supabase/types";
 import { isValidGameMode } from "@/lib/modes/definitions";
-import { modeLabel } from "@/lib/modes/utils";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE } from "@/lib/modes/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { getCachedProps } from "@/lib/odds-api/cache";
@@ -14,8 +12,7 @@ import {
   getChallenges,
   createChallenge,
 } from "@/lib/challenges/queries";
-import { sendEmail, shouldSendEmail } from "@/lib/email/send";
-import { getChallengeReceivedEmailProps } from "@/lib/email/templates/challenge-received";
+import { notifyChallengeOpponent } from "@/lib/challenges/notify-opponent";
 
 export async function GET(request: NextRequest) {
   try {
@@ -250,73 +247,13 @@ export async function POST(request: NextRequest) {
     });
 
     // Fire-and-forget: notify opponent about the challenge
-    try {
-      const adminClient = createAdminClient();
-      const { data: challengerProfile } = await (
-        adminClient.from("profiles") as any
-      )
-        .select("username")
-        .eq("id", user.id)
-        .single();
-      const challengerName =
-        (challengerProfile as { username: string } | null)?.username ?? "Someone";
-
-      // Build notification body with optional trash talk
-      let notifBody = `You received a challenge from ${challengerName}!`;
-      if (gameMode !== "classic") {
-        notifBody = `${challengerName} challenged you to a ${modeLabel(gameMode)} match!`;
-      }
-      if (message) {
-        notifBody += ` "${message}"`;
-      }
-
-      // Fetch opponent profile (email + notification preferences)
-      const { data: opponentProfile, error: opponentProfileError } = await (
-        adminClient.from("profiles") as any
-      )
-        .select("username, email, notification_preferences")
-        .eq("id", body.opponent_id)
-        .single();
-      if (opponentProfileError) {
-        logWarn("challenges", "Failed to fetch opponent profile for email", opponentProfileError);
-      }
-
-      const opponent = opponentProfile as {
-        username: string;
-        email: string | null;
-        notification_preferences: NotificationPreferences | null;
-      } | null;
-
-      await createNotification(adminClient, {
-        user_id: body.opponent_id,
-        type: "challenge_received",
-        title: "New Challenge",
-        body: notifBody,
-        metadata: {
-          challenge_id: challenge.id,
-          game_mode: gameMode,
-        },
-      }, opponent?.notification_preferences);
-
-      // Send email to opponent if preferences allow
-      if (!opponent) {
-        logError("challenges", `Challenge email skipped: opponent profile null for ${body.opponent_id}`);
-      } else if (!opponent.email) {
-        logWarn("challenges", `Challenge email skipped: no email on profile for ${body.opponent_id}`);
-      } else if (!shouldSendEmail("challenge_received", opponent.notification_preferences)) {
-        logWarn("challenges", `Challenge email skipped: preferences disabled for ${body.opponent_id}`);
-      } else {
-        const { subject, react, text } = getChallengeReceivedEmailProps({
-          challengerUsername: challengerName,
-          gameMode,
-          message,
-          challengeId: challenge.id,
-        });
-        void sendEmail({ to: opponent.email, subject, react, text });
-      }
-    } catch (notifError) {
-      logError("challenges", "Failed to create challenge_received notification", undefined, notifError);
-    }
+    void notifyChallengeOpponent(createAdminClient(), {
+      challengeId: challenge.id,
+      challengerId: user.id,
+      opponentId: body.opponent_id,
+      gameMode,
+      message,
+    });
 
     return NextResponse.json({ challenge }, { status: 201 });
   } catch (error) {
