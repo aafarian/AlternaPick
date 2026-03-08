@@ -6,16 +6,20 @@
 export const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://alternapick.com";
 
-const colors = {
+export const colors = {
   zinc950: "#09090b",
+  zinc800: "#27272a",
   zinc700: "#3f3f46",
   zinc500: "#71717a",
   zinc400: "#a1a1aa",
   zinc300: "#d4d4d8",
   zinc200: "#e4e4e7",
+  zinc100: "#f4f4f5",
   sky700: "#0369a1",
   sky600: "#0284c7",
   green600: "#16a34a",
+  green500: "#22c55e",
+  red500: "#ef4444",
 } as const;
 
 export const emailStyles = {
@@ -24,29 +28,36 @@ export const emailStyles = {
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     margin: "0" as const,
     padding: "0" as const,
+    backgroundColor: "#ffffff",
   },
   container: {
     maxWidth: "480px",
     margin: "0 auto",
     padding: "40px 24px",
   },
+  accentBar: {
+    height: "3px",
+    backgroundColor: colors.sky600,
+    borderRadius: "2px",
+    margin: "0 0 32px 0",
+  },
   heading: {
-    fontSize: "18px",
-    fontWeight: 600 as const,
+    fontSize: "20px",
+    fontWeight: 700 as const,
     color: colors.zinc950,
-    margin: "0 0 12px 0",
-    lineHeight: "1.4",
+    margin: "0 0 8px 0",
+    lineHeight: "1.3",
   },
   text: {
-    fontSize: "14px",
+    fontSize: "15px",
     color: colors.zinc700,
-    margin: "0 0 16px 0",
+    margin: "0 0 20px 0",
     lineHeight: "1.6",
   },
   muted: {
     fontSize: "14px",
-    color: colors.zinc400,
-    margin: "0 0 16px 0",
+    color: colors.zinc500,
+    margin: "0 0 20px 0",
     lineHeight: "1.6",
     fontStyle: "italic" as const,
   },
@@ -56,21 +67,30 @@ export const emailStyles = {
     fontWeight: 500 as const,
     fontSize: "14px",
   },
+  button: {
+    backgroundColor: colors.sky600,
+    color: "#ffffff",
+    fontSize: "14px",
+    fontWeight: 600 as const,
+    padding: "10px 24px",
+    borderRadius: "6px",
+    textDecoration: "none" as const,
+  },
   hr: {
     borderColor: colors.zinc200,
-    margin: "24px 0 16px 0",
+    margin: "28px 0 16px 0",
   },
   footer: {
     fontSize: "12px",
-    color: colors.zinc300,
+    color: colors.zinc400,
     margin: "0",
     lineHeight: "1.5",
   },
   scoreBlock: {
-    fontSize: "28px",
+    fontSize: "36px",
     fontWeight: 700 as const,
     textAlign: "center" as const,
-    padding: "12px 0",
+    padding: "16px 0",
     margin: "0 0 8px 0",
     letterSpacing: "-0.02em",
     color: colors.zinc950,

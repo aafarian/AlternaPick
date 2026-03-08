@@ -7,9 +7,11 @@ export function EmailFooter(): ReactElement {
     <>
       <Hr style={styles.hr} />
       <Text style={styles.footer}>
-        AlternaPick &middot;{" "}
-        <Link style={{ ...styles.footer, textDecoration: "underline" }} href={baseUrl}>
-          alternapick.com
+        <Link
+          style={{ ...styles.footer, textDecoration: "none" }}
+          href={baseUrl}
+        >
+          AlternaPick
         </Link>
       </Text>
     </>

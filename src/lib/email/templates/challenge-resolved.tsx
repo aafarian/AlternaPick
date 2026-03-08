@@ -1,15 +1,7 @@
-import {
-  Html,
-  Head,
-  Body,
-  Container,
-  Text,
-  Link,
-  Preview,
-} from "@react-email/components";
+import { Text, Button } from "@react-email/components";
 import type { ReactElement } from "react";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
-import { EmailFooter } from "@/lib/email/components/email-footer";
+import { EmailLayout } from "@/lib/email/components/email-layout";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -34,7 +26,7 @@ function getSubject(
   isTie: boolean,
   myScore: number,
   theirScore: number,
-  opponentName: string
+  opponentName: string,
 ): string {
   if (isTie) return `Tied ${myScore}\u2013${theirScore} with ${opponentName}`;
   if (isWinner)
@@ -45,7 +37,7 @@ function getSubject(
 function getSummary(
   isWinner: boolean,
   isTie: boolean,
-  opponentName: string
+  opponentName: string,
 ): string {
   if (isTie) return `you and ${opponentName} finished even.`;
   if (isWinner) return `you came out on top against ${opponentName}.`;
@@ -77,28 +69,20 @@ export function ChallengeResolvedEmail({
   const scoreAccent = getScoreAccent(isWinner, isTie);
 
   return (
-    <Html lang="en">
-      <Head />
-      <Preview>{subject}</Preview>
-      <Body style={styles.body}>
-        <Container style={styles.container}>
-          <Text style={styles.heading}>Challenge Result</Text>
-          <Text style={{ ...styles.scoreBlock, ...scoreAccent }}>
-            {myScore} &ndash; {theirScore}
-          </Text>
-          <Text style={styles.text}>
-            {username}, {summary}
-          </Text>
-          <Text style={{ ...styles.text, textAlign: "center" }}>
-            <Link style={styles.link} href={challengeUrl}>
-              View details &rarr;
-            </Link>
-          </Text>
-
-          <EmailFooter />
-        </Container>
-      </Body>
-    </Html>
+    <EmailLayout preview={subject}>
+      <Text style={styles.heading}>Challenge Result</Text>
+      <Text style={{ ...styles.scoreBlock, ...scoreAccent }}>
+        {myScore} &ndash; {theirScore}
+      </Text>
+      <Text style={styles.text}>
+        {username}, {summary}
+      </Text>
+      <Text style={{ textAlign: "center" as const, margin: "0" }}>
+        <Button style={styles.button} href={challengeUrl}>
+          View details
+        </Button>
+      </Text>
+    </EmailLayout>
   );
 }
 
@@ -107,7 +91,7 @@ export function ChallengeResolvedEmail({
 // ---------------------------------------------------------------------------
 
 export function getChallengeResolvedEmailProps(
-  props: ChallengeResolvedEmailProps
+  props: ChallengeResolvedEmailProps,
 ): {
   subject: string;
   react: ReactElement;
@@ -118,7 +102,7 @@ export function getChallengeResolvedEmailProps(
     props.isTie,
     props.myScore,
     props.theirScore,
-    props.opponentName
+    props.opponentName,
   );
   const summary = getSummary(props.isWinner, props.isTie, props.opponentName);
   const challengeUrl = `${baseUrl}/challenges/${props.challengeId}`;
