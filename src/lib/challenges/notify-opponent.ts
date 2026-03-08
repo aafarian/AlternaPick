@@ -15,15 +15,25 @@ export async function notifyChallengeOpponent(
   admin: SupabaseClient<Database>,
   opts: {
     challengeId: string;
-    challengerName: string;
+    challengerId: string;
     opponentId: string;
     gameMode: GameMode;
     message: string | null;
-  }
+  },
 ): Promise<void> {
-  const { challengeId, challengerName, opponentId, gameMode, message } = opts;
+  const { challengeId, challengerId, opponentId, gameMode, message } = opts;
 
   try {
+    // Fetch challenger name
+    const { data: challengerProfile } = await (
+      admin.from("profiles") as any
+    )
+      .select("username")
+      .eq("id", challengerId)
+      .single();
+    const challengerName =
+      (challengerProfile as { username: string } | null)?.username ?? "Someone";
+
     let notifBody = `You received a challenge from ${challengerName}!`;
     if (gameMode !== "classic") {
       notifBody = `${challengerName} challenged you to a ${modeLabel(gameMode)} match!`;

@@ -247,19 +247,9 @@ export async function POST(request: NextRequest) {
     });
 
     // Fire-and-forget: notify opponent about the challenge
-    const adminClient = createAdminClient();
-    const { data: challengerProfile } = await (
-      adminClient.from("profiles") as any
-    )
-      .select("username")
-      .eq("id", user.id)
-      .single();
-    const challengerName =
-      (challengerProfile as { username: string } | null)?.username ?? "Someone";
-
-    void notifyChallengeOpponent(adminClient, {
+    void notifyChallengeOpponent(createAdminClient(), {
       challengeId: challenge.id,
-      challengerName,
+      challengerId: user.id,
       opponentId: body.opponent_id,
       gameMode,
       message,
