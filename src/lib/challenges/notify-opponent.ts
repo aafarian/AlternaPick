@@ -6,6 +6,7 @@ import { modeLabel } from "@/lib/modes/utils";
 import { logError, logWarn } from "@/lib/logger";
 import { sendEmail, shouldSendEmail } from "@/lib/email/send";
 import { getChallengeReceivedEmailProps } from "@/lib/email/templates/challenge-received";
+import { typedFrom } from "@/lib/supabase/typed-queries";
 
 /**
  * Notify the opponent about a new challenge via in-app notification + email.
@@ -25,9 +26,7 @@ export async function notifyChallengeOpponent(
 
   try {
     // Fetch challenger name
-    const { data: challengerProfile, error: challengerProfileError } = await (
-      admin.from("profiles") as any
-    )
+    const { data: challengerProfile, error: challengerProfileError } = await typedFrom(admin, "profiles")
       .select("username")
       .eq("id", challengerId)
       .single();
@@ -46,9 +45,7 @@ export async function notifyChallengeOpponent(
     }
 
     // Fetch opponent profile (email + notification preferences)
-    const { data: opponentProfile, error: opponentProfileError } = await (
-      admin.from("profiles") as any
-    )
+    const { data: opponentProfile, error: opponentProfileError } = await typedFrom(admin, "profiles")
       .select("username, email, notification_preferences")
       .eq("id", opponentId)
       .single();
