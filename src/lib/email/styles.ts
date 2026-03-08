@@ -6,20 +6,16 @@
 export const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://alternapick.com";
 
-export const colors = {
+const colors = {
+  white: "#ffffff",
   zinc950: "#09090b",
-  zinc800: "#27272a",
   zinc700: "#3f3f46",
   zinc500: "#71717a",
   zinc400: "#a1a1aa",
-  zinc300: "#d4d4d8",
   zinc200: "#e4e4e7",
-  zinc100: "#f4f4f5",
   sky700: "#0369a1",
   sky600: "#0284c7",
   green600: "#16a34a",
-  green500: "#22c55e",
-  red500: "#ef4444",
 } as const;
 
 export const emailStyles = {
@@ -28,7 +24,7 @@ export const emailStyles = {
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     margin: "0" as const,
     padding: "0" as const,
-    backgroundColor: "#ffffff",
+    backgroundColor: colors.white,
   },
   container: {
     maxWidth: "480px",
@@ -56,7 +52,7 @@ export const emailStyles = {
   },
   muted: {
     fontSize: "14px",
-    color: colors.zinc500,
+    color: colors.zinc400,
     margin: "0 0 20px 0",
     lineHeight: "1.6",
     fontStyle: "italic" as const,
@@ -69,7 +65,7 @@ export const emailStyles = {
   },
   button: {
     backgroundColor: colors.sky600,
-    color: "#ffffff",
+    color: colors.white,
     fontSize: "14px",
     fontWeight: 600 as const,
     padding: "10px 24px",
@@ -97,5 +93,5 @@ export const emailStyles = {
   },
   accentWin: { color: colors.green600 },
   accentLoss: { color: colors.zinc500 },
-  accentTie: { color: colors.sky600 },
+  accentTie: { color: colors.sky700 },
 } as const;
