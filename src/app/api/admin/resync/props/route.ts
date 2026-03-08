@@ -72,7 +72,9 @@ export async function POST(request: NextRequest) {
     if (multiResults.size < 3) {
       const fetched = Array.from(multiResults.keys());
       const missing = ["nba", "epl", "ncaab"].filter((s) => !fetched.includes(s as SportKey));
-      warnings.push(`Failed to fetch props for: ${missing.join(", ")}`);
+      if (missing.length > 0) {
+        warnings.push(`Failed to fetch props for: ${missing.join(", ")}`);
+      }
     }
 
     return NextResponse.json({
