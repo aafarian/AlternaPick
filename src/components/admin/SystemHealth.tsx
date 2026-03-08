@@ -185,7 +185,7 @@ function PropSyncSection({ data }: { data: AdminSystemHealth["propSync"] }) {
                   <div className="text-right">
                     <p className="text-xs text-muted-foreground">Avg/Hour (24h)</p>
                     <p className="text-lg font-semibold tracking-tight text-muted-foreground">
-                      {data.avgCreditsPerHour}
+                      {data.avgCreditsPerHour.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                     </p>
                   </div>
                 )}
