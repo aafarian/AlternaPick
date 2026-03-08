@@ -1,16 +1,8 @@
-import {
-  Html,
-  Head,
-  Body,
-  Container,
-  Text,
-  Link,
-  Preview,
-} from "@react-email/components";
+import { Text, Button } from "@react-email/components";
 import type { ReactElement } from "react";
 import { getCardTier } from "@/lib/cards/tiers";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
-import { EmailFooter } from "@/lib/email/components/email-footer";
+import { EmailLayout } from "@/lib/email/components/email-layout";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -37,28 +29,20 @@ export function CardResolvedEmail({
   const cardUrl = `${baseUrl}/cards/${cardId}`;
 
   return (
-    <Html lang="en">
-      <Head />
-      <Preview>{`Your card is in: ${score} for ${total}`}</Preview>
-      <Body style={styles.body}>
-        <Container style={styles.container}>
-          <Text style={styles.heading}>{headline}</Text>
-          <Text style={styles.scoreBlock}>
-            {score}/{total}
-          </Text>
-          <Text style={styles.text}>
-            {username}, {subtext.toLowerCase()}
-          </Text>
-          <Text style={{ ...styles.text, textAlign: "center" }}>
-            <Link style={styles.link} href={cardUrl}>
-              View card &rarr;
-            </Link>
-          </Text>
-
-          <EmailFooter />
-        </Container>
-      </Body>
-    </Html>
+    <EmailLayout preview={`Your card is in: ${score} for ${total}`}>
+      <Text style={styles.heading}>{headline}</Text>
+      <Text style={styles.scoreBlock}>
+        {score}/{total}
+      </Text>
+      <Text style={styles.text}>
+        {username}, {subtext.toLowerCase()}
+      </Text>
+      <Text style={{ textAlign: "center" as const, margin: "0" }}>
+        <Button style={styles.button} href={cardUrl}>
+          View card
+        </Button>
+      </Text>
+    </EmailLayout>
   );
 }
 

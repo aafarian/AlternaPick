@@ -1,15 +1,7 @@
-import {
-  Html,
-  Head,
-  Body,
-  Container,
-  Text,
-  Link,
-  Preview,
-} from "@react-email/components";
+import { Text, Button } from "@react-email/components";
 import type { ReactElement } from "react";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
-import { EmailFooter } from "@/lib/email/components/email-footer";
+import { EmailLayout } from "@/lib/email/components/email-layout";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -31,27 +23,19 @@ export function FriendRequestEmail({
   addresseeUsername,
 }: FriendRequestEmailProps): ReactElement {
   return (
-    <Html lang="en">
-      <Head />
-      <Preview>
-        {`${requesterUsername} sent you a friend request`}
-      </Preview>
-      <Body style={styles.body}>
-        <Container style={styles.container}>
-          <Text style={styles.heading}>Friend Request</Text>
-          <Text style={styles.text}>
-            {addresseeUsername}, {requesterUsername} wants to add you as a friend.
-          </Text>
-          <Text style={styles.text}>
-            <Link style={styles.link} href={friendsUrl}>
-              View request &rarr;
-            </Link>
-          </Text>
-
-          <EmailFooter />
-        </Container>
-      </Body>
-    </Html>
+    <EmailLayout
+      preview={`${requesterUsername} sent you a friend request`}
+    >
+      <Text style={styles.heading}>Friend Request</Text>
+      <Text style={styles.text}>
+        {addresseeUsername}, {requesterUsername} wants to add you as a friend.
+      </Text>
+      <Text style={{ textAlign: "center" as const, margin: "0" }}>
+        <Button style={styles.button} href={friendsUrl}>
+          View request
+        </Button>
+      </Text>
+    </EmailLayout>
   );
 }
 
@@ -60,7 +44,7 @@ export function FriendRequestEmail({
 // ---------------------------------------------------------------------------
 
 export function getFriendRequestEmailProps(
-  props: FriendRequestEmailProps
+  props: FriendRequestEmailProps,
 ): {
   subject: string;
   react: ReactElement;

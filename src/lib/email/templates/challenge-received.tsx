@@ -1,17 +1,9 @@
-import {
-  Html,
-  Head,
-  Body,
-  Container,
-  Text,
-  Link,
-  Preview,
-} from "@react-email/components";
+import { Text, Button } from "@react-email/components";
 import type { ReactElement } from "react";
 import type { GameMode } from "@/lib/supabase/types";
 import { modeLabel } from "@/lib/modes/utils";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
-import { EmailFooter } from "@/lib/email/components/email-footer";
+import { EmailLayout } from "@/lib/email/components/email-layout";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -42,31 +34,21 @@ export function ChallengeReceivedEmail({
   const modeText = getModeSuffix(gameMode);
 
   return (
-    <Html lang="en">
-      <Head />
-      <Preview>
-        {`${challengerUsername} sent you a challenge${modeText}`}
-      </Preview>
-      <Body style={styles.body}>
-        <Container style={styles.container}>
-          <Text style={styles.heading}>
-            {challengerUsername} challenged you{modeText}
-          </Text>
-          {message && (
-            <Text style={styles.muted}>
-              &ldquo;{message}&rdquo;
-            </Text>
-          )}
-          <Text style={styles.text}>
-            <Link style={styles.link} href={challengeUrl}>
-              View challenge &rarr;
-            </Link>
-          </Text>
-
-          <EmailFooter />
-        </Container>
-      </Body>
-    </Html>
+    <EmailLayout
+      preview={`${challengerUsername} sent you a challenge${modeText}`}
+    >
+      <Text style={styles.heading}>
+        {challengerUsername} challenged you{modeText}
+      </Text>
+      {message && (
+        <Text style={styles.muted}>&ldquo;{message}&rdquo;</Text>
+      )}
+      <Text style={{ textAlign: "center" as const, margin: "0" }}>
+        <Button style={styles.button} href={challengeUrl}>
+          View challenge
+        </Button>
+      </Text>
+    </EmailLayout>
   );
 }
 
@@ -75,7 +57,7 @@ export function ChallengeReceivedEmail({
 // ---------------------------------------------------------------------------
 
 export function getChallengeReceivedEmailProps(
-  props: ChallengeReceivedEmailProps
+  props: ChallengeReceivedEmailProps,
 ): {
   subject: string;
   react: ReactElement;
