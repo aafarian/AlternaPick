@@ -5,6 +5,7 @@ import { scaleTime, scaleLinear } from "d3-scale";
 import { line, area, curveMonotoneX } from "d3-shape";
 import {
   CHART_COLORS,
+  formatHour,
   useResponsiveWidth,
 } from "@/lib/analytics/chart-utils";
 
@@ -19,10 +20,6 @@ interface CreditDrainChartProps {
 
 const MARGIN = { top: 12, right: 40, bottom: 24, left: 32 };
 const HEIGHT = 140;
-
-function formatHour(d: Date): string {
-  return d.toLocaleTimeString(undefined, { hour: "numeric", hour12: true });
-}
 
 export default function CreditDrainChart({ data }: CreditDrainChartProps) {
   const gradientId = `creditDrainFill-${useId()}`;

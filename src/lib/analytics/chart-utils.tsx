@@ -34,6 +34,11 @@ export function BarGradientDef() {
   );
 }
 
+/** Format a Date to a locale-aware hour string (e.g. "3 PM") */
+export function formatHour(d: Date): string {
+  return d.toLocaleTimeString(undefined, { hour: "numeric", hour12: true });
+}
+
 /** Reusable hook: tracks an element's width via ResizeObserver for responsive SVG charts */
 export function useResponsiveWidth() {
   const containerRef = useRef<HTMLDivElement>(null);

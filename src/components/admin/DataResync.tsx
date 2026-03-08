@@ -94,14 +94,68 @@ function ResultDisplay({ result }: { result: Record<string, unknown> }) {
     <div className="mt-3 rounded-md bg-muted/50 p-3 text-sm space-y-1">
       {Object.entries(result)
         .filter(([k]) => k !== "fixes" && k !== "errors")
+        .map(([key, value]) => {
+          // Skip objects/arrays that need special rendering
+          if (value !== null && typeof value === "object") return null;
+          return (
+            <div key={key} className="flex justify-between">
+              <span className="text-muted-foreground">{key}</span>
+              <span className="font-mono">
+                {typeof value === "number" ? value.toLocaleString() : String(value ?? "")}
+              </span>
+            </div>
+          );
+        })}
+      {/* Render nested objects (e.g. enrichment) as sub-sections */}
+      {Object.entries(result)
+        .filter(
+          ([k, v]) =>
+            k !== "fixes" &&
+            k !== "errors" &&
+            v !== null &&
+            typeof v === "object" &&
+            !Array.isArray(v),
+        )
         .map(([key, value]) => (
-          <div key={key} className="flex justify-between">
-            <span className="text-muted-foreground">{key}</span>
-            <span className="font-mono">
-              {typeof value === "number" ? value.toLocaleString() : String(value)}
-            </span>
+          <div key={key} className="mt-2 pt-2 border-t border-border">
+            <p className="text-xs text-muted-foreground mb-1">{key}:</p>
+            {Object.entries(value as Record<string, unknown>).map(
+              ([subKey, subVal]) => (
+                <div key={subKey} className="flex justify-between">
+                  <span className="text-muted-foreground ml-2">{subKey}</span>
+                  <span className="font-mono">
+                    {typeof subVal === "object" && subVal !== null
+                      ? Object.entries(subVal as Record<string, unknown>)
+                          .map(([k, v]) => `${k}: ${v}`)
+                          .join(", ")
+                      : String(subVal ?? "")}
+                  </span>
+                </div>
+              ),
+            )}
           </div>
         ))}
+      {/* Render array values (e.g. warnings) as lists */}
+      {Object.entries(result)
+        .filter(
+          ([k, v]) => k !== "fixes" && k !== "errors" && Array.isArray(v),
+        )
+        .map(([key, value]) => {
+          const items = value as unknown[];
+          if (items.length === 0) return null;
+          return (
+            <div key={key} className="mt-2 pt-2 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-1">
+                {key} ({items.length}):
+              </p>
+              {items.map((item, i) => (
+                <p key={i} className="text-xs font-mono text-amber-400">
+                  {String(item)}
+                </p>
+              ))}
+            </div>
+          );
+        })}
       {fixes && fixes.length > 0 && (
         <div className="mt-2 pt-2 border-t border-border">
           <p className="text-xs text-muted-foreground mb-1">
