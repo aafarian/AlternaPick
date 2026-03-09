@@ -553,10 +553,13 @@ async function _cachePropsInternal(
     upsertedGames.map((g) => [g.odds_api_event_id, g.id])
   );
 
-  // Refresh props for today's games, preserving any that have picks (ON DELETE CASCADE)
+  // Refresh props for today's games. We never delete existing props — only
+  // upsert — so that prop UUIDs stay stable across syncs. This prevents the
+  // race condition where a user loads props, a sync runs, and the old IDs
+  // become invalid before the user locks in.
   const gameIds = upsertedGames.map((g) => g.id);
 
-  // Step 1: Find prop IDs referenced by picks — must NOT be deleted
+  // Step 1: Fetch all existing props for enrichment preservation + line history
   const allPropsResult = await supabase
     .from("props")
     .select("id, game_id, player_name, stat_category, line, line_history, player_id, player_team, player_position")
@@ -571,26 +574,8 @@ async function _cachePropsInternal(
     player_id: string | null; player_team: string | null; player_position: string | null;
   }[];
 
-  const allPropIds = allProps.map((p) => p.id);
-  let pickedPropIds = new Set<string>();
-
-  if (allPropIds.length > 0) {
-    // Query picks that reference any of these props
-    const picksResult = await supabase
-      .from("picks")
-      .select("prop_id")
-      .in("prop_id", allPropIds);
-    if (picksResult.error) {
-      logError(`${sport} cache`, "Failed to fetch picks", undefined, picksResult.error);
-      return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
-    }
-    pickedPropIds = new Set(
-      ((picksResult.data ?? []) as { prop_id: string }[]).map((r) => r.prop_id)
-    );
-  }
-
   // Build a lookup of existing enrichment data so a failed stats-service sync
-  // doesn't wipe player_id/team/position on re-inserted props.
+  // doesn't wipe player_id/team/position on updated props.
   const oldEnrichment = new Map<string, { player_id: string | null; player_team: string | null; player_position: string | null }>();
   for (const p of allProps) {
     if (p.player_id || p.player_team || p.player_position) {
@@ -636,21 +621,7 @@ async function _cachePropsInternal(
     // Non-blocking: cross-game cache is a best-effort optimization
   }
 
-  // Step 2: Delete only props that have NO picks
-  const deletableIds = allPropIds.filter((id) => !pickedPropIds.has(id));
-  if (deletableIds.length > 0) {
-    logInfo(`${sport} cache`, `Deleting ${deletableIds.length} non-picked props (keeping ${pickedPropIds.size} picked). IDs: [${deletableIds.slice(0, 10).join(", ")}${deletableIds.length > 10 ? "..." : ""}]`);
-    for (let i = 0; i < deletableIds.length; i += 500) {
-      const batch = deletableIds.slice(i, i + 500);
-      const { error: deleteError } = await supabase.from("props").delete().in("id", batch);
-      if (deleteError) {
-        logError(`${sport} cache`, `Props delete failed (batch ${i / 500 + 1})`, undefined, deleteError);
-        return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
-      }
-    }
-  }
-
-  // Step 3: Build fresh prop rows from API data
+  // Step 2: Build fresh prop rows from API data
   const propRows: {
     game_id: string;
     player_name: string;
@@ -697,55 +668,66 @@ async function _cachePropsInternal(
     }
   }
 
-  // Step 4: Update kept (picked) props with fresh odds + player data
-  const keptProps = allProps.filter((p) => pickedPropIds.has(p.id));
-  for (const kept of keptProps) {
-    const match = propRows.find(
-      (r) =>
-        r.game_id === kept.game_id &&
-        r.player_name.toLowerCase() === kept.player_name.toLowerCase() &&
-        r.stat_category === kept.stat_category
-    );
-    if (match) {
-      // Track line movement: append new entry if line changed
-      let lineHistory = kept.line_history ?? [];
-      if (match.line !== kept.line) {
-        // Seed with the old line if history is empty
-        if (lineHistory.length === 0) {
-          lineHistory = [{ t: kept.line_history?.[0]?.t ?? now, l: kept.line }];
-        }
-        lineHistory = [...lineHistory, { t: now, l: match.line }];
-      }
+  // Step 3: Batch-update all existing props with fresh odds + player data (preserves UUIDs + line history)
+  // Build a lookup for O(1) matching instead of O(n²) .find() per prop
+  const propRowsMap = new Map(
+    propRows.map((r) => [`${r.game_id}|${r.player_name.toLowerCase()}|${r.stat_category}`, r])
+  );
 
-      // Only overwrite enrichment fields if the new value is non-null,
-      // so a failed stats-service sync doesn't clobber existing data.
-      const updatePayload: Record<string, unknown> = {
-        line: match.line,
-        over_odds: match.over_odds,
-        under_odds: match.under_odds,
-        fetched_at: now,
-        line_history: lineHistory.length > 0 ? lineHistory : null,
-      };
-      if (match.player_id !== null) updatePayload.player_id = match.player_id;
-      if (match.player_team !== null) updatePayload.player_team = match.player_team;
-      if (match.player_position !== null) updatePayload.player_position = match.player_position;
+  const updatePayloads: Record<string, unknown>[] = [];
+  for (const kept of allProps) {
+    const match = propRowsMap.get(`${kept.game_id}|${kept.player_name.toLowerCase()}|${kept.stat_category}`);
+    if (!match) continue;
 
-      const { error: updateError } = await (supabase.from("props") as any)
-        .update(updatePayload)
-        .eq("id", kept.id);
-      if (updateError) {
-        logError(`${sport} cache`, `Prop update failed for ${kept.id}`, undefined, updateError);
+    // Track line movement: append new entry if line changed
+    let lineHistory = kept.line_history ?? [];
+    if (match.line !== kept.line) {
+      if (lineHistory.length === 0) {
+        lineHistory = [{ t: kept.line_history?.[0]?.t ?? now, l: kept.line }];
       }
+      lineHistory = [...lineHistory, { t: now, l: match.line }];
+    }
+
+    // Only overwrite enrichment fields if the new value is non-null,
+    // so a failed stats-service sync doesn't clobber existing data.
+    const payload: Record<string, unknown> = {
+      id: kept.id,
+      game_id: kept.game_id,
+      player_name: kept.player_name,
+      stat_category: kept.stat_category,
+      line: match.line,
+      over_odds: match.over_odds,
+      under_odds: match.under_odds,
+      fetched_at: now,
+      line_history: lineHistory.length > 0 ? lineHistory : null,
+    };
+    if (match.bookmaker !== null) payload.bookmaker = match.bookmaker;
+    if (match.player_id !== null) payload.player_id = match.player_id;
+    if (match.player_team !== null) payload.player_team = match.player_team;
+    if (match.player_position !== null) payload.player_position = match.player_position;
+    updatePayloads.push(payload);
+  }
+
+  // Batch upsert on id — single round-trip per 500 rows instead of N+1
+  let updateFailedBatches = 0;
+  for (let i = 0; i < updatePayloads.length; i += 500) {
+    const batch = updatePayloads.slice(i, i + 500);
+    const { error: updateError } = await (supabase.from("props") as any).upsert(batch, {
+      onConflict: "id",
+      ignoreDuplicates: false,
+    });
+    if (updateError) {
+      logError(`${sport} cache`, `Props batch update failed (batch ${i / 500 + 1})`, undefined, updateError);
+      updateFailedBatches++;
     }
   }
 
-  // Step 5: Insert fresh props, skipping any that duplicate a kept prop
-  // (same game + player + stat = already exists as a kept prop)
-  const keptKeys = new Set(
-    keptProps.map((p) => `${p.game_id}|${p.player_name.toLowerCase()}|${p.stat_category}`)
+  // Step 4: Insert truly new props (ones that don't exist in the DB yet)
+  const existingKeys = new Set(
+    allProps.map((p) => `${p.game_id}|${p.player_name.toLowerCase()}|${p.stat_category}`)
   );
   const newPropRows = propRows.filter(
-    (r) => !keptKeys.has(`${r.game_id}|${r.player_name.toLowerCase()}|${r.stat_category}`)
+    (r) => !existingKeys.has(`${r.game_id}|${r.player_name.toLowerCase()}|${r.stat_category}`)
   );
 
   if (newPropRows.length > 0) {
@@ -762,7 +744,9 @@ async function _cachePropsInternal(
     }
   }
 
-  logInfo(`${sport} cache`, `Prepared ${propRows.length} props, inserted ${newPropRows.length} new (${keptProps.length} kept)`);
+  const staleCount = allProps.length - updatePayloads.length;
+  const updateSuffix = updateFailedBatches > 0 ? ` (${updateFailedBatches} batch failures)` : "";
+  logInfo(`${sport} cache`, `Prepared ${propRows.length} props, inserted ${newPropRows.length} new, updated ${updatePayloads.length} existing${updateSuffix}, ${staleCount} stale`);
   const enrichedCount = propRows.filter((r) => r.player_id !== null).length;
   return { propsInserted: newPropRows.length, propsEnriched: enrichedCount, playerMapSize: playerIdMap.size };
 }
