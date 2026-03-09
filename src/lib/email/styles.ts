@@ -10,6 +10,7 @@ const colors = {
   white: "#ffffff",
   zinc950: "#09090b",
   zinc700: "#3f3f46",
+  zinc600: "#52525b",
   zinc500: "#71717a",
   zinc400: "#a1a1aa",
   zinc200: "#e4e4e7",
@@ -79,6 +80,6 @@ export const emailStyles = {
     color: colors.zinc950,
   },
   accentWin: { color: colors.green600 },
-  accentLoss: { color: colors.zinc500 },
+  accentLoss: { color: colors.zinc600 },
   accentTie: { color: colors.sky700 },
 } as const;

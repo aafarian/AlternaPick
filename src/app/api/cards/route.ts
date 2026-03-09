@@ -161,6 +161,8 @@ export async function POST(request: NextRequest) {
                 gameMode: ch.game_mode as GameMode,
                 message: ch.message,
               });
+              // Activation recovered — return success so the client doesn't show an error
+              return NextResponse.json({ retried: true });
             }
           }
         }
