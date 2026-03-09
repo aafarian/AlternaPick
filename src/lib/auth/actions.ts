@@ -22,7 +22,7 @@ export async function resolveLoginEmail(login: string) {
    
   const { data: profile } = await (admin.from("profiles") as any)
     .select("id")
-    .eq("username", login)
+    .ilike("username", login)
     .maybeSingle() as { data: { id: string } | null };
 
   if (!profile) return { error: "Invalid username or password" };
@@ -71,11 +71,11 @@ export async function signUp(formData: FormData) {
 
   const admin = createAdminClient();
 
-  // Check username availability
+  // Check username availability (case-insensitive)
   const { data: existing } = await admin
     .from("profiles")
     .select("id")
-    .eq("username", username)
+    .ilike("username", username)
     .maybeSingle();
 
   if (existing) {

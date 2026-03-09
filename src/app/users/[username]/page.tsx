@@ -22,7 +22,7 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
   // Look up profile by username
   const { data: profileData } = await (supabase.from("profiles") as any)
     .select("*")
-    .eq("username", username)
+    .ilike("username", username)
     .maybeSingle();
 
   if (!profileData) {
