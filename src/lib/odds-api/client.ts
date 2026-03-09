@@ -1,3 +1,4 @@
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo, logWarn } from "@/lib/logger";
 import {
   ODDS_API_BASE_URL,
@@ -16,7 +17,7 @@ import type {
 import type { StatCategory } from "@/lib/supabase/types";
 
 /** Lightweight call to /v4/sports (costs 0 credits) to read the current credit counters. */
-export async function fetchOddsApiCredits(): Promise<{ remaining: number | null; used: number | null }> {
+export async function fetchOddsApiCredits(): Promise<Pick<CreditUsage, "remaining" | "used">> {
   try {
     const key = process.env.ODDS_API_KEY;
     if (!key) return { remaining: null, used: null };
@@ -26,14 +27,21 @@ export async function fetchOddsApiCredits(): Promise<{ remaining: number | null;
     });
     if (!res.ok) return { remaining: null, used: null };
 
-    const remaining = res.headers.get("x-requests-remaining");
-    const used = res.headers.get("x-requests-used");
-    return {
-      remaining: remaining ? parseInt(remaining, 10) : null,
-      used: used ? parseInt(used, 10) : null,
-    };
+    return parseCreditHeader(res.headers);
   } catch {
     return { remaining: null, used: null };
+  }
+}
+
+/** Insert a row into credit_log to record actual API credits consumed during a sync. */
+export async function logCreditUsage(creditsConsumed: number): Promise<void> {
+  if (creditsConsumed <= 0) return;
+  const supabase = createAdminClient();
+  const { error } = await (supabase.from("credit_log") as any).insert({
+    credits_consumed: creditsConsumed,
+  });
+  if (error) {
+    logError("odds-api", "Failed to log credit usage", undefined, error);
   }
 }
 

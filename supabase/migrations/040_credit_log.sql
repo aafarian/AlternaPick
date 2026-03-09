@@ -10,6 +10,19 @@ CREATE TABLE IF NOT EXISTS credit_log (
 
 CREATE INDEX IF NOT EXISTS idx_credit_log_logged_at ON credit_log (logged_at);
 
+-- RLS: only service_role (server-side admin client) can read/write credit data
+ALTER TABLE credit_log ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "credit_log_select_service"
+  ON credit_log FOR SELECT
+  TO service_role
+  USING (true);
+
+CREATE POLICY "credit_log_insert_service"
+  ON credit_log FOR INSERT
+  TO service_role
+  WITH CHECK (true);
+
 -- Replace the old RPC (which inferred credits from props rows) with one
 -- that reads actual recorded credit usage from credit_log.
 CREATE OR REPLACE FUNCTION get_credit_usage_by_hour()

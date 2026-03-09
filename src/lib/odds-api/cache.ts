@@ -13,18 +13,6 @@ import { lookbackDatesForSport } from "@/lib/sports/fetchers";
 import { isSoccer } from "@/lib/sports/config";
 import { logError, logInfo, logWarn } from "@/lib/logger";
 
-/** Insert a row into credit_log to record actual API credits consumed during a sync. */
-export async function logCreditUsage(creditsConsumed: number): Promise<void> {
-  if (creditsConsumed <= 0) return;
-  const supabase = createAdminClient();
-  const { error } = await (supabase.from("credit_log") as any).insert({
-    credits_consumed: creditsConsumed,
-  });
-  if (error) {
-    logError("props-cache", "Failed to log credit usage", undefined, error);
-  }
-}
-
 /**
  * Returns true if a sync happened within the last 5 minutes,
  * preventing overlapping syncs during the delete-then-insert window.
