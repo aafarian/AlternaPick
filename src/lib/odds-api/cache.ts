@@ -698,10 +698,10 @@ async function _cachePropsInternal(
       line: match.line,
       over_odds: match.over_odds,
       under_odds: match.under_odds,
-      bookmaker: match.bookmaker,
       fetched_at: now,
       line_history: lineHistory.length > 0 ? lineHistory : null,
     };
+    if (match.bookmaker !== null) payload.bookmaker = match.bookmaker;
     if (match.player_id !== null) payload.player_id = match.player_id;
     if (match.player_team !== null) payload.player_team = match.player_team;
     if (match.player_position !== null) payload.player_position = match.player_position;
@@ -709,6 +709,7 @@ async function _cachePropsInternal(
   }
 
   // Batch upsert on id — single round-trip per 500 rows instead of N+1
+  let updateFailedBatches = 0;
   for (let i = 0; i < updatePayloads.length; i += 500) {
     const batch = updatePayloads.slice(i, i + 500);
     const { error: updateError } = await (supabase.from("props") as any).upsert(batch, {
@@ -717,6 +718,7 @@ async function _cachePropsInternal(
     });
     if (updateError) {
       logError(`${sport} cache`, `Props batch update failed (batch ${i / 500 + 1})`, undefined, updateError);
+      updateFailedBatches++;
     }
   }
 
@@ -743,7 +745,8 @@ async function _cachePropsInternal(
   }
 
   const staleCount = allProps.length - updatePayloads.length;
-  logInfo(`${sport} cache`, `Prepared ${propRows.length} props, inserted ${newPropRows.length} new, updated ${updatePayloads.length} existing, ${staleCount} stale`);
+  const updateSuffix = updateFailedBatches > 0 ? ` (${updateFailedBatches} batch failures)` : "";
+  logInfo(`${sport} cache`, `Prepared ${propRows.length} props, inserted ${newPropRows.length} new, updated ${updatePayloads.length} existing${updateSuffix}, ${staleCount} stale`);
   const enrichedCount = propRows.filter((r) => r.player_id !== null).length;
   return { propsInserted: newPropRows.length, propsEnriched: enrichedCount, playerMapSize: playerIdMap.size };
 }
