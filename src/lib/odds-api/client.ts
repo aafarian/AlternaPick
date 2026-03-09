@@ -15,6 +15,28 @@ import type {
 } from "./types";
 import type { StatCategory } from "@/lib/supabase/types";
 
+/** Lightweight call to /v4/sports (costs 0 credits) to read the current credit counters. */
+export async function fetchOddsApiCredits(): Promise<{ remaining: number | null; used: number | null }> {
+  try {
+    const key = process.env.ODDS_API_KEY;
+    if (!key) return { remaining: null, used: null };
+
+    const res = await fetch(`${ODDS_API_BASE_URL}/v4/sports?apiKey=${key}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return { remaining: null, used: null };
+
+    const remaining = res.headers.get("x-requests-remaining");
+    const used = res.headers.get("x-requests-used");
+    return {
+      remaining: remaining ? parseInt(remaining, 10) : null,
+      used: used ? parseInt(used, 10) : null,
+    };
+  } catch {
+    return { remaining: null, used: null };
+  }
+}
+
 function getApiKey(): string {
   const key = process.env.ODDS_API_KEY;
   if (!key) throw new Error("ODDS_API_KEY environment variable is not set");

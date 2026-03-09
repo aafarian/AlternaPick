@@ -3,30 +3,8 @@ import { requireAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { handleApiError } from "@/lib/api/errors";
 import type { AdminSystemHealth } from "@/lib/admin/types";
-import { ODDS_API_BASE_URL } from "@/lib/odds-api/constants";
+import { fetchOddsApiCredits } from "@/lib/odds-api/client";
 import { getRecentErrors, logWarn } from "@/lib/logger";
-
-/** Lightweight call to The Odds API /v4/sports (costs 0 credits) to read credit headers. */
-async function fetchOddsApiCredits(): Promise<{ remaining: number | null; used: number | null }> {
-  try {
-    const key = process.env.ODDS_API_KEY;
-    if (!key) return { remaining: null, used: null };
-
-    const res = await fetch(`${ODDS_API_BASE_URL}/v4/sports?apiKey=${key}`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) return { remaining: null, used: null };
-
-    const remaining = res.headers.get("x-requests-remaining");
-    const used = res.headers.get("x-requests-used");
-    return {
-      remaining: remaining ? parseInt(remaining, 10) : null,
-      used: used ? parseInt(used, 10) : null,
-    };
-  } catch {
-    return { remaining: null, used: null };
-  }
-}
 
 /**
  * GET /api/admin/system
