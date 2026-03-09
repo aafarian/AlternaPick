@@ -88,16 +88,19 @@ export async function getChallenges(
 
   const results = (data ?? []) as ChallengeWithProfiles[];
 
+  // Evaluate hasMore against the raw result set BEFORE filtering,
+  // since draft filtering can silently remove the extra "+1" row.
+  const hasMore = limit !== undefined && results.length > limit;
+  const paginated = hasMore ? results.slice(0, limit) : results;
+
   // Exclude draft challenges where the querying user is the opponent
   // (challenger should see their own drafts to continue prop selection)
-  const filtered = results.filter(
+  const filtered = paginated.filter(
     (c) => c.status !== "draft" || c.challenger_id === userId
   );
 
-  const hasMore = limit !== undefined && filtered.length > limit;
-
   return {
-    challenges: hasMore ? filtered.slice(0, limit) : filtered,
+    challenges: filtered,
     hasMore,
   };
 }
@@ -203,7 +206,7 @@ export async function createChallenge(
     message = null,
     cardSize = 6,
     mirrorProps = null,
-    status = "pending",
+    status = "draft",
   } = options;
 
   if (challengerId === opponentId) {

@@ -32,15 +32,17 @@ export default function CardBuilderPanel() {
     state,
     removePick,
     clearCard,
-    setLocking,
     setError,
     setMode,
     showSuccess,
     hideSuccess,
     canLockIn,
   } = useCardBuilder();
-  const { picks, isLocking, error, challengeId, challengeOpponent, gameMode } = state;
+  const { picks, error, challengeId, challengeOpponent, gameMode } = state;
   const redirectRef = useRef<string | null>(null);
+
+  // Local locking state — context dispatch doesn't reliably trigger re-renders
+  const [isLocking, setIsLocking] = useState(false);
 
   // Auth gate for guest lock-in
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -182,7 +184,7 @@ export default function CardBuilderPanel() {
       return;
     }
 
-    setLocking(true);
+    setIsLocking(true);
     setError(null);
 
     try {
@@ -201,6 +203,8 @@ export default function CardBuilderPanel() {
       setError(
         err instanceof Error ? err.message : "Failed to lock in card"
       );
+    } finally {
+      setIsLocking(false);
     }
   }
 

@@ -45,7 +45,7 @@ export const emailStyles = {
   },
   muted: {
     fontSize: "14px",
-    color: colors.zinc400,
+    color: colors.zinc500,
     margin: "0 0 16px 0",
     lineHeight: "1.6",
     fontStyle: "italic" as const,

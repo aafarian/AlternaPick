@@ -245,16 +245,10 @@ describe("Draft activation payload", () => {
 });
 
 describe("Draft-first flow invariants", () => {
-  it("all game modes create challenges as draft", () => {
-    // This test documents the invariant that ALL challenge types
-    // should be created with status "draft", not "pending".
-    // The actual creation uses: status: "draft" (hardcoded in route.ts POST)
+  it("all game modes activate from draft to pending", () => {
     const gameModes = ["classic", "sabotage", "mirror", "random", "one_player", "one_team"];
     for (const mode of gameModes) {
-      // Every mode should produce "draft" — no mode-specific exceptions
-      const expectedStatus = "draft";
-      expect(expectedStatus).toBe("draft");
-      // And activation should move to "pending"
+      // Draft activation should always move to "pending"
       const payload = buildActivationPayload(mode, ["p1"]);
       expect(payload.status).toBe("pending");
     }

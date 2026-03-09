@@ -556,6 +556,11 @@ export default function CreateChallengeModal({
               </>
             ) : step === "settings" ? (
               <>
+                {gameMode === "mirror" ? "Next" : "Pick Props"}
+                <ChevronRight className="h-4 w-4" />
+              </>
+            ) : step === "mirror_props" ? (
+              <>
                 Pick Props
                 <ChevronRight className="h-4 w-4" />
               </>

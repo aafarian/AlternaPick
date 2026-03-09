@@ -149,6 +149,9 @@ export async function POST(request: NextRequest) {
     }[];
 
     if (existingProps.length !== propIds.length) {
+      const foundIds = new Set(existingProps.map((p) => p.id));
+      const missingIds = propIds.filter((id) => !foundIds.has(id));
+      logError("cards", `Some props not found. Requested: [${propIds.join(", ")}], Missing: [${missingIds.join(", ")}], Found: ${existingProps.length}/${propIds.length}`);
       return badRequest("Some props not found");
     }
 
@@ -223,15 +226,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If this is a draft mirror challenge, activate it now that the challenger has picked props
+    // If this is a draft challenge, activate it now that the challenger has picked props.
+    // Push the status filter to the DB to avoid a round-trip for non-draft challenges.
     if (challenge_id && user) {
       const { data: draftChallenge } = await (supabase.from("challenges") as any)
         .select("status, game_mode, challenger_id, opponent_id, message")
         .eq("id", challenge_id)
-        .single();
+        .eq("status", "draft")
+        .maybeSingle();
 
       const ch = draftChallenge as Challenge | null;
-      if (ch?.status === "draft" && ch.challenger_id === user.id) {
+      if (ch && ch.challenger_id === user.id) {
         const adminClient = createAdminClient();
 
         // Activate the draft challenge now that the challenger has submitted their card
@@ -241,15 +246,18 @@ export async function POST(request: NextRequest) {
           updatePayload.card_size = propIds.length;
         }
 
-        const { error: activateErr } = await (adminClient.from("challenges") as any)
+        // Select the updated row back so we only notify when we actually performed
+        // the transition (prevents duplicate notifications on concurrent retries).
+        const { data: activated, error: activateErr } = await (adminClient.from("challenges") as any)
           .update(updatePayload)
           .eq("id", challenge_id)
-          .eq("status", "draft");
+          .eq("status", "draft")
+          .select("id");
 
         if (activateErr) {
           logError("cards", `Failed to activate draft challenge ${challenge_id}`, undefined, activateErr);
-        } else {
-          // Notify opponent now that the challenge is ready
+        } else if ((activated as { id: string }[])?.length > 0) {
+          // Only notify when we were the caller that actually performed the transition
           void notifyChallengeOpponent(adminClient, {
             challengeId: challenge_id,
             challengerId: user.id,
@@ -347,6 +355,9 @@ export async function GET(request: NextRequest) {
     if (status === "locked" || status === "resolved") {
       query = query.eq("status", status);
     }
+
+    // Exclude cards with no scoreable picks (all DNP/push → total_picks = 0)
+    query = query.gt("total_picks", 0);
 
     // Cursor-based pagination: fetch cards older than the cursor
     if (cursor) {
