@@ -129,6 +129,41 @@ export async function POST(request: NextRequest) {
 
       const existingCards = (existingCardResult.data ?? []) as { id: string }[];
       if (existingCards.length > 0) {
+        // Idempotent retry: if the card exists but the challenge is still "draft"
+        // (activation failed on a previous attempt), retry the activation instead
+        // of returning a hard conflict.
+        if (isChallenger) {
+          const { data: stuckDraft } = await (supabase.from("challenges") as any)
+            .select("status, game_mode, opponent_id, message")
+            .eq("id", challenge_id)
+            .eq("status", "draft")
+            .maybeSingle();
+
+          if (stuckDraft) {
+            const ch = stuckDraft as { status: string; game_mode: string; opponent_id: string; message: string | null };
+            const adminClient = createAdminClient();
+            const retryPayload: Record<string, unknown> = { status: "pending" };
+            if (ch.game_mode === "mirror") {
+              retryPayload.mirror_props = propIds;
+              retryPayload.card_size = propIds.length;
+            }
+            const { data: activated, error: retryErr } = await (adminClient.from("challenges") as any)
+              .update(retryPayload)
+              .eq("id", challenge_id)
+              .eq("status", "draft")
+              .select("id");
+
+            if (!retryErr && (activated as { id: string }[])?.length > 0) {
+              void notifyChallengeOpponent(adminClient, {
+                challengeId: challenge_id,
+                challengerId: user.id,
+                opponentId: ch.opponent_id,
+                gameMode: ch.game_mode as GameMode,
+                message: ch.message,
+              });
+            }
+          }
+        }
         return conflict("You already have a card for this challenge");
       }
     }
