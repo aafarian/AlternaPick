@@ -12,7 +12,6 @@ import {
   getChallenges,
   createChallenge,
 } from "@/lib/challenges/queries";
-import { notifyChallengeOpponent } from "@/lib/challenges/notify-opponent";
 
 export async function GET(request: NextRequest) {
   try {
@@ -215,20 +214,8 @@ export async function POST(request: NextRequest) {
       message,
       cardSize,
       mirrorProps,
-      status: gameMode === "mirror" ? "draft" : "pending",
+      status: "draft",
     });
-
-    // Skip notification for draft (mirror) challenges — opponent will be
-    // notified when the challenger finishes selecting props
-    if (challenge.status !== "draft") {
-      void notifyChallengeOpponent(createAdminClient(), {
-        challengeId: challenge.id,
-        challengerId: user.id,
-        opponentId: body.opponent_id,
-        gameMode,
-        message,
-      });
-    }
 
     return NextResponse.json({ challenge }, { status: 201 });
   } catch (error) {

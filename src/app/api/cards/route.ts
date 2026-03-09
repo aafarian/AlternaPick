@@ -10,6 +10,7 @@ import { MIN_CARD_SIZE, MAX_CARD_SIZE, DEFAULT_CARD_SIZE } from "@/lib/modes/typ
 import type { GameMode, PickValidationInput } from "@/lib/modes/types";
 import type { Card, Challenge, Pick, PickSelection } from "@/lib/supabase/types";
 import { CARD_SELECT } from "@/lib/cards/api";
+import { notifyChallengeOpponent } from "@/lib/challenges/notify-opponent";
 
 interface CreatePickInput {
   prop_id: string;
@@ -219,6 +220,44 @@ export async function POST(request: NextRequest) {
         await updateDailyStreak(adminClient, user.id);
       } catch (streakError) {
         logError("cards", "Failed to update daily streak", undefined, streakError);
+      }
+    }
+
+    // If this is a draft mirror challenge, activate it now that the challenger has picked props
+    if (challenge_id && user) {
+      const { data: draftChallenge } = await (supabase.from("challenges") as any)
+        .select("status, game_mode, challenger_id, opponent_id, message")
+        .eq("id", challenge_id)
+        .single();
+
+      const ch = draftChallenge as Challenge | null;
+      if (ch?.status === "draft" && ch.challenger_id === user.id) {
+        const adminClient = createAdminClient();
+
+        // Activate the draft challenge now that the challenger has submitted their card
+        const updatePayload: Record<string, unknown> = { status: "pending" };
+        if (ch.game_mode === "mirror") {
+          updatePayload.mirror_props = propIds;
+          updatePayload.card_size = propIds.length;
+        }
+
+        const { error: activateErr } = await (adminClient.from("challenges") as any)
+          .update(updatePayload)
+          .eq("id", challenge_id)
+          .eq("status", "draft");
+
+        if (activateErr) {
+          logError("cards", `Failed to activate draft challenge ${challenge_id}`, undefined, activateErr);
+        } else {
+          // Notify opponent now that the challenge is ready
+          void notifyChallengeOpponent(adminClient, {
+            challengeId: challenge_id,
+            challengerId: user.id,
+            opponentId: ch.opponent_id,
+            gameMode: ch.game_mode as GameMode,
+            message: ch.message,
+          });
+        }
       }
     }
 

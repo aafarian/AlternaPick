@@ -83,7 +83,7 @@ export default function ChallengesPage() {
 
   // Fetch core challenges (pending + active)
   const fetchCore = useCallback(async () => {
-    const res = await fetch("/api/challenges?status=pending,accepted,active");
+    const res = await fetch("/api/challenges?status=draft,pending,accepted,active");
     if (!res.ok) throw new Error("Failed to load challenges");
     const data = await res.json();
     setCoreChallenges(data.challenges ?? []);
@@ -337,7 +337,7 @@ export default function ChallengesPage() {
     (c) => c.status === "pending" && c.opponent_id === userId
   );
   const sentChallenges = coreChallenges.filter(
-    (c) => c.status === "pending" && c.challenger_id === userId
+    (c) => (c.status === "pending" || c.status === "draft") && c.challenger_id === userId
   );
   const activeChallenges = coreChallenges
     .filter((c) => c.status === "accepted" || c.status === "active")

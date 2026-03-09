@@ -272,7 +272,7 @@ export async function createChallenge(
 
 /**
  * Respond to a challenge: accept, decline, or cancel.
- * Cancel supports `pending` and `accepted` statuses.
+ * Cancel supports `draft`, `pending`, and `accepted` statuses.
  * When cancelling, optionally convert the challenger's card to solo.
  */
 export async function respondToChallenge(
@@ -320,9 +320,9 @@ export async function respondToChallenge(
         403
       );
     }
-    if (ch.status !== "pending" && ch.status !== "accepted") {
+    if (ch.status !== "draft" && ch.status !== "pending" && ch.status !== "accepted") {
       throw new ChallengeValidationError(
-        "Can only cancel a pending or accepted challenge",
+        "Can only cancel a draft, pending, or accepted challenge",
         400
       );
     }

@@ -40,12 +40,13 @@ export default function ChallengeCard({
   const isLoading = actionLoading === challenge.id;
   const { hoverProps, prefersReduced } = useCardHover();
 
+  const isDraft = challenge.status === "draft";
   const isActive =
     challenge.status === "active" || challenge.status === "accepted";
   const isResolved = challenge.status === "resolved";
   const isPending = challenge.status === "pending";
   const isIncoming = isPending && !isChallenger;
-  const isOutgoing = isPending && isChallenger;
+  const isOutgoing = (isPending || isDraft) && isChallenger;
   const won = isResolved && challenge.winner_id === currentUserId;
   const lost =
     isResolved &&
@@ -120,7 +121,9 @@ export default function ChallengeCard({
                   <span className="text-[10px] font-bold text-muted-foreground">DRAW</span>
                 )}
                 {isOutgoing && (
-                  <span className="text-[10px] font-medium text-muted-foreground/60">WAITING</span>
+                  <span className="text-[10px] font-medium text-muted-foreground/60">
+                    {isDraft ? "DRAFT" : "WAITING"}
+                  </span>
                 )}
                 {(challenge.status === "cancelled" || challenge.status === "declined") && (
                   <span className="text-[10px] font-medium text-muted-foreground/60">
@@ -194,7 +197,7 @@ export default function ChallengeCard({
                 </>
               )}
 
-              {/* Outgoing: Make Picks + Cancel */}
+              {/* Outgoing: Pick Props (draft) / Make Picks (pending) + Cancel */}
               {isOutgoing && (
                 <>
                   {!userHasCard && (
@@ -204,10 +207,14 @@ export default function ChallengeCard({
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        router.push(`/props?challenge_id=${challenge.id}`);
+                        const href =
+                          isDraft && (challenge.game_mode === "mirror" || challenge.game_mode === "random")
+                            ? `/challenges/${challenge.id}/ballot`
+                            : `/props?challenge_id=${challenge.id}`;
+                        router.push(href);
                       }}
                     >
-                      Make Picks
+                      {isDraft ? "Pick Props" : "Make Picks"}
                     </AnimatedButton>
                   )}
                   <AnimatedButton
