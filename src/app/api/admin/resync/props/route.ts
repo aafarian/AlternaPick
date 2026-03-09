@@ -2,9 +2,10 @@ import { type NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth/admin";
 import { isSyncOverlapping, getEventIdsWithProps, cacheProps, PROPS_CACHE_TAG } from "@/lib/odds-api/cache";
-import { fetchAllPropsMultiSport } from "@/lib/odds-api/client";
+import { fetchAllPropsMultiSport, fetchOddsApiCredits, logCreditUsage } from "@/lib/odds-api/client";
 import type { SportKey } from "@/lib/odds-api/constants";
 import { serverError, tooManyRequests, handleApiError } from "@/lib/api/errors";
+import { logWarn } from "@/lib/logger";
 
 /**
  * POST /api/admin/resync/props?force=true
@@ -34,6 +35,9 @@ export async function POST(request: NextRequest) {
     }
 
     const skipEventIds = force ? undefined : await getEventIdsWithProps();
+
+    // Snapshot credit counter before sync (free API call) so we can compute the delta
+    const baseline = await fetchOddsApiCredits();
     const multiResults = await fetchAllPropsMultiSport(skipEventIds);
 
     let totalGames = 0;
@@ -57,6 +61,17 @@ export async function POST(request: NextRequest) {
       };
       if (credits.remaining !== null) {
         latestCreditsRemaining = credits.remaining;
+      }
+    }
+
+    // Record actual credits consumed (delta between API counters before/after sync)
+    const finalCredits = await fetchOddsApiCredits();
+    if (baseline.used !== null && finalCredits.used !== null) {
+      const delta = finalCredits.used - baseline.used;
+      if (delta > 0) {
+        void logCreditUsage(delta);
+      } else if (delta < 0) {
+        logWarn("props-sync", "Credit counter decreased — possible billing cycle reset; skipping credit log");
       }
     }
 
