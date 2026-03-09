@@ -1,4 +1,4 @@
-import { Text, Link } from "@react-email/components";
+import { Text, Button } from "@react-email/components";
 import type { ReactElement } from "react";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
 import { EmailLayout } from "@/lib/email/components/email-layout";
@@ -26,15 +26,14 @@ export function FriendRequestEmail({
     <EmailLayout
       preview={`${requesterUsername} sent you a friend request`}
     >
-      <Text style={styles.heading}>Friend Request</Text>
+      <Text style={styles.heading}>Friend request</Text>
       <Text style={styles.text}>
-        {addresseeUsername}, {requesterUsername} wants to add you as a friend.
+        {addresseeUsername}, <strong>{requesterUsername}</strong> wants to add you
+        as a friend. Accept their request to start challenging each other.
       </Text>
-      <Text style={{ ...styles.text, textAlign: "center" as const }}>
-        <Link style={styles.link} href={friendsUrl}>
-          View request →
-        </Link>
-      </Text>
+      <Button style={styles.button} href={friendsUrl}>
+        View Request
+      </Button>
     </EmailLayout>
   );
 }
@@ -53,6 +52,6 @@ export function getFriendRequestEmailProps(
   return {
     subject: `${props.requesterUsername} sent you a friend request`,
     react: <FriendRequestEmail {...props} />,
-    text: `Friend Request\n\n${props.addresseeUsername}, ${props.requesterUsername} wants to add you as a friend.\n\nView request: ${friendsUrl}`,
+    text: `${props.addresseeUsername}, ${props.requesterUsername} wants to add you as a friend. Accept their request to start challenging each other.\n\nView request: ${friendsUrl}`,
   };
 }

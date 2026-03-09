@@ -1,4 +1,4 @@
-import { Text, Link } from "@react-email/components";
+import { Text, Button } from "@react-email/components";
 import type { ReactElement } from "react";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
 import { EmailLayout } from "@/lib/email/components/email-layout";
@@ -39,9 +39,9 @@ function getSummary(
   isTie: boolean,
   opponentName: string,
 ): string {
-  if (isTie) return `you and ${opponentName} finished even.`;
-  if (isWinner) return `you came out on top against ${opponentName}.`;
-  return `${opponentName} took this one.`;
+  if (isTie) return `You and ${opponentName} finished even.`;
+  if (isWinner) return `You came out on top against ${opponentName}!`;
+  return `${opponentName} took this one. Better luck next time.`;
 }
 
 function getScoreAccent(isWinner: boolean, isTie: boolean) {
@@ -64,24 +64,21 @@ export function ChallengeResolvedEmail({
   challengeId,
 }: ChallengeResolvedEmailProps): ReactElement {
   const challengeUrl = `${baseUrl}/challenges/${challengeId}`;
-  const subject = getSubject(isWinner, isTie, myScore, theirScore, opponentName);
   const summary = getSummary(isWinner, isTie, opponentName);
   const scoreAccent = getScoreAccent(isWinner, isTie);
 
   return (
-    <EmailLayout preview={subject}>
-      <Text style={styles.heading}>Challenge Result</Text>
+    <EmailLayout preview={getSubject(isWinner, isTie, myScore, theirScore, opponentName)}>
+      <Text style={styles.heading}>Challenge complete</Text>
       <Text style={{ ...styles.scoreBlock, ...scoreAccent }}>
         {myScore} &ndash; {theirScore}
       </Text>
       <Text style={styles.text}>
-        {username}, {summary}
+        {username}, {summary.toLowerCase()}
       </Text>
-      <Text style={{ ...styles.text, textAlign: "center" as const }}>
-        <Link style={styles.link} href={challengeUrl}>
-          View details →
-        </Link>
-      </Text>
+      <Button style={styles.button} href={challengeUrl}>
+        View Details
+      </Button>
     </EmailLayout>
   );
 }
@@ -110,6 +107,6 @@ export function getChallengeResolvedEmailProps(
   return {
     subject,
     react: <ChallengeResolvedEmail {...props} />,
-    text: `Challenge Result\n\n${props.myScore}-${props.theirScore}\n\n${props.username}, ${summary}\n\nView details: ${challengeUrl}`,
+    text: `${props.myScore}-${props.theirScore}\n\n${props.username}, ${summary.toLowerCase()}\n\nView details: ${challengeUrl}`,
   };
 }
