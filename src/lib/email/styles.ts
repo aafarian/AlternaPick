@@ -12,10 +12,7 @@ const colors = {
   zinc700: "#3f3f46",
   zinc500: "#71717a",
   zinc400: "#a1a1aa",
-  zinc300: "#d4d4d8",
-  zinc200: "#e4e4e7",
   sky700: "#0369a1",
-  sky600: "#0284c7",
   green600: "#16a34a",
 } as const;
 
@@ -31,12 +28,6 @@ export const emailStyles = {
     maxWidth: "480px",
     margin: "0 auto",
     padding: "40px 24px",
-  },
-  accentBar: {
-    height: "3px",
-    backgroundColor: colors.sky600,
-    borderRadius: "2px",
-    margin: "0 0 32px 0",
   },
   heading: {
     fontSize: "20px",
@@ -63,25 +54,6 @@ export const emailStyles = {
     textDecoration: "none" as const,
     fontWeight: 500 as const,
     fontSize: "14px",
-  },
-  button: {
-    backgroundColor: colors.sky600,
-    color: colors.white,
-    fontSize: "14px",
-    fontWeight: 600 as const,
-    padding: "10px 24px",
-    borderRadius: "6px",
-    textDecoration: "none" as const,
-  },
-  hr: {
-    borderColor: colors.zinc200,
-    margin: "28px 0 16px 0",
-  },
-  footer: {
-    fontSize: "12px",
-    color: colors.zinc300,
-    margin: "0",
-    lineHeight: "1.5",
   },
   scoreBlock: {
     fontSize: "36px",

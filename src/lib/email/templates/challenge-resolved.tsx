@@ -1,4 +1,4 @@
-import { Text, Button } from "@react-email/components";
+import { Text, Link } from "@react-email/components";
 import type { ReactElement } from "react";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
 import { EmailLayout } from "@/lib/email/components/email-layout";
@@ -77,10 +77,10 @@ export function ChallengeResolvedEmail({
       <Text style={styles.text}>
         {username}, {summary}
       </Text>
-      <Text style={{ textAlign: "center" as const, margin: "0" }}>
-        <Button style={styles.button} href={challengeUrl}>
-          View details
-        </Button>
+      <Text style={{ ...styles.text, textAlign: "center" as const }}>
+        <Link style={styles.link} href={challengeUrl}>
+          View details →
+        </Link>
       </Text>
     </EmailLayout>
   );
