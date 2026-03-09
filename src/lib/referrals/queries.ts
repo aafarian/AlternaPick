@@ -72,7 +72,7 @@ export async function processReferral(
     "profiles"
   )
     .select("id")
-    .eq("username", referrerUsername)
+    .ilike("username", referrerUsername)
     .maybeSingle();
 
   if (referrerError) {

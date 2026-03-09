@@ -10,6 +10,7 @@ import { MIN_CARD_SIZE, MAX_CARD_SIZE, DEFAULT_CARD_SIZE } from "@/lib/modes/typ
 import type { GameMode, PickValidationInput } from "@/lib/modes/types";
 import type { Card, Challenge, Pick, PickSelection } from "@/lib/supabase/types";
 import { CARD_SELECT } from "@/lib/cards/api";
+import { notifyChallengeOpponent } from "@/lib/challenges/notify-opponent";
 
 interface CreatePickInput {
   prop_id: string;
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
       // The opponent can only create a card after accepting (status = "accepted" or "active").
       const isChallenger = challenge.challenger_id === user.id;
       const validStatuses = isChallenger
-        ? ["pending", "accepted", "active"]
+        ? ["draft", "pending", "accepted", "active"]
         : ["accepted", "active"];
 
       if (!validStatuses.includes(challenge.status)) {
@@ -128,6 +129,43 @@ export async function POST(request: NextRequest) {
 
       const existingCards = (existingCardResult.data ?? []) as { id: string }[];
       if (existingCards.length > 0) {
+        // Idempotent retry: if the card exists but the challenge is still "draft"
+        // (activation failed on a previous attempt), retry the activation instead
+        // of returning a hard conflict.
+        if (isChallenger) {
+          const { data: stuckDraft } = await (supabase.from("challenges") as any)
+            .select("status, game_mode, opponent_id, message")
+            .eq("id", challenge_id)
+            .eq("status", "draft")
+            .maybeSingle();
+
+          if (stuckDraft) {
+            const ch = stuckDraft as { status: string; game_mode: string; opponent_id: string; message: string | null };
+            const adminClient = createAdminClient();
+            const retryPayload: Record<string, unknown> = { status: "pending" };
+            if (ch.game_mode === "mirror") {
+              retryPayload.mirror_props = propIds;
+              retryPayload.card_size = propIds.length;
+            }
+            const { data: activated, error: retryErr } = await (adminClient.from("challenges") as any)
+              .update(retryPayload)
+              .eq("id", challenge_id)
+              .eq("status", "draft")
+              .select("id");
+
+            if (!retryErr && (activated as { id: string }[])?.length > 0) {
+              void notifyChallengeOpponent(adminClient, {
+                challengeId: challenge_id,
+                challengerId: user.id,
+                opponentId: ch.opponent_id,
+                gameMode: ch.game_mode as GameMode,
+                message: ch.message,
+              });
+              // Activation recovered — return success so the client doesn't show an error
+              return NextResponse.json({ retried: true });
+            }
+          }
+        }
         return conflict("You already have a card for this challenge");
       }
     }
@@ -148,6 +186,9 @@ export async function POST(request: NextRequest) {
     }[];
 
     if (existingProps.length !== propIds.length) {
+      const foundIds = new Set(existingProps.map((p) => p.id));
+      const missingIds = propIds.filter((id) => !foundIds.has(id));
+      logError("cards", `Some props not found. Requested: [${propIds.join(", ")}], Missing: [${missingIds.join(", ")}], Found: ${existingProps.length}/${propIds.length}`);
       return badRequest("Some props not found");
     }
 
@@ -219,6 +260,49 @@ export async function POST(request: NextRequest) {
         await updateDailyStreak(adminClient, user.id);
       } catch (streakError) {
         logError("cards", "Failed to update daily streak", undefined, streakError);
+      }
+    }
+
+    // If this is a draft challenge, activate it now that the challenger has picked props.
+    // Push the status filter to the DB to avoid a round-trip for non-draft challenges.
+    if (challenge_id && user) {
+      const { data: draftChallenge } = await (supabase.from("challenges") as any)
+        .select("status, game_mode, challenger_id, opponent_id, message")
+        .eq("id", challenge_id)
+        .eq("status", "draft")
+        .maybeSingle();
+
+      const ch = draftChallenge as Challenge | null;
+      if (ch && ch.challenger_id === user.id) {
+        const adminClient = createAdminClient();
+
+        // Activate the draft challenge now that the challenger has submitted their card
+        const updatePayload: Record<string, unknown> = { status: "pending" };
+        if (ch.game_mode === "mirror") {
+          updatePayload.mirror_props = propIds;
+          updatePayload.card_size = propIds.length;
+        }
+
+        // Select the updated row back so we only notify when we actually performed
+        // the transition (prevents duplicate notifications on concurrent retries).
+        const { data: activated, error: activateErr } = await (adminClient.from("challenges") as any)
+          .update(updatePayload)
+          .eq("id", challenge_id)
+          .eq("status", "draft")
+          .select("id");
+
+        if (activateErr) {
+          logError("cards", `Failed to activate draft challenge ${challenge_id}`, undefined, activateErr);
+        } else if ((activated as { id: string }[])?.length > 0) {
+          // Only notify when we were the caller that actually performed the transition
+          void notifyChallengeOpponent(adminClient, {
+            challengeId: challenge_id,
+            challengerId: user.id,
+            opponentId: ch.opponent_id,
+            gameMode: ch.game_mode as GameMode,
+            message: ch.message,
+          });
+        }
       }
     }
 
@@ -308,6 +392,9 @@ export async function GET(request: NextRequest) {
     if (status === "locked" || status === "resolved") {
       query = query.eq("status", status);
     }
+
+    // Exclude cards with no scoreable picks (all DNP/push → total_picks = 0)
+    query = query.gt("total_picks", 0);
 
     // Cursor-based pagination: fetch cards older than the cursor
     if (cursor) {

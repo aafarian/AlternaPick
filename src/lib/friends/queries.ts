@@ -91,7 +91,7 @@ export async function sendFriendRequest(
     "profiles"
   )
     .select("id, username")
-    .eq("username", addresseeUsername)
+    .ilike("username", addresseeUsername)
     .single();
 
   if (lookupError || !addressee) {

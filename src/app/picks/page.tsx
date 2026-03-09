@@ -77,11 +77,11 @@ export default async function CardsPage() {
       .gt("total_picks", 0)
       .order("score", { ascending: false })
       .limit(1),
-    supabase
-      .from("cards")
+    (supabase.from("cards") as any)
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
-      .eq("status", "resolved"),
+      .eq("status", "resolved")
+      .gt("total_picks", 0),
   ]);
 
   // Error handling

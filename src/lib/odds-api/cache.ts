@@ -639,6 +639,7 @@ async function _cachePropsInternal(
   // Step 2: Delete only props that have NO picks
   const deletableIds = allPropIds.filter((id) => !pickedPropIds.has(id));
   if (deletableIds.length > 0) {
+    logInfo(`${sport} cache`, `Deleting ${deletableIds.length} non-picked props (keeping ${pickedPropIds.size} picked). IDs: [${deletableIds.slice(0, 10).join(", ")}${deletableIds.length > 10 ? "..." : ""}]`);
     for (let i = 0; i < deletableIds.length; i += 500) {
       const batch = deletableIds.slice(i, i + 500);
       const { error: deleteError } = await supabase.from("props").delete().in("id", batch);

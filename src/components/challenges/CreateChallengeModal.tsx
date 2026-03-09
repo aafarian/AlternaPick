@@ -547,21 +547,24 @@ export default function CreateChallengeModal({
             {creating ? (
               <>
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                Sending...
+                Creating...
               </>
             ) : step === "opponent" ? (
               <>
                 Next
                 <ChevronRight className="h-4 w-4" />
               </>
-            ) : step === "settings" && gameMode === "mirror" ? (
+            ) : step === "settings" ? (
+              <>
+                {gameMode === "mirror" ? "Next" : "Pick Props"}
+                <ChevronRight className="h-4 w-4" />
+              </>
+            ) : step === "mirror_props" ? (
               <>
                 Pick Props
                 <ChevronRight className="h-4 w-4" />
               </>
-            ) : (
-              "Send Challenge"
-            )}
+            ) : null}
           </Button>
         </div>
       </DialogContent>

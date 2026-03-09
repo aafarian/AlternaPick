@@ -19,7 +19,7 @@ export default async function JoinPage({ params }: JoinPageProps) {
     supabase.from("profiles") as any
   )
     .select("id, username, display_name, avatar_url")
-    .eq("username", username)
+    .ilike("username", username)
     .maybeSingle();
 
   if (profileError || !referrerData) {

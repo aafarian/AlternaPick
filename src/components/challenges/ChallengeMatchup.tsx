@@ -349,10 +349,13 @@ export default function ChallengeMatchup({
                       ? "text-purple-400"
                       : challenge.status === "pending"
                         ? "text-amber-400"
-                        : "text-muted-foreground"
+                        : challenge.status === "draft"
+                          ? "text-blue-400"
+                          : "text-muted-foreground"
                 )}>
                   {challenge.status === "resolved" ? "Completed"
                     : challenge.status === "accepted" ? "Active"
+                    : challenge.status === "draft" ? "Draft"
                     : challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
                 </span>
               </ScaleIn>
@@ -508,6 +511,37 @@ export default function ChallengeMatchup({
       </div>
 
       {/* Status-specific CTAs */}
+      {challenge.status === "draft" && isChallenger && (
+        <FadeIn delay={0.25} duration={0.3}>
+          <Card className="border-blue-500/20 bg-blue-500/5">
+            <CardContent className="p-4">
+              <div className="flex flex-col items-center gap-3 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Pick your props to send this challenge
+                </p>
+                <Link
+                  href={
+                    challenge.game_mode === "mirror" || challenge.game_mode === "random"
+                      ? `/challenges/${challenge.id}/ballot`
+                      : `/props?challenge_id=${challenge.id}`
+                  }
+                >
+                  <Button size="sm">Pick Props</Button>
+                </Link>
+                <Button
+                  onClick={() => handleAction("cancel")}
+                  disabled={actionLoading}
+                  variant="outline"
+                  size="sm"
+                >
+                  {actionLoading ? "Cancelling..." : "Cancel"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </FadeIn>
+      )}
+
       {challenge.status === "pending" && (
         <FadeIn delay={0.25} duration={0.3}>
         <Card className="border-border bg-card">

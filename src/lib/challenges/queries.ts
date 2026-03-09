@@ -87,10 +87,20 @@ export async function getChallenges(
   }
 
   const results = (data ?? []) as ChallengeWithProfiles[];
+
+  // Evaluate hasMore against the raw result set BEFORE filtering,
+  // since draft filtering can silently remove the extra "+1" row.
   const hasMore = limit !== undefined && results.length > limit;
+  const paginated = hasMore ? results.slice(0, limit) : results;
+
+  // Exclude draft challenges where the querying user is the opponent
+  // (challenger should see their own drafts to continue prop selection)
+  const filtered = paginated.filter(
+    (c) => c.status !== "draft" || c.challenger_id === userId
+  );
 
   return {
-    challenges: hasMore ? results.slice(0, limit) : results,
+    challenges: filtered,
     hasMore,
   };
 }
@@ -178,6 +188,7 @@ export interface CreateChallengeOptions {
   message?: string | null;
   cardSize?: number;
   mirrorProps?: string[] | null;
+  status?: ChallengeStatus;
 }
 
 /**
@@ -195,6 +206,7 @@ export async function createChallenge(
     message = null,
     cardSize = 6,
     mirrorProps = null,
+    status = "draft",
   } = options;
 
   if (challengerId === opponentId) {
@@ -228,7 +240,7 @@ export async function createChallenge(
   const insertPayload: Record<string, unknown> = {
     challenger_id: challengerId,
     opponent_id: opponentId,
-    status: "pending",
+    status,
     game_mode: gameMode,
     card_size: cardSize,
   };
@@ -263,7 +275,7 @@ export async function createChallenge(
 
 /**
  * Respond to a challenge: accept, decline, or cancel.
- * Cancel supports `pending` and `accepted` statuses.
+ * Cancel supports `draft`, `pending`, and `accepted` statuses.
  * When cancelling, optionally convert the challenger's card to solo.
  */
 export async function respondToChallenge(
@@ -311,9 +323,9 @@ export async function respondToChallenge(
         403
       );
     }
-    if (ch.status !== "pending" && ch.status !== "accepted") {
+    if (ch.status !== "draft" && ch.status !== "pending" && ch.status !== "accepted") {
       throw new ChallengeValidationError(
-        "Can only cancel a pending or accepted challenge",
+        "Can only cancel a draft, pending, or accepted challenge",
         400
       );
     }
@@ -372,7 +384,7 @@ export async function expireStaleChallenges(
   // Find stale challenges: pending/accepted and older than 24h
   const { data: stale } = await (admin.from("challenges") as any)
     .select("id, challenger_id, game_mode, status, mirror_props")
-    .in("status", ["pending", "accepted"])
+    .in("status", ["draft", "pending", "accepted"])
     .lt("created_at", cutoff);
 
   const staleChallenges = (stale ?? []) as Array<{
