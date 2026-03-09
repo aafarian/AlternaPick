@@ -37,7 +37,7 @@ export function CardResolvedEmail({
       <Text style={styles.text}>
         {username}, {subtext.toLowerCase()}
       </Text>
-      <Text style={styles.text}>
+      <Text style={{ ...styles.text, textAlign: "center" as const }}>
         <Link style={styles.link} href={cardUrl}>
           View card →
         </Link>
