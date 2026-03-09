@@ -668,44 +668,55 @@ async function _cachePropsInternal(
     }
   }
 
-  // Step 3: Update all existing props with fresh odds + player data (preserves UUIDs + line history)
+  // Step 3: Batch-update all existing props with fresh odds + player data (preserves UUIDs + line history)
+  // Build a lookup for O(1) matching instead of O(n²) .find() per prop
+  const propRowsMap = new Map(
+    propRows.map((r) => [`${r.game_id}|${r.player_name.toLowerCase()}|${r.stat_category}`, r])
+  );
+
+  const updatePayloads: Record<string, unknown>[] = [];
   for (const kept of allProps) {
-    const match = propRows.find(
-      (r) =>
-        r.game_id === kept.game_id &&
-        r.player_name.toLowerCase() === kept.player_name.toLowerCase() &&
-        r.stat_category === kept.stat_category
-    );
-    if (match) {
-      // Track line movement: append new entry if line changed
-      let lineHistory = kept.line_history ?? [];
-      if (match.line !== kept.line) {
-        // Seed with the old line if history is empty
-        if (lineHistory.length === 0) {
-          lineHistory = [{ t: kept.line_history?.[0]?.t ?? now, l: kept.line }];
-        }
-        lineHistory = [...lineHistory, { t: now, l: match.line }];
-      }
+    const match = propRowsMap.get(`${kept.game_id}|${kept.player_name.toLowerCase()}|${kept.stat_category}`);
+    if (!match) continue;
 
-      // Only overwrite enrichment fields if the new value is non-null,
-      // so a failed stats-service sync doesn't clobber existing data.
-      const updatePayload: Record<string, unknown> = {
-        line: match.line,
-        over_odds: match.over_odds,
-        under_odds: match.under_odds,
-        fetched_at: now,
-        line_history: lineHistory.length > 0 ? lineHistory : null,
-      };
-      if (match.player_id !== null) updatePayload.player_id = match.player_id;
-      if (match.player_team !== null) updatePayload.player_team = match.player_team;
-      if (match.player_position !== null) updatePayload.player_position = match.player_position;
-
-      const { error: updateError } = await (supabase.from("props") as any)
-        .update(updatePayload)
-        .eq("id", kept.id);
-      if (updateError) {
-        logError(`${sport} cache`, `Prop update failed for ${kept.id}`, undefined, updateError);
+    // Track line movement: append new entry if line changed
+    let lineHistory = kept.line_history ?? [];
+    if (match.line !== kept.line) {
+      if (lineHistory.length === 0) {
+        lineHistory = [{ t: kept.line_history?.[0]?.t ?? now, l: kept.line }];
       }
+      lineHistory = [...lineHistory, { t: now, l: match.line }];
+    }
+
+    // Only overwrite enrichment fields if the new value is non-null,
+    // so a failed stats-service sync doesn't clobber existing data.
+    const payload: Record<string, unknown> = {
+      id: kept.id,
+      game_id: kept.game_id,
+      player_name: kept.player_name,
+      stat_category: kept.stat_category,
+      line: match.line,
+      over_odds: match.over_odds,
+      under_odds: match.under_odds,
+      bookmaker: match.bookmaker,
+      fetched_at: now,
+      line_history: lineHistory.length > 0 ? lineHistory : null,
+    };
+    if (match.player_id !== null) payload.player_id = match.player_id;
+    if (match.player_team !== null) payload.player_team = match.player_team;
+    if (match.player_position !== null) payload.player_position = match.player_position;
+    updatePayloads.push(payload);
+  }
+
+  // Batch upsert on id — single round-trip per 500 rows instead of N+1
+  for (let i = 0; i < updatePayloads.length; i += 500) {
+    const batch = updatePayloads.slice(i, i + 500);
+    const { error: updateError } = await (supabase.from("props") as any).upsert(batch, {
+      onConflict: "id",
+      ignoreDuplicates: false,
+    });
+    if (updateError) {
+      logError(`${sport} cache`, `Props batch update failed (batch ${i / 500 + 1})`, undefined, updateError);
     }
   }
 
@@ -731,7 +742,8 @@ async function _cachePropsInternal(
     }
   }
 
-  logInfo(`${sport} cache`, `Prepared ${propRows.length} props, inserted ${newPropRows.length} new, updated ${allProps.length} existing`);
+  const staleCount = allProps.length - updatePayloads.length;
+  logInfo(`${sport} cache`, `Prepared ${propRows.length} props, inserted ${newPropRows.length} new, updated ${updatePayloads.length} existing, ${staleCount} stale`);
   const enrichedCount = propRows.filter((r) => r.player_id !== null).length;
   return { propsInserted: newPropRows.length, propsEnriched: enrichedCount, playerMapSize: playerIdMap.size };
 }
