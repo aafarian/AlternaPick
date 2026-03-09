@@ -10,31 +10,68 @@ CREATE TABLE IF NOT EXISTS credit_log (
 
 CREATE INDEX IF NOT EXISTS idx_credit_log_logged_at ON credit_log (logged_at);
 
--- Replace the old RPC (which inferred credits from props rows) with one
--- that reads actual recorded credit usage from credit_log.
+-- Replace the old RPC with one that reads from credit_log when available,
+-- falling back to the props-based inference (1 per distinct game/fetched_at)
+-- when credit_log has no data yet (transition period after migration).
 CREATE OR REPLACE FUNCTION get_credit_usage_by_hour()
 RETURNS TABLE(hour TIMESTAMPTZ, credits BIGINT)
-LANGUAGE sql STABLE
+LANGUAGE plpgsql STABLE
 AS $$
-  WITH hours AS (
-    SELECT generate_series(
-      date_trunc('hour', NOW() - INTERVAL '23 hours'),
-      date_trunc('hour', NOW()),
-      INTERVAL '1 hour'
-    ) AS hour
-  ),
-  usage AS (
+DECLARE
+  has_credit_log BOOLEAN;
+BEGIN
+  SELECT EXISTS(
+    SELECT 1 FROM credit_log
+    WHERE logged_at >= date_trunc('hour', NOW() - INTERVAL '23 hours')
+  ) INTO has_credit_log;
+
+  IF has_credit_log THEN
+    RETURN QUERY
+    WITH hours AS (
+      SELECT generate_series(
+        date_trunc('hour', NOW() - INTERVAL '23 hours'),
+        date_trunc('hour', NOW()),
+        INTERVAL '1 hour'
+      ) AS h
+    ),
+    usage AS (
+      SELECT
+        date_trunc('hour', cl.logged_at) AS h,
+        SUM(cl.credits_consumed)::BIGINT AS credits
+      FROM credit_log cl
+      WHERE cl.logged_at >= date_trunc('hour', NOW() - INTERVAL '23 hours')
+      GROUP BY date_trunc('hour', cl.logged_at)
+    )
     SELECT
-      date_trunc('hour', cl.logged_at) AS hour,
-      SUM(cl.credits_consumed)::BIGINT AS credits
-    FROM credit_log cl
-    WHERE cl.logged_at >= date_trunc('hour', NOW() - INTERVAL '23 hours')
-    GROUP BY date_trunc('hour', cl.logged_at)
-  )
-  SELECT
-    h.hour,
-    COALESCE(u.credits, 0) AS credits
-  FROM hours h
-  LEFT JOIN usage u ON u.hour = h.hour
-  ORDER BY h.hour;
+      hrs.h,
+      COALESCE(u.credits, 0)
+    FROM hours hrs
+    LEFT JOIN usage u ON u.h = hrs.h
+    ORDER BY hrs.h;
+  ELSE
+    -- Fallback: infer from props table (1 per distinct game_id/fetched_at pair)
+    RETURN QUERY
+    WITH hours AS (
+      SELECT generate_series(
+        date_trunc('hour', NOW() - INTERVAL '23 hours'),
+        date_trunc('hour', NOW()),
+        INTERVAL '1 hour'
+      ) AS h
+    ),
+    usage AS (
+      SELECT
+        date_trunc('hour', p.fetched_at) AS h,
+        COUNT(DISTINCT (p.game_id, p.fetched_at)) AS credits
+      FROM props p
+      WHERE p.fetched_at >= date_trunc('hour', NOW() - INTERVAL '23 hours')
+      GROUP BY date_trunc('hour', p.fetched_at)
+    )
+    SELECT
+      hrs.h,
+      COALESCE(u.credits, 0)
+    FROM hours hrs
+    LEFT JOIN usage u ON u.h = hrs.h
+    ORDER BY hrs.h;
+  END IF;
+END;
 $$;
