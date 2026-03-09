@@ -1,4 +1,4 @@
-import { Text, Button } from "@react-email/components";
+import { Text, Link } from "@react-email/components";
 import type { ReactElement } from "react";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
 import { EmailLayout } from "@/lib/email/components/email-layout";
@@ -30,10 +30,10 @@ export function FriendRequestEmail({
       <Text style={styles.text}>
         {addresseeUsername}, {requesterUsername} wants to add you as a friend.
       </Text>
-      <Text style={{ textAlign: "center" as const, margin: "0" }}>
-        <Button style={styles.button} href={friendsUrl}>
-          View request
-        </Button>
+      <Text style={styles.text}>
+        <Link style={styles.link} href={friendsUrl}>
+          View request →
+        </Link>
       </Text>
     </EmailLayout>
   );
