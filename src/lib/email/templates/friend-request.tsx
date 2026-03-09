@@ -30,7 +30,7 @@ export function FriendRequestEmail({
       <Text style={styles.text}>
         {addresseeUsername}, {requesterUsername} wants to add you as a friend.
       </Text>
-      <Text style={styles.text}>
+      <Text style={{ ...styles.text, textAlign: "center" as const }}>
         <Link style={styles.link} href={friendsUrl}>
           View request →
         </Link>

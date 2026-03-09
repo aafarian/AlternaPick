@@ -43,7 +43,7 @@ export function ChallengeReceivedEmail({
       {message && (
         <Text style={styles.muted}>&ldquo;{message}&rdquo;</Text>
       )}
-      <Text style={styles.text}>
+      <Text style={{ ...styles.text, textAlign: "center" as const }}>
         <Link style={styles.link} href={challengeUrl}>
           View challenge →
         </Link>
