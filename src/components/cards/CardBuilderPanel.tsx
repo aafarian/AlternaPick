@@ -395,8 +395,10 @@ export default function CardBuilderPanel() {
                     size="sm"
                     className={cn(
                       "font-bold",
-                      canLockIn && !isLocking && "shadow-[0_0_20px_rgba(249,115,22,0.4)]",
-                      "bg-orange-500 text-white hover:bg-orange-600"
+                      isLocking
+                        ? "bg-orange-500/70 text-white"
+                        : "bg-orange-500 text-white hover:bg-orange-600",
+                      canLockIn && !isLocking && "animate-pulse shadow-[0_0_20px_rgba(249,115,22,0.4)]",
                     )}
                   >
                     {isLocking ? (
@@ -420,7 +422,10 @@ export default function CardBuilderPanel() {
                       size="sm"
                       className={cn(
                         "font-bold",
-                        canLockIn && !isLocking && !creatingChallenge && "shadow-[0_0_20px_rgba(0,210,106,0.4)]"
+                        isLocking
+                          ? "opacity-70"
+                          : "",
+                        canLockIn && !isLocking && !creatingChallenge && "animate-pulse shadow-[0_0_20px_rgba(0,210,106,0.4)]",
                       )}
                     >
                       {isLocking ? (
