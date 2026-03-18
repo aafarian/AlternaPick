@@ -37,11 +37,10 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
   }
   const emptyEmoji = SPORT_CONFIG[sport].icon;
 
-  // Fetch props with a timeout so the page never hangs
+  // Fetch props for the selected sport
   let games: Awaited<ReturnType<typeof getCachedProps>> = null;
   try {
-    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000));
-    games = await Promise.race([getCachedProps(sport), timeout]);
+    games = await getCachedProps(sport);
   } catch {
     games = null;
   }
