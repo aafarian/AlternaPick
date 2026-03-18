@@ -34,7 +34,7 @@ export async function fetchOddsApiCredits(): Promise<Pick<CreditUsage, "remainin
 }
 
 /** Insert a row into credit_log to record actual API credits consumed during a sync. */
-export async function logCreditUsage(creditsConsumed: number): Promise<void> {
+async function logCreditUsage(creditsConsumed: number): Promise<void> {
   if (creditsConsumed <= 0) return;
   const supabase = createAdminClient();
   const { error } = await (supabase.from("credit_log") as any).insert({
@@ -43,6 +43,29 @@ export async function logCreditUsage(creditsConsumed: number): Promise<void> {
   if (error) {
     logError("odds-api", "Failed to log credit usage", undefined, error);
   }
+}
+
+/**
+ * Wraps fetchAllPropsMultiSport with credit tracking:
+ * snapshots the API credit counter before and after, then logs the delta.
+ */
+export async function fetchAllPropsAndLogCredits(
+  skipEventIds?: Set<string>,
+): Promise<Map<SportKey, FetchPropsResult>> {
+  const baseline = await fetchOddsApiCredits();
+  const results = await fetchAllPropsMultiSport(skipEventIds);
+
+  const final = await fetchOddsApiCredits();
+  if (baseline.used !== null && final.used !== null) {
+    const delta = final.used - baseline.used;
+    if (delta > 0) {
+      await logCreditUsage(delta);
+    } else if (delta < 0) {
+      logWarn("props-sync", "Credit counter decreased — possible billing cycle reset; skipping credit log");
+    }
+  }
+
+  return results;
 }
 
 function getApiKey(): string {

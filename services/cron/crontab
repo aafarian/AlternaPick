@@ -1,0 +1,5 @@
+# Game sync & resolution — every 5 minutes
+*/5 * * * * /scripts/game-sync.sh >> /var/log/cron/game-sync.log 2>&1
+
+# Props sync — hourly at minute 0
+0 * * * * /scripts/props-sync.sh >> /var/log/cron/props-sync.log 2>&1

@@ -1,8 +1,7 @@
 name: Game Sync & Resolution
 on:
-  schedule:
-    # Every 5 minutes — game status, card resolution, challenge expiry
-    - cron: "*/5 * * * *"
+  # Cron moved to Docker sidecar container (services/cron) to save GitHub Actions minutes.
+  # Keep workflow_dispatch for manual debugging.
   workflow_dispatch: {}
 jobs:
   sync:

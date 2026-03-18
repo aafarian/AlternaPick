@@ -35,6 +35,18 @@ services:
     networks:
       - internal
 
+  cron:
+    build:
+      context: ./services/cron
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - SYNC_SECRET=${SYNC_SECRET}
+    depends_on:
+      - nextjs
+    networks:
+      - internal
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
