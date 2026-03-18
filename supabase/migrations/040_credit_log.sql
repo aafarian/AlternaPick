@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS credit_log (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   logged_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  credits_consumed INTEGER NOT NULL
+  credits_consumed INTEGER NOT NULL CHECK (credits_consumed > 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_credit_log_logged_at ON credit_log (logged_at);
