@@ -1,8 +1,7 @@
 name: Props Sync
 on:
-  schedule:
-    # Hourly — props use external API credits, no need for frequent polling
-    - cron: "0 * * * *"
+  # Cron moved to Docker sidecar container (services/cron) to save GitHub Actions minutes.
+  # Keep workflow_dispatch for manual debugging.
   workflow_dispatch: {}
 jobs:
   sync:
