@@ -25,6 +25,7 @@ const colors = {
   green50: "#f0fdf4",
   red50: "#fef2f2",
   sky700: "#0369a1",
+  sky600: "#0284c7",
   sky50: "#f0f9ff",
 } as const;
 
@@ -141,7 +142,7 @@ export const emailStyles = {
     padding: "16px 28px",
   },
   footerLink: {
-    color: colors.sky700,
+    color: colors.sky600,
     textDecoration: "underline" as const,
   },
   /** Outcome-specific accent colors */

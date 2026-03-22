@@ -10,8 +10,8 @@ import { baseUrl } from "@/lib/email/styles";
  */
 
 function getSecret(): string {
-  const secret = process.env.UNSUBSCRIBE_SECRET ?? process.env.RESEND_API_KEY;
-  if (!secret) throw new Error("No UNSUBSCRIBE_SECRET or RESEND_API_KEY");
+  const secret = process.env.UNSUBSCRIBE_SECRET;
+  if (!secret) throw new Error("UNSUBSCRIBE_SECRET env var is required");
   return secret;
 }
 
