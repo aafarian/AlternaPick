@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "crypto";
-import { baseUrl } from "@/lib/email/styles";
+import { baseUrl } from "@/lib/email/config";
 
 /**
  * HMAC-SHA256 token for one-click unsubscribe.

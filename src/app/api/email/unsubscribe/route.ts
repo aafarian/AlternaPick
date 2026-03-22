@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { logError, logInfo } from "@/lib/logger";
 import type { NotificationPreferences } from "@/lib/supabase/types";
+import { colors } from "@/lib/email/styles";
 
 /**
  * RFC 8058 one-click unsubscribe endpoint.
@@ -153,17 +154,11 @@ function htmlResponse(status: number, html: string): NextResponse {
   });
 }
 
-const pageColors = {
-  ink: "#09090b",
-  body: "#3f3f46",
-  white: "#fff",
-} as const;
-
 const pageStyle = `
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 480px; margin: 80px auto; padding: 0 24px; color: ${pageColors.body}; }
-  h1 { font-size: 20px; color: ${pageColors.ink}; margin-bottom: 12px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 480px; margin: 80px auto; padding: 0 24px; color: ${colors.zinc700}; }
+  h1 { font-size: 20px; color: ${colors.zinc950}; margin-bottom: 12px; }
   p { font-size: 15px; line-height: 1.6; }
-  button { background: ${pageColors.ink}; color: ${pageColors.white}; border: none; padding: 12px 28px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+  button { background: ${colors.zinc950}; color: ${colors.white}; border: none; padding: 12px 28px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
 `;
 
 function renderPage(title: string, body: string): string {

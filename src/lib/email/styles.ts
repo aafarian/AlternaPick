@@ -8,10 +8,11 @@
  * - Single CTA per email to drive engagement
  * - Deliverability-safe: minimal HTML, no background colors on body
  */
-export const baseUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://alternapick.com";
 
-const colors = {
+// Re-export for backward compatibility — templates import baseUrl from here
+export { baseUrl } from "./config";
+
+export const colors = {
   white: "#ffffff",
   zinc950: "#09090b",
   zinc700: "#3f3f46",

@@ -103,7 +103,18 @@ export async function sendEmail({
     const replyTo =
       process.env.EMAIL_REPLY_TO || "support@alternapick.com";
 
-    const unsubscribeUrl = getUnsubscribeUrl(to);
+    // Generate unsubscribe URL — degrade gracefully if secret is missing
+    // so emails still send without List-Unsubscribe header.
+    let unsubscribeHeaders: Record<string, string> = {};
+    try {
+      const unsubscribeUrl = getUnsubscribeUrl(to);
+      unsubscribeHeaders = {
+        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      };
+    } catch {
+      logWarn("email", "UNSUBSCRIBE_SECRET not configured; sending without List-Unsubscribe header");
+    }
 
     await resend.emails.send({
       from,
@@ -116,9 +127,7 @@ export async function sendEmail({
         // Unique per email — prevents Gmail from collapsing unrelated
         // transactional emails into the same conversation thread.
         "X-Entity-Ref-ID": crypto.randomUUID(),
-        // RFC 8058 one-click unsubscribe (required by Gmail since Feb 2024)
-        "List-Unsubscribe": `<${unsubscribeUrl}>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        ...unsubscribeHeaders,
       },
     });
 
