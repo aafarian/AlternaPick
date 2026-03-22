@@ -1,4 +1,4 @@
-import { Text, Button } from "@react-email/components";
+import { Section, Text, Button } from "@react-email/components";
 import type { ReactElement } from "react";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
 import { EmailLayout } from "@/lib/email/components/email-layout";
@@ -37,9 +37,11 @@ export function FriendRequestEmail({
         {addresseeUsername}, accept their request to start challenging each other
         and competing on the leaderboard.
       </Text>
-      <Button style={styles.button} href={friendsUrl}>
-        View Request
-      </Button>
+      <Section style={styles.buttonWrapper}>
+        <Button style={styles.button} href={friendsUrl}>
+          View Request
+        </Button>
+      </Section>
     </EmailLayout>
   );
 }

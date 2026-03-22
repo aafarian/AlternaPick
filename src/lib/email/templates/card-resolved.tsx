@@ -1,4 +1,4 @@
-import { Text, Button, Section } from "@react-email/components";
+import { Section, Text, Button } from "@react-email/components";
 import type { ReactElement } from "react";
 import { getCardTier } from "@/lib/cards/tiers";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
@@ -46,9 +46,11 @@ export function CardResolvedEmail({
       <Text style={styles.text}>
         {username}, {subtext.toLowerCase()}
       </Text>
-      <Button style={styles.button} href={cardUrl}>
-        View Your Card
-      </Button>
+      <Section style={styles.buttonWrapper}>
+        <Button style={styles.button} href={cardUrl}>
+          View Your Card
+        </Button>
+      </Section>
     </EmailLayout>
   );
 }

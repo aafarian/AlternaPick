@@ -1,4 +1,4 @@
-import { Text, Button } from "@react-email/components";
+import { Section, Text, Button } from "@react-email/components";
 import type { ReactElement } from "react";
 import type { GameMode } from "@/lib/supabase/types";
 import { modeLabel } from "@/lib/modes/utils";
@@ -50,9 +50,11 @@ export function ChallengeReceivedEmail({
       {message && (
         <Text style={styles.muted}>&ldquo;{message}&rdquo;</Text>
       )}
-      <Button style={styles.button} href={challengeUrl}>
-        Accept Challenge
-      </Button>
+      <Section style={styles.buttonWrapper}>
+        <Button style={styles.button} href={challengeUrl}>
+          Accept Challenge
+        </Button>
+      </Section>
     </EmailLayout>
   );
 }

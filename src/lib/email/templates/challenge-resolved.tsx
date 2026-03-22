@@ -98,9 +98,11 @@ export function ChallengeResolvedEmail({
         </Text>
       </Section>
       <Text style={styles.text}>{summary}</Text>
-      <Button style={styles.button} href={challengeUrl}>
-        View Details
-      </Button>
+      <Section style={styles.buttonWrapper}>
+        <Button style={styles.button} href={challengeUrl}>
+          View Details
+        </Button>
+      </Section>
     </EmailLayout>
   );
 }

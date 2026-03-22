@@ -86,6 +86,10 @@ export const emailStyles = {
     lineHeight: "1.6",
     fontStyle: "italic" as const,
   },
+  /** Wrapper to center a CTA button */
+  buttonWrapper: {
+    textAlign: "center" as const,
+  },
   /** Primary CTA button */
   button: {
     backgroundColor: colors.zinc950,
@@ -137,7 +141,7 @@ export const emailStyles = {
     padding: "16px 28px",
   },
   footerLink: {
-    color: colors.zinc400,
+    color: colors.sky700,
     textDecoration: "underline" as const,
   },
   /** Outcome-specific accent colors */

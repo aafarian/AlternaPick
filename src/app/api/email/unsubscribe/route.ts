@@ -59,30 +59,31 @@ async function disableEmailsForUser(email: string): Promise<boolean> {
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const url = new URL(request.url);
   const token = url.searchParams.get("token");
+  const isBrowserForm = (request.headers.get("content-type") ?? "").includes("form");
 
   if (!token) {
+    if (isBrowserForm) return htmlResponse(400, renderPage("Invalid link", "This unsubscribe link is invalid or expired."));
     return NextResponse.json({ error: "Missing token" }, { status: 400 });
   }
 
   const email = verifyUnsubscribeToken(token);
   if (!email) {
+    if (isBrowserForm) return htmlResponse(400, renderPage("Invalid link", "This unsubscribe link is invalid or expired."));
     return NextResponse.json({ error: "Invalid token" }, { status: 400 });
   }
 
   const success = await disableEmailsForUser(email);
   if (!success) {
+    if (isBrowserForm) return htmlResponse(404, renderPage("Something went wrong", "We couldn't find your account. Please try updating your preferences in account settings."));
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  // Browser form submission — redirect to confirmation page
-  const contentType = request.headers.get("content-type") ?? "";
-  if (contentType.includes("form")) {
+  if (isBrowserForm) {
     return NextResponse.redirect(
       new URL(`/api/email/unsubscribe?token=${encodeURIComponent(token)}&done=1`, request.url),
     );
   }
 
-  // RFC 8058 / API call — return JSON
   return NextResponse.json({ ok: true });
 }
 
@@ -129,11 +130,17 @@ function htmlResponse(status: number, html: string): NextResponse {
   });
 }
 
+const pageColors = {
+  ink: "#09090b",
+  body: "#3f3f46",
+  white: "#fff",
+} as const;
+
 const pageStyle = `
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 480px; margin: 80px auto; padding: 0 24px; color: #3f3f46; }
-  h1 { font-size: 20px; color: #09090b; margin-bottom: 12px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 480px; margin: 80px auto; padding: 0 24px; color: ${pageColors.body}; }
+  h1 { font-size: 20px; color: ${pageColors.ink}; margin-bottom: 12px; }
   p { font-size: 15px; line-height: 1.6; }
-  button { background: #09090b; color: #fff; border: none; padding: 12px 28px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+  button { background: ${pageColors.ink}; color: ${pageColors.white}; border: none; padding: 12px 28px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
 `;
 
 function renderPage(title: string, body: string): string {
