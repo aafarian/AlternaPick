@@ -19,11 +19,17 @@ async function disableEmailsForUser(email: string): Promise<boolean> {
 
   // Use ilike for case-insensitive match — the unsubscribe token normalises
   // the email to lowercase, but the profile may store mixed case.
-  const { data: profile } = await typedFrom(admin, "profiles")
+  const { data: profile, error: fetchError } = await typedFrom(admin, "profiles")
     .select("id, notification_preferences")
     .ilike("email", email)
     .limit(1)
     .single();
+
+  // PGRST116 = no rows found — expected when user doesn't exist
+  if (fetchError && fetchError.code !== "PGRST116") {
+    logError("email", "Failed to fetch profile for unsubscribe", "/api/email/unsubscribe", fetchError);
+    return false;
+  }
 
   if (!profile) return false;
 
@@ -49,6 +55,16 @@ async function disableEmailsForUser(email: string): Promise<boolean> {
   return true;
 }
 
+/** Safely verify token, catching config errors (missing UNSUBSCRIBE_SECRET). */
+function safeVerifyToken(token: string): string | null | "error" {
+  try {
+    return verifyUnsubscribeToken(token);
+  } catch (err) {
+    logError("email", "Unsubscribe token verification failed", "/api/email/unsubscribe", err);
+    return "error";
+  }
+}
+
 /**
  * POST — one-click unsubscribe.
  *
@@ -66,7 +82,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Missing token" }, { status: 400 });
   }
 
-  const email = verifyUnsubscribeToken(token);
+  const email = safeVerifyToken(token);
+  if (email === "error") {
+    if (isBrowserForm) return htmlResponse(500, renderPage("Server error", "Something went wrong. Please try again later."));
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
   if (!email) {
     if (isBrowserForm) return htmlResponse(400, renderPage("Invalid link", "This unsubscribe link is invalid or expired."));
     return NextResponse.json({ error: "Invalid token" }, { status: 400 });
@@ -106,7 +126,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return htmlResponse(400, renderPage("Invalid link", "This unsubscribe link is invalid or expired."));
   }
 
-  const email = verifyUnsubscribeToken(token);
+  const email = safeVerifyToken(token);
+  if (email === "error") {
+    return htmlResponse(500, renderPage("Server error", "Something went wrong. Please try again later."));
+  }
   if (!email) {
     return htmlResponse(400, renderPage("Invalid link", "This unsubscribe link is invalid or expired."));
   }
