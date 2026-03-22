@@ -57,6 +57,7 @@ jobs:
             ADMIN_EMAILS=${{ secrets.ADMIN_EMAILS }}
             RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
             EMAIL_ALLOWLIST=${{ secrets.EMAIL_ALLOWLIST }}
+            UNSUBSCRIBE_SECRET=${{ secrets.UNSUBSCRIBE_SECRET }}
             ENVEOF
 
             # Tag current locally-built images so we can rollback if the new build fails health checks

@@ -87,6 +87,7 @@ export async function notifyChallengeOpponent(
         gameMode,
         message,
         challengeId,
+        recipientEmail: opponent.email,
       });
       void sendEmail({ to: opponent.email, subject, react, text });
     }
