@@ -15,7 +15,9 @@ import { colors } from "@/lib/email/styles";
  *        renders a simple confirmation page.
  */
 
-async function disableEmailsForUser(email: string): Promise<boolean> {
+type UnsubscribeResult = "ok" | "not_found" | "error";
+
+async function disableEmailsForUser(email: string): Promise<UnsubscribeResult> {
   const admin = createAdminClient();
 
   // Use ilike for case-insensitive match — the unsubscribe token normalises
@@ -29,10 +31,10 @@ async function disableEmailsForUser(email: string): Promise<boolean> {
   // PGRST116 = no rows found — expected when user doesn't exist
   if (fetchError && fetchError.code !== "PGRST116") {
     logError("email", "Failed to fetch profile for unsubscribe", "/api/email/unsubscribe", fetchError);
-    return false;
+    return "error";
   }
 
-  if (!profile) return false;
+  if (!profile) return "not_found";
 
   const prefs = ((profile.notification_preferences ?? {}) as NotificationPreferences);
   const updated: NotificationPreferences = {
@@ -49,11 +51,11 @@ async function disableEmailsForUser(email: string): Promise<boolean> {
 
   if (error) {
     logError("email", "Failed to update preferences for unsubscribe", "/api/email/unsubscribe", error);
-    return false;
+    return "error";
   }
 
   logInfo("email", `User unsubscribed via email: ${email}`);
-  return true;
+  return "ok";
 }
 
 /** Safely verify token, catching config errors (missing UNSUBSCRIBE_SECRET). */
@@ -93,8 +95,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid token" }, { status: 400 });
   }
 
-  const success = await disableEmailsForUser(email);
-  if (!success) {
+  const result = await disableEmailsForUser(email);
+  if (result === "error") {
+    if (isBrowserForm) return htmlResponse(500, renderPage("Something went wrong", "Something went wrong. Please try again later."));
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+  if (result === "not_found") {
     if (isBrowserForm) return htmlResponse(404, renderPage("Something went wrong", "We couldn't find your account. Please try updating your preferences in account settings."));
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
