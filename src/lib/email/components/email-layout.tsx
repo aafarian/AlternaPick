@@ -11,7 +11,12 @@ interface EmailLayoutProps {
 }
 
 export function EmailLayout({ preview, children, recipientEmail }: EmailLayoutProps): ReactElement {
-  const unsubscribeUrl = recipientEmail ? getUnsubscribeUrl(recipientEmail) : undefined;
+  let unsubscribeUrl: string | undefined;
+  try {
+    unsubscribeUrl = recipientEmail ? getUnsubscribeUrl(recipientEmail) : undefined;
+  } catch {
+    // UNSUBSCRIBE_SECRET not configured — render without unsubscribe link
+  }
 
   return (
     <Html lang="en">
