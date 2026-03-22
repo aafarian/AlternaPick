@@ -902,11 +902,12 @@ export async function handlePostResolution(
           score: result.score,
           total: result.total,
           cardId: result.card_id,
+          recipientEmail: profile.email,
         });
         void sendEmail({ to: profile.email, subject, react, text });
       }
     } catch (emailError) {
-      logError("card-resolution", `Failed to send card_resolved email: ${emailError}`);
+      logError("card-resolution", "Failed to send card_resolved email", undefined, emailError);
     }
   }
 

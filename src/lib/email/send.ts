@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { getResendClient } from "./client";
+import { getUnsubscribeUrl } from "./unsubscribe-token";
 import { logError, logWarn } from "@/lib/logger";
 import { getFlag, getFlagValue } from "@/lib/feature-flags";
 import type {
@@ -102,6 +103,8 @@ export async function sendEmail({
     const replyTo =
       process.env.EMAIL_REPLY_TO || "support@alternapick.com";
 
+    const unsubscribeUrl = getUnsubscribeUrl(to);
+
     await resend.emails.send({
       from,
       replyTo,
@@ -113,6 +116,9 @@ export async function sendEmail({
         // Unique per email — prevents Gmail from collapsing unrelated
         // transactional emails into the same conversation thread.
         "X-Entity-Ref-ID": crypto.randomUUID(),
+        // RFC 8058 one-click unsubscribe (required by Gmail since Feb 2024)
+        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
     });
 
@@ -120,7 +126,7 @@ export async function sendEmail({
   } catch (err) {
     // Step 5: Catch all errors
     const message = err instanceof Error ? err.message : String(err);
-    logError("email", `sendEmail failed: ${message}`);
+    logError("email", `sendEmail failed: ${message}`, undefined, err);
     return { success: false, error: message };
   }
 }

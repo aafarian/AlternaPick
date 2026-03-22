@@ -117,6 +117,7 @@ export async function POST(request: NextRequest) {
         const { subject, react, text } = getFriendRequestEmailProps({
           requesterUsername: requesterName,
           addresseeUsername: addresseeName,
+          recipientEmail: addresseeProfile.email,
         });
         void sendEmail({ to: addresseeProfile.email, subject, react, text });
       }

@@ -199,6 +199,7 @@ export async function resolveEligibleChallenges(): Promise<
             isWinner: winnerId === challenge.challenger_id,
             isTie,
             challengeId: challenge.id,
+            recipientEmail: challengerEmail,
           });
           void sendEmail({
             to: challengerEmail,
@@ -220,6 +221,7 @@ export async function resolveEligibleChallenges(): Promise<
             isWinner: winnerId === challenge.opponent_id,
             isTie,
             challengeId: challenge.id,
+            recipientEmail: opponentEmail,
           });
           void sendEmail({
             to: opponentEmail,

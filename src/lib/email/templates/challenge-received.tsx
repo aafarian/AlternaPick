@@ -14,6 +14,7 @@ export interface ChallengeReceivedEmailProps {
   gameMode: GameMode;
   message: string | null;
   challengeId: string;
+  recipientEmail?: string;
 }
 
 function getModeSuffix(gameMode: GameMode): string {
@@ -29,6 +30,7 @@ export function ChallengeReceivedEmail({
   gameMode,
   message,
   challengeId,
+  recipientEmail,
 }: ChallengeReceivedEmailProps): ReactElement {
   const challengeUrl = `${baseUrl}/challenges/${challengeId}`;
   const modeText = getModeSuffix(gameMode);
@@ -36,17 +38,20 @@ export function ChallengeReceivedEmail({
   return (
     <EmailLayout
       preview={`${challengerUsername} sent you a challenge${modeText}`}
+      recipientEmail={recipientEmail}
     >
-      <Text style={styles.heading}>New challenge{modeText}</Text>
+      <Text style={styles.subheading}>New Challenge{modeText}</Text>
+      <Text style={styles.heading}>
+        {challengerUsername} wants to take you on
+      </Text>
       <Text style={styles.text}>
-        <strong>{challengerUsername}</strong> wants to go head-to-head with you.
-        Pick your props and see who comes out on top.
+        Think you can beat them? Pick your props and see who comes out on top.
       </Text>
       {message && (
         <Text style={styles.muted}>&ldquo;{message}&rdquo;</Text>
       )}
       <Button style={styles.button} href={challengeUrl}>
-        View Challenge
+        Accept Challenge
       </Button>
     </EmailLayout>
   );
@@ -67,11 +72,15 @@ export function getChallengeReceivedEmailProps(
   const subject = `${props.challengerUsername} sent you a challenge${modeText}`;
   const challengeUrl = `${baseUrl}/challenges/${props.challengeId}`;
 
-  const lines = [`${props.challengerUsername} wants to go head-to-head with you.`];
+  const lines = [
+    `${props.challengerUsername} wants to take you on.`,
+    "",
+    "Think you can beat them? Pick your props and see who comes out on top.",
+  ];
   if (props.message) {
     lines.push("", `"${props.message}"`);
   }
-  lines.push("", `View challenge: ${challengeUrl}`);
+  lines.push("", `Accept challenge: ${challengeUrl}`);
 
   return {
     subject,

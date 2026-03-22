@@ -1,4 +1,4 @@
-import { Text, Button } from "@react-email/components";
+import { Text, Button, Section } from "@react-email/components";
 import type { ReactElement } from "react";
 import { getCardTier } from "@/lib/cards/tiers";
 import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
@@ -13,6 +13,7 @@ export interface CardResolvedEmailProps {
   score: number;
   total: number;
   cardId: string;
+  recipientEmail?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -24,21 +25,29 @@ export function CardResolvedEmail({
   score,
   total,
   cardId,
+  recipientEmail,
 }: CardResolvedEmailProps): ReactElement {
   const { headline, subtext } = getCardTier(score, total);
   const cardUrl = `${baseUrl}/cards/${cardId}`;
 
   return (
-    <EmailLayout preview={`Your card is in: ${score} for ${total}`}>
+    <EmailLayout
+      preview={`Your card is in: ${score} for ${total}`}
+      recipientEmail={recipientEmail}
+    >
+      <Text style={styles.subheading}>Card Results</Text>
       <Text style={styles.heading}>{headline}</Text>
-      <Text style={styles.scoreBlock}>
-        {score}/{total}
-      </Text>
+      <Section style={styles.scoreCard}>
+        <Text style={styles.scoreBlock}>
+          {score}/{total}
+        </Text>
+        <Text style={styles.scoreLabel}>correct picks</Text>
+      </Section>
       <Text style={styles.text}>
         {username}, {subtext.toLowerCase()}
       </Text>
       <Button style={styles.button} href={cardUrl}>
-        View Card
+        View Your Card
       </Button>
     </EmailLayout>
   );
@@ -48,7 +57,9 @@ export function CardResolvedEmail({
 // Helper for Resend integration
 // ---------------------------------------------------------------------------
 
-export function getCardResolvedEmailProps(props: CardResolvedEmailProps): {
+export function getCardResolvedEmailProps(
+  props: CardResolvedEmailProps,
+): {
   subject: string;
   react: ReactElement;
   text: string;
@@ -58,6 +69,6 @@ export function getCardResolvedEmailProps(props: CardResolvedEmailProps): {
   return {
     subject: `Your card is in: ${props.score} for ${props.total}`,
     react: <CardResolvedEmail {...props} />,
-    text: `${headline}\n\n${props.score}/${props.total}\n\n${props.username}, ${subtext.toLowerCase()}\n\nView card: ${cardUrl}`,
+    text: `${headline}\n\n${props.score}/${props.total} correct picks\n\n${props.username}, ${subtext.toLowerCase()}\n\nView your card: ${cardUrl}`,
   };
 }
