@@ -14,12 +14,7 @@ import type { GuestToken } from "@/lib/supabase/types";
 
 const TOKEN_EXPIRY_DAYS = 7;
 
-interface TokenRow {
-  challenge_id: string;
-  email: string;
-  expires_at: string;
-  used_at: string | null;
-}
+type TokenRow = Pick<GuestToken, "challenge_id" | "email" | "expires_at" | "used_at">;
 
 function getExpiresAt(): string {
   const date = new Date();
@@ -88,23 +83,3 @@ export async function markTokenUsed(token: string): Promise<void> {
   }
 }
 
-/** Find all valid (unused, unexpired) tokens for an email address. */
-export async function getTokensForEmail(email: string): Promise<GuestToken[]> {
-  const admin = createAdminClient();
-
-  const { data, error } = (await (admin.from("guest_tokens") as any)
-    .select("*")
-    .eq("email", email.toLowerCase().trim())
-    .is("used_at", null)
-    .gt("expires_at", new Date().toISOString())) as {
-    data: GuestToken[] | null;
-    error: unknown;
-  };
-
-  if (error) {
-    logError("guest-token", "Failed to get tokens for email", "getTokensForEmail", error);
-    return [];
-  }
-
-  return data ?? [];
-}

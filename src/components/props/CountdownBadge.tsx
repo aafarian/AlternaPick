@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
-
-const LOCK_BUFFER_MS = 5 * 60 * 1000;
+import { LOCK_BUFFER_MS } from "@/lib/challenges/constants";
 
 interface CountdownBadgeProps {
   commenceTime: string;

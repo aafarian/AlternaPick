@@ -1,6 +1,6 @@
 import { Section, Text, Button } from "@react-email/components";
 import type { ReactElement } from "react";
-import type { GameMode } from "@/lib/supabase/types";
+import type { GameMode } from "@/lib/modes/types";
 import { modeLabel } from "@/lib/modes/utils";
 import { emailStyles as styles } from "@/lib/email/styles";
 import { EmailLayout } from "@/lib/email/components/email-layout";

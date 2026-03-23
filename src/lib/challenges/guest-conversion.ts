@@ -10,20 +10,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { logError, logInfo, logWarn } from "@/lib/logger";
+import type { GuestToken, Challenge } from "@/lib/supabase/types";
 
-interface GuestTokenRow {
-  token: string;
-  challenge_id: string;
-  email: string;
-  used_at: string | null;
-}
-
-interface ChallengeRow {
-  id: string;
-  challenger_id: string;
-  opponent_id: string | null;
-  status: string;
-}
+type GuestTokenRow = Pick<GuestToken, "token" | "challenge_id" | "email" | "used_at">;
+type ChallengeRow = Pick<Challenge, "id" | "challenger_id" | "opponent_id" | "status">;
 
 /**
  * Convert guest challenges to reference a newly signed-up user.

@@ -9,6 +9,7 @@ import {
   getChallenge,
   respondToChallenge,
 } from "@/lib/challenges/queries";
+import { LOCK_BUFFER_MS } from "@/lib/challenges/constants";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -83,7 +84,6 @@ export async function PATCH(
 
       const ch = rawChallenge as Challenge | null;
       if (ch?.mirror_props && ch.mirror_props.length > 0) {
-        const LOCK_BUFFER_MS = 5 * 60 * 1000;
         const lockCutoff = new Date(Date.now() + LOCK_BUFFER_MS);
 
         // Fetch the games for these props to check commence times

@@ -1,14 +1,11 @@
 "use client";
 
-import Image from "next/image";
-import { useState } from "react";
 import type { StatCategory } from "@/lib/supabase/types";
 import { CATEGORY_LABELS, CATEGORY_COLORS, teamLogoUrl } from "@/lib/constants";
-import { getPlayerHeadshotUrl, getHeadshotConfig } from "@/lib/sports";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { usePlayerProfile } from "@/lib/players/player-profile-context";
 import { getModeConfig } from "@/lib/modes/definitions";
-import { getInitials } from "@/lib/format/name-utils";
+import PlayerHeadshot from "@/components/props/PlayerHeadshot";
 import { cn } from "@/lib/utils";
 
 interface PropLineProps {
@@ -22,47 +19,6 @@ interface PropLineProps {
   line: number;
   lineHistory: Array<{ t: string; l: number }> | null;
   sport?: string;
-}
-
-function PlayerHeadshot({
-  playerId,
-  playerName,
-  sport,
-}: {
-  playerId: string | null;
-  sport?: string;
-  playerName: string;
-}) {
-  const [imgError, setImgError] = useState(false);
-
-  if (!playerId || imgError) {
-    return (
-      <div className="flex h-[72px] w-[100px] items-end justify-center sm:h-[100px] sm:w-[130px]">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary sm:h-16 sm:w-16 sm:text-lg">
-          {getInitials(playerName)}
-        </div>
-      </div>
-    );
-  }
-
-  const hs = getHeadshotConfig(sport);
-
-  return (
-    <div className="relative h-[72px] w-[100px] sm:h-[100px] sm:w-[130px]">
-      <Image
-        src={getPlayerHeadshotUrl(playerId, sport)}
-        alt={playerName}
-        width={hs.width}
-        height={hs.height}
-        unoptimized={hs.isProxied}
-        className={cn(
-          "relative z-10 object-contain drop-shadow-lg",
-          hs.isProxied ? "mx-auto object-bottom" : "object-bottom"
-        )}
-        onError={() => setImgError(true)}
-      />
-    </div>
-  );
 }
 
 export default function PropLine({
@@ -178,7 +134,7 @@ export default function PropLine({
             }
           }}
         >
-          <PlayerHeadshot playerId={playerId} playerName={playerName} sport={sport} />
+          <PlayerHeadshot playerId={playerId} playerName={playerName} sport={sport} responsive />
 
           {/* Player name */}
           <span className="mt-1 max-w-full truncate text-center text-xs font-bold leading-tight sm:text-sm">

@@ -14,10 +14,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import UserAvatar from "@/components/icons/UserAvatar";
+import OpponentAvatar from "@/components/challenges/OpponentAvatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, AlertCircle, Loader2, Crown, Mail } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Crown } from "lucide-react";
 import ReactionBar from "@/components/challenges/ReactionBar";
 import TrashTalkBubble from "@/components/challenges/TrashTalkBubble";
 import QuickActions from "@/components/challenges/QuickActions";
@@ -50,7 +51,7 @@ function PlayerSide({
   hasLiveGames,
   liveLoading,
   side,
-  isEmailInvite = false,
+  avatarSlot,
 }: {
   label: string;
   name: string;
@@ -64,7 +65,8 @@ function PlayerSide({
   hasLiveGames: boolean;
   liveLoading: boolean;
   side: "left" | "right";
-  isEmailInvite?: boolean;
+  /** Override the default UserAvatar (e.g. with OpponentAvatar for email invites) */
+  avatarSlot?: React.ReactNode;
 }) {
   const prefersReduced = useReducedMotion();
 
@@ -113,11 +115,7 @@ function PlayerSide({
     <div className="flex flex-1 flex-col gap-3 rounded-xl">
       {/* Player identity */}
       <div className="flex flex-col items-center gap-2">
-        {isEmailInvite ? (
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-            <Mail className="h-6 w-6 text-muted-foreground" />
-          </div>
-        ) : (
+        {avatarSlot ?? (
           <UserAvatar
             avatarUrl={avatarUrl}
             iconConfig={iconConfig}
@@ -520,7 +518,14 @@ export default function ChallengeMatchup({
           hasLiveGames={liveData?.opponent_card?.has_live_games ?? false}
           liveLoading={shouldFetchLive && !liveData}
           side="right"
-          isEmailInvite={isEmailInviteOpponent}
+          avatarSlot={isEmailInviteOpponent ? (
+            <OpponentAvatar
+              opponent={challenge.opponent}
+              opponentEmail={challenge.opponent_email}
+              displayName={opponentName}
+              size={56}
+            />
+          ) : undefined}
         />
       </div>
 

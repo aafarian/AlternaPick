@@ -8,6 +8,7 @@ import { isValidGameMode } from "@/lib/modes/definitions";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE } from "@/lib/modes/types";
 
 import { isValidEmail } from "@/lib/validation";
+import { LOCK_BUFFER_MS } from "@/lib/challenges/constants";
 import { getCachedProps } from "@/lib/odds-api/cache";
 import {
   getChallenges,
@@ -207,7 +208,6 @@ export async function POST(request: NextRequest) {
     } else if (gameMode === "random") {
       // Use the same data source as the props page so random mode
       // sees the exact same props the user sees.
-      const LOCK_BUFFER_MS = 5 * 60 * 1000;
       const now = Date.now();
 
       const allSportGames = await Promise.all([

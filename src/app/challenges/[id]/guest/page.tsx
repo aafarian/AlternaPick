@@ -96,9 +96,11 @@ export default async function GuestPickPage({
 
       if (claimError) {
         logError("guest-page", "Failed to claim challenge for logged-in user", "GET /challenges/[id]/guest", claimError);
-      } else {
-        logInfo("guest-page", `Logged-in user ${user.id} claimed challenge ${challengeId} via invite link`);
+        // Don't burn the token or redirect — the claim failed so the user
+        // won't be a participant on the ballot page. Show the guest flow instead.
+        return <InvalidTokenState />;
       }
+      logInfo("guest-page", `Logged-in user ${user.id} claimed challenge ${challengeId} via invite link`);
     }
 
     await markTokenUsed(token);
@@ -142,7 +144,11 @@ export default async function GuestPickPage({
     return <InvalidTokenState />;
   }
 
-  const props = (propsData ?? []) as PropWithGame[];
+  const props = ((propsData ?? []) as PropWithGame[]).sort(
+    (a, b) =>
+      new Date(a.games.commence_time).getTime() -
+      new Date(b.games.commence_time).getTime(),
+  );
 
   // Serialize props for the client component
   const serializedProps = props.map((p) => ({

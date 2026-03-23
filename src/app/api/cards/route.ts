@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
     if (existingProps.length !== propIds.length) {
       const foundIds = new Set(existingProps.map((p) => p.id));
       const missingIds = propIds.filter((id) => !foundIds.has(id));
-      logError("cards", `Some props not found. Requested: [${propIds.join(", ")}], Missing: [${missingIds.join(", ")}], Found: ${existingProps.length}/${propIds.length}`);
+      logError("cards", `Some props not found. Requested: [${propIds.join(", ")}], Missing: [${missingIds.join(", ")}], Found: ${existingProps.length}/${propIds.length}`, "POST /api/cards");
       return badRequest("Some props not found");
     }
 
@@ -331,7 +331,7 @@ export async function POST(request: NextRequest) {
             .in("status", ["accepted", "pending"]);
 
           if (activateError) {
-            logError("cards", `Failed to activate challenge ${challenge_id}: ${activateError.message}`);
+            logError("cards", `Failed to activate challenge ${challenge_id}`, "POST /api/cards", activateError);
           }
 
           // Sabotage mode: swap user_id on both cards so each player
@@ -350,7 +350,7 @@ export async function POST(request: NextRequest) {
               .eq("id", cardB.id);
 
             if (swapErr1 || swapErr2) {
-              logError("cards", `Failed to swap sabotage cards for challenge ${challenge_id}: ${swapErr1?.message} ${swapErr2?.message}`);
+              logError("cards", `Failed to swap sabotage cards for challenge ${challenge_id}`, "POST /api/cards", swapErr1 ?? swapErr2);
             }
           }
         }

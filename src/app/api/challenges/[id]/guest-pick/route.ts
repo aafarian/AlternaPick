@@ -2,8 +2,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyGuestToken, markTokenUsed } from "@/lib/challenges/guest-token";
 import { badRequest, serverError, handleApiError } from "@/lib/api/errors";
-import { logError } from "@/lib/logger";
-import { UNPICKABLE_CHALLENGE_STATUSES } from "@/lib/challenges/constants";
+import { logError, logWarn } from "@/lib/logger";
+import { UNPICKABLE_CHALLENGE_STATUSES, LOCK_BUFFER_MS } from "@/lib/challenges/constants";
 import type { Card, Challenge, Pick, PickSelection } from "@/lib/supabase/types";
 
 interface GuestPickInput {
@@ -37,7 +37,7 @@ export async function POST(
     // Verify guest token
     const tokenData = await verifyGuestToken(token);
     if (!tokenData) {
-      logError("guest-pick", "Invalid or expired guest token", "POST /api/challenges/[id]/guest-pick");
+      logWarn("guest-pick", "Invalid or expired guest token");
       return NextResponse.json(
         { error: "Invalid or expired token" },
         { status: 401 }
@@ -46,7 +46,7 @@ export async function POST(
 
     // Verify token's challenge_id matches the URL parameter
     if (tokenData.challengeId !== challengeId) {
-      logError("guest-pick", `Token challenge_id mismatch: token=${tokenData.challengeId}, url=${challengeId}`, "POST /api/challenges/[id]/guest-pick");
+      logWarn("guest-pick", `Token challenge_id mismatch: token=${tokenData.challengeId}, url=${challengeId}`);
       return NextResponse.json(
         { error: "Invalid or expired token" },
         { status: 401 }
@@ -70,19 +70,14 @@ export async function POST(
 
     // Verify challenge has null opponent_id (email invite challenge)
     if (challenge.opponent_id !== null) {
-      logError("guest-pick", `Challenge ${challengeId} already has an opponent`, "POST /api/challenges/[id]/guest-pick");
+      logWarn("guest-pick", `Challenge ${challengeId} already has an opponent`);
       return badRequest("Challenge already has an opponent");
     }
 
     // Verify challenge is not cancelled/expired/resolved/declined
     if (UNPICKABLE_CHALLENGE_STATUSES.includes(challenge.status as typeof UNPICKABLE_CHALLENGE_STATUSES[number])) {
-      logError("guest-pick", `Challenge ${challengeId} is ${challenge.status}`, "POST /api/challenges/[id]/guest-pick");
+      logWarn("guest-pick", `Challenge ${challengeId} is ${challenge.status}`);
       return badRequest(`Challenge is ${challenge.status}`);
-    }
-
-    // Validate pick count matches challenge card_size
-    if (picks.length !== challenge.card_size) {
-      return badRequest(`Exactly ${challenge.card_size} picks are required`);
     }
 
     // Check for duplicate prop_ids
@@ -98,22 +93,45 @@ export async function POST(
       }
     }
 
-    // Verify all props exist
-    const { data: propsData, error: propsError } = await (admin.from("props") as any)
-      .select("id")
-      .in("id", propIds);
-
-    if (propsError) {
-      logError("guest-pick", "Failed to verify props", "POST /api/challenges/[id]/guest-pick", propsError);
-      return serverError("Failed to verify props", propsError.message);
+    // Validate picks against non-started mirror_props.
+    // Props may expire between page load and submission — the guest should only
+    // be required to pick on props whose games haven't started yet.
+    if (!challenge.mirror_props || challenge.mirror_props.length === 0) {
+      return badRequest("Challenge has no props assigned");
     }
 
-    const existingProps = (propsData ?? []) as { id: string }[];
-    if (existingProps.length !== propIds.length) {
-      const foundIds = new Set(existingProps.map((p) => p.id));
-      const missingIds = propIds.filter((id) => !foundIds.has(id));
-      logError("guest-pick", `Some props not found. Missing: [${missingIds.join(", ")}]`, "POST /api/challenges/[id]/guest-pick");
-      return badRequest("Some props not found");
+    const now = Date.now();
+
+    const { data: mirrorPropsData, error: mirrorPropsError } = await (admin.from("props") as any)
+      .select("id, games(commence_time)")
+      .in("id", challenge.mirror_props);
+
+    if (mirrorPropsError) {
+      logError("guest-pick", "Failed to fetch mirror props", "POST /api/challenges/[id]/guest-pick", mirrorPropsError);
+      return serverError("Failed to verify props", mirrorPropsError.message);
+    }
+
+    const mirrorProps = (mirrorPropsData ?? []) as Array<{ id: string; games: { commence_time: string } | null }>;
+    const validPropIds = new Set(
+      mirrorProps
+        .filter((p) => p.games && new Date(p.games.commence_time).getTime() - now > LOCK_BUFFER_MS)
+        .map((p) => p.id)
+    );
+
+    if (validPropIds.size === 0) {
+      return badRequest("All props on this challenge have expired");
+    }
+
+    // Every submitted pick must be for a valid (non-started) mirror prop
+    for (const pick of picks) {
+      if (!validPropIds.has(pick.prop_id)) {
+        return badRequest(`Prop ${pick.prop_id} is not a valid pickable prop for this challenge`);
+      }
+    }
+
+    // Guest must pick on ALL valid (non-started) props
+    if (picks.length !== validPropIds.size) {
+      return badRequest(`Exactly ${validPropIds.size} picks are required (${validPropIds.size} props available)`);
     }
 
     // Check if a guest card already exists for this challenge (prevent duplicates)
@@ -139,13 +157,14 @@ export async function POST(
     await markTokenUsed(token);
 
     // Create card for guest (user_id: null)
+    // Use picks.length (validated above) — may be less than card_size if some props expired.
     const { data: cardData, error: cardError } = await (admin.from("cards") as any)
       .insert({
         user_id: null,
         challenge_id: challengeId,
         status: "locked",
-        total_picks: challenge.card_size,
-        card_size: challenge.card_size,
+        total_picks: picks.length,
+        card_size: picks.length,
         game_mode: challenge.game_mode,
         locked_at: new Date().toISOString(),
       })

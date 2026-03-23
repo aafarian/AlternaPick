@@ -4,6 +4,7 @@ import type { StatCategory } from "@/lib/supabase/types";
 import { teamMatchesQuery } from "@/lib/constants";
 import { fetchNcaabTeams } from "@/lib/stats-service/client";
 import { type SportKey, SPORT_PRIORITY, SPORT_KEYS, SPORT_CONFIG } from "@/lib/sports";
+import { LOCK_BUFFER_MS } from "@/lib/challenges/constants";
 import PropsHeader from "@/components/props/PropsHeader";
 import SportSelector from "@/components/props/SportSelector";
 import CategoryFilter from "@/components/props/CategoryFilter";
@@ -81,7 +82,6 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
         .sort((a, b) => a.player_name.localeCompare(b.player_name)),
     })) ?? [];
 
-  const LOCK_BUFFER_MS = 5 * 60 * 1000;
   const now = Date.now();
 
   // Show all upcoming games (not just today) sorted by start time

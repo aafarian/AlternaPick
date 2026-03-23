@@ -3,7 +3,6 @@ import {
   createGuestToken,
   verifyGuestToken,
   markTokenUsed,
-  getTokensForEmail,
 } from "../guest-token";
 
 // ---------------------------------------------------------------------------
@@ -196,33 +195,3 @@ describe("markTokenUsed", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// getTokensForEmail
-// ---------------------------------------------------------------------------
-
-describe("getTokensForEmail", () => {
-  it("returns tokens for given email", async () => {
-    const tokens = [
-      {
-        id: "1",
-        token: "t1",
-        challenge_id: "c1",
-        email: "user@example.com",
-        expires_at: new Date().toISOString(),
-        used_at: null,
-        created_at: new Date().toISOString(),
-      },
-    ];
-    queryResult = { data: tokens, error: null };
-
-    const result = await getTokensForEmail("User@Example.com");
-    expect(result).toEqual(tokens);
-  });
-
-  it("returns empty array on DB error", async () => {
-    queryResult = { data: null, error: { message: "DB error" } };
-
-    const result = await getTokensForEmail("user@example.com");
-    expect(result).toEqual([]);
-  });
-});

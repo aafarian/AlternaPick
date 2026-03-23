@@ -1,21 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { CATEGORY_LABELS, CATEGORY_COLORS, teamLogoUrl } from "@/lib/constants";
-import { getPlayerHeadshotUrl, getHeadshotConfig } from "@/lib/sports";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
 import type { GameMode } from "@/lib/modes/types";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
+import PlayerHeadshot from "@/components/props/PlayerHeadshot";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
-import { getInitials } from "@/lib/format/name-utils";
+import { LOCK_BUFFER_MS } from "@/lib/challenges/constants";
 import { AlertCircle, Lock, Clock, Loader2, CheckCircle2 } from "lucide-react";
-
-const LOCK_BUFFER_MS = 5 * 60 * 1000;
 
 interface GuestProp {
   id: string;
@@ -37,48 +34,6 @@ interface GuestBallotProps {
   gameMode: GameMode;
   message: string | null;
   props: GuestProp[];
-}
-
-/** Matches PlayerHeadshot from ballot page */
-function PlayerHeadshot({
-  playerId,
-  playerName,
-  sport,
-}: {
-  playerId: string | null;
-  playerName: string;
-  sport?: string;
-}) {
-  const [imgError, setImgError] = useState(false);
-
-  if (!playerId || imgError) {
-    return (
-      <div className="flex h-[100px] w-[130px] items-end justify-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
-          {getInitials(playerName)}
-        </div>
-      </div>
-    );
-  }
-
-  const hs = getHeadshotConfig(sport);
-
-  return (
-    <div className="relative h-[100px] w-[130px]">
-      <Image
-        src={getPlayerHeadshotUrl(playerId, sport)}
-        alt={playerName}
-        width={hs.width}
-        height={hs.height}
-        unoptimized={hs.isProxied}
-        className={cn(
-          "relative z-10 object-contain drop-shadow-lg",
-          hs.isProxied ? "mx-auto object-bottom" : "object-bottom"
-        )}
-        onError={() => setImgError(true)}
-      />
-    </div>
-  );
 }
 
 export default function GuestBallot({
