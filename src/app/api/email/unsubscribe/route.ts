@@ -4,8 +4,10 @@ import { verifyUnsubscribeToken } from "@/lib/email/unsubscribe-token";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { logError, logInfo } from "@/lib/logger";
+import { EMAIL_NOTIFICATION_TYPES } from "@/lib/supabase/types";
 import type { NotificationPreferences } from "@/lib/supabase/types";
 import { colors } from "@/lib/email/styles";
+import { escapeHtml } from "@/lib/html";
 
 /**
  * RFC 8058 one-click unsubscribe endpoint.
@@ -37,13 +39,10 @@ async function disableEmailsForUser(email: string): Promise<UnsubscribeResult> {
   if (!profile) return "not_found";
 
   const prefs = ((profile.notification_preferences ?? {}) as NotificationPreferences);
-  const updated: NotificationPreferences = {
-    ...prefs,
-    email_card_resolved: false,
-    email_challenge_received: false,
-    email_challenge_resolved: false,
-    email_friend_request: false,
-  };
+  const updated: NotificationPreferences = { ...prefs };
+  for (const key of EMAIL_NOTIFICATION_TYPES) {
+    updated[key] = false;
+  }
 
   const { error } = await typedFrom(admin, "profiles")
     .update({ notification_preferences: updated })
@@ -173,12 +172,12 @@ function renderPage(title: string, body: string): string {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${title} — AlternaPick</title>
+  <title>${escapeHtml(title)} — AlternaPick</title>
   <style>${pageStyle}</style>
 </head>
 <body>
-  <h1>${title}</h1>
-  <p>${body}</p>
+  <h1>${escapeHtml(title)}</h1>
+  <p>${escapeHtml(body)}</p>
 </body>
 </html>`;
 }

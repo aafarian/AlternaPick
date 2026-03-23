@@ -3,6 +3,7 @@ import { createNotification } from "@/lib/notifications/queries";
 import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
 import { sendEmail, shouldSendEmail } from "@/lib/email/send";
 import { getCardResolvedEmailProps } from "@/lib/email/templates/card-resolved";
+import { tryGetUnsubscribeUrl } from "@/lib/email/unsubscribe-token";
 import { getCardTier } from "@/lib/cards/tiers";
 import { logError, logWarn } from "@/lib/logger";
 import {
@@ -897,14 +898,15 @@ export async function handlePostResolution(
   if (!result.challenge_id) {
     try {
       if (profile?.email && shouldSendEmail("card_resolved", profile.notification_preferences)) {
+        const unsubscribeUrl = tryGetUnsubscribeUrl(profile.email);
         const { subject, react, text } = getCardResolvedEmailProps({
           username: profile.username ?? "Player",
           score: result.score,
           total: result.total,
           cardId: result.card_id,
-          recipientEmail: profile.email,
+          unsubscribeUrl,
         });
-        void sendEmail({ to: profile.email, subject, react, text });
+        void sendEmail({ to: profile.email, subject, react, text, unsubscribeUrl });
       }
     } catch (emailError) {
       logError("card-resolution", "Failed to send card_resolved email", undefined, emailError);

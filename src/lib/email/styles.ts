@@ -9,9 +9,6 @@
  * - Deliverability-safe: minimal HTML, no background colors on body
  */
 
-// Re-export for backward compatibility — templates import baseUrl from here
-export { baseUrl } from "./config";
-
 export const colors = {
   white: "#ffffff",
   zinc950: "#09090b",

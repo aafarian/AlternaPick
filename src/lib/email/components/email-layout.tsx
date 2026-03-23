@@ -1,22 +1,15 @@
 import { Html, Head, Body, Container, Preview, Hr, Text, Link, Section } from "@react-email/components";
 import type { ReactElement, ReactNode } from "react";
 import { emailStyles as styles } from "@/lib/email/styles";
-import { getUnsubscribeUrl } from "@/lib/email/unsubscribe-token";
 
 interface EmailLayoutProps {
   preview: string;
   children: ReactNode;
-  /** When provided, generates and renders the unsubscribe footer link. */
-  recipientEmail?: string;
+  /** Pre-generated unsubscribe URL. Omit to render without unsubscribe link. */
+  unsubscribeUrl?: string;
 }
 
-export function EmailLayout({ preview, children, recipientEmail }: EmailLayoutProps): ReactElement {
-  let unsubscribeUrl: string | undefined;
-  try {
-    unsubscribeUrl = recipientEmail ? getUnsubscribeUrl(recipientEmail) : undefined;
-  } catch {
-    // UNSUBSCRIBE_SECRET not configured — render without unsubscribe link
-  }
+export function EmailLayout({ preview, children, unsubscribeUrl }: EmailLayoutProps): ReactElement {
 
   return (
     <Html lang="en">

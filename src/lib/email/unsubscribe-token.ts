@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { baseUrl } from "@/lib/email/config";
+import { logWarn } from "@/lib/logger";
 
 /**
  * HMAC-SHA256 token for one-click unsubscribe.
@@ -52,5 +53,21 @@ export function verifyUnsubscribeToken(token: string): string | null {
 /** Build the full unsubscribe URL for a given email address. */
 export function getUnsubscribeUrl(email: string): string {
   const token = createUnsubscribeToken(email);
-  return `${baseUrl}/api/email/unsubscribe?token=${token}`;
+  return `${baseUrl}/api/email/unsubscribe?token=${encodeURIComponent(token)}`;
+}
+
+/**
+ * Build the unsubscribe URL, returning `undefined` if UNSUBSCRIBE_SECRET
+ * is not configured. Use this at call sites that should degrade gracefully.
+ */
+export function tryGetUnsubscribeUrl(email: string): string | undefined {
+  try {
+    return getUnsubscribeUrl(email);
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("UNSUBSCRIBE_SECRET")) {
+      return undefined;
+    }
+    logWarn("email", "tryGetUnsubscribeUrl failed unexpectedly", err);
+    return undefined;
+  }
 }

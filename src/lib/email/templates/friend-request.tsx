@@ -1,6 +1,7 @@
 import { Section, Text, Button } from "@react-email/components";
 import type { ReactElement } from "react";
-import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
+import { baseUrl } from "@/lib/email/config";
+import { emailStyles as styles } from "@/lib/email/styles";
 import { EmailLayout } from "@/lib/email/components/email-layout";
 
 // ---------------------------------------------------------------------------
@@ -10,7 +11,7 @@ import { EmailLayout } from "@/lib/email/components/email-layout";
 export interface FriendRequestEmailProps {
   requesterUsername: string;
   addresseeUsername: string;
-  recipientEmail?: string;
+  unsubscribeUrl?: string;
 }
 
 const friendsUrl = `${baseUrl}/friends`;
@@ -22,12 +23,12 @@ const friendsUrl = `${baseUrl}/friends`;
 export function FriendRequestEmail({
   requesterUsername,
   addresseeUsername,
-  recipientEmail,
+  unsubscribeUrl,
 }: FriendRequestEmailProps): ReactElement {
   return (
     <EmailLayout
       preview={`${requesterUsername} sent you a friend request`}
-      recipientEmail={recipientEmail}
+      unsubscribeUrl={unsubscribeUrl}
     >
       <Text style={styles.subheading}>Friend Request</Text>
       <Text style={styles.heading}>

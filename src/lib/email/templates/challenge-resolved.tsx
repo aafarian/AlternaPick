@@ -1,6 +1,7 @@
 import { Text, Button, Section } from "@react-email/components";
 import type { ReactElement } from "react";
-import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
+import { baseUrl } from "@/lib/email/config";
+import { emailStyles as styles } from "@/lib/email/styles";
 import { EmailLayout } from "@/lib/email/components/email-layout";
 
 // ---------------------------------------------------------------------------
@@ -15,7 +16,7 @@ export interface ChallengeResolvedEmailProps {
   isWinner: boolean;
   isTie: boolean;
   challengeId: string;
-  recipientEmail?: string;
+  unsubscribeUrl?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -75,7 +76,7 @@ export function ChallengeResolvedEmail({
   isWinner,
   isTie,
   challengeId,
-  recipientEmail,
+  unsubscribeUrl,
 }: ChallengeResolvedEmailProps): ReactElement {
   const challengeUrl = `${baseUrl}/challenges/${challengeId}`;
   const summary = getSummary(isWinner, isTie, opponentName);
@@ -85,7 +86,7 @@ export function ChallengeResolvedEmail({
   return (
     <EmailLayout
       preview={getSubject(isWinner, isTie, myScore, theirScore, opponentName)}
-      recipientEmail={recipientEmail}
+      unsubscribeUrl={unsubscribeUrl}
     >
       <Text style={styles.subheading}>Challenge Complete</Text>
       <Text style={styles.heading}>{getHeading(isWinner, isTie)}</Text>

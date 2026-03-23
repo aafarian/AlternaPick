@@ -58,6 +58,7 @@ jobs:
             RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
             EMAIL_ALLOWLIST=${{ secrets.EMAIL_ALLOWLIST }}
             UNSUBSCRIBE_SECRET=${{ secrets.UNSUBSCRIBE_SECRET }}
+            RESEND_WEBHOOK_SECRET=${{ secrets.RESEND_WEBHOOK_SECRET }}
             ENVEOF
 
             # Tag current locally-built images so we can rollback if the new build fails health checks
