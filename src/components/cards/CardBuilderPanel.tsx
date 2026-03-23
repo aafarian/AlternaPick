@@ -210,6 +210,7 @@ export default function CardBuilderPanel() {
         picks: picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
         gameMode,
         cardSize: picks.length,
+        challengeId: challengeId ?? undefined,
       }));
       setShowAuthModal(true);
       return;
@@ -251,6 +252,7 @@ export default function CardBuilderPanel() {
         pickCount={picks.length}
         onGuestLockIn={guestToken ? handleGuestLockIn : undefined}
         guestLoading={guestLocking}
+        redirectTo={challengeId ? `/challenges/${challengeId}` : undefined}
       />
 
       <div className="fixed bottom-0 left-0 right-0 z-50 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0">

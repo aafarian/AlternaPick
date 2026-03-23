@@ -18,6 +18,8 @@ interface AuthRequiredModalProps {
   /** When set, shows a "Play as Guest" option for email-invite challenges */
   onGuestLockIn?: () => void;
   guestLoading?: boolean;
+  /** Override the post-auth redirect (e.g. challenge detail page) */
+  redirectTo?: string;
 }
 
 export default function AuthRequiredModal({
@@ -26,10 +28,12 @@ export default function AuthRequiredModal({
   pickCount,
   onGuestLockIn,
   guestLoading = false,
+  redirectTo,
 }: AuthRequiredModalProps) {
   const router = useRouter();
 
   const isChallenge = !!onGuestLockIn;
+  const authRedirect = encodeURIComponent(redirectTo ?? "/picks");
   const description = isChallenge
     ? `Your ${pickCount} ${pickCount === 1 ? "pick is" : "picks are"} saved. Sign up to track results, or play as a guest.`
     : `Your ${pickCount} ${pickCount === 1 ? "pick is" : "picks are"} saved. Create an account to lock them in.`;
@@ -48,7 +52,7 @@ export default function AuthRequiredModal({
         </DialogHeader>
         <div className="mt-5 flex flex-col gap-2">
           <Button
-            onClick={() => router.push("/auth/signup?redirectTo=/picks")}
+            onClick={() => router.push(`/auth/signup?redirectTo=${authRedirect}`)}
             className="w-full gap-2"
             size="sm"
           >
@@ -57,7 +61,7 @@ export default function AuthRequiredModal({
           </Button>
           <Button
             variant="outline"
-            onClick={() => router.push("/auth/login?redirectTo=/picks")}
+            onClick={() => router.push(`/auth/login?redirectTo=${authRedirect}`)}
             className="w-full gap-2"
             size="sm"
           >

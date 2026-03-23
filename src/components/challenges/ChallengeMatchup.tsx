@@ -187,6 +187,19 @@ export default function ChallengeMatchup({
   const router = useRouter();
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Detect pending picks from the email-invite sign-in flow synchronously
+  // so the very first render shows the loader instead of Accept/Decline.
+  const [hasPendingPicks] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw = sessionStorage.getItem("pending_card_picks");
+      if (!raw) return false;
+      return JSON.parse(raw).challengeId === challenge.id;
+    } catch {
+      return false;
+    }
+  });
   const prefersReduced = useReducedMotion();
 
   // Live stats — enabled when cards are locked (polling) or challenge is
@@ -454,15 +467,19 @@ export default function ChallengeMatchup({
               />
             </div>
             {/* QuickActions requires an opponent — email-invite challenges may not have one yet */}
-            {(isChallenger ? challenge.opponent_id : challenge.challenger_id) != null && (
-              <QuickActions
-                challengeId={challenge.id}
-                opponentId={(isChallenger ? challenge.opponent_id : challenge.challenger_id)!}
-                gameMode={(challenge.game_mode as GameMode) ?? "classic"}
-                isParticipant={true}
-                isResolved={challenge.status === "resolved"}
-              />
-            )}
+            {(() => {
+              const otherUserId = isChallenger ? challenge.opponent_id : challenge.challenger_id;
+              if (!otherUserId) return null;
+              return (
+                <QuickActions
+                  challengeId={challenge.id}
+                  opponentId={otherUserId}
+                  gameMode={(challenge.game_mode as GameMode) ?? "classic"}
+                  isParticipant={true}
+                  isResolved={challenge.status === "resolved"}
+                />
+              );
+            })()}
           </div>
         </FadeIn>
       )}
@@ -595,6 +612,13 @@ export default function ChallengeMatchup({
                 >
                   {actionLoading ? "Cancelling..." : "Cancel Challenge"}
                 </Button>
+              </div>
+            ) : hasPendingPicks ? (
+              <div className="flex flex-col items-center gap-3 text-center">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">
+                  Locking in your picks...
+                </p>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3 text-center">

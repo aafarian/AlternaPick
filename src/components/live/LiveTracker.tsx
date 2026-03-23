@@ -52,8 +52,8 @@ function CardTypeBadge({ card }: { card: CardWithPicks }) {
   if (card.challenge_id) {
     const opponentName = card.challenges
       ? card.user_id === card.challenges.challenger_id
-        ? card.challenges.opponent.username
-        : card.challenges.challenger.username
+        ? card.challenges.opponent?.username
+        : card.challenges.challenger?.username
       : null;
     return (
       <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">

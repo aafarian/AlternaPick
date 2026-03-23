@@ -40,7 +40,22 @@ export default async function GuestPickPage({
 
   // Verify the token
   const tokenData = await verifyGuestToken(token);
+
+  const admin = createAdminClient();
+
+  // If token is invalid/used, check if a guest card already exists for this
+  // challenge — the token was legitimately consumed on lock-in and the guest
+  // is returning after submitting picks.
   if (!tokenData) {
+    const { data: guestCards } = await (admin.from("cards") as any)
+      .select("id")
+      .eq("challenge_id", challengeId)
+      .is("user_id", null)
+      .limit(1);
+
+    if ((guestCards ?? []).length > 0) {
+      return <AlreadySubmittedState />;
+    }
     return <InvalidTokenState />;
   }
 
@@ -48,8 +63,6 @@ export default async function GuestPickPage({
   if (tokenData.challengeId !== challengeId) {
     return <InvalidTokenState />;
   }
-
-  const admin = createAdminClient();
 
   // Fetch challenge with challenger profile
   const { data: challengeData, error: challengeError } = await (
@@ -109,6 +122,18 @@ export default async function GuestPickPage({
     }
 
     await markTokenUsed(token);
+
+    // If user already has a card for this challenge, skip straight to the matchup
+    const { data: userCards } = await (admin.from("cards") as any)
+      .select("id")
+      .eq("challenge_id", challengeId)
+      .eq("user_id", user.id)
+      .limit(1);
+
+    if ((userCards ?? []).length > 0) {
+      redirect(`/challenges/${challengeId}`);
+    }
+
     // Mirror/random modes have a ballot page; other modes use the challenge detail page
     // which links to /props for picking.
     const hasMirrorProps = challenge.mirror_props && challenge.mirror_props.length > 0;

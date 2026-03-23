@@ -143,7 +143,7 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
               H2H{(() => {
                 const c = card.challenges;
                 if (!c) return "";
-                const name = card.user_id === c.challenger_id ? c.opponent.username : c.challenger.username;
+                const name = card.user_id === c.challenger_id ? c.opponent?.username : c.challenger?.username;
                 return ` · ${name}`;
               })()}
             </Badge>

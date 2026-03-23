@@ -112,13 +112,13 @@ export async function convertGuestChallenges(
 
     converted++;
 
-    // Notify the challenger that their opponent signed up
+    // Notify the challenger that their opponent accepted
     try {
       await createNotification(admin, {
         user_id: challenge.challenger_id,
         type: "challenge_accepted",
-        title: "Opponent Signed Up",
-        body: `${displayName} signed up and accepted your challenge!`,
+        title: "Challenge Accepted",
+        body: `${displayName} accepted your challenge!`,
         metadata: { challenge_id: challenge.id },
       });
     } catch (notifError) {

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { useAuth } from "@/lib/auth/auth-context";
+import { getOpponentDisplayName } from "@/lib/challenges/display";
 
 /**
  * Reads `challenge_id` (and optional `guest_token`) search params from the URL.
@@ -66,6 +67,12 @@ export default function ChallengeInitializer() {
         const isChallenger = user?.id === challenge.challenger_id;
         const opponent = isChallenger ? challenge.opponent : challenge.challenger;
 
+        // For email invites, opponent profile is null — fall back to email display
+        const opponentName = getOpponentDisplayName(
+          opponent,
+          isChallenger ? challenge.opponent_email : null,
+        );
+
         // If the challenger already locked a card, the opponent must match
         // the challenger's actual pick count — not the challenge's configured
         // card_size (which may be a larger default like 6).
@@ -76,7 +83,7 @@ export default function ChallengeInitializer() {
 
         setChallenge(
           id,
-          { username: opponent.username },
+          { username: opponentName },
           challenge.game_mode ?? "classic",
           actualCardSize,
         );
