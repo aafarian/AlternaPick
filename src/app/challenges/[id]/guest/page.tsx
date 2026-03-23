@@ -208,7 +208,7 @@ export default async function GuestPickPage({
     <GuestBallot
       challengeId={challengeId}
       token={token}
-      challengerName={challenge.challenger.username}
+      challengerName={challenge.challenger.display_name || challenge.challenger.username}
       gameMode={challenge.game_mode}
       message={challenge.message}
       props={serializedProps}

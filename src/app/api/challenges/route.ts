@@ -166,6 +166,19 @@ export async function POST(request: NextRequest) {
         return badRequest("Cannot challenge yourself");
       }
 
+      // Prevent spamming the same email with multiple open invites
+      const adminCheck = createAdminClient();
+      const { data: existingInvites } = (await (adminCheck.from("challenges") as any)
+        .select("id")
+        .eq("challenger_id", user.id)
+        .eq("opponent_email", email)
+        .not("status", "in", '("cancelled","declined","resolved")')
+        .limit(1)) as { data: { id: string }[] | null; error: unknown };
+
+      if ((existingInvites ?? []).length > 0) {
+        return badRequest("You already have an open invite to this email address");
+      }
+
       opponentEmail = email;
     }
 
