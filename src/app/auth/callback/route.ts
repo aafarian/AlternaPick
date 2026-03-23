@@ -75,9 +75,9 @@ export async function GET(request: NextRequest) {
   if (refUsername && user) {
     try {
       await processReferral(supabase, user.id, decodeURIComponent(refUsername));
-    } catch {
+    } catch (err) {
       // Non-fatal: referral failure should not block the auth flow
-      logError("auth-callback", "Failed to process referral");
+      logError("auth-callback", "Failed to process referral", "/auth/callback", err);
     }
   }
 
@@ -85,9 +85,9 @@ export async function GET(request: NextRequest) {
   if (user?.email) {
     try {
       await convertGuestChallenges(user.id, user.email);
-    } catch {
+    } catch (err) {
       // Non-fatal: guest conversion failure should not block the auth flow
-      logError("auth-callback", "Failed to convert guest challenges");
+      logError("auth-callback", "Failed to convert guest challenges", "/auth/callback", err);
     }
   }
 

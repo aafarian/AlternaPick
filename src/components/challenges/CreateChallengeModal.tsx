@@ -230,7 +230,9 @@ export default function CreateChallengeModal({
     opponentMode === "friend"
       ? selectedFriend !== null
       : isValidEmail(opponentEmail.trim());
-  const canProceedFromSettings = true; // Mode + size always have defaults
+  // Email invites require mirror or random mode (guest page needs pre-selected props)
+  const emailModeValid = opponentMode !== "email" || ["mirror", "random"].includes(gameMode);
+  const canProceedFromSettings = emailModeValid;
   const canProceedFromMirror = mirrorProps.length === cardSize;
 
   const canProceed =
@@ -526,6 +528,13 @@ export default function CreateChallengeModal({
               {getModeHint(gameMode) && (
                 <div className="rounded-lg bg-primary/5 px-3 py-2 text-xs text-primary/80">
                   {getModeHint(gameMode)}
+                </div>
+              )}
+
+              {/* Email invite mode restriction notice */}
+              {opponentMode === "email" && !["mirror", "random"].includes(gameMode) && (
+                <div className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  Email invites only support Mirror and Random modes. The guest needs pre-selected props to make their picks.
                 </div>
               )}
             </div>

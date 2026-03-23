@@ -134,10 +134,12 @@ export default function GuestBallot({
     setSubmitting(true);
     setError(null);
     try {
-      const picksList = validProps.map((p) => ({
-        prop_id: p.id,
-        selection: picks.get(p.id)!,
-      }));
+      const picksList = validProps
+        .filter((p) => picks.has(p.id))
+        .map((p) => ({
+          prop_id: p.id,
+          selection: picks.get(p.id) as PickSelection,
+        }));
 
       const res = await fetch(`/api/challenges/${challengeId}/guest-pick`, {
         method: "POST",

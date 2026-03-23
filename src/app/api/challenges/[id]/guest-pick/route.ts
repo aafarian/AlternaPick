@@ -132,6 +132,12 @@ export async function POST(
       return badRequest("A guest card already exists for this challenge");
     }
 
+    // Mark token as used BEFORE card creation to prevent race condition
+    // where two concurrent requests both pass verification and create duplicate cards.
+    // If card creation fails after this point, the token is consumed but that's
+    // preferable to duplicate cards.
+    await markTokenUsed(token);
+
     // Create card for guest (user_id: null)
     const { data: cardData, error: cardError } = await (admin.from("cards") as any)
       .insert({
@@ -172,8 +178,25 @@ export async function POST(
 
     const createdPicks = (picksData ?? []) as Pick[];
 
-    // Mark token as used
-    await markTokenUsed(token);
+    // Check if both participants now have locked cards (challenger + guest).
+    // If so, transition the challenge to "active" so it can be resolved.
+    const { data: allCards, error: allCardsError } = await (admin.from("cards") as any)
+      .select("id")
+      .eq("challenge_id", challengeId)
+      .eq("status", "locked");
+
+    if (allCardsError) {
+      logError("guest-pick", "Failed to check challenge cards", "POST /api/challenges/[id]/guest-pick", allCardsError);
+    } else if ((allCards ?? []).length >= 2) {
+      const { error: activateError } = await (admin.from("challenges") as any)
+        .update({ status: "active" })
+        .eq("id", challengeId)
+        .in("status", ["accepted", "pending"]);
+
+      if (activateError) {
+        logError("guest-pick", `Failed to activate challenge ${challengeId}`, "POST /api/challenges/[id]/guest-pick", activateError);
+      }
+    }
 
     return NextResponse.json({
       card: { ...card, picks: createdPicks },

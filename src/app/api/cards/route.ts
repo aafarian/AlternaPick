@@ -328,7 +328,7 @@ export async function POST(request: NextRequest) {
           const { error: activateError } = await (adminClient.from("challenges") as any)
             .update({ status: "active" })
             .eq("id", challenge_id)
-            .eq("status", "accepted");
+            .in("status", ["accepted", "pending"]);
 
           if (activateError) {
             logError("cards", `Failed to activate challenge ${challenge_id}: ${activateError.message}`);
