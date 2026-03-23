@@ -93,45 +93,75 @@ export async function POST(
       }
     }
 
-    // Validate picks against non-started mirror_props.
-    // Props may expire between page load and submission — the guest should only
-    // be required to pick on props whose games haven't started yet.
-    if (!challenge.mirror_props || challenge.mirror_props.length === 0) {
-      return badRequest("Challenge has no props assigned");
-    }
-
     const now = Date.now();
+    const hasMirrorProps = challenge.mirror_props && challenge.mirror_props.length > 0;
 
-    const { data: mirrorPropsData, error: mirrorPropsError } = await (admin.from("props") as any)
-      .select("id, games(commence_time)")
-      .in("id", challenge.mirror_props);
+    if (hasMirrorProps) {
+      // Mirror/random mode: validate picks against non-started mirror_props.
+      // Props may expire between page load and submission — the guest should only
+      // be required to pick on props whose games haven't started yet.
+      const { data: mirrorPropsData, error: mirrorPropsError } = await (admin.from("props") as any)
+        .select("id, games(commence_time)")
+        .in("id", challenge.mirror_props);
 
-    if (mirrorPropsError) {
-      logError("guest-pick", "Failed to fetch mirror props", "POST /api/challenges/[id]/guest-pick", mirrorPropsError);
-      return serverError("Failed to verify props", mirrorPropsError.message);
-    }
-
-    const mirrorProps = (mirrorPropsData ?? []) as Array<{ id: string; games: { commence_time: string } | null }>;
-    const validPropIds = new Set(
-      mirrorProps
-        .filter((p) => p.games && new Date(p.games.commence_time).getTime() - now > LOCK_BUFFER_MS)
-        .map((p) => p.id)
-    );
-
-    if (validPropIds.size === 0) {
-      return badRequest("All props on this challenge have expired");
-    }
-
-    // Every submitted pick must be for a valid (non-started) mirror prop
-    for (const pick of picks) {
-      if (!validPropIds.has(pick.prop_id)) {
-        return badRequest(`Prop ${pick.prop_id} is not a valid pickable prop for this challenge`);
+      if (mirrorPropsError) {
+        logError("guest-pick", "Failed to fetch mirror props", "POST /api/challenges/[id]/guest-pick", mirrorPropsError);
+        return serverError("Failed to verify props", mirrorPropsError.message);
       }
-    }
 
-    // Guest must pick on ALL valid (non-started) props
-    if (picks.length !== validPropIds.size) {
-      return badRequest(`Exactly ${validPropIds.size} picks are required (${validPropIds.size} props available)`);
+      const mirrorProps = (mirrorPropsData ?? []) as Array<{ id: string; games: { commence_time: string } | null }>;
+      const validPropIds = new Set(
+        mirrorProps
+          .filter((p) => p.games && new Date(p.games.commence_time).getTime() - now > LOCK_BUFFER_MS)
+          .map((p) => p.id)
+      );
+
+      if (validPropIds.size === 0) {
+        return badRequest("All props on this challenge have expired");
+      }
+
+      // Every submitted pick must be for a valid (non-started) mirror prop
+      for (const pick of picks) {
+        if (!validPropIds.has(pick.prop_id)) {
+          return badRequest(`Prop ${pick.prop_id} is not a valid pickable prop for this challenge`);
+        }
+      }
+
+      // Guest must pick on ALL valid (non-started) props
+      if (picks.length !== validPropIds.size) {
+        return badRequest(`Exactly ${validPropIds.size} picks are required (${validPropIds.size} props available)`);
+      }
+    } else {
+      // Classic/sabotage/one_player/one_team: guest picks their own props.
+      // Validate that all submitted props exist and haven't started.
+      const propIds = picks.map((p) => p.prop_id);
+
+      const { data: propsData, error: propsError } = await (admin.from("props") as any)
+        .select("id, games(commence_time)")
+        .in("id", propIds);
+
+      if (propsError) {
+        logError("guest-pick", "Failed to fetch props for guest pick", "POST /api/challenges/[id]/guest-pick", propsError);
+        return serverError("Failed to verify props", propsError.message);
+      }
+
+      const fetchedProps = (propsData ?? []) as Array<{ id: string; games: { commence_time: string } | null }>;
+      if (fetchedProps.length !== propIds.length) {
+        return badRequest("One or more props not found");
+      }
+
+      // Check all props are still pickable (haven't started)
+      for (const prop of fetchedProps) {
+        if (!prop.games || new Date(prop.games.commence_time).getTime() - now <= LOCK_BUFFER_MS) {
+          return badRequest(`Prop ${prop.id} has already started or is about to start`);
+        }
+      }
+
+      // Enforce card_size — guest must submit exactly the right number of picks
+      const expectedSize = challenge.card_size ?? 6;
+      if (picks.length < 2 || picks.length > expectedSize) {
+        return badRequest(`Expected between 2 and ${expectedSize} picks`);
+      }
     }
 
     // Check if a guest card already exists for this challenge (prevent duplicates)

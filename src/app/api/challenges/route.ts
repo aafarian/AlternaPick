@@ -171,15 +171,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Email invite challenges only support modes where props are pre-selected
-    // (mirror, random) because the guest page cannot render a prop selection flow.
-    const emailCompatibleModes = ["mirror", "random"];
-    if (opponentEmail && !emailCompatibleModes.includes(gameMode)) {
-      return badRequest(
-        `Email invites only support mirror and random modes. "${gameMode}" requires both players to pick their own props.`
-      );
-    }
-
     // ---- Validate message ----
     const message = body.message ?? null;
     if (message !== null && message.length > 200) {

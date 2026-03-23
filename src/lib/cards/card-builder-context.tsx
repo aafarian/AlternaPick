@@ -27,7 +27,7 @@ interface CardBuilderContextValue {
   clearCard: () => void;
   setLocking: (isLocking: boolean) => void;
   setError: (error: string | null) => void;
-  setChallenge: (challengeId: string, opponent: ChallengeOpponent, gameMode?: GameMode, cardSize?: number) => void;
+  setChallenge: (challengeId: string, opponent: ChallengeOpponent, gameMode?: GameMode, cardSize?: number, guestToken?: string) => void;
   setMode: (mode: GameMode) => void;
   setCardSize: (size: number) => void;
   isPickSelected: (propId: string) => boolean;
@@ -84,8 +84,8 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
   );
 
   const setChallenge = useCallback(
-    (challengeId: string, opponent: ChallengeOpponent, gameMode?: GameMode, cardSize?: number) =>
-      dispatch({ type: "SET_CHALLENGE", challengeId, opponent, gameMode, cardSize }),
+    (challengeId: string, opponent: ChallengeOpponent, gameMode?: GameMode, cardSize?: number, guestToken?: string) =>
+      dispatch({ type: "SET_CHALLENGE", challengeId, opponent, gameMode, cardSize, guestToken }),
     []
   );
 

@@ -38,11 +38,12 @@ export default function CardBuilderPanel() {
     hideSuccess,
     canLockIn,
   } = useCardBuilder();
-  const { picks, error, challengeId, challengeOpponent, gameMode } = state;
+  const { picks, error, challengeId, challengeOpponent, gameMode, guestToken } = state;
   const redirectRef = useRef<string | null>(null);
 
   // Local locking state — context dispatch doesn't reliably trigger re-renders
   const [isLocking, setIsLocking] = useState(false);
+  const [guestLocking, setGuestLocking] = useState(false);
 
   // Auth gate for guest lock-in
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -170,6 +171,36 @@ export default function CardBuilderPanel() {
     }
   }
 
+  async function handleGuestLockIn() {
+    if (!challengeId || !guestToken || guestLocking) return;
+    setGuestLocking(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/challenges/${challengeId}/guest-pick`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: guestToken,
+          picks: picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to submit guest picks");
+      }
+
+      setShowAuthModal(false);
+      redirectRef.current = `/challenges/${challengeId}/guest?token=${guestToken}`;
+      showSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to lock in card");
+    } finally {
+      setGuestLocking(false);
+    }
+  }
+
   async function handleLockIn() {
     if (!canLockIn || isLocking) return;
 
@@ -218,6 +249,8 @@ export default function CardBuilderPanel() {
         open={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         pickCount={picks.length}
+        onGuestLockIn={guestToken ? handleGuestLockIn : undefined}
+        guestLoading={guestLocking}
       />
 
       <div className="fixed bottom-0 left-0 right-0 z-50 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0">

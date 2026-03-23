@@ -12,6 +12,7 @@ export const initialCardBuilderState: CardBuilderState = {
   error: null,
   challengeId: null,
   challengeOpponent: null,
+  guestToken: null,
   showSuccess: false,
 };
 
@@ -74,6 +75,7 @@ export function cardBuilderReducer(
         gameMode: action.gameMode ?? state.gameMode,
         cardSize: newSize,
         maxPicks: newSize,
+        guestToken: action.guestToken ?? state.guestToken,
       };
     }
     case "SHOW_SUCCESS":

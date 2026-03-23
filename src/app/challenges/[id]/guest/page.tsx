@@ -104,7 +104,14 @@ export default async function GuestPickPage({
     }
 
     await markTokenUsed(token);
-    redirect(`/challenges/${challengeId}/ballot`);
+    // Mirror/random modes have a ballot page; other modes use the challenge detail page
+    // which links to /props for picking.
+    const hasMirrorProps = challenge.mirror_props && challenge.mirror_props.length > 0;
+    redirect(
+      hasMirrorProps
+        ? `/challenges/${challengeId}/ballot`
+        : `/challenges/${challengeId}`
+    );
   }
 
   // Check if a guest card already exists (picks already submitted)
@@ -118,14 +125,11 @@ export default async function GuestPickPage({
     return <AlreadySubmittedState />;
   }
 
-  // Fetch props for this challenge
-  if (!challenge.mirror_props || challenge.mirror_props.length === 0) {
-    logError(
-      "guest-page",
-      `Challenge ${challengeId} has no mirror_props`,
-      "GET /challenges/[id]/guest"
-    );
-    return <InvalidTokenState />;
+  // For modes without pre-selected props (classic, sabotage, one_player, one_team),
+  // redirect to the props browsing page where the guest picks their own props.
+  const hasMirrorProps = challenge.mirror_props && challenge.mirror_props.length > 0;
+  if (!hasMirrorProps) {
+    redirect(`/props?challenge_id=${challengeId}&guest_token=${token}`);
   }
 
   const { data: propsData, error: propsError } = await (

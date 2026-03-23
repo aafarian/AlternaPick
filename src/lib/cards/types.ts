@@ -24,6 +24,8 @@ export interface CardBuilderState {
   error: string | null;
   challengeId: string | null;
   challengeOpponent: ChallengeOpponent | null;
+  /** Guest token for email-invite challenges (unauthenticated flow) */
+  guestToken: string | null;
   showSuccess: boolean;
 }
 
@@ -40,6 +42,7 @@ export type CardBuilderAction =
       opponent: ChallengeOpponent;
       gameMode?: GameMode;
       cardSize?: number;
+      guestToken?: string;
     }
   | { type: "SHOW_SUCCESS" }
   | { type: "HIDE_SUCCESS" }

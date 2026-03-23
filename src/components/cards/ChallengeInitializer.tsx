@@ -6,13 +6,18 @@ import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { useAuth } from "@/lib/auth/auth-context";
 
 /**
- * Reads the `challenge` search param from the URL and, if present,
- * fetches challenge details from the API and sets challenge context
- * in the card builder. Renders nothing visible.
+ * Reads `challenge_id` (and optional `guest_token`) search params from the URL.
+ *
+ * - Authenticated users: fetches challenge details from the auth-gated API.
+ * - Guests with a token: fetches challenge context from the guest-info endpoint
+ *   and stores the token in card builder state for later use at lock-in.
+ *
+ * Renders nothing visible.
  */
 export default function ChallengeInitializer() {
   const searchParams = useSearchParams();
   const challengeId = searchParams.get("challenge_id");
+  const guestToken = searchParams.get("guest_token");
   const { setChallenge, state } = useCardBuilder();
   const { user } = useAuth();
   const fetchedRef = useRef<string | null>(null);
@@ -28,6 +33,28 @@ export default function ChallengeInitializer() {
 
     async function loadChallenge(id: string) {
       try {
+        // Guest flow: use the guest-info endpoint (token-authenticated, no login required)
+        if (guestToken && !user) {
+          const res = await fetch(
+            `/api/challenges/${id}/guest-info?token=${encodeURIComponent(guestToken)}`
+          );
+          if (!res.ok) return;
+
+          const data = await res.json();
+          const info = data.challenge;
+          if (!info) return;
+
+          setChallenge(
+            id,
+            { username: info.challenger_name },
+            info.game_mode ?? "classic",
+            info.card_size ?? 6,
+            guestToken,
+          );
+          return;
+        }
+
+        // Authenticated flow: use the standard challenge API
         const res = await fetch(`/api/challenges/${id}`);
         if (!res.ok) return;
 
@@ -59,7 +86,7 @@ export default function ChallengeInitializer() {
     }
 
     loadChallenge(challengeId);
-  }, [challengeId, setChallenge, state.challengeId, user?.id]);
+  }, [challengeId, guestToken, setChallenge, state.challengeId, user]);
 
   return null;
 }
