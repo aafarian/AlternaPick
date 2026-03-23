@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { claimAnonymousCards } from "@/lib/auth/claim-cards";
 import { processReferral } from "@/lib/referrals/queries";
+import { convertGuestChallenges } from "@/lib/challenges/guest-conversion";
 import { logError } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
@@ -77,6 +78,16 @@ export async function GET(request: NextRequest) {
     } catch {
       // Non-fatal: referral failure should not block the auth flow
       logError("auth-callback", "Failed to process referral");
+    }
+  }
+
+  // Convert guest challenge invitations matching the user's email
+  if (user?.email) {
+    try {
+      await convertGuestChallenges(user.id, user.email);
+    } catch {
+      // Non-fatal: guest conversion failure should not block the auth flow
+      logError("auth-callback", "Failed to convert guest challenges");
     }
   }
 
