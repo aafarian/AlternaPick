@@ -137,7 +137,7 @@ export async function convertGuestChallenges(
   }
 
   if (converted > 0) {
-    logInfo("guest-conversion", `Converted ${converted} guest challenge(s) for ${normalizedEmail}`);
+    logInfo("guest-conversion", `Converted ${converted} guest challenge(s) for user ${userId}`);
   }
 
   return { converted };

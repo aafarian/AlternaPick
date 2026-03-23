@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     );
 
     if (profileError) {
-      logError("auth-callback", `Profile upsert error: ${profileError.message}`);
+      logError("auth-callback", "Profile upsert failed", "/auth/callback", profileError);
     }
 
     // Ensure leaderboard entry exists
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     );
 
     if (leaderboardError) {
-      logError("auth-callback", `Leaderboard upsert error: ${leaderboardError.message}`);
+      logError("auth-callback", "Leaderboard upsert failed", "/auth/callback", leaderboardError);
     }
   }
 

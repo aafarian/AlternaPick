@@ -47,6 +47,6 @@ export async function sendChallengeInviteEmail(
 
     void sendEmail({ to: opponentEmail, subject, react, text });
   } catch (err) {
-    logError("challenges", "Failed to send challenge invite email", undefined, err);
+    logError("challenges", "Failed to send challenge invite email", "sendChallengeInviteEmail", err);
   }
 }
