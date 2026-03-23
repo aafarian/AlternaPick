@@ -1,7 +1,7 @@
 "use client";
 
 import type { StatCategory } from "@/lib/supabase/types";
-import { CATEGORY_LABELS, CATEGORY_COLORS, teamLogoUrl } from "@/lib/constants";
+import { CATEGORY_LABELS, CATEGORY_TEXT_COLORS, teamLogoUrl } from "@/lib/constants";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { usePlayerProfile } from "@/lib/players/player-profile-context";
 import { getModeConfig } from "@/lib/modes/definitions";
@@ -159,7 +159,7 @@ export default function PropLine({
           <span
             className={cn(
               "text-xs font-bold uppercase",
-              CATEGORY_COLORS[statCategory].replace(/bg-\S+\s*/, "")
+              CATEGORY_TEXT_COLORS[statCategory]
             )}
           >
             {CATEGORY_LABELS[statCategory]}

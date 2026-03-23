@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { CATEGORY_LABELS, CATEGORY_COLORS, teamLogoUrl } from "@/lib/constants";
+import { CATEGORY_LABELS, CATEGORY_TEXT_COLORS, teamLogoUrl } from "@/lib/constants";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
 import type { GameMode } from "@/lib/modes/types";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
@@ -319,10 +319,7 @@ export default function GuestBallot({
                     <span
                       className={cn(
                         "text-xs font-bold uppercase",
-                        CATEGORY_COLORS[statCategory]?.replace(
-                          /bg-\S+\s*/,
-                          ""
-                        )
+                        CATEGORY_TEXT_COLORS[statCategory]
                       )}
                     >
                       {CATEGORY_LABELS[statCategory]}

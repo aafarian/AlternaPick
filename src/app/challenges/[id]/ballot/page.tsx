@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth/auth-context";
 import { createCard } from "@/lib/cards/api";
-import { CATEGORY_LABELS, CATEGORY_COLORS, teamLogoUrl } from "@/lib/constants";
+import { CATEGORY_LABELS, CATEGORY_TEXT_COLORS, teamLogoUrl } from "@/lib/constants";
 import type { StatCategory, Game, Prop, PickSelection } from "@/lib/supabase/types";
 import type { ChallengeDetail } from "@/lib/challenges/queries";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
@@ -336,7 +336,7 @@ export default function BallotPage() {
                   <span
                     className={cn(
                       "text-xs font-bold uppercase",
-                      CATEGORY_COLORS[statCategory]?.replace(/bg-\S+\s*/, "")
+                      CATEGORY_TEXT_COLORS[statCategory]
                     )}
                   >
                     {CATEGORY_LABELS[statCategory]}
