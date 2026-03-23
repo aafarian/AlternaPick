@@ -174,17 +174,19 @@ export async function resolveEligibleChallenges(): Promise<
         },
         challengerPrefs
       );
-      await createNotification(
-        supabase,
-        {
-          user_id: challenge.opponent_id,
-          type: "challenge_resolved",
-          title: opponentMsg.title,
-          body: opponentMsg.body,
-          metadata: { challenge_id: challenge.id },
-        },
-        opponentPrefs
-      );
+      if (challenge.opponent_id) {
+        await createNotification(
+          supabase,
+          {
+            user_id: challenge.opponent_id,
+            type: "challenge_resolved",
+            title: opponentMsg.title,
+            body: opponentMsg.body,
+            metadata: { challenge_id: challenge.id },
+          },
+          opponentPrefs
+        );
+      }
 
       // Send challenge-resolved emails to both participants (fire-and-forget)
       try {
@@ -261,10 +263,10 @@ export async function resolveEligibleChallenges(): Promise<
     };
 
     // Fire-and-forget: check achievements for both challenge participants
-    for (const participantId of [
-      challenge.challenger_id,
-      challenge.opponent_id,
-    ]) {
+    const participantIds = [challenge.challenger_id, challenge.opponent_id].filter(
+      (id): id is string => id != null
+    );
+    for (const participantId of participantIds) {
       try {
         const lbResult = await (supabase.from("leaderboard_entries") as any)
           .select(

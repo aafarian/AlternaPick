@@ -322,7 +322,8 @@ export interface Database {
         Row: {
           id: string;
           challenger_id: string;
-          opponent_id: string;
+          opponent_id: string | null;
+          opponent_email: string | null;
           status: ChallengeStatus;
           game_mode: GameMode;
           message: string | null;
@@ -335,7 +336,8 @@ export interface Database {
         Insert: {
           id?: string;
           challenger_id: string;
-          opponent_id: string;
+          opponent_id?: string | null;
+          opponent_email?: string | null;
           status?: ChallengeStatus;
           game_mode?: GameMode;
           message?: string | null;
@@ -347,7 +349,8 @@ export interface Database {
         };
         Update: {
           challenger_id?: string;
-          opponent_id?: string;
+          opponent_id?: string | null;
+          opponent_email?: string | null;
           status?: ChallengeStatus;
           game_mode?: GameMode;
           message?: string | null;
@@ -640,6 +643,33 @@ export interface Database {
           payload?: Record<string, unknown>;
         };
       };
+      guest_tokens: {
+        Row: {
+          id: string;
+          token: string;
+          challenge_id: string;
+          email: string;
+          expires_at: string;
+          used_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          token: string;
+          challenge_id: string;
+          email: string;
+          expires_at: string;
+          used_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          token?: string;
+          challenge_id?: string;
+          email?: string;
+          expires_at?: string;
+          used_at?: string | null;
+        };
+      };
     };
     Enums: {
       stat_category: StatCategory;
@@ -677,3 +707,4 @@ export type Reaction = Database["public"]["Tables"]["reactions"]["Row"];
 export type LeaderboardEntry =
   Database["public"]["Tables"]["leaderboard_entries"]["Row"];
 export type Recap = Database["public"]["Tables"]["recaps"]["Row"];
+export type GuestToken = Database["public"]["Tables"]["guest_tokens"]["Row"];

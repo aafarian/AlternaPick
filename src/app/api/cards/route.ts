@@ -293,8 +293,9 @@ export async function POST(request: NextRequest) {
 
         if (activateErr) {
           logError("cards", `Failed to activate draft challenge ${challenge_id}`, undefined, activateErr);
-        } else if ((activated as { id: string }[])?.length > 0) {
+        } else if ((activated as { id: string }[])?.length > 0 && ch.opponent_id) {
           // Only notify when we were the caller that actually performed the transition
+          // (email-invite challenges have no opponent_id yet, so skip notification)
           void notifyChallengeOpponent(adminClient, {
             challengeId: challenge_id,
             challengerId: user.id,

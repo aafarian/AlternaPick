@@ -445,13 +445,16 @@ export default function ChallengeMatchup({
                 text={`Check out this challenge on AlternaPick! ${challengerName} vs ${opponentName}`}
               />
             </div>
-            <QuickActions
-              challengeId={challenge.id}
-              opponentId={isChallenger ? challenge.opponent_id : challenge.challenger_id}
-              gameMode={(challenge.game_mode as GameMode) ?? "classic"}
-              isParticipant={true}
-              isResolved={challenge.status === "resolved"}
-            />
+            {/* QuickActions requires an opponent — email-invite challenges may not have one yet */}
+            {(isChallenger ? challenge.opponent_id : challenge.challenger_id) != null && (
+              <QuickActions
+                challengeId={challenge.id}
+                opponentId={(isChallenger ? challenge.opponent_id : challenge.challenger_id)!}
+                gameMode={(challenge.game_mode as GameMode) ?? "classic"}
+                isParticipant={true}
+                isResolved={challenge.status === "resolved"}
+              />
+            )}
           </div>
         </FadeIn>
       )}
