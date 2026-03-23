@@ -144,33 +144,22 @@ export async function POST(request: NextRequest) {
       return badRequest("Either opponent_id or opponent_email is required");
     }
 
-    // ---- Resolve opponent from email if needed ----
-    let opponentId: string | null = body.opponent_id ?? null;
+    // ---- Resolve opponent ----
+    const opponentId: string | null = body.opponent_id ?? null;
     let opponentEmail: string | null = null;
 
     if (!body.opponent_id && body.opponent_email) {
       const email = body.opponent_email.trim().toLowerCase();
 
-      // Basic email format validation
       if (!isValidEmail(email)) {
         return badRequest("Invalid email address");
       }
 
-      // Check if email belongs to an existing user
-      const admin = createAdminClient();
-      const { data: existingUser } = await (admin.from("profiles") as any)
-        .select("id")
-        .eq("email", email)
-        .limit(1)
-        .single() as { data: { id: string } | null };
-
-      if (existingUser) {
-        // Existing user — fall through to friend-based flow
-        opponentId = existingUser.id;
-      } else {
-        // No existing user — email invite flow
-        opponentEmail = email;
-      }
+      // Always use the email invite flow — don't look up whether the email
+      // belongs to an existing user. Identity is resolved when the recipient
+      // clicks the invite link (logged-in users get claimed, others pick as
+      // guests and convert on signup). This avoids leaking account existence.
+      opponentEmail = email;
     }
 
     // ---- Validate game_mode ----

@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { verifyGuestToken } from "@/lib/challenges/guest-token";
-import { logError } from "@/lib/logger";
+import { createClient } from "@/lib/supabase/server";
+import { verifyGuestToken, markTokenUsed } from "@/lib/challenges/guest-token";
+import { logError, logInfo } from "@/lib/logger";
 import { UNPICKABLE_CHALLENGE_STATUSES } from "@/lib/challenges/constants";
 import type { Challenge, Prop, Game, StatCategory } from "@/lib/supabase/types";
 import type { Metadata } from "next";
@@ -76,6 +78,31 @@ export default async function GuestPickPage({
   // Check if challenge is in a valid state for picking
   if (UNPICKABLE_CHALLENGE_STATUSES.includes(challenge.status as typeof UNPICKABLE_CHALLENGE_STATUSES[number])) {
     return <ExpiredChallengeState />;
+  }
+
+  // If the visitor is logged in, claim the challenge and redirect to the
+  // authenticated ballot page instead of the guest flow. This handles the
+  // case where an existing user receives an email invite.
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (user) {
+    // Skip if challenge already has an opponent (idempotent)
+    if (!challenge.opponent_id) {
+      const { error: claimError } = await (admin.from("challenges") as any)
+        .update({ opponent_id: user.id })
+        .eq("id", challengeId)
+        .is("opponent_id", null);
+
+      if (claimError) {
+        logError("guest-page", "Failed to claim challenge for logged-in user", "GET /challenges/[id]/guest", claimError);
+      } else {
+        logInfo("guest-page", `Logged-in user ${user.id} claimed challenge ${challengeId} via invite link`);
+      }
+    }
+
+    await markTokenUsed(token);
+    redirect(`/challenges/${challengeId}/ballot`);
   }
 
   // Check if a guest card already exists (picks already submitted)
