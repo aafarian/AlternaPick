@@ -56,13 +56,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const admin = createAdminClient();
-  const { error } = await typedFrom(admin, "email_events").insert({
-    event_type: eventType,
-    email_to: emailTo,
-    email_subject: payload.data.subject ?? null,
-    resend_email_id: payload.data.email_id,
-    payload: payload as unknown as Record<string, unknown>,
-  });
+  const { error } = await typedFrom(admin, "email_events")
+    .upsert(
+      {
+        event_type: eventType,
+        email_to: emailTo,
+        email_subject: payload.data.subject ?? null,
+        resend_email_id: payload.data.email_id,
+        payload: payload as unknown as Record<string, unknown>,
+      },
+      { onConflict: "resend_email_id", ignoreDuplicates: true },
+    );
 
   if (error) {
     logError("email", "Failed to store email event", ENDPOINT, error);

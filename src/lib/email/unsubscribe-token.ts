@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { baseUrl } from "@/lib/email/config";
+import { logWarn } from "@/lib/logger";
 
 /**
  * HMAC-SHA256 token for one-click unsubscribe.
@@ -62,7 +63,11 @@ export function getUnsubscribeUrl(email: string): string {
 export function tryGetUnsubscribeUrl(email: string): string | undefined {
   try {
     return getUnsubscribeUrl(email);
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("UNSUBSCRIBE_SECRET")) {
+      return undefined;
+    }
+    logWarn("email", "tryGetUnsubscribeUrl failed unexpectedly", err);
     return undefined;
   }
 }

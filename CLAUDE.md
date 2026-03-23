@@ -79,7 +79,33 @@ These rules are derived from recurring review feedback. Follow them on every cha
 - Use the same selector mechanism (e.g., `data-[highlighted]:bg-...`) to ensure your styles survive hover/focus states.
 - Test both mouse hover and keyboard focus interactions.
 
-### 9. Animation and Lifecycle Correctness
+### 9. Webhook and External Event Idempotency
+
+- External services (Resend, Stripe, etc.) retry webhook deliveries on failure.
+- Always add a unique constraint on the external event ID column.
+- Use `upsert` with `{ onConflict, ignoreDuplicates: true }` to make inserts idempotent.
+- Never assume a webhook event will only arrive once.
+
+### 10. Never Silently Swallow Errors in Catch Blocks
+
+- Bare `catch {}` or `catch () => {}` hides unexpected bugs and is banned (see rule 3).
+- When degrading gracefully for a *specific* known error (e.g., missing env var), narrow the catch:
+  check the error message/type before silently returning. Log unexpected errors with `logWarn`.
+- This applies to `try*` wrapper functions, fire-and-forget calls, and any catch that returns a default value.
+
+### 11. Never Log PII (Emails, Names, Tokens)
+
+- Do not include email addresses, usernames, or auth tokens in log messages.
+- Use opaque identifiers (user IDs, Resend email IDs) for debugging instead.
+- PII in logs creates GDPR/privacy liability when logs are shipped to external services.
+
+### 12. Escape User-Derived Data in Raw HTML
+
+- When interpolating values into raw HTML strings (e.g., server-rendered pages outside React),
+  always HTML-escape them (`&`, `<`, `>`, `"`) even if current callers only pass hardcoded strings.
+- This prevents future XSS when a caller starts passing user-derived data.
+
+### 13. Animation and Lifecycle Correctness
 
 - `AnimatePresence` must stay mounted to observe child removal and play exit animations.
 - Do not conditionally render `AnimatePresence` itself based on the same condition that controls its children.
@@ -129,7 +155,10 @@ Before committing, self-review for:
 - [ ] Async and error states are handled
 - [ ] API contracts remain correct (types match runtime data)
 - [ ] No hidden regressions in adjacent flows
-- [ ] No secrets or sensitive data logged
+- [ ] No secrets or sensitive data logged (no emails, names, or tokens in log messages)
+- [ ] Webhook/external event handlers are idempotent (unique constraints, upsert)
+- [ ] Catch blocks are narrowed to expected errors — unexpected errors are logged
+- [ ] Raw HTML interpolation uses escapeHtml for any potentially user-derived values
 - [ ] If something cannot be validated, say exactly what was not checked
 
 ## Tech Stack Details
