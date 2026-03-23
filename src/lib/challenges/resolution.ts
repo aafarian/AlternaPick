@@ -4,6 +4,7 @@ import { createNotification } from "@/lib/notifications/queries";
 import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
 import { sendEmail, shouldSendEmail } from "@/lib/email/send";
 import { getChallengeResolvedEmailProps } from "@/lib/email/templates/challenge-resolved";
+import { tryGetUnsubscribeUrl } from "@/lib/email/unsubscribe-token";
 import type {
   Card,
   Challenge,
@@ -191,6 +192,7 @@ export async function resolveEligibleChallenges(): Promise<
           challengerEmail &&
           shouldSendEmail("challenge_resolved", challengerPrefs)
         ) {
+          const challengerUnsubUrl = tryGetUnsubscribeUrl(challengerEmail);
           const challengerEmailProps = getChallengeResolvedEmailProps({
             username: challengerName,
             myScore: challengerScore,
@@ -199,13 +201,14 @@ export async function resolveEligibleChallenges(): Promise<
             isWinner: winnerId === challenge.challenger_id,
             isTie,
             challengeId: challenge.id,
-            recipientEmail: challengerEmail,
+            unsubscribeUrl: challengerUnsubUrl,
           });
           void sendEmail({
             to: challengerEmail,
             subject: challengerEmailProps.subject,
             react: challengerEmailProps.react,
             text: challengerEmailProps.text,
+            unsubscribeUrl: challengerUnsubUrl,
           });
         }
 
@@ -213,6 +216,7 @@ export async function resolveEligibleChallenges(): Promise<
           opponentEmail &&
           shouldSendEmail("challenge_resolved", opponentPrefs)
         ) {
+          const opponentUnsubUrl = tryGetUnsubscribeUrl(opponentEmail);
           const opponentEmailProps = getChallengeResolvedEmailProps({
             username: opponentName,
             myScore: opponentScore,
@@ -221,13 +225,14 @@ export async function resolveEligibleChallenges(): Promise<
             isWinner: winnerId === challenge.opponent_id,
             isTie,
             challengeId: challenge.id,
-            recipientEmail: opponentEmail,
+            unsubscribeUrl: opponentUnsubUrl,
           });
           void sendEmail({
             to: opponentEmail,
             subject: opponentEmailProps.subject,
             react: opponentEmailProps.react,
             text: opponentEmailProps.text,
+            unsubscribeUrl: opponentUnsubUrl,
           });
         }
       } catch (emailError) {

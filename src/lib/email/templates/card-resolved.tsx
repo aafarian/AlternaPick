@@ -1,7 +1,8 @@
 import { Section, Text, Button } from "@react-email/components";
 import type { ReactElement } from "react";
 import { getCardTier } from "@/lib/cards/tiers";
-import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
+import { baseUrl } from "@/lib/email/config";
+import { emailStyles as styles } from "@/lib/email/styles";
 import { EmailLayout } from "@/lib/email/components/email-layout";
 
 // ---------------------------------------------------------------------------
@@ -13,7 +14,7 @@ export interface CardResolvedEmailProps {
   score: number;
   total: number;
   cardId: string;
-  recipientEmail?: string;
+  unsubscribeUrl?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -25,7 +26,7 @@ export function CardResolvedEmail({
   score,
   total,
   cardId,
-  recipientEmail,
+  unsubscribeUrl,
 }: CardResolvedEmailProps): ReactElement {
   const { headline, subtext } = getCardTier(score, total);
   const cardUrl = `${baseUrl}/cards/${cardId}`;
@@ -33,7 +34,7 @@ export function CardResolvedEmail({
   return (
     <EmailLayout
       preview={`Your card is in: ${score} for ${total}`}
-      recipientEmail={recipientEmail}
+      unsubscribeUrl={unsubscribeUrl}
     >
       <Text style={styles.subheading}>Card Results</Text>
       <Text style={styles.heading}>{headline}</Text>

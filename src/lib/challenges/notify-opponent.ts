@@ -6,6 +6,7 @@ import { modeLabel } from "@/lib/modes/utils";
 import { logError, logWarn } from "@/lib/logger";
 import { sendEmail, shouldSendEmail } from "@/lib/email/send";
 import { getChallengeReceivedEmailProps } from "@/lib/email/templates/challenge-received";
+import { tryGetUnsubscribeUrl } from "@/lib/email/unsubscribe-token";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 
 /**
@@ -82,14 +83,15 @@ export async function notifyChallengeOpponent(
     } else if (!shouldSendEmail("challenge_received", opponent.notification_preferences)) {
       logWarn("challenges", `Challenge email skipped: preferences disabled for ${opponentId}`);
     } else {
+      const unsubscribeUrl = tryGetUnsubscribeUrl(opponent.email);
       const { subject, react, text } = getChallengeReceivedEmailProps({
         challengerUsername: challengerName,
         gameMode,
         message,
         challengeId,
-        recipientEmail: opponent.email,
+        unsubscribeUrl,
       });
-      void sendEmail({ to: opponent.email, subject, react, text });
+      void sendEmail({ to: opponent.email, subject, react, text, unsubscribeUrl });
     }
   } catch (notifError) {
     logError("challenges", "Failed to create challenge_received notification", undefined, notifError);

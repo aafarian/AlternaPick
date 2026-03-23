@@ -2,7 +2,8 @@ import { Section, Text, Button } from "@react-email/components";
 import type { ReactElement } from "react";
 import type { GameMode } from "@/lib/supabase/types";
 import { modeLabel } from "@/lib/modes/utils";
-import { baseUrl, emailStyles as styles } from "@/lib/email/styles";
+import { baseUrl } from "@/lib/email/config";
+import { emailStyles as styles } from "@/lib/email/styles";
 import { EmailLayout } from "@/lib/email/components/email-layout";
 
 // ---------------------------------------------------------------------------
@@ -14,7 +15,7 @@ export interface ChallengeReceivedEmailProps {
   gameMode: GameMode;
   message: string | null;
   challengeId: string;
-  recipientEmail?: string;
+  unsubscribeUrl?: string;
 }
 
 function getModeSuffix(gameMode: GameMode): string {
@@ -30,7 +31,7 @@ export function ChallengeReceivedEmail({
   gameMode,
   message,
   challengeId,
-  recipientEmail,
+  unsubscribeUrl,
 }: ChallengeReceivedEmailProps): ReactElement {
   const challengeUrl = `${baseUrl}/challenges/${challengeId}`;
   const modeText = getModeSuffix(gameMode);
@@ -38,7 +39,7 @@ export function ChallengeReceivedEmail({
   return (
     <EmailLayout
       preview={`${challengerUsername} sent you a challenge${modeText}`}
-      recipientEmail={recipientEmail}
+      unsubscribeUrl={unsubscribeUrl}
     >
       <Text style={styles.subheading}>New Challenge{modeText}</Text>
       <Text style={styles.heading}>

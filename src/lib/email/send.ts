@@ -1,6 +1,5 @@
 import type { ReactElement } from "react";
 import { getResendClient } from "./client";
-import { getUnsubscribeUrl } from "./unsubscribe-token";
 import { logError, logWarn } from "@/lib/logger";
 import { getFlag, getFlagValue } from "@/lib/feature-flags";
 import type {
@@ -43,6 +42,8 @@ interface SendEmailParams {
   subject: string;
   react: ReactElement;
   text?: string;
+  /** Pre-generated unsubscribe URL for List-Unsubscribe headers. */
+  unsubscribeUrl?: string;
 }
 
 interface SendEmailResult {
@@ -64,12 +65,13 @@ export async function sendEmail({
   subject,
   react,
   text,
+  unsubscribeUrl,
 }: SendEmailParams): Promise<SendEmailResult> {
   try {
     // Step 0: Check global email toggle
     const emailEnabledFlag = await getFlag("email_enabled");
     if (emailEnabledFlag !== null && !emailEnabledFlag.enabled) {
-      logWarn("email", `sendEmail skipped: email_enabled flag is off (to: ${to})`);
+      logWarn("email", "sendEmail skipped: email_enabled flag is off");
       return { success: false, error: "Email sending is disabled" };
     }
 
@@ -92,7 +94,7 @@ export async function sendEmail({
 
       // Step 3: Check if recipient is allowed
       if (!allowedEmails.includes(recipientLower)) {
-        logWarn("email", `sendEmail skipped: ${to} not in allowlist`);
+        logWarn("email", "sendEmail skipped: recipient not in allowlist");
         return { success: true };
       }
     }
@@ -103,18 +105,12 @@ export async function sendEmail({
     const replyTo =
       process.env.EMAIL_REPLY_TO || "support@alternapick.com";
 
-    // Generate unsubscribe URL — degrade gracefully if secret is missing
-    // so emails still send without List-Unsubscribe header.
-    let unsubscribeHeaders: Record<string, string> = {};
-    try {
-      const unsubscribeUrl = getUnsubscribeUrl(to);
-      unsubscribeHeaders = {
-        "List-Unsubscribe": `<${unsubscribeUrl}>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-      };
-    } catch {
-      logWarn("email", "UNSUBSCRIBE_SECRET not configured; sending without List-Unsubscribe header");
-    }
+    const unsubscribeHeaders: Record<string, string> = unsubscribeUrl
+      ? {
+          "List-Unsubscribe": `<${unsubscribeUrl}>`,
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        }
+      : {};
 
     await resend.emails.send({
       from,

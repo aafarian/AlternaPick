@@ -613,6 +613,33 @@ export interface Database {
           computed_at?: string;
         };
       };
+      email_events: {
+        Row: {
+          id: string;
+          event_type: string;
+          email_to: string;
+          email_subject: string | null;
+          resend_email_id: string;
+          payload: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_type: string;
+          email_to: string;
+          email_subject?: string | null;
+          resend_email_id: string;
+          payload?: Record<string, unknown>;
+          created_at?: string;
+        };
+        Update: {
+          event_type?: string;
+          email_to?: string;
+          email_subject?: string | null;
+          resend_email_id?: string;
+          payload?: Record<string, unknown>;
+        };
+      };
     };
     Enums: {
       stat_category: StatCategory;

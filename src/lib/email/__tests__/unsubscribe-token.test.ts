@@ -84,6 +84,12 @@ describe("verifyUnsubscribeToken — invalid inputs", () => {
   it("returns null for invalid base64url payload", () => {
     expect(verifyUnsubscribeToken("!!!invalid!!!.abc123")).toBeNull();
   });
+
+  it("returns null when secret has been rotated", () => {
+    const token = createUnsubscribeToken("user@example.com");
+    vi.stubEnv("UNSUBSCRIBE_SECRET", "rotated-secret-key");
+    expect(verifyUnsubscribeToken(token)).toBeNull();
+  });
 });
 
 describe("getUnsubscribeUrl", () => {
@@ -94,7 +100,15 @@ describe("getUnsubscribeUrl", () => {
 
   it("produces a URL whose token verifies back to the email", () => {
     const url = getUnsubscribeUrl("user@example.com");
+    // URL.searchParams automatically decodes the percent-encoding
     const token = new URL(url).searchParams.get("token")!;
     expect(verifyUnsubscribeToken(token)).toBe("user@example.com");
+  });
+
+  it("token in URL round-trips through URL parsing", () => {
+    const url = getUnsubscribeUrl("test+tag@example.com");
+    const parsed = new URL(url);
+    const token = parsed.searchParams.get("token")!;
+    expect(verifyUnsubscribeToken(token)).toBe("test+tag@example.com");
   });
 });

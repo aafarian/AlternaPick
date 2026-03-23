@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { sendEmail, shouldSendEmail } from "@/lib/email/send";
 import { getFriendRequestEmailProps } from "@/lib/email/templates/friend-request";
+import { tryGetUnsubscribeUrl } from "@/lib/email/unsubscribe-token";
 import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
 import { logError, logWarn } from "@/lib/logger";
 import type { NotificationPreferences } from "@/lib/supabase/types";
@@ -114,12 +115,13 @@ export async function POST(request: NextRequest) {
 
       // Send email notification (fire-and-forget, never blocks)
       if (addresseeProfile?.email && shouldSendEmail("friend_request", addresseePrefs)) {
+        const unsubscribeUrl = tryGetUnsubscribeUrl(addresseeProfile.email);
         const { subject, react, text } = getFriendRequestEmailProps({
           requesterUsername: requesterName,
           addresseeUsername: addresseeName,
-          recipientEmail: addresseeProfile.email,
+          unsubscribeUrl,
         });
-        void sendEmail({ to: addresseeProfile.email, subject, react, text });
+        void sendEmail({ to: addresseeProfile.email, subject, react, text, unsubscribeUrl });
       }
     } catch (notifError) {
       logError("friends", "Failed to create friend_request notification", undefined, notifError);
