@@ -14,10 +14,10 @@ import {
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import { useCardHover } from "@/components/challenges/useCardHover";
 import { parseIconConfig } from "@/lib/icons/parse";
+import { formatTimeAgo, maskEmail } from "@/lib/format";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
-import { formatTimeAgo } from "@/lib/format";
 
 interface IncomingChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -43,7 +43,7 @@ export default function IncomingChallengeCard({
 }: IncomingChallengeCardProps) {
   const isChallenger = challenge.challenger_id === currentUserId;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
-  const displayName = opponent?.display_name || opponent?.username || challenge.opponent_email || "Invited";
+  const displayName = opponent?.display_name || opponent?.username || (challenge.opponent_email ? maskEmail(challenge.opponent_email) : "Invited");
   const isLoading = actionLoading === challenge.id;
   const { hoverProps, prefersReduced } = useCardHover(
     -2,

@@ -9,10 +9,12 @@ import UserAvatar from "@/components/icons/UserAvatar";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import { useCardHover } from "@/components/challenges/useCardHover";
 import { parseIconConfig } from "@/lib/icons/parse";
+import { maskEmail } from "@/lib/format";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
 import { ScaleIn } from "@/components/motion";
+import { Mail } from "lucide-react";
 
 interface ChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -36,7 +38,8 @@ export default function ChallengeCard({
   const router = useRouter();
   const isChallenger = challenge.challenger_id === currentUserId;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
-  const displayName = opponent?.display_name || opponent?.username || challenge.opponent_email || "Invited";
+  const isEmailInvite = !opponent && !!challenge.opponent_email;
+  const displayName = opponent?.display_name || opponent?.username || (challenge.opponent_email ? maskEmail(challenge.opponent_email) : "Invited");
   const isLoading = actionLoading === challenge.id;
   const { hoverProps, prefersReduced } = useCardHover();
 
@@ -86,13 +89,19 @@ export default function ChallengeCard({
           <CardContent className="flex items-center gap-3 px-4 py-2.5">
             {/* Avatar */}
             <div className="shrink-0">
-              <UserAvatar
-                avatarUrl={opponent?.avatar_url ?? null}
-                iconConfig={parseIconConfig(opponent?.icon_config ?? null)}
-                userId={opponent?.id ?? ""}
-                username={opponent?.username ?? displayName}
-                size={36}
-              />
+              {isEmailInvite ? (
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                </div>
+              ) : (
+                <UserAvatar
+                  avatarUrl={opponent?.avatar_url ?? null}
+                  iconConfig={parseIconConfig(opponent?.icon_config ?? null)}
+                  userId={opponent?.id ?? ""}
+                  username={opponent?.username ?? displayName}
+                  size={36}
+                />
+              )}
             </div>
 
             {/* Info — name row has inline status */}
@@ -101,6 +110,11 @@ export default function ChallengeCard({
                 <span className="truncate text-sm font-bold">{displayName}</span>
 
                 {/* Inline status indicator */}
+                {isEmailInvite && isOutgoing && (
+                  <span className="text-[10px] font-medium text-blue-400">
+                    INVITE SENT
+                  </span>
+                )}
                 {isActive && (
                   <div className="flex items-center gap-1">
                     <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />

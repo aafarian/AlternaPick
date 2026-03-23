@@ -74,6 +74,16 @@ export function formatClock(period: number, clock: string, sport?: string): stri
 }
 
 /**
+ * Masks an email address for display: "john@gmail.com" → "j***@gmail.com".
+ * Shows the first character, masks everything between it and the @, preserves the domain.
+ */
+export function maskEmail(email: string): string {
+  const atIndex = email.indexOf("@");
+  if (atIndex <= 0) return email;
+  return `${email[0]}***${email.slice(atIndex)}`;
+}
+
+/**
  * Formats the status label for a live game. Shows the clock when available,
  * "Starting" for tip-off (period 0, no score), or "Live" as a fallback
  * (period 0 but scores exist — stale DB data where period is unknown).

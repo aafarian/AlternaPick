@@ -17,7 +17,7 @@ import UserAvatar from "@/components/icons/UserAvatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, AlertCircle, Loader2, Crown } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Crown, Mail } from "lucide-react";
 import ReactionBar from "@/components/challenges/ReactionBar";
 import TrashTalkBubble from "@/components/challenges/TrashTalkBubble";
 import QuickActions from "@/components/challenges/QuickActions";
@@ -26,6 +26,7 @@ import ShareButton from "@/components/ui/ShareButton";
 import type { IconConfig } from "@/lib/icons/types";
 import { parseIconConfig } from "@/lib/icons/parse";
 import type { GameMode } from "@/lib/modes/types";
+import { maskEmail } from "@/lib/format";
 import { SlideUp, ScaleIn, FadeIn } from "@/components/motion";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 
@@ -49,6 +50,7 @@ function PlayerSide({
   hasLiveGames,
   liveLoading,
   side,
+  isEmailInvite = false,
 }: {
   label: string;
   name: string;
@@ -62,6 +64,7 @@ function PlayerSide({
   hasLiveGames: boolean;
   liveLoading: boolean;
   side: "left" | "right";
+  isEmailInvite?: boolean;
 }) {
   const prefersReduced = useReducedMotion();
 
@@ -110,14 +113,20 @@ function PlayerSide({
     <div className="flex flex-1 flex-col gap-3 rounded-xl">
       {/* Player identity */}
       <div className="flex flex-col items-center gap-2">
-        <UserAvatar
-          avatarUrl={avatarUrl}
-          iconConfig={iconConfig}
-          userId={userId}
-          username={name}
-          size={56}
-          className={isWinner ? "animate-winner-ring" : undefined}
-        />
+        {isEmailInvite ? (
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+            <Mail className="h-6 w-6 text-muted-foreground" />
+          </div>
+        ) : (
+          <UserAvatar
+            avatarUrl={avatarUrl}
+            iconConfig={iconConfig}
+            userId={userId}
+            username={name}
+            size={56}
+            className={isWinner ? "animate-winner-ring" : undefined}
+          />
+        )}
         <span className="text-sm font-semibold">
           {isWinner && <Crown className="mr-1 inline h-4 w-4 text-neon-green" />}
           {name}
@@ -218,8 +227,9 @@ export default function ChallengeMatchup({
   const opponentLiveScore = liveData ? liveHitCount(opponentLivePickMap) : null;
 
   const isChallenger = challenge.challenger_id === currentUserId;
+  const isEmailInviteOpponent = !challenge.opponent && !!challenge.opponent_email;
   const challengerName = challenge.challenger.username;
-  const opponentName = challenge.opponent?.username ?? challenge.opponent_email ?? "Invited";
+  const opponentName = challenge.opponent?.username ?? (challenge.opponent_email ? maskEmail(challenge.opponent_email) : "Invited");
 
   // Determine if the current user has submitted their card
   const myCard = isChallenger
@@ -510,6 +520,7 @@ export default function ChallengeMatchup({
           hasLiveGames={liveData?.opponent_card?.has_live_games ?? false}
           liveLoading={shouldFetchLive && !liveData}
           side="right"
+          isEmailInvite={isEmailInviteOpponent}
         />
       </div>
 

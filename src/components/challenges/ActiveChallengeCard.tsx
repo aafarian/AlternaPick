@@ -9,10 +9,11 @@ import UserAvatar from "@/components/icons/UserAvatar";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import { useCardHover } from "@/components/challenges/useCardHover";
 import { parseIconConfig } from "@/lib/icons/parse";
+import { formatTimeAgo, maskEmail } from "@/lib/format";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
-import { formatTimeAgo } from "@/lib/format";
+import { Mail } from "lucide-react";
 
 interface ActiveChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -45,8 +46,9 @@ export default function ActiveChallengeCard({
   const currentUser = isChallenger ? challenge.challenger : challenge.opponent;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
 
+  const isEmailInviteOpponent = !opponent && !!challenge.opponent_email;
   const currentUserName = currentUser?.display_name || currentUser?.username || "You";
-  const opponentName = opponent?.display_name || opponent?.username || challenge.opponent_email || "Invited";
+  const opponentName = opponent?.display_name || opponent?.username || (challenge.opponent_email ? maskEmail(challenge.opponent_email) : "Invited");
 
   // Determine status text
   const isActive = challenge.status === "active";
@@ -115,13 +117,19 @@ export default function ActiveChallengeCard({
                   {opponentName}
                 </span>
                 <div className="shrink-0">
-                  <UserAvatar
-                    avatarUrl={opponent?.avatar_url ?? null}
-                    iconConfig={parseIconConfig(opponent?.icon_config ?? null)}
-                    userId={opponent?.id ?? ""}
-                    username={opponent?.username ?? opponentName}
-                    size={28}
-                  />
+                  {isEmailInviteOpponent ? (
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted">
+                      <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <UserAvatar
+                      avatarUrl={opponent?.avatar_url ?? null}
+                      iconConfig={parseIconConfig(opponent?.icon_config ?? null)}
+                      userId={opponent?.id ?? ""}
+                      username={opponent?.username ?? opponentName}
+                      size={28}
+                    />
+                  )}
                 </div>
               </div>
             </div>
