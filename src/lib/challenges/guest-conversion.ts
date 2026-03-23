@@ -81,6 +81,14 @@ export async function convertGuestChallenges(
     return { converted };
   }
 
+  // Fetch the new user's username once for all notifications
+  const { data: profile } = (await (admin.from("profiles") as any)
+    .select("username")
+    .eq("id", userId)
+    .single()) as { data: { username: string } | null; error: unknown };
+
+  const displayName = profile?.username ?? "Your opponent";
+
   for (const challenge of challenges) {
     // Skip cancelled challenges
     if (challenge.status === "cancelled") {
@@ -116,14 +124,6 @@ export async function convertGuestChallenges(
 
     // Notify the challenger that their opponent signed up
     try {
-      // Fetch the new user's username for the notification
-      const { data: profile } = (await (admin.from("profiles") as any)
-        .select("username")
-        .eq("id", userId)
-        .single()) as { data: { username: string } | null; error: unknown };
-
-      const displayName = profile?.username ?? "Your opponent";
-
       await createNotification(admin, {
         user_id: challenge.challenger_id,
         type: "challenge_accepted",
