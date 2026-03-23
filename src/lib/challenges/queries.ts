@@ -450,7 +450,10 @@ export async function expireStaleChallenges(
   }
 
   // --- Trigger 2: Challenger's card resolved ---
-  // Find non-active challenges where the opponent hasn't accepted/picked yet.
+  // The challenger locked in picks, those games finished and were resolved by
+  // resolveEligibleChallenges (which resolves solo cards for active challenges),
+  // but the opponent still hasn't responded. Convert the challenger's card to
+  // solo so they still get credit, then cancel the challenge.
   const { data: pending } = await (admin.from("challenges") as any)
     .select("id, challenger_id, game_mode, mirror_props")
     .in("status", ["draft", "pending", "accepted"]);

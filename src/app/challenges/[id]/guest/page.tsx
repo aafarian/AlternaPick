@@ -121,7 +121,11 @@ export default async function GuestPickPage({
       logInfo("guest-page", `Logged-in user ${user.id} claimed challenge ${challengeId} via invite link`);
     }
 
-    await markTokenUsed(token);
+    const claimed = await markTokenUsed(token);
+    if (!claimed && !challenge.opponent_id) {
+      // Token already consumed by a concurrent request
+      return <InvalidTokenState />;
+    }
 
     // If user already has a card for this challenge, skip straight to the matchup
     const { data: userCards } = await (admin.from("cards") as any)
@@ -157,6 +161,8 @@ export default async function GuestPickPage({
 
   // For modes without pre-selected props (classic, sabotage, one_player, one_team),
   // redirect to the props browsing page where the guest picks their own props.
+  // Note: token is passed via URL because this is a server component that cannot
+  // write to sessionStorage. The token is single-use and consumed on pick submission.
   const hasMirrorProps = challenge.mirror_props && challenge.mirror_props.length > 0;
   if (!hasMirrorProps) {
     redirect(`/props?challenge_id=${challengeId}&guest_token=${token}`);

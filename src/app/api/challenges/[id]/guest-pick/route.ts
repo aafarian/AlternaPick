@@ -225,7 +225,10 @@ export async function POST(
       .select();
 
     if (picksError) {
-      logError("guest-pick", "Failed to create guest picks", "POST /api/challenges/[id]/guest-pick", picksError);
+      // Delete the orphaned card so the challenge isn't permanently stuck.
+      // The token is already consumed, but at least the challenge state is clean.
+      await (admin.from("cards") as any).delete().eq("id", card.id);
+      logError("guest-pick", "Failed to create guest picks — orphaned card deleted", "POST /api/challenges/[id]/guest-pick", picksError);
       return serverError("Failed to create picks", picksError.message);
     }
 

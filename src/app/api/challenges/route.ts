@@ -160,6 +160,12 @@ export async function POST(request: NextRequest) {
       // belongs to an existing user. Identity is resolved when the recipient
       // clicks the invite link (logged-in users get claimed, others pick as
       // guests and convert on signup). This avoids leaking account existence.
+
+      // Prevent self-challenge via email
+      if (user.email && email === user.email.toLowerCase()) {
+        return badRequest("Cannot challenge yourself");
+      }
+
       opponentEmail = email;
     }
 

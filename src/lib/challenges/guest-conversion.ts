@@ -90,6 +90,12 @@ export async function convertGuestChallenges(
       continue;
     }
 
+    // Prevent self-challenge: challenger signing up with the same email
+    if (challenge.challenger_id === userId) {
+      logWarn("guest-conversion", `Skipping self-challenge ${challenge.id} — challenger is the converting user`);
+      continue;
+    }
+
     // Set opponent_id on the challenge
     const { error: updateError } = await (admin.from("challenges") as any)
       .update({ opponent_id: userId })
