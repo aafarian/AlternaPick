@@ -116,6 +116,7 @@ export async function GET(request: NextRequest) {
 
 interface ChallengePostBody {
   opponent_id?: string;
+  opponent_email?: string;
   game_mode?: string;
   message?: string;
   card_size?: number;
@@ -136,8 +137,37 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json()) as ChallengePostBody;
 
-    if (!body.opponent_id) {
-      return badRequest("opponent_id is required");
+    if (!body.opponent_id && !body.opponent_email) {
+      return badRequest("Either opponent_id or opponent_email is required");
+    }
+
+    // ---- Resolve opponent from email if needed ----
+    let opponentId: string | null = body.opponent_id ?? null;
+    let opponentEmail: string | null = null;
+
+    if (!body.opponent_id && body.opponent_email) {
+      const email = body.opponent_email.trim().toLowerCase();
+
+      // Basic email format validation
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return badRequest("Invalid email address");
+      }
+
+      // Check if email belongs to an existing user
+      const admin = createAdminClient();
+      const { data: existingUser } = await (admin.from("profiles") as any)
+        .select("id")
+        .eq("email", email)
+        .limit(1)
+        .single() as { data: { id: string } | null };
+
+      if (existingUser) {
+        // Existing user — fall through to friend-based flow
+        opponentId = existingUser.id;
+      } else {
+        // No existing user — email invite flow
+        opponentEmail = email;
+      }
     }
 
     // ---- Validate game_mode ----
@@ -209,11 +239,12 @@ export async function POST(request: NextRequest) {
       mirrorProps = null;
     }
 
-    const challenge = await createChallenge(supabase, user.id, body.opponent_id, {
+    const challenge = await createChallenge(supabase, user.id, opponentId, {
       gameMode,
       message,
       cardSize,
       mirrorProps,
+      opponentEmail,
       status: "draft",
     });
 

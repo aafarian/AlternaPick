@@ -188,17 +188,19 @@ export interface CreateChallengeOptions {
   message?: string | null;
   cardSize?: number;
   mirrorProps?: string[] | null;
+  opponentEmail?: string | null;
   status?: ChallengeStatus;
 }
 
 /**
- * Create a new challenge. Validates friendship.
+ * Create a new challenge. Validates friendship when opponent is a known user.
+ * When opponentId is null (email invite), skips friendship check and uses admin client.
  * Accepts optional game mode, trash talk message, card size, and mirror props.
  */
 export async function createChallenge(
   supabase: SupabaseClient<Database>,
   challengerId: string,
-  opponentId: string,
+  opponentId: string | null,
   options: CreateChallengeOptions = {}
 ): Promise<Challenge> {
   const {
@@ -206,34 +208,37 @@ export async function createChallenge(
     message = null,
     cardSize = 6,
     mirrorProps = null,
+    opponentEmail = null,
     status = "draft",
   } = options;
 
-  if (challengerId === opponentId) {
+  if (opponentId && challengerId === opponentId) {
     throw new ChallengeValidationError("Cannot challenge yourself");
   }
 
-  // Check accepted friendship
-  const { data: friendship, error: friendError } = await typedFrom(
-    supabase,
-    "friendships"
-  )
-    .select("id")
-    .eq("status", "accepted")
-    .or(
-      `and(requester_id.eq.${challengerId},addressee_id.eq.${opponentId}),and(requester_id.eq.${opponentId},addressee_id.eq.${challengerId})`
+  // Friend-based flow: validate friendship when opponent is a known user
+  if (opponentId) {
+    const { data: friendship, error: friendError } = await typedFrom(
+      supabase,
+      "friendships"
     )
-    .limit(1);
+      .select("id")
+      .eq("status", "accepted")
+      .or(
+        `and(requester_id.eq.${challengerId},addressee_id.eq.${opponentId}),and(requester_id.eq.${opponentId},addressee_id.eq.${challengerId})`
+      )
+      .limit(1);
 
-  if (friendError) {
-    throw new Error(`Failed to check friendship: ${friendError.message}`);
-  }
+    if (friendError) {
+      throw new Error(`Failed to check friendship: ${friendError.message}`);
+    }
 
-  if (!friendship || friendship.length === 0) {
-    throw new ChallengeValidationError(
-      "Opponent must be an accepted friend",
-      403
-    );
+    if (!friendship || friendship.length === 0) {
+      throw new ChallengeValidationError(
+        "Opponent must be an accepted friend",
+        403
+      );
+    }
   }
 
   // Build the insert payload
@@ -253,11 +258,15 @@ export async function createChallenge(
     insertPayload.mirror_props = mirrorProps;
   }
 
+  if (opponentEmail) {
+    insertPayload.opponent_email = opponentEmail;
+  }
+
+  // Use admin client when opponent_id is null (email invite) — RLS requires opponent_id for user-initiated inserts
+  const client = opponentId ? supabase : createAdminClient();
+
   // Create the challenge
-  const { data: challenge, error: createError } = await typedFrom(
-    supabase,
-    "challenges"
-  )
+  const { data: challenge, error: createError } = await (client.from("challenges") as any)
     .insert(insertPayload)
     .select(
       "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url, icon_config), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url, icon_config)"
