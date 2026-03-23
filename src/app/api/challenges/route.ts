@@ -12,6 +12,7 @@ import {
   getChallenges,
   createChallenge,
 } from "@/lib/challenges/queries";
+import { sendChallengeInviteEmail } from "@/lib/challenges/send-invite-email";
 
 export async function GET(request: NextRequest) {
   try {
@@ -247,6 +248,18 @@ export async function POST(request: NextRequest) {
       opponentEmail,
       status: "draft",
     });
+
+    // Fire-and-forget: send invite email for email-based challenges
+    if (opponentEmail) {
+      const admin = createAdminClient();
+      void sendChallengeInviteEmail(admin, {
+        challengeId: challenge.id,
+        challengerId: user.id,
+        opponentEmail,
+        gameMode,
+        message,
+      });
+    }
 
     return NextResponse.json({ challenge }, { status: 201 });
   } catch (error) {
