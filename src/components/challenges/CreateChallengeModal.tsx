@@ -33,6 +33,7 @@ import {
   MessageSquare,
   Users,
 } from "lucide-react";
+import { isValidEmail } from "@/lib/validation";
 
 /* ---------- Types ---------- */
 
@@ -144,9 +145,6 @@ export default function CreateChallengeModal({
   }, [open, initialOpponentId, friends, loadingFriends]);
 
   /* ---------- Create challenge ---------- */
-
-  const isValidEmail = (email: string) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const handleCreate = async () => {
     if (opponentMode === "friend" && !selectedFriend) return;

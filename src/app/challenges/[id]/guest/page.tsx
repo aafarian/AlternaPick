@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyGuestToken } from "@/lib/challenges/guest-token";
 import { logError } from "@/lib/logger";
+import { UNPICKABLE_CHALLENGE_STATUSES } from "@/lib/challenges/constants";
 import type { Challenge, Prop, Game, StatCategory } from "@/lib/supabase/types";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -73,8 +74,7 @@ export default async function GuestPickPage({
   };
 
   // Check if challenge is in a valid state for picking
-  const invalidStatuses = ["cancelled", "declined", "resolved"];
-  if (invalidStatuses.includes(challenge.status)) {
+  if (UNPICKABLE_CHALLENGE_STATUSES.includes(challenge.status as typeof UNPICKABLE_CHALLENGE_STATUSES[number])) {
     return <ExpiredChallengeState />;
   }
 
@@ -143,78 +143,64 @@ export default async function GuestPickPage({
   );
 }
 
-function InvalidTokenState() {
+function GuestErrorState({
+  title,
+  description,
+  ctaText = "Sign Up for AlternaPick",
+  variant = "error",
+}: {
+  title: string;
+  description: string;
+  ctaText?: string;
+  variant?: "error" | "info";
+}) {
+  const colorClass = variant === "error" ? "bg-destructive/10" : "bg-primary/10";
+  const iconClass = variant === "error" ? "text-destructive" : "text-primary";
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="mx-auto flex max-w-md flex-col items-center gap-6 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
-          <AlertCircle className="h-8 w-8 text-destructive" />
+        <div className={`flex h-16 w-16 items-center justify-center rounded-full ${colorClass}`}>
+          <AlertCircle className={`h-8 w-8 ${iconClass}`} />
         </div>
         <div className="flex flex-col gap-2">
-          <h1 className="text-xl font-bold tracking-tight">
-            Invalid or Expired Link
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            This challenge link is no longer valid. It may have already been used
-            or expired.
-          </p>
+          <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+          <p className="text-sm text-muted-foreground">{description}</p>
         </div>
         <Link href="/auth/signup">
           <Button size="lg" className="font-bold">
-            Sign Up for AlternaPick
+            {ctaText}
           </Button>
         </Link>
       </div>
     </div>
+  );
+}
+
+function InvalidTokenState() {
+  return (
+    <GuestErrorState
+      title="Invalid or Expired Link"
+      description="This challenge link is no longer valid. It may have already been used or expired."
+    />
   );
 }
 
 function ExpiredChallengeState() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="mx-auto flex max-w-md flex-col items-center gap-6 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
-          <AlertCircle className="h-8 w-8 text-destructive" />
-        </div>
-        <div className="flex flex-col gap-2">
-          <h1 className="text-xl font-bold tracking-tight">
-            Challenge No Longer Available
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            This challenge has been cancelled or already resolved.
-          </p>
-        </div>
-        <Link href="/auth/signup">
-          <Button size="lg" className="font-bold">
-            Sign Up for AlternaPick
-          </Button>
-        </Link>
-      </div>
-    </div>
+    <GuestErrorState
+      title="Challenge No Longer Available"
+      description="This challenge has been cancelled or already resolved."
+    />
   );
 }
 
 function AlreadySubmittedState() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="mx-auto flex max-w-md flex-col items-center gap-6 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-          <AlertCircle className="h-8 w-8 text-primary" />
-        </div>
-        <div className="flex flex-col gap-2">
-          <h1 className="text-xl font-bold tracking-tight">
-            Picks Already Submitted
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Your picks for this challenge have already been locked in.
-          </p>
-        </div>
-        <Link href="/auth/signup">
-          <Button size="lg" className="font-bold">
-            Sign Up to Track Results
-          </Button>
-        </Link>
-      </div>
-    </div>
+    <GuestErrorState
+      title="Picks Already Submitted"
+      description="Your picks for this challenge have already been locked in."
+      ctaText="Sign Up to Track Results"
+      variant="info"
+    />
   );
 }

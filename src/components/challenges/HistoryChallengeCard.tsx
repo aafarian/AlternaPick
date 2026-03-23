@@ -3,22 +3,21 @@
 import Link from "next/link";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
-import UserAvatar from "@/components/icons/UserAvatar";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { formatTimeAgo, maskEmail } from "@/lib/format";
+import { formatTimeAgo } from "@/lib/format";
+import { getOpponentDisplayName } from "@/lib/challenges/display";
 import { GAME_MODES } from "@/lib/modes/definitions";
-import { parseIconConfig } from "@/lib/icons/parse";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
 import { ScaleIn } from "@/components/motion";
 import { useCardHover } from "@/components/challenges/useCardHover";
-import { Mail } from "lucide-react";
+import OpponentAvatar from "@/components/challenges/OpponentAvatar";
 
 interface HistoryChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -83,8 +82,7 @@ export default function HistoryChallengeCard({
 }: HistoryChallengeCardProps) {
   const isChallenger = challenge.challenger_id === currentUserId;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
-  const isEmailInvite = !opponent && !!challenge.opponent_email;
-  const displayName = opponent?.display_name || opponent?.username || (challenge.opponent_email ? maskEmail(challenge.opponent_email) : "Invited");
+  const displayName = getOpponentDisplayName(opponent, challenge.opponent_email);
   const { hoverProps } = useCardHover();
 
   const result = getResult(challenge, currentUserId);
@@ -107,19 +105,12 @@ export default function HistoryChallengeCard({
           <CardContent className="flex h-full items-center gap-3 px-3 py-2.5">
             {/* Avatar */}
             <div className="shrink-0">
-              {isEmailInvite ? (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                </div>
-              ) : (
-                <UserAvatar
-                  avatarUrl={opponent?.avatar_url ?? null}
-                  iconConfig={parseIconConfig(opponent?.icon_config ?? null)}
-                  userId={opponent?.id ?? ""}
-                  username={opponent?.username ?? displayName}
-                  size={32}
-                />
-              )}
+              <OpponentAvatar
+                opponent={opponent}
+                opponentEmail={challenge.opponent_email}
+                displayName={displayName}
+                size={32}
+              />
             </div>
 
             {/* Info column */}

@@ -26,7 +26,7 @@ import ShareButton from "@/components/ui/ShareButton";
 import type { IconConfig } from "@/lib/icons/types";
 import { parseIconConfig } from "@/lib/icons/parse";
 import type { GameMode } from "@/lib/modes/types";
-import { maskEmail } from "@/lib/format";
+import { getOpponentDisplayName } from "@/lib/challenges/display";
 import { SlideUp, ScaleIn, FadeIn } from "@/components/motion";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 
@@ -229,7 +229,7 @@ export default function ChallengeMatchup({
   const isChallenger = challenge.challenger_id === currentUserId;
   const isEmailInviteOpponent = !challenge.opponent && !!challenge.opponent_email;
   const challengerName = challenge.challenger.username;
-  const opponentName = challenge.opponent?.username ?? (challenge.opponent_email ? maskEmail(challenge.opponent_email) : "Invited");
+  const opponentName = getOpponentDisplayName(challenge.opponent, challenge.opponent_email);
 
   // Determine if the current user has submitted their card
   const myCard = isChallenger

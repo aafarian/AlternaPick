@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyGuestToken, markTokenUsed } from "@/lib/challenges/guest-token";
 import { badRequest, serverError, handleApiError } from "@/lib/api/errors";
 import { logError } from "@/lib/logger";
+import { UNPICKABLE_CHALLENGE_STATUSES } from "@/lib/challenges/constants";
 import type { Card, Challenge, Pick, PickSelection } from "@/lib/supabase/types";
 
 interface GuestPickInput {
@@ -74,8 +75,7 @@ export async function POST(
     }
 
     // Verify challenge is not cancelled/expired/resolved/declined
-    const invalidStatuses = ["cancelled", "declined", "resolved"];
-    if (invalidStatuses.includes(challenge.status)) {
+    if (UNPICKABLE_CHALLENGE_STATUSES.includes(challenge.status as typeof UNPICKABLE_CHALLENGE_STATUSES[number])) {
       logError("guest-pick", `Challenge ${challengeId} is ${challenge.status}`, "POST /api/challenges/[id]/guest-pick");
       return badRequest(`Challenge is ${challenge.status}`);
     }

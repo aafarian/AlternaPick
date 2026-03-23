@@ -7,6 +7,7 @@ import type { ChallengeStatus } from "@/lib/supabase/types";
 import { isValidGameMode } from "@/lib/modes/definitions";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE } from "@/lib/modes/types";
 
+import { isValidEmail } from "@/lib/validation";
 import { getCachedProps } from "@/lib/odds-api/cache";
 import {
   getChallenges,
@@ -151,7 +152,7 @@ export async function POST(request: NextRequest) {
       const email = body.opponent_email.trim().toLowerCase();
 
       // Basic email format validation
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (!isValidEmail(email)) {
         return badRequest("Invalid email address");
       }
 
