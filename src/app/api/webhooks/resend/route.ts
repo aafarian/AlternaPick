@@ -10,9 +10,9 @@ const ENDPOINT = "/api/webhooks/resend";
 interface ResendWebhookPayload {
   type: string;
   created_at: string;
-  data: {
-    email_id: string;
-    to: string[];
+  data?: {
+    email_id?: string;
+    to?: string[];
     subject?: string;
   };
 }
@@ -47,12 +47,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const eventType = payload.type;
-  const emailTo = payload.data.to?.[0] ?? "unknown";
+  const data = payload.data;
+
+  if (!data?.email_id) {
+    logWarn("email", `Resend webhook missing data.email_id for event: ${eventType}`);
+    return NextResponse.json({ error: "Invalid payload structure" }, { status: 400 });
+  }
+
+  const emailTo = data.to?.[0] ?? "unknown";
 
   if (eventType === "email.bounced" || eventType === "email.complained") {
-    logWarn("email", `Resend ${eventType}: ${payload.data.email_id}`);
+    logWarn("email", `Resend ${eventType}: ${data.email_id}`);
   } else {
-    logInfo("email", `Resend ${eventType}: ${payload.data.email_id}`);
+    logInfo("email", `Resend ${eventType}: ${data.email_id}`);
   }
 
   const admin = createAdminClient();
@@ -61,8 +68,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       {
         event_type: eventType,
         email_to: emailTo,
-        email_subject: payload.data.subject ?? null,
-        resend_email_id: payload.data.email_id,
+        email_subject: data.subject ?? null,
+        resend_email_id: data.email_id,
         payload: payload as unknown as Record<string, unknown>,
       },
       { onConflict: "resend_email_id", ignoreDuplicates: true },
