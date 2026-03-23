@@ -12,7 +12,7 @@ import { createNotification } from "@/lib/notifications/queries";
 import { logError, logInfo, logWarn } from "@/lib/logger";
 import type { GuestToken, Challenge } from "@/lib/supabase/types";
 
-type GuestTokenRow = Pick<GuestToken, "token" | "challenge_id" | "email" | "used_at">;
+type GuestTokenRow = Pick<GuestToken, "token" | "challenge_id" | "email">;
 type ChallengeRow = Pick<Challenge, "id" | "challenger_id" | "opponent_id" | "status">;
 
 /**
@@ -36,7 +36,7 @@ export async function convertGuestChallenges(
 
   // Find ALL tokens for this email (used or unused)
   const { data: tokens, error: tokenError } = (await (admin.from("guest_tokens") as any)
-    .select("token, challenge_id, email, used_at")
+    .select("token, challenge_id, email")
     .eq("email", normalizedEmail)) as {
     data: GuestTokenRow[] | null;
     error: unknown;

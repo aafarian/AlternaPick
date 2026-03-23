@@ -87,6 +87,11 @@ export default async function GuestPickPage({
   const { data: { user } } = await supabase.auth.getUser();
 
   if (user) {
+    // Challenger visiting their own invite link — redirect to challenge page
+    if (user.id === challenge.challenger_id) {
+      redirect(`/challenges/${challengeId}`);
+    }
+
     // Skip if challenge already has an opponent (idempotent)
     if (!challenge.opponent_id) {
       const { error: claimError } = await (admin.from("challenges") as any)

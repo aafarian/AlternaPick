@@ -69,17 +69,27 @@ export async function verifyGuestToken(
   return { challengeId: data.challenge_id, email: data.email };
 }
 
-/** Mark a token as used by setting used_at to now. */
-export async function markTokenUsed(token: string): Promise<void> {
+/**
+ * Atomically mark a token as used (only if not already consumed).
+ * Returns true if the token was successfully claimed, false if it was
+ * already used by a concurrent request.
+ */
+export async function markTokenUsed(token: string): Promise<boolean> {
   const admin = createAdminClient();
 
-  const { error } = await (admin.from("guest_tokens") as any)
+  const { data, error } = (await (admin.from("guest_tokens") as any)
     .update({ used_at: new Date().toISOString() })
-    .eq("token", token);
+    .eq("token", token)
+    .is("used_at", null)
+    .select("token")
+    .maybeSingle()) as { data: { token: string } | null; error: unknown };
 
   if (error) {
     logError("guest-token", "Failed to mark token as used", "markTokenUsed", error);
     throw new Error("Failed to mark token as used");
   }
+
+  // If data is null, the token was already consumed by another request
+  return data !== null;
 }
 

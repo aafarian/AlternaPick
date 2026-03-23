@@ -97,7 +97,7 @@ function setProfilesResult(data: unknown = null, error: unknown = null) {
 describe("convertGuestChallenges", () => {
   it("converts a challenge: sets opponent_id, links card, sends notification", async () => {
     setTokensResult([
-      { token: "t1", challenge_id: "c1", email: "user@example.com", used_at: null },
+      { token: "t1", challenge_id: "c1", email: "user@example.com", },
     ]);
     setChallengesResult([
       { id: "c1", challenger_id: "challenger-1", opponent_id: null, status: "pending" },
@@ -121,8 +121,8 @@ describe("convertGuestChallenges", () => {
 
   it("deduplicates multiple tokens for the same challenge_id", async () => {
     setTokensResult([
-      { token: "t1", challenge_id: "c1", email: "user@example.com", used_at: null },
-      { token: "t2", challenge_id: "c1", email: "user@example.com", used_at: "2025-01-01" },
+      { token: "t1", challenge_id: "c1", email: "user@example.com", },
+      { token: "t2", challenge_id: "c1", email: "user@example.com", },
     ]);
     setChallengesResult([
       { id: "c1", challenger_id: "challenger-1", opponent_id: null, status: "pending" },
@@ -138,7 +138,7 @@ describe("convertGuestChallenges", () => {
 
   it("skips cancelled challenges", async () => {
     setTokensResult([
-      { token: "t1", challenge_id: "c1", email: "user@example.com", used_at: null },
+      { token: "t1", challenge_id: "c1", email: "user@example.com", },
     ]);
     setChallengesResult([
       { id: "c1", challenger_id: "challenger-1", opponent_id: null, status: "cancelled" },
@@ -152,7 +152,7 @@ describe("convertGuestChallenges", () => {
 
   it("skips already-converted challenges (opponent_id already set)", async () => {
     setTokensResult([
-      { token: "t1", challenge_id: "c1", email: "user@example.com", used_at: null },
+      { token: "t1", challenge_id: "c1", email: "user@example.com", },
     ]);
     setChallengesResult([
       { id: "c1", challenger_id: "challenger-1", opponent_id: "existing-user", status: "pending" },
@@ -188,7 +188,7 @@ describe("convertGuestChallenges", () => {
 
   it("logs warning on card linking failure but still increments converted", async () => {
     setTokensResult([
-      { token: "t1", challenge_id: "c1", email: "user@example.com", used_at: null },
+      { token: "t1", challenge_id: "c1", email: "user@example.com", },
     ]);
     setChallengesResult([
       { id: "c1", challenger_id: "challenger-1", opponent_id: null, status: "pending" },

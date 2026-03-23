@@ -177,13 +177,21 @@ describe("verifyGuestToken", () => {
 // ---------------------------------------------------------------------------
 
 describe("markTokenUsed", () => {
-  it("calls update with used_at on success", async () => {
-    queryResult = { data: null, error: null };
+  it("returns true when token is successfully claimed", async () => {
+    queryResult = { data: { token: "token-123" }, error: null };
 
-    await markTokenUsed("token-123");
+    const result = await markTokenUsed("token-123");
+    expect(result).toBe(true);
     expect(mockUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ used_at: expect.any(String) }),
     );
+  });
+
+  it("returns false when token was already consumed", async () => {
+    queryResult = { data: null, error: null };
+
+    const result = await markTokenUsed("token-123");
+    expect(result).toBe(false);
   });
 
   it("throws on DB error", async () => {

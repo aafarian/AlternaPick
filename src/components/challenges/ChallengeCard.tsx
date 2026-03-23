@@ -102,7 +102,7 @@ export default function ChallengeCard({
 
                 {/* Inline status indicator */}
                 {isEmailInvite && isOutgoing && (
-                  <span className="text-[10px] font-medium text-blue-400">
+                  <span className="text-[10px] font-medium text-primary/70">
                     INVITE SENT
                   </span>
                 )}

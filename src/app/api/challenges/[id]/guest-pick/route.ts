@@ -180,11 +180,15 @@ export async function POST(
       return badRequest("A guest card already exists for this challenge");
     }
 
-    // Mark token as used BEFORE card creation to prevent race condition
-    // where two concurrent requests both pass verification and create duplicate cards.
-    // If card creation fails after this point, the token is consumed but that's
-    // preferable to duplicate cards.
-    await markTokenUsed(token);
+    // Atomically claim the token. If another request already consumed it,
+    // bail out with 409 to prevent duplicate guest cards.
+    const claimed = await markTokenUsed(token);
+    if (!claimed) {
+      return NextResponse.json(
+        { error: "This invite link has already been used" },
+        { status: 409 },
+      );
+    }
 
     // Create card for guest (user_id: null)
     // Use picks.length (validated above) — may be less than card_size if some props expired.

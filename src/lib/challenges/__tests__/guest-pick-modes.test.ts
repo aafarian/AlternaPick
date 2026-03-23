@@ -183,7 +183,7 @@ beforeEach(() => {
   insertedCard = null;
   insertedPicks = [];
   allLockedCards = [];
-  mockMarkTokenUsed.mockResolvedValue(undefined);
+  mockMarkTokenUsed.mockResolvedValue(true);
 });
 
 describe("guest-pick: classic mode (no mirror_props)", () => {
