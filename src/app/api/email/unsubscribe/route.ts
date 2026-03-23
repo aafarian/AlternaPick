@@ -7,6 +7,7 @@ import { logError, logInfo } from "@/lib/logger";
 import { EMAIL_NOTIFICATION_TYPES } from "@/lib/supabase/types";
 import type { NotificationPreferences } from "@/lib/supabase/types";
 import { colors } from "@/lib/email/styles";
+import { escapeHtml } from "@/lib/html";
 
 /**
  * RFC 8058 one-click unsubscribe endpoint.
@@ -149,10 +150,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   // Show confirmation page with form
   return htmlResponse(200, renderConfirmPage(token));
-}
-
-function escapeHtml(str: string): string {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function htmlResponse(status: number, html: string): NextResponse {
