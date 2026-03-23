@@ -8,9 +8,22 @@ import type { GameMode } from "@/lib/modes/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export interface ChallengeProfile {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  icon_config: Record<string, unknown> | null;
+}
+
 export interface ChallengeWithProfiles extends Challenge {
-  challenger: { id: string; username: string; display_name: string | null; avatar_url: string | null; icon_config: Record<string, unknown> | null };
-  opponent: { id: string; username: string; display_name: string | null; avatar_url: string | null; icon_config: Record<string, unknown> | null };
+  challenger: ChallengeProfile;
+  /**
+   * Null when opponent_id is null (email invite challenge).
+   * UI components that haven't been updated for email invites yet
+   * can safely assert non-null for friend-based challenges.
+   */
+  opponent: ChallengeProfile | null;
   /** Populated for resolved challenges — challenger's card score */
   challenger_score?: number | null;
   /** Populated for resolved challenges — opponent's card score */
@@ -71,6 +84,9 @@ export async function getChallenges(
     .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
     .order("created_at", { ascending: false });
 
+  // Note: email invite challenges (opponent_id is null) are included via the
+  // challenger_id filter above. The FK join returns opponent: null for these.
+
   if (statusFilter && statusFilter.length > 0) {
     query = query.in("status", statusFilter);
   }
@@ -130,10 +146,14 @@ export async function getChallenge(
 
   const ch = challenge as ChallengeWithProfiles;
 
-  // Verify user is a participant
+  // Verify user is a participant.
+  // Email invite challenges have opponent_id = null — allow the challenger to view them.
   if (ch.challenger_id !== userId && ch.opponent_id !== userId) {
     return null;
   }
+
+  // Note: when opponent_id is null (email invite), ch.opponent will be null
+  // from the FK join. Downstream code must handle this.
 
   // Fetch cards linked to this challenge
   // Must use admin client to bypass RLS — user can't see opponent's card
@@ -308,6 +328,15 @@ export async function respondToChallenge(
   }
 
   const ch = challenge as Challenge;
+
+  // Email invite challenges cannot be accepted/declined through normal flow
+  // (opponent responds by submitting picks via the guest pick page)
+  if ((action === "accept" || action === "decline") && !ch.opponent_id) {
+    throw new ChallengeValidationError(
+      "Email invite challenges are accepted via the invite link",
+      400
+    );
+  }
 
   // Validate permissions based on action
   if (action === "accept" || action === "decline") {

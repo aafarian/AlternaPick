@@ -18,12 +18,16 @@ export async function notifyChallengeOpponent(
   opts: {
     challengeId: string;
     challengerId: string;
-    opponentId: string;
+    opponentId: string | null;
     gameMode: GameMode;
     message: string | null;
   },
 ): Promise<void> {
   const { challengeId, challengerId, opponentId, gameMode, message } = opts;
+
+  // Email invite challenges (opponent_id is null) use a separate email send path.
+  // Skip in-app notification — there's no user account to notify yet.
+  if (!opponentId) return;
 
   try {
     // Fetch challenger name

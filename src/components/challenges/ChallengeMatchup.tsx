@@ -219,7 +219,7 @@ export default function ChallengeMatchup({
 
   const isChallenger = challenge.challenger_id === currentUserId;
   const challengerName = challenge.challenger.username;
-  const opponentName = challenge.opponent.username;
+  const opponentName = challenge.opponent?.username ?? challenge.opponent_email ?? "Invited";
 
   // Determine if the current user has submitted their card
   const myCard = isChallenger
@@ -500,9 +500,9 @@ export default function ChallengeMatchup({
         <PlayerSide
           label={isChallenger ? "Opponent" : "You"}
           name={opponentName}
-          avatarUrl={challenge.opponent.avatar_url}
-          iconConfig={parseIconConfig(challenge.opponent.icon_config)}
-          userId={challenge.opponent.id}
+          avatarUrl={challenge.opponent?.avatar_url ?? null}
+          iconConfig={parseIconConfig(challenge.opponent?.icon_config ?? null)}
+          userId={challenge.opponent?.id ?? ""}
           card={challenge.opponent_card}
           isWinner={opponentIsWinner}
           showPicks={isChallenger ? showTheirPicks : showMyPicks}

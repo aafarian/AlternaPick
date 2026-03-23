@@ -82,7 +82,7 @@ export default function HistoryChallengeCard({
 }: HistoryChallengeCardProps) {
   const isChallenger = challenge.challenger_id === currentUserId;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
-  const displayName = opponent.display_name || opponent.username;
+  const displayName = opponent?.display_name || opponent?.username || challenge.opponent_email || "Invited";
   const { hoverProps } = useCardHover();
 
   const result = getResult(challenge, currentUserId);
@@ -106,10 +106,10 @@ export default function HistoryChallengeCard({
             {/* Avatar */}
             <div className="shrink-0">
               <UserAvatar
-                avatarUrl={opponent.avatar_url}
-                iconConfig={parseIconConfig(opponent.icon_config)}
-                userId={opponent.id}
-                username={opponent.username}
+                avatarUrl={opponent?.avatar_url ?? null}
+                iconConfig={parseIconConfig(opponent?.icon_config ?? null)}
+                userId={opponent?.id ?? ""}
+                username={opponent?.username ?? displayName}
                 size={32}
               />
             </div>

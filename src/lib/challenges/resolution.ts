@@ -59,7 +59,8 @@ export async function resolveEligibleChallenges(): Promise<
 
     const cards = cardsResult.data as Card[];
 
-    // Need exactly 2 cards and both must be resolved
+    // Need exactly 2 cards and both must be resolved.
+    // Email invite challenges where the opponent hasn't picked yet will have < 2 cards.
     if (cards.length !== 2) continue;
     if (!cards.every((c) => c.status === "resolved")) continue;
 
@@ -130,25 +131,28 @@ export async function resolveEligibleChallenges(): Promise<
       if (challengerProfileErr) {
         logWarn("challenge-resolution", "Failed to fetch challenger profile for email", challengerProfileErr);
       }
-      const { data: opponentProfile, error: opponentProfileErr } = await (
-        supabase.from("profiles") as any
-      )
-        .select("username, email, notification_preferences")
-        .eq("id", challenge.opponent_id)
-        .single();
-      if (opponentProfileErr) {
-        logWarn("challenge-resolution", "Failed to fetch opponent profile for email", opponentProfileErr);
+      let opponentProfile: ProfileRow = null;
+      if (challenge.opponent_id) {
+        const { data: oppData, error: opponentProfileErr } = await (
+          supabase.from("profiles") as any
+        )
+          .select("username, email, notification_preferences")
+          .eq("id", challenge.opponent_id)
+          .single();
+        if (opponentProfileErr) {
+          logWarn("challenge-resolution", "Failed to fetch opponent profile for email", opponentProfileErr);
+        }
+        opponentProfile = oppData as ProfileRow;
       }
       const challengerName =
         (challengerProfile as ProfileRow)?.username ?? "Opponent";
-      const opponentName =
-        (opponentProfile as ProfileRow)?.username ?? "Opponent";
+      const opponentName = opponentProfile?.username ?? "Opponent";
       const challengerEmail = (challengerProfile as ProfileRow)?.email;
-      const opponentEmail = (opponentProfile as ProfileRow)?.email;
+      const opponentEmail = opponentProfile?.email;
       const challengerPrefs =
         (challengerProfile as ProfileRow)?.notification_preferences ?? null;
       const opponentPrefs =
-        (opponentProfile as ProfileRow)?.notification_preferences ?? null;
+        opponentProfile?.notification_preferences ?? null;
 
       const challengerMsg = getChallengeNotificationMessage(
         challengerScore,
