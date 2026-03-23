@@ -408,3 +408,27 @@ export const CATEGORY_COLORS: Record<StatCategory, string> = {
   fouls_committed: "bg-gray-500/20 text-gray-400",
   saves: "bg-purple-500/20 text-purple-400",
 };
+
+/** Text-only colors for category labels (no background). */
+export const CATEGORY_TEXT_COLORS: Record<StatCategory, string> = {
+  points: "text-orange-400",
+  rebounds: "text-blue-400",
+  assists: "text-green-400",
+  threes: "text-purple-400",
+  blocks: "text-red-400",
+  steals: "text-yellow-400",
+  turnovers: "text-gray-400",
+  pra: "text-pink-400",
+  pts_reb: "text-teal-400",
+  pts_ast: "text-lime-400",
+  reb_ast: "text-cyan-400",
+  blk_stl: "text-rose-400",
+  // Soccer
+  shots: "text-orange-400",
+  shots_on_target: "text-red-400",
+  tackles: "text-yellow-400",
+  passes: "text-blue-400",
+  goals: "text-green-400",
+  fouls_committed: "text-gray-400",
+  saves: "text-purple-400",
+};

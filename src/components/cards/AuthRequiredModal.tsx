@@ -9,20 +9,34 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Lock } from "lucide-react";
+import { Lock, UserPlus, LogIn } from "lucide-react";
 
 interface AuthRequiredModalProps {
   open: boolean;
   onClose: () => void;
   pickCount: number;
+  /** When set, shows a "Play as Guest" option for email-invite challenges */
+  onGuestLockIn?: () => void;
+  guestLoading?: boolean;
+  /** Override the post-auth redirect (e.g. challenge detail page) */
+  redirectTo?: string;
 }
 
 export default function AuthRequiredModal({
   open,
   onClose,
   pickCount,
+  onGuestLockIn,
+  guestLoading = false,
+  redirectTo,
 }: AuthRequiredModalProps) {
   const router = useRouter();
+
+  const isChallenge = !!onGuestLockIn;
+  const authRedirect = encodeURIComponent(redirectTo ?? "/picks");
+  const description = isChallenge
+    ? `Your ${pickCount} ${pickCount === 1 ? "pick is" : "picks are"} saved. Sign up to track results, or play as a guest.`
+    : `Your ${pickCount} ${pickCount === 1 ? "pick is" : "picks are"} saved. Create an account to lock them in.`;
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -33,26 +47,39 @@ export default function AuthRequiredModal({
           </div>
           <DialogTitle className="text-lg">Lock in your picks</DialogTitle>
           <DialogDescription className="text-sm">
-            Your {pickCount} {pickCount === 1 ? "pick is" : "picks are"} saved.
-            Create an account to lock them in.
+            {description}
           </DialogDescription>
         </DialogHeader>
-        <div className="mt-5 flex gap-3">
+        <div className="mt-5 flex flex-col gap-2">
           <Button
-            onClick={() => router.push("/auth/signup?redirectTo=/picks")}
-            className="flex-1"
+            onClick={() => router.push(`/auth/signup?redirectTo=${authRedirect}`)}
+            className="w-full gap-2"
             size="sm"
           >
+            <UserPlus className="h-4 w-4" />
             Sign Up
           </Button>
           <Button
             variant="outline"
-            onClick={() => router.push("/auth/login?redirectTo=/picks")}
-            className="flex-1"
+            onClick={() => router.push(`/auth/login?redirectTo=${authRedirect}`)}
+            className="w-full gap-2"
             size="sm"
           >
+            <LogIn className="h-4 w-4" />
             Sign In
           </Button>
+          {isChallenge && (
+            <Button
+              variant="ghost"
+              onClick={onGuestLockIn}
+              disabled={guestLoading}
+              className="w-full gap-2 text-muted-foreground"
+              size="sm"
+            >
+              <Lock className="h-4 w-4" />
+              {guestLoading ? "Locking..." : "Play as Guest"}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

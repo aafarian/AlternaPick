@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { claimAnonymousCards } from "@/lib/auth/claim-cards";
 import { processReferral } from "@/lib/referrals/queries";
+import { convertGuestChallenges } from "@/lib/challenges/guest-conversion";
 import { logError } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
     );
 
     if (profileError) {
-      logError("auth-callback", `Profile upsert error: ${profileError.message}`);
+      logError("auth-callback", "Profile upsert failed", "/auth/callback", profileError);
     }
 
     // Ensure leaderboard entry exists
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
     );
 
     if (leaderboardError) {
-      logError("auth-callback", `Leaderboard upsert error: ${leaderboardError.message}`);
+      logError("auth-callback", "Leaderboard upsert failed", "/auth/callback", leaderboardError);
     }
   }
 
@@ -74,9 +75,19 @@ export async function GET(request: NextRequest) {
   if (refUsername && user) {
     try {
       await processReferral(supabase, user.id, decodeURIComponent(refUsername));
-    } catch {
+    } catch (err) {
       // Non-fatal: referral failure should not block the auth flow
-      logError("auth-callback", "Failed to process referral");
+      logError("auth-callback", "Failed to process referral", "/auth/callback", err);
+    }
+  }
+
+  // Convert guest challenge invitations matching the user's email
+  if (user?.email) {
+    try {
+      await convertGuestChallenges(user.id, user.email);
+    } catch (err) {
+      // Non-fatal: guest conversion failure should not block the auth flow
+      logError("auth-callback", "Failed to convert guest challenges", "/auth/callback", err);
     }
   }
 

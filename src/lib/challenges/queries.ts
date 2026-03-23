@@ -8,9 +8,22 @@ import type { GameMode } from "@/lib/modes/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export interface ChallengeProfile {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  icon_config: Record<string, unknown> | null;
+}
+
 export interface ChallengeWithProfiles extends Challenge {
-  challenger: { id: string; username: string; display_name: string | null; avatar_url: string | null; icon_config: Record<string, unknown> | null };
-  opponent: { id: string; username: string; display_name: string | null; avatar_url: string | null; icon_config: Record<string, unknown> | null };
+  challenger: ChallengeProfile;
+  /**
+   * Null when opponent_id is null (email invite challenge).
+   * UI components that haven't been updated for email invites yet
+   * can safely assert non-null for friend-based challenges.
+   */
+  opponent: ChallengeProfile | null;
   /** Populated for resolved challenges — challenger's card score */
   challenger_score?: number | null;
   /** Populated for resolved challenges — opponent's card score */
@@ -71,6 +84,9 @@ export async function getChallenges(
     .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
     .order("created_at", { ascending: false });
 
+  // Note: email invite challenges (opponent_id is null) are included via the
+  // challenger_id filter above. The FK join returns opponent: null for these.
+
   if (statusFilter && statusFilter.length > 0) {
     query = query.in("status", statusFilter);
   }
@@ -130,10 +146,14 @@ export async function getChallenge(
 
   const ch = challenge as ChallengeWithProfiles;
 
-  // Verify user is a participant
+  // Verify user is a participant.
+  // Email invite challenges have opponent_id = null — allow the challenger to view them.
   if (ch.challenger_id !== userId && ch.opponent_id !== userId) {
     return null;
   }
+
+  // Note: when opponent_id is null (email invite), ch.opponent will be null
+  // from the FK join. Downstream code must handle this.
 
   // Fetch cards linked to this challenge
   // Must use admin client to bypass RLS — user can't see opponent's card
@@ -157,8 +177,12 @@ export async function getChallenge(
 
   const challengerCard =
     cardsList.find((c) => c.user_id === ch.challenger_id) ?? null;
+  // Find the opponent's card as "any card that isn't the challenger's".
+  // This handles email invite challenges where both opponent_id and the guest
+  // card's user_id may be null, and also survives partial conversion failures
+  // where opponent_id was set but the card's user_id update failed.
   const opponentCard =
-    cardsList.find((c) => c.user_id === ch.opponent_id) ?? null;
+    cardsList.find((c) => c.user_id !== ch.challenger_id) ?? null;
 
   const formatCard = (
     card: (typeof cardsList)[number] | null
@@ -188,17 +212,19 @@ export interface CreateChallengeOptions {
   message?: string | null;
   cardSize?: number;
   mirrorProps?: string[] | null;
+  opponentEmail?: string | null;
   status?: ChallengeStatus;
 }
 
 /**
- * Create a new challenge. Validates friendship.
+ * Create a new challenge. Validates friendship when opponent is a known user.
+ * When opponentId is null (email invite), skips friendship check and uses admin client.
  * Accepts optional game mode, trash talk message, card size, and mirror props.
  */
 export async function createChallenge(
   supabase: SupabaseClient<Database>,
   challengerId: string,
-  opponentId: string,
+  opponentId: string | null,
   options: CreateChallengeOptions = {}
 ): Promise<Challenge> {
   const {
@@ -206,34 +232,37 @@ export async function createChallenge(
     message = null,
     cardSize = 6,
     mirrorProps = null,
+    opponentEmail = null,
     status = "draft",
   } = options;
 
-  if (challengerId === opponentId) {
+  if (opponentId && challengerId === opponentId) {
     throw new ChallengeValidationError("Cannot challenge yourself");
   }
 
-  // Check accepted friendship
-  const { data: friendship, error: friendError } = await typedFrom(
-    supabase,
-    "friendships"
-  )
-    .select("id")
-    .eq("status", "accepted")
-    .or(
-      `and(requester_id.eq.${challengerId},addressee_id.eq.${opponentId}),and(requester_id.eq.${opponentId},addressee_id.eq.${challengerId})`
+  // Friend-based flow: validate friendship when opponent is a known user
+  if (opponentId) {
+    const { data: friendship, error: friendError } = await typedFrom(
+      supabase,
+      "friendships"
     )
-    .limit(1);
+      .select("id")
+      .eq("status", "accepted")
+      .or(
+        `and(requester_id.eq.${challengerId},addressee_id.eq.${opponentId}),and(requester_id.eq.${opponentId},addressee_id.eq.${challengerId})`
+      )
+      .limit(1);
 
-  if (friendError) {
-    throw new Error(`Failed to check friendship: ${friendError.message}`);
-  }
+    if (friendError) {
+      throw new Error(`Failed to check friendship: ${friendError.message}`);
+    }
 
-  if (!friendship || friendship.length === 0) {
-    throw new ChallengeValidationError(
-      "Opponent must be an accepted friend",
-      403
-    );
+    if (!friendship || friendship.length === 0) {
+      throw new ChallengeValidationError(
+        "Opponent must be an accepted friend",
+        403
+      );
+    }
   }
 
   // Build the insert payload
@@ -253,11 +282,15 @@ export async function createChallenge(
     insertPayload.mirror_props = mirrorProps;
   }
 
+  if (opponentEmail) {
+    insertPayload.opponent_email = opponentEmail;
+  }
+
+  // Use admin client when opponent_id is null (email invite) — RLS requires opponent_id for user-initiated inserts
+  const client = opponentId ? supabase : createAdminClient();
+
   // Create the challenge
-  const { data: challenge, error: createError } = await typedFrom(
-    supabase,
-    "challenges"
-  )
+  const { data: challenge, error: createError } = await (client.from("challenges") as any)
     .insert(insertPayload)
     .select(
       "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url, icon_config), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url, icon_config)"
@@ -299,6 +332,15 @@ export async function respondToChallenge(
   }
 
   const ch = challenge as Challenge;
+
+  // Email invite challenges cannot be accepted/declined through normal flow
+  // (opponent responds by submitting picks via the guest pick page)
+  if ((action === "accept" || action === "decline") && !ch.opponent_id) {
+    throw new ChallengeValidationError(
+      "Email invite challenges are accepted via the invite link",
+      400
+    );
+  }
 
   // Validate permissions based on action
   if (action === "accept" || action === "decline") {
@@ -369,10 +411,21 @@ export async function respondToChallenge(
 }
 
 /**
- * Expire stale challenges. Called by cron.
- * - Pending/accepted challenges older than 24h → cancelled
- * - Challenges where all mirror_props games have started → cancelled
- * Converts challenger's card to solo when appropriate.
+ * Expire stale challenges. Called by cron (every 5 min).
+ *
+ * Three expiration triggers:
+ * 1. **Time-based**: draft/pending/accepted challenges older than 24h → cancelled
+ * 2. **Card-resolved**: the challenger's card has fully resolved while the
+ *    challenge is still waiting for the opponent — the opponent missed their window.
+ * 3. **All props expired** (mirror/random only): every prop on the challenge has
+ *    started — there's nothing left for the opponent to pick.
+ *
+ * A single game starting is NOT a trigger — the opponent can still pick the
+ * remaining non-started props. Picks are hidden, so there's no information
+ * leakage while games are live.
+ *
+ * In all cases, the challenger's card is detached and converted to solo
+ * (unless sabotage mode, where card ownership is swapped).
  */
 export async function expireStaleChallenges(
   admin: SupabaseClient<Database>
@@ -381,67 +434,65 @@ export async function expireStaleChallenges(
   let expired = 0;
   let converted = 0;
 
-  // Find stale challenges: pending/accepted and older than 24h
+  const processedIds = new Set<string>();
+
+  // --- Trigger 1: Time-based (24h) ---
   const { data: stale } = await (admin.from("challenges") as any)
-    .select("id, challenger_id, game_mode, status, mirror_props")
+    .select("id, challenger_id, game_mode")
     .in("status", ["draft", "pending", "accepted"])
     .lt("created_at", cutoff);
 
-  const staleChallenges = (stale ?? []) as Array<{
-    id: string;
-    challenger_id: string;
-    game_mode: string;
-    status: string;
-    mirror_props: string[] | null;
-  }>;
-
-  const processedIds = new Set<string>();
-
-  for (const ch of staleChallenges) {
-    // Convert challenger's card to solo (unless sabotage)
-    if (ch.game_mode !== "sabotage") {
-      const { data: cards } = await (admin.from("cards") as any)
-        .select("id")
-        .eq("challenge_id", ch.id)
-        .eq("user_id", ch.challenger_id);
-
-      if (cards && cards.length > 0) {
-        await (admin.from("cards") as any)
-          .update({ challenge_id: null })
-          .eq("challenge_id", ch.id)
-          .eq("user_id", ch.challenger_id);
-        converted++;
-      }
-    }
-
-    // Cancel the challenge
-    await (admin.from("challenges") as any)
-      .update({ status: "cancelled" })
-      .eq("id", ch.id);
+  for (const ch of (stale ?? []) as Array<{ id: string; challenger_id: string; game_mode: string }>) {
+    converted += await convertChallengerCardToSolo(admin, ch);
+    await cancelChallenge(admin, ch.id);
     expired++;
     processedIds.add(ch.id);
   }
 
-  // Also find mirror/random challenges where all props' games have started
-  const { data: mirrorChallenges } = await (admin.from("challenges") as any)
+  // --- Trigger 2: Challenger's card resolved ---
+  // The challenger locked in picks, those games finished and were resolved by
+  // resolveEligibleChallenges (which resolves solo cards for active challenges),
+  // but the opponent still hasn't responded. Convert the challenger's card to
+  // solo so they still get credit, then cancel the challenge.
+  const { data: pending } = await (admin.from("challenges") as any)
     .select("id, challenger_id, game_mode, mirror_props")
-    .in("status", ["pending", "accepted"])
-    .not("mirror_props", "is", null);
+    .in("status", ["draft", "pending", "accepted"]);
 
-  const mirrorList = (mirrorChallenges ?? []) as Array<{
+  const pendingChallenges = (pending ?? []) as Array<{
     id: string;
     challenger_id: string;
     game_mode: string;
-    mirror_props: string[];
+    mirror_props: string[] | null;
   }>;
 
+  for (const ch of pendingChallenges) {
+    if (processedIds.has(ch.id)) continue;
+
+    // Check if the challenger's card is resolved
+    const { data: challengerCards } = await (admin.from("cards") as any)
+      .select("id, status")
+      .eq("challenge_id", ch.id)
+      .eq("user_id", ch.challenger_id)
+      .limit(1);
+
+    const challengerCard = ((challengerCards ?? []) as Array<{ id: string; status: string }>)[0];
+    if (!challengerCard || challengerCard.status !== "resolved") continue;
+
+    // Challenger's card has resolved but opponent hasn't responded — expire
+    converted += await convertChallengerCardToSolo(admin, ch);
+    await cancelChallenge(admin, ch.id);
+    expired++;
+    processedIds.add(ch.id);
+  }
+
+  // --- Trigger 3: All mirror_props expired (mirror/random only) ---
+  // If every prop's game has started, the opponent has nothing left to pick.
   const now = new Date();
 
-  for (const ch of mirrorList) {
+  for (const ch of pendingChallenges) {
     if (processedIds.has(ch.id)) continue;
     if (!ch.mirror_props || ch.mirror_props.length === 0) continue;
 
-    // Check if all referenced games have started
     const { data: propGames } = await (admin.from("props") as any)
       .select("id, games(commence_time)")
       .in("id", ch.mirror_props);
@@ -457,29 +508,45 @@ export async function expireStaleChallenges(
 
     if (!allStarted) continue;
 
-    // Convert challenger's card to solo (unless sabotage)
-    if (ch.game_mode !== "sabotage") {
-      const { data: cards } = await (admin.from("cards") as any)
-        .select("id")
-        .eq("challenge_id", ch.id)
-        .eq("user_id", ch.challenger_id);
-
-      if (cards && cards.length > 0) {
-        await (admin.from("cards") as any)
-          .update({ challenge_id: null })
-          .eq("challenge_id", ch.id)
-          .eq("user_id", ch.challenger_id);
-        converted++;
-      }
-    }
-
-    await (admin.from("challenges") as any)
-      .update({ status: "cancelled" })
-      .eq("id", ch.id);
+    converted += await convertChallengerCardToSolo(admin, ch);
+    await cancelChallenge(admin, ch.id);
     expired++;
   }
 
   return { expired, converted };
+}
+
+/** Detach the challenger's card from the challenge (convert to solo). Returns 1 if converted, 0 otherwise. */
+async function convertChallengerCardToSolo(
+  admin: SupabaseClient<Database>,
+  ch: { id: string; challenger_id: string; game_mode: string },
+): Promise<number> {
+  // Sabotage cards are swapped — detaching them would assign the wrong card
+  if (ch.game_mode === "sabotage") return 0;
+
+  const { data: cards } = await (admin.from("cards") as any)
+    .select("id")
+    .eq("challenge_id", ch.id)
+    .eq("user_id", ch.challenger_id);
+
+  if (cards && (cards as { id: string }[]).length > 0) {
+    await (admin.from("cards") as any)
+      .update({ challenge_id: null })
+      .eq("challenge_id", ch.id)
+      .eq("user_id", ch.challenger_id);
+    return 1;
+  }
+  return 0;
+}
+
+/** Cancel a challenge by setting its status to "cancelled". */
+async function cancelChallenge(
+  admin: SupabaseClient<Database>,
+  challengeId: string,
+): Promise<void> {
+  await (admin.from("challenges") as any)
+    .update({ status: "cancelled" })
+    .eq("id", challengeId);
 }
 
 export class ChallengeValidationError extends Error {

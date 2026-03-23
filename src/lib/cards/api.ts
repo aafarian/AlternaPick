@@ -15,9 +15,9 @@ export interface CardWithPicks {
   challenge_id: string | null;
   challenges?: {
     challenger_id: string;
-    opponent_id: string;
+    opponent_id: string | null;
     challenger: { username: string };
-    opponent: { username: string };
+    opponent: { username: string } | null;
   } | null;
   created_at: string;
   picks: {

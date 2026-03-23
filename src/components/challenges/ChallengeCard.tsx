@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedButton } from "@/components/ui/animated-button";
-import UserAvatar from "@/components/icons/UserAvatar";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import { useCardHover } from "@/components/challenges/useCardHover";
-import { parseIconConfig } from "@/lib/icons/parse";
+import { getOpponentDisplayName } from "@/lib/challenges/display";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
 import { ScaleIn } from "@/components/motion";
+import OpponentAvatar from "@/components/challenges/OpponentAvatar";
 
 interface ChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -36,7 +36,8 @@ export default function ChallengeCard({
   const router = useRouter();
   const isChallenger = challenge.challenger_id === currentUserId;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
-  const displayName = opponent.display_name || opponent.username;
+  const isEmailInvite = !opponent && !!challenge.opponent_email;
+  const displayName = getOpponentDisplayName(opponent, challenge.opponent_email);
   const isLoading = actionLoading === challenge.id;
   const { hoverProps, prefersReduced } = useCardHover();
 
@@ -86,11 +87,10 @@ export default function ChallengeCard({
           <CardContent className="flex items-center gap-3 px-4 py-2.5">
             {/* Avatar */}
             <div className="shrink-0">
-              <UserAvatar
-                avatarUrl={opponent.avatar_url}
-                iconConfig={parseIconConfig(opponent.icon_config)}
-                userId={opponent.id}
-                username={opponent.username}
+              <OpponentAvatar
+                opponent={opponent}
+                opponentEmail={challenge.opponent_email}
+                displayName={displayName}
                 size={36}
               />
             </div>
@@ -101,6 +101,11 @@ export default function ChallengeCard({
                 <span className="truncate text-sm font-bold">{displayName}</span>
 
                 {/* Inline status indicator */}
+                {isEmailInvite && isOutgoing && (
+                  <span className="text-[10px] font-medium text-primary/70">
+                    INVITE SENT
+                  </span>
+                )}
                 {isActive && (
                   <div className="flex items-center gap-1">
                     <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />

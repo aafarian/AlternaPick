@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { formatTimeAgo, formatClock, formatLiveStatus, formatGameTime } from "../format";
+import { formatTimeAgo, formatClock, formatLiveStatus, formatGameTime, maskEmail } from "../format";
 
 /* ---------- formatTimeAgo ---------- */
 
@@ -388,5 +388,29 @@ describe("formatGameTime", () => {
     expect(result).not.toMatch(/^Tomorrow/);
     expect(result).toContain("Mar");
     expect(result).toContain("1");
+  });
+});
+
+/* ---------- maskEmail ---------- */
+
+describe("maskEmail", () => {
+  it("masks characters between first char and @", () => {
+    expect(maskEmail("john@gmail.com")).toBe("j***@gmail.com");
+  });
+
+  it("handles single character before @", () => {
+    expect(maskEmail("a@b.com")).toBe("a***@b.com");
+  });
+
+  it("returns as-is when no character before @", () => {
+    expect(maskEmail("@invalid")).toBe("@invalid");
+  });
+
+  it("returns empty string as-is", () => {
+    expect(maskEmail("")).toBe("");
+  });
+
+  it("returns string without @ as-is", () => {
+    expect(maskEmail("noemail")).toBe("noemail");
   });
 });

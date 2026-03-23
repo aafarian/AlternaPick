@@ -9,10 +9,12 @@ import UserAvatar from "@/components/icons/UserAvatar";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import { useCardHover } from "@/components/challenges/useCardHover";
 import { parseIconConfig } from "@/lib/icons/parse";
+import { formatTimeAgo } from "@/lib/format";
+import { getOpponentDisplayName } from "@/lib/challenges/display";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
-import { formatTimeAgo } from "@/lib/format";
+import OpponentAvatar from "@/components/challenges/OpponentAvatar";
 
 interface ActiveChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -45,8 +47,8 @@ export default function ActiveChallengeCard({
   const currentUser = isChallenger ? challenge.challenger : challenge.opponent;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
 
-  const currentUserName = currentUser.display_name || currentUser.username;
-  const opponentName = opponent.display_name || opponent.username;
+  const currentUserName = currentUser?.display_name || currentUser?.username || "You";
+  const opponentName = getOpponentDisplayName(opponent, challenge.opponent_email);
 
   // Determine status text
   const isActive = challenge.status === "active";
@@ -92,10 +94,10 @@ export default function ActiveChallengeCard({
               <div className="flex min-w-0 items-center gap-1.5">
                 <div className="shrink-0">
                   <UserAvatar
-                    avatarUrl={currentUser.avatar_url}
-                    iconConfig={parseIconConfig(currentUser.icon_config)}
-                    userId={currentUser.id}
-                    username={currentUser.username}
+                    avatarUrl={currentUser?.avatar_url ?? null}
+                    iconConfig={parseIconConfig(currentUser?.icon_config ?? null)}
+                    userId={currentUser?.id ?? ""}
+                    username={currentUser?.username ?? currentUserName}
                     size={28}
                   />
                 </div>
@@ -115,11 +117,10 @@ export default function ActiveChallengeCard({
                   {opponentName}
                 </span>
                 <div className="shrink-0">
-                  <UserAvatar
-                    avatarUrl={opponent.avatar_url}
-                    iconConfig={parseIconConfig(opponent.icon_config)}
-                    userId={opponent.id}
-                    username={opponent.username}
+                  <OpponentAvatar
+                    opponent={opponent}
+                    opponentEmail={challenge.opponent_email}
+                    displayName={opponentName}
                     size={28}
                   />
                 </div>

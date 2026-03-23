@@ -106,14 +106,29 @@ export async function POST(request: NextRequest) {
       // Validate challenge status
       // The challenger can lock in their card while the challenge is still "pending"
       // (they create the challenge + card in one step).
-      // The opponent can only create a card after accepting (status = "accepted" or "active").
+      // The opponent can only create a card after accepting (status = "accepted" or "active"),
+      // OR for email-invite challenges where the opponent signed in with pending picks,
+      // they can also create a card in "draft" or "pending" status (implicit accept).
       const isChallenger = challenge.challenger_id === user.id;
+      const isEmailInvite = !!challenge.opponent_email;
       const validStatuses = isChallenger
         ? ["draft", "pending", "accepted", "active"]
-        : ["accepted", "active"];
+        : isEmailInvite
+          ? ["draft", "pending", "accepted", "active"]
+          : ["accepted", "active"];
 
       if (!validStatuses.includes(challenge.status)) {
         return badRequest("Challenge is not in a valid state for card creation");
+      }
+
+      // Email-invite opponent creating a card implicitly accepts the challenge.
+      // Transition draft/pending → accepted so the challenge lifecycle continues.
+      if (!isChallenger && isEmailInvite && (challenge.status === "draft" || challenge.status === "pending")) {
+        const adminClient = createAdminClient();
+        await (adminClient.from("challenges") as any)
+          .update({ status: "accepted" })
+          .eq("id", challenge_id)
+          .in("status", ["draft", "pending"]);
       }
 
       // Check if user already has a card for this challenge
@@ -188,7 +203,7 @@ export async function POST(request: NextRequest) {
     if (existingProps.length !== propIds.length) {
       const foundIds = new Set(existingProps.map((p) => p.id));
       const missingIds = propIds.filter((id) => !foundIds.has(id));
-      logError("cards", `Some props not found. Requested: [${propIds.join(", ")}], Missing: [${missingIds.join(", ")}], Found: ${existingProps.length}/${propIds.length}`);
+      logError("cards", `Some props not found. Requested: [${propIds.join(", ")}], Missing: [${missingIds.join(", ")}], Found: ${existingProps.length}/${propIds.length}`, "POST /api/cards");
       return badRequest("Some props not found");
     }
 
@@ -293,8 +308,9 @@ export async function POST(request: NextRequest) {
 
         if (activateErr) {
           logError("cards", `Failed to activate draft challenge ${challenge_id}`, undefined, activateErr);
-        } else if ((activated as { id: string }[])?.length > 0) {
+        } else if ((activated as { id: string }[])?.length > 0 && ch.opponent_id) {
           // Only notify when we were the caller that actually performed the transition
+          // (email-invite challenges have no opponent_id yet, so skip notification)
           void notifyChallengeOpponent(adminClient, {
             challengeId: challenge_id,
             challengerId: user.id,
@@ -327,10 +343,10 @@ export async function POST(request: NextRequest) {
           const { error: activateError } = await (adminClient.from("challenges") as any)
             .update({ status: "active" })
             .eq("id", challenge_id)
-            .eq("status", "accepted");
+            .in("status", ["accepted", "pending"]);
 
           if (activateError) {
-            logError("cards", `Failed to activate challenge ${challenge_id}: ${activateError.message}`);
+            logError("cards", `Failed to activate challenge ${challenge_id}`, "POST /api/cards", activateError);
           }
 
           // Sabotage mode: swap user_id on both cards so each player
@@ -349,7 +365,7 @@ export async function POST(request: NextRequest) {
               .eq("id", cardB.id);
 
             if (swapErr1 || swapErr2) {
-              logError("cards", `Failed to swap sabotage cards for challenge ${challenge_id}: ${swapErr1?.message} ${swapErr2?.message}`);
+              logError("cards", `Failed to swap sabotage cards for challenge ${challenge_id}`, "POST /api/cards", swapErr1 ?? swapErr2);
             }
           }
         }

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
-import UserAvatar from "@/components/icons/UserAvatar";
 import {
   Tooltip,
   TooltipContent,
@@ -11,13 +10,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { formatTimeAgo } from "@/lib/format";
+import { getOpponentDisplayName } from "@/lib/challenges/display";
 import { GAME_MODES } from "@/lib/modes/definitions";
-import { parseIconConfig } from "@/lib/icons/parse";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
 import { ScaleIn } from "@/components/motion";
 import { useCardHover } from "@/components/challenges/useCardHover";
+import OpponentAvatar from "@/components/challenges/OpponentAvatar";
 
 interface HistoryChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -82,7 +82,7 @@ export default function HistoryChallengeCard({
 }: HistoryChallengeCardProps) {
   const isChallenger = challenge.challenger_id === currentUserId;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
-  const displayName = opponent.display_name || opponent.username;
+  const displayName = getOpponentDisplayName(opponent, challenge.opponent_email);
   const { hoverProps } = useCardHover();
 
   const result = getResult(challenge, currentUserId);
@@ -105,11 +105,10 @@ export default function HistoryChallengeCard({
           <CardContent className="flex h-full items-center gap-3 px-3 py-2.5">
             {/* Avatar */}
             <div className="shrink-0">
-              <UserAvatar
-                avatarUrl={opponent.avatar_url}
-                iconConfig={parseIconConfig(opponent.icon_config)}
-                userId={opponent.id}
-                username={opponent.username}
+              <OpponentAvatar
+                opponent={opponent}
+                opponentEmail={challenge.opponent_email}
+                displayName={displayName}
                 size={32}
               />
             </div>

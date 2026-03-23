@@ -7,11 +7,14 @@ import type { ChallengeStatus } from "@/lib/supabase/types";
 import { isValidGameMode } from "@/lib/modes/definitions";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE } from "@/lib/modes/types";
 
+import { isValidEmail } from "@/lib/validation";
+import { LOCK_BUFFER_MS } from "@/lib/challenges/constants";
 import { getCachedProps } from "@/lib/odds-api/cache";
 import {
   getChallenges,
   createChallenge,
 } from "@/lib/challenges/queries";
+import { sendChallengeInviteEmail } from "@/lib/challenges/send-invite-email";
 
 export async function GET(request: NextRequest) {
   try {
@@ -75,9 +78,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch card scores for resolved challenges (admin client bypasses RLS for opponent cards)
+    // Fetch card scores for resolved challenges (admin client bypasses RLS for opponent cards).
+    // Skip email invite challenges with no opponent_id — they can't have opponent scores.
     const resolvedIds = challenges
-      .filter((c) => c.status === "resolved")
+      .filter((c) => c.status === "resolved" && c.opponent_id)
       .map((c) => c.id);
 
     if (resolvedIds.length > 0) {
@@ -116,6 +120,7 @@ export async function GET(request: NextRequest) {
 
 interface ChallengePostBody {
   opponent_id?: string;
+  opponent_email?: string;
   game_mode?: string;
   message?: string;
   card_size?: number;
@@ -136,8 +141,45 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json()) as ChallengePostBody;
 
-    if (!body.opponent_id) {
-      return badRequest("opponent_id is required");
+    if (!body.opponent_id && !body.opponent_email) {
+      return badRequest("Either opponent_id or opponent_email is required");
+    }
+
+    // ---- Resolve opponent ----
+    const opponentId: string | null = body.opponent_id ?? null;
+    let opponentEmail: string | null = null;
+
+    if (!body.opponent_id && body.opponent_email) {
+      const email = body.opponent_email.trim().toLowerCase();
+
+      if (!isValidEmail(email)) {
+        return badRequest("Invalid email address");
+      }
+
+      // Always use the email invite flow — don't look up whether the email
+      // belongs to an existing user. Identity is resolved when the recipient
+      // clicks the invite link (logged-in users get claimed, others pick as
+      // guests and convert on signup). This avoids leaking account existence.
+
+      // Prevent self-challenge via email
+      if (user.email && email === user.email.toLowerCase()) {
+        return badRequest("Cannot challenge yourself");
+      }
+
+      // Prevent spamming the same email with multiple open invites
+      const adminCheck = createAdminClient();
+      const { data: existingInvites } = (await (adminCheck.from("challenges") as any)
+        .select("id")
+        .eq("challenger_id", user.id)
+        .eq("opponent_email", email)
+        .not("status", "in", '("cancelled","declined","resolved")')
+        .limit(1)) as { data: { id: string }[] | null; error: unknown };
+
+      if ((existingInvites ?? []).length > 0) {
+        return badRequest("You already have an open invite to this email address");
+      }
+
+      opponentEmail = email;
     }
 
     // ---- Validate game_mode ----
@@ -176,7 +218,6 @@ export async function POST(request: NextRequest) {
     } else if (gameMode === "random") {
       // Use the same data source as the props page so random mode
       // sees the exact same props the user sees.
-      const LOCK_BUFFER_MS = 5 * 60 * 1000;
       const now = Date.now();
 
       const allSportGames = await Promise.all([
@@ -209,13 +250,26 @@ export async function POST(request: NextRequest) {
       mirrorProps = null;
     }
 
-    const challenge = await createChallenge(supabase, user.id, body.opponent_id, {
+    const challenge = await createChallenge(supabase, user.id, opponentId, {
       gameMode,
       message,
       cardSize,
       mirrorProps,
+      opponentEmail,
       status: "draft",
     });
+
+    // Fire-and-forget: send invite email for email-based challenges
+    if (opponentEmail) {
+      const admin = createAdminClient();
+      void sendChallengeInviteEmail(admin, {
+        challengeId: challenge.id,
+        challengerId: user.id,
+        opponentEmail,
+        gameMode,
+        message,
+      });
+    }
 
     return NextResponse.json({ challenge }, { status: 201 });
   } catch (error) {

@@ -14,10 +14,11 @@ import {
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import { useCardHover } from "@/components/challenges/useCardHover";
 import { parseIconConfig } from "@/lib/icons/parse";
+import { formatTimeAgo } from "@/lib/format";
+import { getOpponentDisplayName } from "@/lib/challenges/display";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
-import { formatTimeAgo } from "@/lib/format";
 
 interface IncomingChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -43,7 +44,7 @@ export default function IncomingChallengeCard({
 }: IncomingChallengeCardProps) {
   const isChallenger = challenge.challenger_id === currentUserId;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
-  const displayName = opponent.display_name || opponent.username;
+  const displayName = getOpponentDisplayName(opponent, challenge.opponent_email);
   const isLoading = actionLoading === challenge.id;
   const { hoverProps, prefersReduced } = useCardHover(
     -2,
@@ -65,10 +66,10 @@ export default function IncomingChallengeCard({
             {/* Challenger avatar */}
             <div className="shrink-0">
               <UserAvatar
-                avatarUrl={opponent.avatar_url}
-                iconConfig={parseIconConfig(opponent.icon_config)}
-                userId={opponent.id}
-                username={opponent.username}
+                avatarUrl={opponent?.avatar_url ?? null}
+                iconConfig={parseIconConfig(opponent?.icon_config ?? null)}
+                userId={opponent?.id ?? ""}
+                username={opponent?.username ?? displayName}
                 size={40}
               />
             </div>

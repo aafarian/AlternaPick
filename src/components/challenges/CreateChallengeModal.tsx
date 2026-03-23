@@ -29,8 +29,11 @@ import {
   ArrowLeft,
   ChevronRight,
   Loader2,
+  Mail,
   MessageSquare,
+  Users,
 } from "lucide-react";
+import { isValidEmail } from "@/lib/validation";
 
 /* ---------- Types ---------- */
 
@@ -75,6 +78,8 @@ export default function CreateChallengeModal({
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [search, setSearch] = useState("");
+  const [opponentMode, setOpponentMode] = useState<"friend" | "email">("friend");
+  const [opponentEmail, setOpponentEmail] = useState("");
 
   // Step 2: Game mode + card size + trash talk
   const [gameMode, setGameMode] = useState<GameMode>("classic");
@@ -113,6 +118,8 @@ export default function CreateChallengeModal({
       fetchFriends();
       setSelectedFriend(null);
       setSearch("");
+      setOpponentMode("friend");
+      setOpponentEmail("");
       setGameMode(
         initialMode && isValidGameMode(initialMode) ? initialMode : "classic"
       );
@@ -140,15 +147,20 @@ export default function CreateChallengeModal({
   /* ---------- Create challenge ---------- */
 
   const handleCreate = async () => {
-    if (!selectedFriend) return;
+    if (opponentMode === "friend" && !selectedFriend) return;
+    if (opponentMode === "email" && !isValidEmail(opponentEmail.trim())) return;
     setCreating(true);
     setError(null);
     try {
       const payload: Record<string, unknown> = {
-        opponent_id: selectedFriend.friend_profile.id,
         game_mode: gameMode,
         card_size: cardSize,
       };
+      if (opponentMode === "email") {
+        payload.opponent_email = opponentEmail.trim();
+      } else {
+        payload.opponent_id = selectedFriend!.friend_profile.id;
+      }
       if (message.trim()) {
         payload.message = message.trim();
       }
@@ -212,8 +224,11 @@ export default function CreateChallengeModal({
 
   /* ---------- Can proceed? ---------- */
 
-  const canProceedFromOpponent = selectedFriend !== null;
-  const canProceedFromSettings = true; // Mode + size always have defaults
+  const canProceedFromOpponent =
+    opponentMode === "friend"
+      ? selectedFriend !== null
+      : isValidEmail(opponentEmail.trim());
+  const canProceedFromSettings = true;
   const canProceedFromMirror = mirrorProps.length === cardSize;
 
   const canProceed =
@@ -321,73 +336,132 @@ export default function CreateChallengeModal({
         {/* ========== STEP 1: Opponent Selection ========== */}
         {step === "opponent" && (
           <>
-            <Input
-              placeholder="Search friends..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+            {/* Mode toggle: Friends / Invite by Email */}
+            <div className="flex gap-1 rounded-lg bg-secondary/50 p-1">
+              <button
+                onClick={() => {
+                  setOpponentMode("friend");
+                  setOpponentEmail("");
+                }}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+                  opponentMode === "friend"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Users className="h-3.5 w-3.5" />
+                Friends
+              </button>
+              <button
+                onClick={() => {
+                  setOpponentMode("email");
+                  setSelectedFriend(null);
+                  setSearch("");
+                }}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+                  opponentMode === "email"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Mail className="h-3.5 w-3.5" />
+                Invite by Email
+              </button>
+            </div>
 
-            <ScrollArea className="h-64">
-              {loadingFriends ? (
-                <div className="flex flex-col gap-2 p-1">
-                  {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-12 rounded-lg" />
-                  ))}
-                </div>
-              ) : filteredFriends.length === 0 ? (
-                <div className="py-8 text-center text-sm text-muted-foreground">
-                  {friends.length === 0 ? (
-                    <div className="flex flex-col gap-3 py-2">
-                      <p className="text-sm text-muted-foreground">
-                        Search for users to add as friends, then challenge them!
-                      </p>
-                      <UserSearchBar
-                        onSendRequest={async (username) => {
-                          await fetch("/api/friends", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ username }),
-                          });
-                        }}
-                      />
+            {opponentMode === "friend" ? (
+              <>
+                <Input
+                  placeholder="Search friends..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+
+                <ScrollArea className="h-64">
+                  {loadingFriends ? (
+                    <div className="flex flex-col gap-2 p-1">
+                      {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-12 rounded-lg" />
+                      ))}
+                    </div>
+                  ) : filteredFriends.length === 0 ? (
+                    <div className="py-8 text-center text-sm text-muted-foreground">
+                      {friends.length === 0 ? (
+                        <div className="flex flex-col gap-3 py-2">
+                          <p className="text-sm text-muted-foreground">
+                            Search for users to add as friends, then challenge them!
+                          </p>
+                          <UserSearchBar
+                            onSendRequest={async (username) => {
+                              await fetch("/api/friends", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ username }),
+                              });
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <p>No friends match your search.</p>
+                      )}
                     </div>
                   ) : (
-                    <p>No friends match your search.</p>
+                    <div className="flex flex-col gap-1 p-1">
+                      {filteredFriends.map((friend) => {
+                        const profile = friend.friend_profile;
+                        const name = profile.username;
+                        const isSelected = selectedFriend?.friend_profile.id === profile.id;
+                        return (
+                          <button
+                            key={friend.id}
+                            onClick={() => setSelectedFriend(friend)}
+                            className={cn(
+                              "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all",
+                              isSelected
+                                ? "border-primary bg-primary/10"
+                                : "border-transparent hover:bg-secondary"
+                            )}
+                          >
+                            <UserAvatar
+                              avatarUrl={profile.avatar_url}
+                              iconConfig={parseIconConfig(profile.icon_config)}
+                              userId={profile.id}
+                              username={name}
+                              size={32}
+                            />
+                            <div>
+                              <div className="text-sm font-bold">{name}</div>
+                              </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
-                </div>
-              ) : (
-                <div className="flex flex-col gap-1 p-1">
-                  {filteredFriends.map((friend) => {
-                    const profile = friend.friend_profile;
-                    const name = profile.username;
-                    const isSelected = selectedFriend?.friend_profile.id === profile.id;
-                    return (
-                      <button
-                        key={friend.id}
-                        onClick={() => setSelectedFriend(friend)}
-                        className={cn(
-                          "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all",
-                          isSelected
-                            ? "border-primary bg-primary/10"
-                            : "border-transparent hover:bg-secondary"
-                        )}
-                      >
-                        <UserAvatar
-                          avatarUrl={profile.avatar_url}
-                          iconConfig={parseIconConfig(profile.icon_config)}
-                          userId={profile.id}
-                          username={name}
-                          size={32}
-                        />
-                        <div>
-                          <div className="text-sm font-bold">{name}</div>
-                          </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </ScrollArea>
+                </ScrollArea>
+              </>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <Input
+                  type="email"
+                  placeholder="Enter email address..."
+                  value={opponentEmail}
+                  onChange={(e) => setOpponentEmail(e.target.value)}
+                  aria-invalid={
+                    opponentEmail.length > 0 && !isValidEmail(opponentEmail.trim())
+                  }
+                />
+                {opponentEmail.length > 0 && !isValidEmail(opponentEmail.trim()) && (
+                  <p className="text-xs text-destructive">
+                    Please enter a valid email address
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Challenge anyone — they&apos;ll get an email invite to make their picks
+                </p>
+              </div>
+            )}
           </>
         )}
 
@@ -395,11 +469,13 @@ export default function CreateChallengeModal({
         {step === "settings" && (
           <div className="flex flex-col gap-5">
             {/* Selected opponent badge */}
-            {selectedFriend && (
+            {(selectedFriend || (opponentMode === "email" && opponentEmail.trim())) && (
               <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2">
                 <span className="text-xs text-muted-foreground">vs</span>
                 <span className="text-sm font-bold">
-                  {selectedFriend.friend_profile.username}
+                  {opponentMode === "email"
+                    ? opponentEmail.trim()
+                    : selectedFriend?.friend_profile.username}
                 </span>
               </div>
             )}
@@ -450,6 +526,7 @@ export default function CreateChallengeModal({
                   {getModeHint(gameMode)}
                 </div>
               )}
+
             </div>
 
             {/* Card Size Selection */}
@@ -547,7 +624,7 @@ export default function CreateChallengeModal({
             {creating ? (
               <>
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                Creating...
+                {opponentMode === "email" ? "Sending..." : "Creating..."}
               </>
             ) : step === "opponent" ? (
               <>

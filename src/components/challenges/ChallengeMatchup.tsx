@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import UserAvatar from "@/components/icons/UserAvatar";
+import OpponentAvatar from "@/components/challenges/OpponentAvatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +27,7 @@ import ShareButton from "@/components/ui/ShareButton";
 import type { IconConfig } from "@/lib/icons/types";
 import { parseIconConfig } from "@/lib/icons/parse";
 import type { GameMode } from "@/lib/modes/types";
+import { getOpponentDisplayName } from "@/lib/challenges/display";
 import { SlideUp, ScaleIn, FadeIn } from "@/components/motion";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 
@@ -49,6 +51,7 @@ function PlayerSide({
   hasLiveGames,
   liveLoading,
   side,
+  avatarSlot,
 }: {
   label: string;
   name: string;
@@ -62,6 +65,8 @@ function PlayerSide({
   hasLiveGames: boolean;
   liveLoading: boolean;
   side: "left" | "right";
+  /** Override the default UserAvatar (e.g. with OpponentAvatar for email invites) */
+  avatarSlot?: React.ReactNode;
 }) {
   const prefersReduced = useReducedMotion();
 
@@ -110,14 +115,16 @@ function PlayerSide({
     <div className="flex flex-1 flex-col gap-3 rounded-xl">
       {/* Player identity */}
       <div className="flex flex-col items-center gap-2">
-        <UserAvatar
-          avatarUrl={avatarUrl}
-          iconConfig={iconConfig}
-          userId={userId}
-          username={name}
-          size={56}
-          className={isWinner ? "animate-winner-ring" : undefined}
-        />
+        {avatarSlot ?? (
+          <UserAvatar
+            avatarUrl={avatarUrl}
+            iconConfig={iconConfig}
+            userId={userId}
+            username={name}
+            size={56}
+            className={isWinner ? "animate-winner-ring" : undefined}
+          />
+        )}
         <span className="text-sm font-semibold">
           {isWinner && <Crown className="mr-1 inline h-4 w-4 text-neon-green" />}
           {name}
@@ -180,6 +187,19 @@ export default function ChallengeMatchup({
   const router = useRouter();
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Detect pending picks from the email-invite sign-in flow synchronously
+  // so the very first render shows the loader instead of Accept/Decline.
+  const [hasPendingPicks] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw = sessionStorage.getItem("pending_card_picks");
+      if (!raw) return false;
+      return JSON.parse(raw).challengeId === challenge.id;
+    } catch {
+      return false;
+    }
+  });
   const prefersReduced = useReducedMotion();
 
   // Live stats — enabled when cards are locked (polling) or challenge is
@@ -218,8 +238,9 @@ export default function ChallengeMatchup({
   const opponentLiveScore = liveData ? liveHitCount(opponentLivePickMap) : null;
 
   const isChallenger = challenge.challenger_id === currentUserId;
+  const isEmailInviteOpponent = !challenge.opponent && !!challenge.opponent_email;
   const challengerName = challenge.challenger.username;
-  const opponentName = challenge.opponent.username;
+  const opponentName = getOpponentDisplayName(challenge.opponent, challenge.opponent_email);
 
   // Determine if the current user has submitted their card
   const myCard = isChallenger
@@ -445,13 +466,20 @@ export default function ChallengeMatchup({
                 text={`Check out this challenge on AlternaPick! ${challengerName} vs ${opponentName}`}
               />
             </div>
-            <QuickActions
-              challengeId={challenge.id}
-              opponentId={isChallenger ? challenge.opponent_id : challenge.challenger_id}
-              gameMode={(challenge.game_mode as GameMode) ?? "classic"}
-              isParticipant={true}
-              isResolved={challenge.status === "resolved"}
-            />
+            {/* QuickActions requires an opponent — email-invite challenges may not have one yet */}
+            {(() => {
+              const otherUserId = isChallenger ? challenge.opponent_id : challenge.challenger_id;
+              if (!otherUserId) return null;
+              return (
+                <QuickActions
+                  challengeId={challenge.id}
+                  opponentId={otherUserId}
+                  gameMode={(challenge.game_mode as GameMode) ?? "classic"}
+                  isParticipant={true}
+                  isResolved={challenge.status === "resolved"}
+                />
+              );
+            })()}
           </div>
         </FadeIn>
       )}
@@ -497,9 +525,9 @@ export default function ChallengeMatchup({
         <PlayerSide
           label={isChallenger ? "Opponent" : "You"}
           name={opponentName}
-          avatarUrl={challenge.opponent.avatar_url}
-          iconConfig={parseIconConfig(challenge.opponent.icon_config)}
-          userId={challenge.opponent.id}
+          avatarUrl={challenge.opponent?.avatar_url ?? null}
+          iconConfig={parseIconConfig(challenge.opponent?.icon_config ?? null)}
+          userId={challenge.opponent?.id ?? ""}
           card={challenge.opponent_card}
           isWinner={opponentIsWinner}
           showPicks={isChallenger ? showTheirPicks : showMyPicks}
@@ -507,6 +535,14 @@ export default function ChallengeMatchup({
           hasLiveGames={liveData?.opponent_card?.has_live_games ?? false}
           liveLoading={shouldFetchLive && !liveData}
           side="right"
+          avatarSlot={isEmailInviteOpponent ? (
+            <OpponentAvatar
+              opponent={challenge.opponent}
+              opponentEmail={challenge.opponent_email}
+              displayName={opponentName}
+              size={56}
+            />
+          ) : undefined}
         />
       </div>
 
@@ -576,6 +612,13 @@ export default function ChallengeMatchup({
                 >
                   {actionLoading ? "Cancelling..." : "Cancel Challenge"}
                 </Button>
+              </div>
+            ) : hasPendingPicks ? (
+              <div className="flex flex-col items-center gap-3 text-center">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">
+                  Locking in your picks...
+                </p>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3 text-center">

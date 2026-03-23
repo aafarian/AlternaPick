@@ -2,8 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { handleApiError } from "@/lib/api/errors";
 import type { Game, Prop, StatCategory } from "@/lib/supabase/types";
-
-const LOCK_BUFFER_MS = 5 * 60 * 1000;
+import { LOCK_BUFFER_MS } from "@/lib/challenges/constants";
 
 export async function GET(request: NextRequest) {
   try {
