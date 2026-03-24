@@ -115,6 +115,60 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Enrich group challenges with participant count, avatars, and placement
+    const groupChallenges = challenges.filter((c) => c.lobby_type === "group");
+    if (groupChallenges.length > 0) {
+      const groupIds = groupChallenges.map((c) => c.id);
+      const adminClient = createAdminClient();
+      const { data: participants } = await (adminClient.from("challenge_participants") as any)
+        .select(
+          "challenge_id, user_id, placement, status, profile:profiles!challenge_participants_user_id_fkey(username, display_name, avatar_url, icon_config)"
+        )
+        .in("challenge_id", groupIds);
+
+      type ParticipantRow = {
+        challenge_id: string;
+        user_id: string | null;
+        placement: number | null;
+        status: string;
+        profile: {
+          username: string | null;
+          display_name: string | null;
+          avatar_url: string | null;
+          icon_config: Record<string, unknown> | null;
+        } | null;
+      };
+
+      const participantMap = new Map<string, ParticipantRow[]>();
+      for (const p of (participants ?? []) as ParticipantRow[]) {
+        const list = participantMap.get(p.challenge_id) ?? [];
+        list.push(p);
+        participantMap.set(p.challenge_id, list);
+      }
+
+      for (const ch of groupChallenges) {
+        const parts = participantMap.get(ch.id) ?? [];
+        ch.participant_count = parts.length;
+        ch.participant_avatars = parts
+          .filter((p) => p.status !== "declined")
+          .map((p) => ({
+            user_id: p.user_id,
+            username: p.profile?.username ?? null,
+            display_name: p.profile?.display_name ?? null,
+            avatar_url: p.profile?.avatar_url ?? null,
+            icon_config: p.profile?.icon_config ?? null,
+          }));
+        ch.participant_names = parts
+          .filter((p) => p.status !== "declined")
+          .map((p) => p.profile?.display_name || p.profile?.username || "")
+          .filter(Boolean);
+
+        // Set current user's placement for resolved group challenges
+        const myParticipant = parts.find((p) => p.user_id === user.id);
+        ch.my_placement = myParticipant?.placement ?? null;
+      }
+    }
+
     return NextResponse.json({ challenges, userCardChallengeIds, hasMore });
   } catch (error) {
     return handleApiError(error, "Failed to fetch challenges");

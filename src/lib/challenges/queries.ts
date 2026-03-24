@@ -19,6 +19,15 @@ export interface ChallengeProfile {
   icon_config: Record<string, unknown> | null;
 }
 
+/** Compact avatar data for group challenge list display. */
+export interface ParticipantAvatar {
+  user_id: string | null;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  icon_config: Record<string, unknown> | null;
+}
+
 export interface ChallengeWithProfiles extends Challenge {
   challenger: ChallengeProfile;
   /**
@@ -31,6 +40,14 @@ export interface ChallengeWithProfiles extends Challenge {
   challenger_score?: number | null;
   /** Populated for resolved challenges — opponent's card score */
   opponent_score?: number | null;
+  /** Populated for group challenges — total number of participants */
+  participant_count?: number;
+  /** Populated for resolved group challenges — current user's placement (1-based) */
+  my_placement?: number | null;
+  /** Populated for group challenges — compact avatar data for stacked display */
+  participant_avatars?: ParticipantAvatar[];
+  /** Populated for group challenges — participant display names for search matching */
+  participant_names?: string[];
 }
 
 export interface ChallengeParticipantProfile {
@@ -98,12 +115,30 @@ export async function getChallenges(
   const limit = options?.limit;
   const offset = options?.offset ?? 0;
 
+  // For group challenges, the user may be a participant but not challenger/opponent.
+  // Fetch group challenge IDs where the user is a participant first.
+  const admin = createAdminClient();
+  const { data: participantRows } = await (admin.from("challenge_participants") as any)
+    .select("challenge_id")
+    .eq("user_id", userId);
+  const groupChallengeIds = (participantRows ?? []).map(
+    (r: { challenge_id: string }) => r.challenge_id
+  );
+
   let query = typedFrom(supabase, "challenges")
     .select(
       "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url, icon_config), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url, icon_config)"
     )
-    .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
     .order("created_at", { ascending: false });
+
+  // Include challenges where user is challenger, opponent, OR a group participant.
+  if (groupChallengeIds.length > 0) {
+    query = query.or(
+      `challenger_id.eq.${userId},opponent_id.eq.${userId},id.in.(${groupChallengeIds.join(",")})`
+    );
+  } else {
+    query = query.or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`);
+  }
 
   // Note: email invite challenges (opponent_id is null) are included via the
   // challenger_id filter above. The FK join returns opponent: null for these.

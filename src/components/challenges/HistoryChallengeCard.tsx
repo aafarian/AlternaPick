@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
@@ -10,7 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { formatTimeAgo } from "@/lib/format";
-import { getOpponentDisplayName } from "@/lib/challenges/display";
+import { getOpponentDisplayName, formatPlacement } from "@/lib/challenges/display";
 import { GAME_MODES } from "@/lib/modes/definitions";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,8 @@ import { motion } from "@/lib/motion";
 import { ScaleIn } from "@/components/motion";
 import { useCardHover } from "@/components/challenges/useCardHover";
 import OpponentAvatar from "@/components/challenges/OpponentAvatar";
+import StackedAvatars from "@/components/challenges/StackedAvatars";
+import { Users } from "lucide-react";
 
 interface HistoryChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -81,8 +84,11 @@ export default function HistoryChallengeCard({
   currentUserId,
 }: HistoryChallengeCardProps) {
   const isChallenger = challenge.challenger_id === currentUserId;
+  const isGroup = challenge.lobby_type === "group";
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
-  const displayName = getOpponentDisplayName(opponent, challenge.opponent_email);
+  const displayName = isGroup
+    ? `Group (${challenge.participant_count ?? 0} players)`
+    : getOpponentDisplayName(opponent, challenge.opponent_email);
   const { hoverProps } = useCardHover();
 
   const result = getResult(challenge, currentUserId);
@@ -105,12 +111,16 @@ export default function HistoryChallengeCard({
           <CardContent className="flex h-full items-center gap-3 px-3 py-2.5">
             {/* Avatar */}
             <div className="shrink-0">
-              <OpponentAvatar
-                opponent={opponent}
-                opponentEmail={challenge.opponent_email}
-                displayName={displayName}
-                size={32}
-              />
+              {isGroup && challenge.participant_avatars ? (
+                <StackedAvatars participants={challenge.participant_avatars} size={26} />
+              ) : (
+                <OpponentAvatar
+                  opponent={opponent}
+                  opponentEmail={challenge.opponent_email}
+                  displayName={displayName}
+                  size={32}
+                />
+              )}
             </div>
 
             {/* Info column */}
@@ -120,21 +130,36 @@ export default function HistoryChallengeCard({
                 <span className="truncate text-sm font-bold">
                   {displayName}
                 </span>
-                <ScaleIn initialScale={0.5} duration={0.35}>
-                  <span
-                    className={cn("text-[10px] font-bold", colors.text)}
-                  >
-                    {resultLabel}
-                  </span>
-                </ScaleIn>
-                {challenge.challenger_score != null &&
-                  challenge.opponent_score != null && (
-                    <span className="text-[10px] text-muted-foreground">
-                      {isChallenger
-                        ? `${challenge.challenger_score}-${challenge.opponent_score}`
-                        : `${challenge.opponent_score}-${challenge.challenger_score}`}
+                {isGroup && challenge.status === "resolved" && challenge.my_placement != null ? (
+                  <ScaleIn initialScale={0.5} duration={0.35}>
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold",
+                        challenge.my_placement === 1 ? "text-neon-green" : "text-muted-foreground"
+                      )}
+                    >
+                      {formatPlacement(challenge.my_placement)} of {challenge.participant_count}
                     </span>
-                  )}
+                  </ScaleIn>
+                ) : (
+                  <>
+                    <ScaleIn initialScale={0.5} duration={0.35}>
+                      <span
+                        className={cn("text-[10px] font-bold", colors.text)}
+                      >
+                        {resultLabel}
+                      </span>
+                    </ScaleIn>
+                    {challenge.challenger_score != null &&
+                      challenge.opponent_score != null && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {isChallenger
+                            ? `${challenge.challenger_score}-${challenge.opponent_score}`
+                            : `${challenge.opponent_score}-${challenge.challenger_score}`}
+                        </span>
+                      )}
+                  </>
+                )}
               </div>
 
               {/* Mode + date row */}
@@ -143,6 +168,11 @@ export default function HistoryChallengeCard({
                   <span className="text-xs" title={modeConfig.displayName}>
                     {modeConfig.icon}
                   </span>
+                )}
+                {isGroup && (
+                  <Badge variant="secondary" className="gap-1 bg-violet-500/10 text-violet-400 border-violet-500/20 text-[10px] px-1 py-0">
+                    <Users className="h-2.5 w-2.5" />
+                  </Badge>
                 )}
                 <span className="text-xs text-muted-foreground">
                   {dateLabel}

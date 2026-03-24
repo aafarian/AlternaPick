@@ -333,8 +333,13 @@ export default function ChallengesPage() {
   const userId = user?.id ?? "";
 
   // Segment core challenges
+  // For group challenges, incoming = pending + user is NOT the creator (challenger)
   const inboxChallenges = coreChallenges.filter(
-    (c) => c.status === "pending" && c.opponent_id === userId
+    (c) =>
+      c.status === "pending" &&
+      (c.lobby_type === "group"
+        ? c.challenger_id !== userId
+        : c.opponent_id === userId)
   );
   const sentChallenges = coreChallenges.filter(
     (c) => (c.status === "pending" || c.status === "draft") && c.challenger_id === userId
@@ -343,10 +348,14 @@ export default function ChallengesPage() {
     .filter((c) => c.status === "accepted" || c.status === "active")
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  // Search filter helper
+  // Search filter helper — matches opponent name (1v1) or any participant name (group)
   const sq = searchQuery.trim().toLowerCase();
   const matchesSearch = (c: ChallengeWithProfiles) => {
     if (!sq) return true;
+    // For group challenges, search all participant names
+    if (c.lobby_type === "group" && c.participant_names) {
+      return c.participant_names.some((name) => name.toLowerCase().includes(sq));
+    }
     const opp = c.challenger_id === userId ? c.opponent : c.challenger;
     const name = (opp?.display_name || opp?.username || c.opponent_email || "").toLowerCase();
     return name.includes(sq);
@@ -425,7 +434,7 @@ export default function ChallengesPage() {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search opponents..."
+            placeholder="Search players..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-9 w-full rounded-lg border border-border bg-secondary/50 pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"

@@ -334,6 +334,8 @@ export interface Database {
           max_participants: number;
           created_at: string;
           resolved_at: string | null;
+          lobby_type: string;
+          max_participants: number;
         };
         Insert: {
           id?: string;
@@ -350,6 +352,8 @@ export interface Database {
           max_participants?: number;
           created_at?: string;
           resolved_at?: string | null;
+          lobby_type?: string;
+          max_participants?: number;
         };
         Update: {
           challenger_id?: string;
@@ -364,6 +368,8 @@ export interface Database {
           lobby_type?: string;
           max_participants?: number;
           resolved_at?: string | null;
+          lobby_type?: string;
+          max_participants?: number;
         };
       };
       feature_flags: {
