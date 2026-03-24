@@ -4,6 +4,7 @@ import { verifyGuestToken, markTokenUsed } from "@/lib/challenges/guest-token";
 import { badRequest, serverError, handleApiError } from "@/lib/api/errors";
 import { logError, logWarn } from "@/lib/logger";
 import { UNPICKABLE_CHALLENGE_STATUSES, LOCK_BUFFER_MS } from "@/lib/challenges/constants";
+import { linkCardToGuestParticipant } from "@/lib/challenges/queries";
 import type { Card, Challenge, Pick, PickSelection } from "@/lib/supabase/types";
 
 interface GuestPickInput {
@@ -67,9 +68,33 @@ export async function POST(
     }
 
     const challenge = challengeData as Challenge;
+    const isGroupChallenge = challenge.lobby_type === "group";
 
-    // Verify challenge has null opponent_id (email invite challenge)
-    if (challenge.opponent_id !== null) {
+    // For 1v1: verify challenge has null opponent_id (email invite challenge)
+    // For group: verify the token's email matches a participant row
+    if (isGroupChallenge) {
+      const { data: participantRows, error: participantError } = await (admin.from("challenge_participants") as any)
+        .select("id, status, card_id")
+        .eq("challenge_id", challengeId)
+        .eq("email", tokenData.email.toLowerCase().trim())
+        .limit(1);
+
+      if (participantError) {
+        logError("guest-pick", "Failed to look up participant", "POST /api/challenges/[id]/guest-pick", participantError);
+        return serverError("Failed to verify participant", participantError.message);
+      }
+
+      const participant = ((participantRows ?? []) as Array<{ id: string; status: string; card_id: string | null }>)[0];
+      if (!participant) {
+        logWarn("guest-pick", `No participant row found for guest in challenge ${challengeId}`);
+        return badRequest("You are not a participant in this challenge");
+      }
+
+      // Check if this participant already has a card linked (prevent duplicates)
+      if (participant.card_id) {
+        return badRequest("You have already submitted picks for this challenge");
+      }
+    } else if (challenge.opponent_id !== null) {
       logWarn("guest-pick", `Challenge ${challengeId} already has an opponent`);
       return badRequest("Challenge already has an opponent");
     }
@@ -164,20 +189,23 @@ export async function POST(
       }
     }
 
-    // Check if a guest card already exists for this challenge (prevent duplicates)
-    const { data: existingCards, error: existingError } = await (admin.from("cards") as any)
-      .select("id")
-      .eq("challenge_id", challengeId)
-      .is("user_id", null)
-      .limit(1);
+    // Check if a guest card already exists for this challenge (prevent duplicates).
+    // For group challenges, this is handled above via participant.card_id check.
+    if (!isGroupChallenge) {
+      const { data: existingCards, error: existingError } = await (admin.from("cards") as any)
+        .select("id")
+        .eq("challenge_id", challengeId)
+        .is("user_id", null)
+        .limit(1);
 
-    if (existingError) {
-      logError("guest-pick", "Failed to check existing guest cards", "POST /api/challenges/[id]/guest-pick", existingError);
-      return serverError("Failed to check existing cards", existingError.message);
-    }
+      if (existingError) {
+        logError("guest-pick", "Failed to check existing guest cards", "POST /api/challenges/[id]/guest-pick", existingError);
+        return serverError("Failed to check existing cards", existingError.message);
+      }
 
-    if ((existingCards ?? []).length > 0) {
-      return badRequest("A guest card already exists for this challenge");
+      if ((existingCards ?? []).length > 0) {
+        return badRequest("A guest card already exists for this challenge");
+      }
     }
 
     // Atomically claim the token. If another request already consumed it,
@@ -234,23 +262,30 @@ export async function POST(
 
     const createdPicks = (picksData ?? []) as Pick[];
 
-    // Check if both participants now have locked cards (challenger + guest).
-    // If so, transition the challenge to "active" so it can be resolved.
-    const { data: allCards, error: allCardsError } = await (admin.from("cards") as any)
-      .select("id")
-      .eq("challenge_id", challengeId)
-      .eq("status", "locked");
+    if (isGroupChallenge) {
+      // Link card to the participant row and check if all participants are active.
+      // linkCardToGuestParticipant sets card_id + status='active' on the participant,
+      // then triggers checkGroupChallengeActivation to transition the challenge if ready.
+      await linkCardToGuestParticipant(admin, challengeId, tokenData.email, card.id);
+    } else {
+      // 1v1: Check if both participants now have locked cards (challenger + guest).
+      // If so, transition the challenge to "active" so it can be resolved.
+      const { data: allCards, error: allCardsError } = await (admin.from("cards") as any)
+        .select("id")
+        .eq("challenge_id", challengeId)
+        .eq("status", "locked");
 
-    if (allCardsError) {
-      logError("guest-pick", "Failed to check challenge cards", "POST /api/challenges/[id]/guest-pick", allCardsError);
-    } else if ((allCards ?? []).length >= 2) {
-      const { error: activateError } = await (admin.from("challenges") as any)
-        .update({ status: "active" })
-        .eq("id", challengeId)
-        .in("status", ["accepted", "pending"]);
+      if (allCardsError) {
+        logError("guest-pick", "Failed to check challenge cards", "POST /api/challenges/[id]/guest-pick", allCardsError);
+      } else if ((allCards ?? []).length >= 2) {
+        const { error: activateError } = await (admin.from("challenges") as any)
+          .update({ status: "active" })
+          .eq("id", challengeId)
+          .in("status", ["accepted", "pending"]);
 
-      if (activateError) {
-        logError("guest-pick", `Failed to activate challenge ${challengeId}`, "POST /api/challenges/[id]/guest-pick", activateError);
+        if (activateError) {
+          logError("guest-pick", `Failed to activate challenge ${challengeId}`, "POST /api/challenges/[id]/guest-pick", activateError);
+        }
       }
     }
 

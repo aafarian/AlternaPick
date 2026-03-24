@@ -1218,6 +1218,51 @@ async function checkGroupChallengeActivation(
   }
 }
 
+/**
+ * Link a card to a guest participant row in a group challenge (looked up by email).
+ * Sets card_id and status='active' on the participant row.
+ * Then checks if all non-declined participants are active — if so, transitions challenge to 'active'.
+ */
+export async function linkCardToGuestParticipant(
+  admin: SupabaseClient<Database>,
+  challengeId: string,
+  email: string,
+  cardId: string
+): Promise<void> {
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // Find the participant row by email
+  const { data: participantRows, error: findError } = await (admin.from("challenge_participants") as any)
+    .select("id, status")
+    .eq("challenge_id", challengeId)
+    .eq("email", normalizedEmail)
+    .limit(1);
+
+  if (findError) {
+    logError("challenges", "Failed to find guest participant for card linking", "linkCardToGuestParticipant", findError);
+    return;
+  }
+
+  const participant = ((participantRows ?? []) as Array<{ id: string; status: string }>)[0];
+  if (!participant) {
+    // Not a group challenge participant — this is normal for 1v1 email invites
+    return;
+  }
+
+  // Update participant: set card_id and status to 'active'
+  const { error: updateError } = await (admin.from("challenge_participants") as any)
+    .update({ card_id: cardId, status: "active" })
+    .eq("id", participant.id);
+
+  if (updateError) {
+    logError("challenges", "Failed to link card to guest participant", "linkCardToGuestParticipant", updateError);
+    return;
+  }
+
+  // Check if all non-declined participants are now active
+  await checkGroupChallengeActivation(admin, challengeId);
+}
+
 export class ChallengeValidationError extends Error {
   public status: number;
   constructor(message: string, status: number = 400) {
