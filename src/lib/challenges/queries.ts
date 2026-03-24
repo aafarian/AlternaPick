@@ -35,20 +35,24 @@ export interface ChallengeWithProfiles extends Challenge {
 
 export interface ChallengeParticipantProfile {
   id: string;
+  user_id: string | null;
   username: string | null;
   display_name: string | null;
   avatar_url: string | null;
   icon_config: Record<string, unknown> | null;
+  email: string | null;
   status: ParticipantStatus;
+  card_id: string | null;
   placement: number | null;
   score: number | null;
   is_creator: boolean;
-  email: string | null;
+  card: ChallengeCard | null;
 }
 
 export interface ChallengeDetail extends ChallengeWithProfiles {
   challenger_card: ChallengeCard | null;
   opponent_card: ChallengeCard | null;
+  /** Populated for group challenges (lobby_type === 'group'). */
   participants?: ChallengeParticipantProfile[];
 }
 
@@ -163,9 +167,24 @@ export async function getChallenge(
 
   const ch = challenge as ChallengeWithProfiles;
 
+  const admin = createAdminClient();
+  const isGroup = ch.lobby_type === "group";
+
   // Verify user is a participant.
-  // Email invite challenges have opponent_id = null — allow the challenger to view them.
-  if (ch.challenger_id !== userId && ch.opponent_id !== userId) {
+  // For group challenges, check the challenge_participants table.
+  // For 1v1, check challenger_id / opponent_id directly.
+  if (isGroup) {
+    const { data: participantCheck } = await (admin.from("challenge_participants") as any)
+      .select("id")
+      .eq("challenge_id", challengeId)
+      .eq("user_id", userId)
+      .limit(1);
+
+    if (!participantCheck || (participantCheck as Array<{ id: string }>).length === 0) {
+      return null;
+    }
+  } else if (ch.challenger_id !== userId && ch.opponent_id !== userId) {
+    // Email invite challenges have opponent_id = null — allow the challenger to view them.
     return null;
   }
 
@@ -174,7 +193,6 @@ export async function getChallenge(
 
   // Fetch cards linked to this challenge
   // Must use admin client to bypass RLS — user can't see opponent's card
-  const admin = createAdminClient();
   const { data: cards } = await (admin.from("cards") as any)
     .select(
       "id, user_id, status, score, total_picks, locked_at, resolved_at, picks(id, selection, result, actual_value, prop:props(id, player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport)))"
@@ -192,15 +210,6 @@ export async function getChallenge(
     picks: ChallengePick[];
   }>;
 
-  const challengerCard =
-    cardsList.find((c) => c.user_id === ch.challenger_id) ?? null;
-  // Find the opponent's card as "any card that isn't the challenger's".
-  // This handles email invite challenges where both opponent_id and the guest
-  // card's user_id may be null, and also survives partial conversion failures
-  // where opponent_id was set but the card's user_id update failed.
-  const opponentCard =
-    cardsList.find((c) => c.user_id !== ch.challenger_id) ?? null;
-
   const formatCard = (
     card: (typeof cardsList)[number] | null
   ): ChallengeCard | null => {
@@ -216,12 +225,56 @@ export async function getChallenge(
     };
   };
 
+  // For group challenges, fetch participants with profiles and link cards
+  if (isGroup) {
+    const participants = await getParticipants(admin, challengeId);
+
+    // Build a card lookup by user_id and card_id for linking
+    const cardByUserId = new Map<string, (typeof cardsList)[number]>();
+    const cardById = new Map<string, (typeof cardsList)[number]>();
+    for (const c of cardsList) {
+      if (c.user_id) cardByUserId.set(c.user_id, c);
+      cardById.set(c.id, c);
+    }
+
+    const participantsWithCards: ChallengeParticipantProfile[] = participants.map((p) => {
+      const card = p.card_id
+        ? cardById.get(p.card_id) ?? null
+        : p.user_id
+          ? cardByUserId.get(p.user_id) ?? null
+          : null;
+
+      return {
+        ...p,
+        card: formatCard(card),
+      };
+    });
+
+    return {
+      ...ch,
+      challenger_card: formatCard(cardsList.find((c) => c.user_id === ch.challenger_id) ?? null),
+      opponent_card: null,
+      participants: participantsWithCards,
+    };
+  }
+
+  // 1v1 path: find challenger and opponent cards
+  const challengerCard =
+    cardsList.find((c) => c.user_id === ch.challenger_id) ?? null;
+  // Find the opponent's card as "any card that isn't the challenger's".
+  // This handles email invite challenges where both opponent_id and the guest
+  // card's user_id may be null, and also survives partial conversion failures
+  // where opponent_id was set but the card's user_id update failed.
+  const opponentCard =
+    cardsList.find((c) => c.user_id !== ch.challenger_id) ?? null;
+
   return {
     ...ch,
     challenger_card: formatCard(challengerCard),
     opponent_card: formatCard(opponentCard),
   };
 }
+
 
 /** Options for creating a challenge beyond the basic challenger/opponent IDs. */
 export interface CreateChallengeOptions {
@@ -685,7 +738,7 @@ export async function getParticipants(
 ): Promise<ChallengeParticipantProfile[]> {
   const { data, error } = await (admin.from("challenge_participants") as any)
     .select(
-      "id, status, placement, score, is_creator, email, user_id, profile:profiles!challenge_participants_user_id_fkey(username, display_name, avatar_url, icon_config)"
+      "id, user_id, card_id, status, placement, score, is_creator, email, profile:profiles!challenge_participants_user_id_fkey(username, display_name, avatar_url, icon_config)"
     )
     .eq("challenge_id", challengeId)
     .order("created_at", { ascending: true });
@@ -697,12 +750,13 @@ export async function getParticipants(
 
   return ((data ?? []) as Array<{
     id: string;
+    user_id: string | null;
+    card_id: string | null;
     status: ParticipantStatus;
     placement: number | null;
     score: number | null;
     is_creator: boolean;
     email: string | null;
-    user_id: string | null;
     profile: {
       username: string;
       display_name: string | null;
@@ -711,15 +765,18 @@ export async function getParticipants(
     } | null;
   }>).map((p) => ({
     id: p.id,
+    user_id: p.user_id,
     username: p.profile?.username ?? null,
     display_name: p.profile?.display_name ?? null,
     avatar_url: p.profile?.avatar_url ?? null,
     icon_config: p.profile?.icon_config ?? null,
+    email: p.email,
     status: p.status,
+    card_id: p.card_id,
     placement: p.placement,
     score: p.score,
     is_creator: p.is_creator,
-    email: p.email,
+    card: null,
   }));
 }
 
