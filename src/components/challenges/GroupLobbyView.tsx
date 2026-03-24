@@ -441,11 +441,13 @@ export default function GroupLobbyView({
     }
   }
 
-  // Count locked-in participants (status = "active" means they submitted their card)
+  // Count locked-in participants using participant status "active" to match
+  // the backend validation in respondToGroupChallenge (which checks p.status === "active").
   const lockedInCount = activeParticipants.filter(
-    (p: ChallengeParticipantProfile) => p.card && (p.card.status === "locked" || p.card.status === "resolved")
+    (p: ChallengeParticipantProfile) => p.status === "active"
   ).length;
-  const canStartEarly = isCreator && myCard && lockedInCount >= MIN_LOBBY_SIZE;
+  const canStartEarly = isCreator && lockedInCount >= MIN_LOBBY_SIZE &&
+    (challenge.status === "pending" || challenge.status === "accepted");
 
   return (
     <div className="flex flex-col gap-5">
@@ -709,6 +711,19 @@ export default function GroupLobbyView({
                     <Link href={pickPropsLink}>
                       <Button size="sm">Make Your Picks</Button>
                     </Link>
+                  </>
+                ) : canStartEarly ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      {lockedInCount} of {activeParticipants.length} players locked in — you can start now or wait for more
+                    </p>
+                    <Button
+                      onClick={handleStart}
+                      disabled={actionLoading}
+                      size="sm"
+                    >
+                      {actionLoading ? "Starting..." : "Start Challenge"}
+                    </Button>
                   </>
                 ) : !hasLockedCard ? (
                   <p className="text-sm text-muted-foreground">

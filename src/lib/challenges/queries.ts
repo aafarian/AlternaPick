@@ -122,15 +122,22 @@ export async function getChallenges(
   // For group challenges, the user is a participant but not challenger/opponent.
   // RLS on the challenges table only allows challenger_id/opponent_id, so we
   // must fetch group challenges via admin client and merge them in.
+  // Fetch group challenge IDs where this user is a participant.
+  // Limit to a reasonable cap — users with extreme participation should paginate.
   const { data: participantRows } = await (admin.from("challenge_participants") as any)
     .select("challenge_id")
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .limit(500);
   const groupChallengeIds = (participantRows ?? []).map(
     (r: { challenge_id: string }) => r.challenge_id
   );
 
   const selectFields =
     "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url, icon_config), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url, icon_config)";
+
+  // Cap each query to avoid unbounded fetches. Since we merge + deduplicate,
+  // each source may contribute up to the full page — fetch enough from each.
+  const queryLimit = limit !== undefined ? offset + limit + 1 : undefined;
 
   // 1. Fetch 1v1 challenges via user client (RLS handles auth)
   let userQuery = typedFrom(supabase, "challenges")
@@ -140,6 +147,9 @@ export async function getChallenges(
 
   if (statusFilter && statusFilter.length > 0) {
     userQuery = userQuery.in("status", statusFilter);
+  }
+  if (queryLimit !== undefined) {
+    userQuery = userQuery.limit(queryLimit);
   }
 
   // 2. Fetch group challenges via admin client (bypasses RLS)
@@ -152,6 +162,9 @@ export async function getChallenges(
 
   if (groupQuery && statusFilter && statusFilter.length > 0) {
     groupQuery = groupQuery.in("status", statusFilter);
+  }
+  if (groupQuery && queryLimit !== undefined) {
+    groupQuery = groupQuery.limit(queryLimit);
   }
 
   const [userResult, groupResult] = await Promise.all([
@@ -1204,12 +1217,15 @@ export async function respondToGroupChallenge(
       );
     }
 
-    // Mark remaining invited/accepted participants as declined
+    // Mark remaining invited/accepted participants as declined.
+    // Use a status guard to prevent racing with a concurrent lock-in
+    // that transitions a participant to "active" between our read and this write.
     const pendingParts = parts.filter((p) => p.status === "invited" || p.status === "accepted");
     if (pendingParts.length > 0) {
       await (admin.from("challenge_participants") as any)
         .update({ status: "declined" })
-        .in("id", pendingParts.map((p) => p.id));
+        .in("id", pendingParts.map((p) => p.id))
+        .in("status", ["invited", "accepted"]);
     }
 
     // Activate the challenge
