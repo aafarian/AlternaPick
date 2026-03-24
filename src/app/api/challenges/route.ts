@@ -294,25 +294,6 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Anti-spam: check for existing open invites per email opponent
-      const emailOpponents = opponents.filter((o) => o.email);
-      if (emailOpponents.length > 0) {
-        const adminCheck = createAdminClient();
-        for (const opp of emailOpponents) {
-          const email = opp.email!.trim().toLowerCase();
-          const { data: existingInvites } = (await (adminCheck.from("challenges") as any)
-            .select("id")
-            .eq("challenger_id", user.id)
-            .eq("opponent_email", email)
-            .not("status", "in", '("cancelled","declined","resolved")')
-            .limit(1)) as { data: { id: string }[] | null; error: unknown };
-
-          if ((existingInvites ?? []).length > 0) {
-            return badRequest("You already have an open invite to one of these email addresses");
-          }
-        }
-      }
-
       // Normalize opponents for the query layer
       const normalizedOpponents: GroupOpponent[] = opponents.map((o) => ({
         user_id: o.user_id,
