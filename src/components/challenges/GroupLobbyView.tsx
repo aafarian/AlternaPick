@@ -263,11 +263,10 @@ export default function GroupLobbyView({
   const showOtherPicks =
     hasLockedCard || challenge.status === "active" || challenge.status === "resolved";
 
-  // Live stats — enabled when at least one card is locked or challenge is resolved
-  const hasAnyLockedCard = participants.some(
-    (p) => p.card?.status === "locked" || p.card?.status === "resolved"
-  );
-  const shouldFetchLive = hasAnyLockedCard || challenge.status === "resolved";
+  // Live stats — only poll when the challenge is active (all locked) or resolved.
+  // Don't poll during pending/draft — games aren't relevant until everyone has locked in.
+  const shouldFetchLive =
+    challenge.status === "active" || challenge.status === "resolved";
 
   const { data: liveData, isLoading: liveLoading, challengeResolved } = useLiveChallenge(
     challenge.id,
@@ -281,24 +280,16 @@ export default function GroupLobbyView({
     }
   }, [challengeResolved, router]);
 
-  // Build live pick maps per card
+  // Build live pick maps per card from the participants array
   const livePickMapByCardId = new Map<string, Map<string, LivePickData>>();
-  if (liveData) {
-    // Build from challenger_card and opponent_card (1v1 compat)
-    // Future: the live API will add a `participants` array for group challenges
-    if (liveData.challenger_card) {
+  if (liveData?.participants) {
+    for (const lp of liveData.participants) {
+      if (!lp.card) continue;
       const map = new Map<string, LivePickData>();
-      for (const lp of liveData.challenger_card.picks) {
-        map.set(lp.pick_id, lp);
+      for (const pick of lp.card.picks) {
+        map.set(pick.pick_id, pick);
       }
-      livePickMapByCardId.set(liveData.challenger_card.card_id, map);
-    }
-    if (liveData.opponent_card) {
-      const map = new Map<string, LivePickData>();
-      for (const lp of liveData.opponent_card.picks) {
-        map.set(lp.pick_id, lp);
-      }
-      livePickMapByCardId.set(liveData.opponent_card.card_id, map);
+      livePickMapByCardId.set(lp.card.card_id, map);
     }
   }
 
