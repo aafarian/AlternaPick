@@ -8,12 +8,14 @@ import { isValidGameMode } from "@/lib/modes/definitions";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE } from "@/lib/modes/types";
 
 import { isValidEmail } from "@/lib/validation";
-import { LOCK_BUFFER_MS } from "@/lib/challenges/constants";
+import { LOCK_BUFFER_MS, MAX_LOBBY_SIZE } from "@/lib/challenges/constants";
 import { getCachedProps } from "@/lib/odds-api/cache";
 import {
   getChallenges,
   createChallenge,
+  createGroupChallenge,
 } from "@/lib/challenges/queries";
+import type { GroupOpponent } from "@/lib/challenges/queries";
 import { sendChallengeInviteEmail } from "@/lib/challenges/send-invite-email";
 
 export async function GET(request: NextRequest) {
@@ -121,6 +123,7 @@ export async function GET(request: NextRequest) {
 interface ChallengePostBody {
   opponent_id?: string;
   opponent_email?: string;
+  opponents?: Array<{ user_id?: string; email?: string }>;
   game_mode?: string;
   message?: string;
   card_size?: number;
@@ -141,48 +144,16 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json()) as ChallengePostBody;
 
-    if (!body.opponent_id && !body.opponent_email) {
-      return badRequest("Either opponent_id or opponent_email is required");
+    // Determine whether this is a group challenge (opponents array with 2+ entries)
+    const isGroupChallenge = Array.isArray(body.opponents) && body.opponents.length >= 2;
+
+    // For single-opponent (1v1) flow, require opponent_id or opponent_email
+    if (!isGroupChallenge && !body.opponent_id && !body.opponent_email) {
+      return badRequest("Either opponent_id, opponent_email, or opponents array (2+) is required");
     }
 
-    // ---- Resolve opponent ----
-    const opponentId: string | null = body.opponent_id ?? null;
-    let opponentEmail: string | null = null;
+    // ---- Shared validation: game_mode, message, card_size, mirror_props ----
 
-    if (!body.opponent_id && body.opponent_email) {
-      const email = body.opponent_email.trim().toLowerCase();
-
-      if (!isValidEmail(email)) {
-        return badRequest("Invalid email address");
-      }
-
-      // Always use the email invite flow — don't look up whether the email
-      // belongs to an existing user. Identity is resolved when the recipient
-      // clicks the invite link (logged-in users get claimed, others pick as
-      // guests and convert on signup). This avoids leaking account existence.
-
-      // Prevent self-challenge via email
-      if (user.email && email === user.email.toLowerCase()) {
-        return badRequest("Cannot challenge yourself");
-      }
-
-      // Prevent spamming the same email with multiple open invites
-      const adminCheck = createAdminClient();
-      const { data: existingInvites } = (await (adminCheck.from("challenges") as any)
-        .select("id")
-        .eq("challenger_id", user.id)
-        .eq("opponent_email", email)
-        .not("status", "in", '("cancelled","declined","resolved")')
-        .limit(1)) as { data: { id: string }[] | null; error: unknown };
-
-      if ((existingInvites ?? []).length > 0) {
-        return badRequest("You already have an open invite to this email address");
-      }
-
-      opponentEmail = email;
-    }
-
-    // ---- Validate game_mode ----
     const gameMode = body.game_mode ?? "classic";
     if (!isValidGameMode(gameMode)) {
       return badRequest(
@@ -190,13 +161,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ---- Validate message ----
     const message = body.message ?? null;
     if (message !== null && message.length > 200) {
       return badRequest("Message must be 200 characters or fewer");
     }
 
-    // ---- Validate card_size ----
     const cardSize = body.card_size ?? 6;
     if (
       typeof cardSize !== "number" ||
@@ -209,15 +178,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ---- Validate mirror_props for mirror mode / auto-select for random ----
     let mirrorProps: string[] | null = null;
-    // Mirror mode: props will be selected on /props page after challenge creation
-    // Challenge is created as "draft" and activated when challenger submits their card
     if (gameMode === "mirror") {
       mirrorProps = null;
     } else if (gameMode === "random") {
-      // Use the same data source as the props page so random mode
-      // sees the exact same props the user sees.
       const now = Date.now();
 
       const allSportGames = await Promise.all([
@@ -248,6 +212,105 @@ export async function POST(request: NextRequest) {
     } else if (body.mirror_props && body.mirror_props.length > 0) {
       // mirror_props provided for non-mirror mode -- ignore it
       mirrorProps = null;
+    }
+
+    // ---- Group challenge path ----
+    if (isGroupChallenge) {
+      const opponents = body.opponents as Array<{ user_id?: string; email?: string }>;
+
+      // Validate opponent count against MAX_LOBBY_SIZE
+      const maxOpponents = MAX_LOBBY_SIZE - 1;
+      if (opponents.length > maxOpponents) {
+        return badRequest(
+          `Too many opponents: max ${maxOpponents} (${MAX_LOBBY_SIZE} total including you)`
+        );
+      }
+
+      // Validate each opponent entry has exactly one identifier
+      for (const opp of opponents) {
+        if (opp.user_id && opp.email) {
+          return badRequest("Each opponent must have either user_id or email, not both");
+        }
+        if (!opp.user_id && !opp.email) {
+          return badRequest("Each opponent must have either user_id or email");
+        }
+        if (opp.email && !isValidEmail(opp.email.trim().toLowerCase())) {
+          return badRequest("Invalid email address in opponents list");
+        }
+      }
+
+      // Anti-spam: check for existing open invites per email opponent
+      const emailOpponents = opponents.filter((o) => o.email);
+      if (emailOpponents.length > 0) {
+        const adminCheck = createAdminClient();
+        for (const opp of emailOpponents) {
+          const email = opp.email!.trim().toLowerCase();
+          const { data: existingInvites } = (await (adminCheck.from("challenges") as any)
+            .select("id")
+            .eq("challenger_id", user.id)
+            .eq("opponent_email", email)
+            .not("status", "in", '("cancelled","declined","resolved")')
+            .limit(1)) as { data: { id: string }[] | null; error: unknown };
+
+          if ((existingInvites ?? []).length > 0) {
+            return badRequest("You already have an open invite to one of these email addresses");
+          }
+        }
+      }
+
+      // Normalize opponents for the query layer
+      const normalizedOpponents: GroupOpponent[] = opponents.map((o) => ({
+        user_id: o.user_id,
+        email: o.email?.trim().toLowerCase(),
+      }));
+
+      const challenge = await createGroupChallenge(
+        supabase,
+        user.id,
+        user.email ?? null,
+        normalizedOpponents,
+        {
+          gameMode,
+          message,
+          cardSize,
+          mirrorProps,
+          status: "draft",
+        }
+      );
+
+      return NextResponse.json({ challenge }, { status: 201 });
+    }
+
+    // ---- Single-opponent (1v1) path (unchanged) ----
+    const opponentId: string | null = body.opponent_id ?? null;
+    let opponentEmail: string | null = null;
+
+    if (!body.opponent_id && body.opponent_email) {
+      const email = body.opponent_email.trim().toLowerCase();
+
+      if (!isValidEmail(email)) {
+        return badRequest("Invalid email address");
+      }
+
+      // Prevent self-challenge via email
+      if (user.email && email === user.email.toLowerCase()) {
+        return badRequest("Cannot challenge yourself");
+      }
+
+      // Prevent spamming the same email with multiple open invites
+      const adminCheck = createAdminClient();
+      const { data: existingInvites } = (await (adminCheck.from("challenges") as any)
+        .select("id")
+        .eq("challenger_id", user.id)
+        .eq("opponent_email", email)
+        .not("status", "in", '("cancelled","declined","resolved")')
+        .limit(1)) as { data: { id: string }[] | null; error: unknown };
+
+      if ((existingInvites ?? []).length > 0) {
+        return badRequest("You already have an open invite to this email address");
+      }
+
+      opponentEmail = email;
     }
 
     const challenge = await createChallenge(supabase, user.id, opponentId, {
