@@ -118,30 +118,20 @@ export async function POST(request: NextRequest) {
       }
 
       // Validate challenge status
-      // The challenger can lock in their card while the challenge is still "pending"
-      // (they create the challenge + card in one step).
-      // The opponent can only create a card after accepting (status = "accepted" or "active"),
-      // OR for email-invite challenges where the opponent signed in with pending picks,
-      // they can also create a card in "draft" or "pending" status (implicit accept).
-      // Group challenges: all participants can create cards in draft/pending/accepted/active.
+      // All participants can create cards in draft/pending/accepted/active.
+      // Creating a card for a pending challenge implicitly accepts it (transition below).
       const isChallenger = challenge.challenger_id === user.id;
-      const isEmailInvite = !!challenge.opponent_email;
-      const isGroup = challenge.lobby_type === "group";
-      const validStatuses = isGroup
-        ? ["draft", "pending", "accepted", "active"]
-        : isChallenger
-          ? ["draft", "pending", "accepted", "active"]
-          : isEmailInvite
-            ? ["draft", "pending", "accepted", "active"]
-            : ["accepted", "active"];
+      const validStatuses = ["draft", "pending", "accepted", "active"];
 
       if (!validStatuses.includes(challenge.status)) {
         return badRequest("Challenge is not in a valid state for card creation");
       }
 
-      // Email-invite opponent creating a card implicitly accepts the challenge.
+      // Opponent creating a card implicitly accepts the challenge.
       // Transition draft/pending → accepted so the challenge lifecycle continues.
-      if (!isChallenger && isEmailInvite && (challenge.status === "draft" || challenge.status === "pending")) {
+      // This covers both email-invite opponents and opponents who picked props
+      // before signing in (PendingCardHandler flow).
+      if (!isChallenger && (challenge.status === "draft" || challenge.status === "pending")) {
         const adminClient = createAdminClient();
         await (adminClient.from("challenges") as any)
           .update({ status: "accepted" })
