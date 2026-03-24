@@ -333,19 +333,24 @@ export default function ChallengesPage() {
   const userId = user?.id ?? "";
 
   // Segment core challenges
-  // For group challenges, incoming = pending + user is NOT the creator (challenger)
+  // For group challenges, incoming = pending + user is still "invited" (not yet accepted)
   const inboxChallenges = coreChallenges.filter(
     (c) =>
       c.status === "pending" &&
       (c.lobby_type === "group"
-        ? c.challenger_id !== userId
+        ? c.challenger_id !== userId && c.my_participant_status === "invited"
         : c.opponent_id === userId)
   );
   const sentChallenges = coreChallenges.filter(
     (c) => (c.status === "pending" || c.status === "draft") && c.challenger_id === userId
   );
   const activeChallenges = coreChallenges
-    .filter((c) => c.status === "accepted" || c.status === "active")
+    .filter((c) =>
+      c.status === "accepted" || c.status === "active" ||
+      // Group challenges where user has accepted but challenge is still pending (waiting for others)
+      (c.status === "pending" && c.lobby_type === "group" &&
+        c.challenger_id !== userId && c.my_participant_status !== "invited" && c.my_participant_status !== "declined")
+    )
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   // Search filter helper — matches opponent name (1v1) or any participant name (group)

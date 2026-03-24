@@ -38,8 +38,8 @@ export async function getUnreadCounts(
     );
   }
 
-  // Count pending challenges received by the user
-  const { count: challengeCount, error: challengeError } = await typedFrom(
+  // Count pending 1v1 challenges received by the user
+  const { count: oneVOneCount, error: challengeError } = await typedFrom(
     supabase,
     "challenges"
   )
@@ -52,6 +52,22 @@ export async function getUnreadCounts(
       `Failed to count pending challenges: ${challengeError.message}`
     );
   }
+
+  // Count group challenge invites where user is still "invited"
+  const { count: groupInviteCount, error: groupError } = await (
+    supabase.from("challenge_participants") as any
+  )
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("status", "invited");
+
+  if (groupError) {
+    throw new Error(
+      `Failed to count group challenge invites: ${(groupError as Error).message}`
+    );
+  }
+
+  const challengeCount = (oneVOneCount ?? 0) + (groupInviteCount ?? 0);
 
   // Count unread notifications
   const { count: notifCount, error: notifError } = await typedFrom(

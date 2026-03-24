@@ -163,9 +163,10 @@ export async function GET(request: NextRequest) {
           .map((p) => p.profile?.display_name || p.profile?.username || "")
           .filter(Boolean);
 
-        // Set current user's placement for resolved group challenges
+        // Set current user's participant data for group challenges
         const myParticipant = parts.find((p) => p.user_id === user.id);
         ch.my_placement = myParticipant?.placement ?? null;
+        ch.my_participant_status = myParticipant?.status ?? null;
       }
     }
 

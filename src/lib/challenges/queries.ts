@@ -44,6 +44,8 @@ export interface ChallengeWithProfiles extends Challenge {
   participant_count?: number;
   /** Populated for resolved group challenges — current user's placement (1-based) */
   my_placement?: number | null;
+  /** Populated for group challenges — current user's participant status */
+  my_participant_status?: string | null;
   /** Populated for group challenges — compact avatar data for stacked display */
   participant_avatars?: ParticipantAvatar[];
   /** Populated for group challenges — participant display names for search matching */
