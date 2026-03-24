@@ -105,23 +105,42 @@ export function toLivePickData(pick: {
   };
 }
 
+/** Per-participant live data returned for group challenges. */
+export interface LiveParticipantData {
+  user_id: string | null;
+  username: string | null;
+  email: string | null;
+  card: {
+    card_id: string;
+    picks: LivePickData[];
+    has_live_games: boolean;
+    all_games_final: boolean;
+  } | null;
+  placement?: number;
+  status: string;
+}
+
 export interface LiveChallengeData {
   challenge_id: string;
+  /** Present for 1v1 challenges (backward compat). Null for group challenges. */
   challenger_card: {
     card_id: string;
     picks: LivePickData[];
     has_live_games: boolean;
     all_games_final: boolean;
   } | null;
+  /** Present for 1v1 challenges (backward compat). Null for group challenges. */
   opponent_card: {
     card_id: string;
     picks: LivePickData[];
     has_live_games: boolean;
     all_games_final: boolean;
   } | null;
+  /** Present for group challenges — live data for each participant. */
+  participants?: LiveParticipantData[];
   games: LiveGameStatus[];
   has_live_games: boolean;
-  /** True when every game across both cards has definitively reached "final" status */
+  /** True when every game across all cards has definitively reached "final" status */
   all_games_final: boolean;
   /** True when cards/challenge were resolved during this request */
   challenge_resolved?: boolean;
