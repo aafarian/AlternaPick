@@ -59,7 +59,8 @@ export async function getUnreadCounts(
   )
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
-    .eq("status", "invited");
+    .eq("status", "invited")
+    .eq("is_creator", false);
 
   if (groupError) {
     throw new Error(

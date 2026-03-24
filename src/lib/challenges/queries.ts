@@ -1327,7 +1327,7 @@ export async function linkCardToParticipant(
 ): Promise<void> {
   // Find the participant row for this user
   const { data: participantRows, error: findError } = await (admin.from("challenge_participants") as any)
-    .select("id, status")
+    .select("id, status, is_creator")
     .eq("challenge_id", challengeId)
     .eq("user_id", userId)
     .limit(1);
@@ -1337,7 +1337,7 @@ export async function linkCardToParticipant(
     return;
   }
 
-  const participant = ((participantRows ?? []) as Array<{ id: string; status: string }>)[0];
+  const participant = ((participantRows ?? []) as Array<{ id: string; status: string; is_creator: boolean }>)[0];
   if (!participant) {
     logError("challenges", "No participant row found for card linking", "linkCardToParticipant", new Error(`No participant for user in challenge ${challengeId}`));
     return;
@@ -1351,6 +1351,19 @@ export async function linkCardToParticipant(
   if (updateError) {
     logError("challenges", "Failed to link card to participant", "linkCardToParticipant", updateError);
     return;
+  }
+
+  // When the creator locks in, promote the challenge from "draft" to "pending"
+  // so it appears in opponents' inboxes and becomes eligible for early-start.
+  if (participant.is_creator) {
+    const { error: promoteError } = await (admin.from("challenges") as any)
+      .update({ status: "pending" })
+      .eq("id", challengeId)
+      .eq("status", "draft");
+
+    if (promoteError) {
+      logError("challenges", "Failed to promote group challenge to pending", "linkCardToParticipant", promoteError);
+    }
   }
 
   // Check if all non-declined participants are now active
