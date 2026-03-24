@@ -17,7 +17,7 @@ import OpponentAvatar from "@/components/challenges/OpponentAvatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, AlertCircle, Loader2, Crown, Trophy, Check, Clock } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Crown, Trophy, Check, Clock, Lock } from "lucide-react";
 import TrashTalkBubble from "@/components/challenges/TrashTalkBubble";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import ShareButton from "@/components/ui/ShareButton";
@@ -189,6 +189,7 @@ function RosterTile({
 function ParticipantPickSection({
   participant,
   isCurrentUser,
+  showPicks,
   livePickMap,
   hasLiveGames,
   liveLoading,
@@ -196,6 +197,7 @@ function ParticipantPickSection({
 }: {
   participant: ChallengeParticipantProfile;
   isCurrentUser: boolean;
+  showPicks: boolean;
   livePickMap: Map<string, LivePickData>;
   hasLiveGames: boolean;
   liveLoading: boolean;
@@ -203,7 +205,68 @@ function ParticipantPickSection({
 }) {
   const name = getParticipantDisplayName(participant);
   const card = participant.card;
-  if (!card) return null;
+
+  const sectionLabel = (
+    <div className="flex items-center gap-2">
+      {participant.user_id ? (
+        <UserAvatar
+          avatarUrl={participant.avatar_url}
+          iconConfig={parseIconConfig(participant.icon_config)}
+          userId={participant.user_id}
+          username={participant.username ?? undefined}
+          size={24}
+          className={isResolved && participant.placement === 1 ? "animate-winner-ring" : undefined}
+        />
+      ) : (
+        <OpponentAvatar
+          opponent={null}
+          opponentEmail={participant.email}
+          displayName={name}
+          size={24}
+        />
+      )}
+      <span className="text-sm font-semibold">
+        {isCurrentUser ? "Your Picks" : name}
+      </span>
+      {isResolved && participant.placement !== null && (
+        <PlacementBadge placement={participant.placement} />
+      )}
+    </div>
+  );
+
+  // No card yet — show waiting placeholder
+  if (!card) {
+    return (
+      <div className="flex flex-col gap-2">
+        {sectionLabel}
+        <Card className="border-border bg-card">
+          <CardContent className="flex items-center justify-center gap-2 px-4 py-8">
+            <Clock className="h-4 w-4 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">
+              Waiting for picks...
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Card exists but picks are hidden (privacy: user hasn't locked yet)
+  if (!showPicks && !isCurrentUser) {
+    return (
+      <div className="flex flex-col gap-2">
+        {sectionLabel}
+        <Card className="border-border bg-card">
+          <CardContent className="flex items-center justify-center gap-2 px-4 py-8">
+            <Lock className="h-4 w-4 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">
+              Picks hidden until you lock in
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const picks = buildPicksFromCard(card, livePickMap);
 
@@ -229,32 +292,7 @@ function ParticipantPickSection({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Section label */}
-      <div className="flex items-center gap-2">
-        {participant.user_id ? (
-          <UserAvatar
-            avatarUrl={participant.avatar_url}
-            iconConfig={parseIconConfig(participant.icon_config)}
-            userId={participant.user_id}
-            username={participant.username ?? undefined}
-            size={24}
-            className={isResolved && participant.placement === 1 ? "animate-winner-ring" : undefined}
-          />
-        ) : (
-          <OpponentAvatar
-            opponent={null}
-            opponentEmail={participant.email}
-            displayName={name}
-            size={24}
-          />
-        )}
-        <span className="text-sm font-semibold">
-          {isCurrentUser ? "Your Picks" : `${name}'s Picks`}
-        </span>
-        {isResolved && participant.placement !== null && (
-          <PlacementBadge placement={participant.placement} />
-        )}
-      </div>
+      {sectionLabel}
       <LivePickCard
         picks={picks}
         hasLiveGames={hasLiveGames}
@@ -338,15 +376,8 @@ export default function GroupLobbyView({
   // Visible participants (not declined)
   const activeParticipants = participants.filter((p) => p.status !== "declined");
 
-  // Participants whose picks should be shown (current user always, others only when visible)
-  const participantsWithVisiblePicks = activeParticipants.filter((p) => {
-    const isMe = p.user_id === currentUserId;
-    if (isMe) return !!p.card;
-    return showOtherPicks && !!p.card;
-  });
-
-  // Sort: current user first, then by placement (resolved) or creator first
-  const sortedPickSections = [...participantsWithVisiblePicks].sort((a, b) => {
+  // Sort all active participants: current user first, then by placement or creator
+  const sortedPickSections = [...activeParticipants].sort((a, b) => {
     const aIsMe = a.user_id === currentUserId ? 0 : 1;
     const bIsMe = b.user_id === currentUserId ? 0 : 1;
     if (aIsMe !== bIsMe) return aIsMe - bIsMe;
@@ -677,6 +708,7 @@ export default function GroupLobbyView({
               : "grid-cols-1 md:grid-cols-2",
           )}>
             {sortedPickSections.map((participant) => {
+              const isMe = participant.user_id === currentUserId;
               const cardId = participant.card?.id;
               const liveMap = cardId
                 ? livePickMapByCardId.get(cardId) ?? new Map<string, LivePickData>()
@@ -686,7 +718,8 @@ export default function GroupLobbyView({
                 <ParticipantPickSection
                   key={participant.id}
                   participant={participant}
-                  isCurrentUser={participant.user_id === currentUserId}
+                  isCurrentUser={isMe}
+                  showPicks={isMe || showOtherPicks}
                   livePickMap={liveMap}
                   hasLiveGames={liveData?.has_live_games ?? false}
                   liveLoading={shouldFetchLive && !liveData}
