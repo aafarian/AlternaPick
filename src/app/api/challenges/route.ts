@@ -17,6 +17,7 @@ import {
 } from "@/lib/challenges/queries";
 import type { GroupOpponent } from "@/lib/challenges/queries";
 import { sendChallengeInviteEmail } from "@/lib/challenges/send-invite-email";
+import { notifyGroupChallengeParticipants } from "@/lib/challenges/notify-group";
 
 export async function GET(request: NextRequest) {
   try {
@@ -277,6 +278,16 @@ export async function POST(request: NextRequest) {
           status: "draft",
         }
       );
+
+      // Fire-and-forget: send invites to all group participants
+      const admin = createAdminClient();
+      notifyGroupChallengeParticipants(admin, {
+        challengeId: challenge.id,
+        challengerId: user.id,
+        opponents: normalizedOpponents,
+        gameMode,
+        message,
+      });
 
       return NextResponse.json({ challenge }, { status: 201 });
     }
