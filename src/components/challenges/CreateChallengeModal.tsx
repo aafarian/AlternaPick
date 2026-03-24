@@ -27,13 +27,17 @@ import UserSearchBar from "@/components/friends/UserSearchBar";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  Check,
   ChevronRight,
   Loader2,
   Mail,
   MessageSquare,
+  Plus,
   Users,
+  X,
 } from "lucide-react";
 import { isValidEmail } from "@/lib/validation";
+import { MAX_LOBBY_SIZE } from "@/lib/challenges/constants";
 
 /* ---------- Types ---------- */
 
@@ -46,6 +50,10 @@ interface Friend {
     icon_config: Record<string, unknown> | null;
   };
 }
+
+type SelectedOpponent =
+  | { type: "friend"; friend: Friend }
+  | { type: "email"; email: string };
 
 interface CreateChallengeModalProps {
   open: boolean;
@@ -60,6 +68,7 @@ interface CreateChallengeModalProps {
 type Step = "opponent" | "settings" | "mirror_props";
 
 const TRASH_TALK_MAX = 200;
+const MAX_OPPONENTS = MAX_LOBBY_SIZE - 1;
 
 /* ---------- Component ---------- */
 
@@ -76,7 +85,7 @@ export default function CreateChallengeModal({
   // Step 1: Opponent selection
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
-  const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
+  const [selectedOpponents, setSelectedOpponents] = useState<SelectedOpponent[]>([]);
   const [search, setSearch] = useState("");
   const [opponentMode, setOpponentMode] = useState<"friend" | "email">("friend");
   const [opponentEmail, setOpponentEmail] = useState("");
@@ -93,6 +102,8 @@ export default function CreateChallengeModal({
   const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const atCapacity = selectedOpponents.length >= MAX_OPPONENTS;
 
   /* ---------- Fetch friends ---------- */
 
@@ -116,7 +127,7 @@ export default function CreateChallengeModal({
   useEffect(() => {
     if (open) {
       fetchFriends();
-      setSelectedFriend(null);
+      setSelectedOpponents([]);
       setSearch("");
       setOpponentMode("friend");
       setOpponentEmail("");
@@ -140,15 +151,50 @@ export default function CreateChallengeModal({
       (f) => f.friend_profile.id === initialOpponentId
     );
     if (match) {
-      setSelectedFriend(match);
+      setSelectedOpponents([{ type: "friend", friend: match }]);
     }
   }, [open, initialOpponentId, friends, loadingFriends]);
+
+  /* ---------- Opponent selection helpers ---------- */
+
+  const isFriendSelected = (friendProfileId: string) =>
+    selectedOpponents.some(
+      (o) => o.type === "friend" && o.friend.friend_profile.id === friendProfileId
+    );
+
+  const isEmailSelected = (email: string) =>
+    selectedOpponents.some(
+      (o) => o.type === "email" && o.email.toLowerCase() === email.toLowerCase()
+    );
+
+  const toggleFriend = (friend: Friend) => {
+    const profileId = friend.friend_profile.id;
+    if (isFriendSelected(profileId)) {
+      setSelectedOpponents((prev) =>
+        prev.filter(
+          (o) => !(o.type === "friend" && o.friend.friend_profile.id === profileId)
+        )
+      );
+    } else if (!atCapacity) {
+      setSelectedOpponents((prev) => [...prev, { type: "friend", friend }]);
+    }
+  };
+
+  const addEmail = () => {
+    const email = opponentEmail.trim().toLowerCase();
+    if (!isValidEmail(email) || isEmailSelected(email) || atCapacity) return;
+    setSelectedOpponents((prev) => [...prev, { type: "email", email }]);
+    setOpponentEmail("");
+  };
+
+  const removeOpponent = (index: number) => {
+    setSelectedOpponents((prev) => prev.filter((_, i) => i !== index));
+  };
 
   /* ---------- Create challenge ---------- */
 
   const handleCreate = async () => {
-    if (opponentMode === "friend" && !selectedFriend) return;
-    if (opponentMode === "email" && !isValidEmail(opponentEmail.trim())) return;
+    if (selectedOpponents.length === 0) return;
     setCreating(true);
     setError(null);
     try {
@@ -156,11 +202,25 @@ export default function CreateChallengeModal({
         game_mode: gameMode,
         card_size: cardSize,
       };
-      if (opponentMode === "email") {
-        payload.opponent_email = opponentEmail.trim();
+
+      if (selectedOpponents.length === 1) {
+        // 1v1: use existing API fields for backward compatibility
+        const opponent = selectedOpponents[0];
+        if (opponent.type === "email") {
+          payload.opponent_email = opponent.email;
+        } else {
+          payload.opponent_id = opponent.friend.friend_profile.id;
+        }
       } else {
-        payload.opponent_id = selectedFriend!.friend_profile.id;
+        // Group challenge: send opponents array
+        payload.opponents = selectedOpponents.map((o) => {
+          if (o.type === "email") {
+            return { email: o.email };
+          }
+          return { user_id: o.friend.friend_profile.id };
+        });
       }
+
       if (message.trim()) {
         payload.message = message.trim();
       }
@@ -224,10 +284,7 @@ export default function CreateChallengeModal({
 
   /* ---------- Can proceed? ---------- */
 
-  const canProceedFromOpponent =
-    opponentMode === "friend"
-      ? selectedFriend !== null
-      : isValidEmail(opponentEmail.trim());
+  const canProceedFromOpponent = selectedOpponents.length > 0;
   const canProceedFromSettings = true;
   const canProceedFromMirror = mirrorProps.length === cardSize;
 
@@ -241,7 +298,7 @@ export default function CreateChallengeModal({
   /* ---------- Step titles ---------- */
 
   const stepTitles: Record<Step, string> = {
-    opponent: "Choose Opponent",
+    opponent: "Choose Opponents",
     settings: "Challenge Settings",
     mirror_props: "Select Mirror Props",
   };
@@ -269,6 +326,13 @@ export default function CreateChallengeModal({
       default:
         return null;
     }
+  };
+
+  /* ---------- Get opponent display label ---------- */
+
+  const getOpponentLabel = (opponent: SelectedOpponent): string => {
+    if (opponent.type === "email") return opponent.email;
+    return opponent.friend.friend_profile.username;
   };
 
   /* ---------- Render ---------- */
@@ -336,6 +400,58 @@ export default function CreateChallengeModal({
         {/* ========== STEP 1: Opponent Selection ========== */}
         {step === "opponent" && (
           <>
+            {/* Selected opponents chip bar */}
+            {selectedOpponents.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                    Selected
+                  </span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {selectedOpponents.length}/{MAX_OPPONENTS} opponents
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedOpponents.map((opponent, index) => (
+                    <Badge
+                      key={opponent.type === "friend" ? opponent.friend.friend_profile.id : opponent.email}
+                      variant="secondary"
+                      className="flex items-center gap-1 py-1 pl-2 pr-1"
+                    >
+                      {opponent.type === "email" ? (
+                        <Mail className="h-3 w-3 text-muted-foreground" />
+                      ) : (
+                        <UserAvatar
+                          avatarUrl={opponent.friend.friend_profile.avatar_url}
+                          iconConfig={parseIconConfig(opponent.friend.friend_profile.icon_config)}
+                          userId={opponent.friend.friend_profile.id}
+                          username={opponent.friend.friend_profile.username}
+                          size={14}
+                        />
+                      )}
+                      <span className="max-w-[120px] truncate text-xs">
+                        {getOpponentLabel(opponent)}
+                      </span>
+                      <button
+                        onClick={() => removeOpponent(index)}
+                        className="ml-0.5 rounded-sm p-0.5 transition-colors hover:bg-background/50"
+                        aria-label={`Remove ${getOpponentLabel(opponent)}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Count indicator when no opponents selected */}
+            {selectedOpponents.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Select up to {MAX_OPPONENTS} opponents (friends or email invites)
+              </p>
+            )}
+
             {/* Mode toggle: Friends / Invite by Email */}
             <div className="flex gap-1 rounded-lg bg-secondary/50 p-1">
               <button
@@ -356,8 +472,6 @@ export default function CreateChallengeModal({
               <button
                 onClick={() => {
                   setOpponentMode("email");
-                  setSelectedFriend(null);
-                  setSearch("");
                 }}
                 className={cn(
                   "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
@@ -412,16 +526,20 @@ export default function CreateChallengeModal({
                       {filteredFriends.map((friend) => {
                         const profile = friend.friend_profile;
                         const name = profile.username;
-                        const isSelected = selectedFriend?.friend_profile.id === profile.id;
+                        const isSelected = isFriendSelected(profile.id);
+                        const disabled = !isSelected && atCapacity;
                         return (
                           <button
                             key={friend.id}
-                            onClick={() => setSelectedFriend(friend)}
+                            onClick={() => toggleFriend(friend)}
+                            disabled={disabled}
                             className={cn(
                               "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all",
                               isSelected
                                 ? "border-primary bg-primary/10"
-                                : "border-transparent hover:bg-secondary"
+                                : disabled
+                                  ? "cursor-not-allowed border-transparent opacity-50"
+                                  : "border-transparent hover:bg-secondary"
                             )}
                           >
                             <UserAvatar
@@ -431,9 +549,12 @@ export default function CreateChallengeModal({
                               username={name}
                               size={32}
                             />
-                            <div>
+                            <div className="flex-1">
                               <div className="text-sm font-bold">{name}</div>
-                              </div>
+                            </div>
+                            {isSelected && (
+                              <Check className="h-4 w-4 text-primary" />
+                            )}
                           </button>
                         );
                       })}
@@ -443,18 +564,45 @@ export default function CreateChallengeModal({
               </>
             ) : (
               <div className="flex flex-col gap-3">
-                <Input
-                  type="email"
-                  placeholder="Enter email address..."
-                  value={opponentEmail}
-                  onChange={(e) => setOpponentEmail(e.target.value)}
-                  aria-invalid={
-                    opponentEmail.length > 0 && !isValidEmail(opponentEmail.trim())
-                  }
-                />
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    placeholder="Enter email address..."
+                    value={opponentEmail}
+                    onChange={(e) => setOpponentEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addEmail();
+                      }
+                    }}
+                    aria-invalid={
+                      opponentEmail.length > 0 && !isValidEmail(opponentEmail.trim())
+                    }
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={addEmail}
+                    disabled={
+                      !isValidEmail(opponentEmail.trim()) ||
+                      isEmailSelected(opponentEmail.trim()) ||
+                      atCapacity
+                    }
+                    size="default"
+                    className="gap-1 shrink-0"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add
+                  </Button>
+                </div>
                 {opponentEmail.length > 0 && !isValidEmail(opponentEmail.trim()) && (
                   <p className="text-xs text-destructive">
                     Please enter a valid email address
+                  </p>
+                )}
+                {opponentEmail.length > 0 && isEmailSelected(opponentEmail.trim().toLowerCase()) && (
+                  <p className="text-xs text-destructive">
+                    This email has already been added
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground">
@@ -468,15 +616,19 @@ export default function CreateChallengeModal({
         {/* ========== STEP 2: Mode + Card Size + Trash Talk ========== */}
         {step === "settings" && (
           <div className="flex flex-col gap-5">
-            {/* Selected opponent badge */}
-            {(selectedFriend || (opponentMode === "email" && opponentEmail.trim())) && (
-              <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2">
+            {/* Selected opponents summary */}
+            {selectedOpponents.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2">
                 <span className="text-xs text-muted-foreground">vs</span>
-                <span className="text-sm font-bold">
-                  {opponentMode === "email"
-                    ? opponentEmail.trim()
-                    : selectedFriend?.friend_profile.username}
-                </span>
+                {selectedOpponents.map((opponent) => (
+                  <Badge
+                    key={opponent.type === "friend" ? opponent.friend.friend_profile.id : opponent.email}
+                    variant="secondary"
+                    className="text-xs"
+                  >
+                    {getOpponentLabel(opponent)}
+                  </Badge>
+                ))}
               </div>
             )}
 
@@ -624,7 +776,7 @@ export default function CreateChallengeModal({
             {creating ? (
               <>
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                {opponentMode === "email" ? "Sending..." : "Creating..."}
+                Creating...
               </>
             ) : step === "opponent" ? (
               <>
