@@ -24,6 +24,7 @@ import ShareButton from "@/components/ui/ShareButton";
 import ReactionBar from "@/components/challenges/ReactionBar";
 import { parseIconConfig } from "@/lib/icons/parse";
 import { MIN_LOBBY_SIZE } from "@/lib/challenges/constants";
+import { formatPlacement } from "@/lib/challenges/display";
 import type { GameMode } from "@/lib/modes/types";
 import { maskEmail } from "@/lib/format";
 import { SlideUp, ScaleIn, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
@@ -54,14 +55,7 @@ const statusConfig: Record<string, { label: string; style: string; icon?: "lock"
 };
 
 function PlacementBadge({ placement }: { placement: number }) {
-  const ordinal =
-    placement === 1
-      ? "1st"
-      : placement === 2
-        ? "2nd"
-        : placement === 3
-          ? "3rd"
-          : `${placement}th`;
+  const ordinal = formatPlacement(placement);
 
   const colorClass =
     placement === 1

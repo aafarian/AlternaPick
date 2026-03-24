@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatPlacement } from "@/lib/challenges/display";
 import { logError, logWarn } from "@/lib/logger";
 import { createNotification } from "@/lib/notifications/queries";
 import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
@@ -638,8 +639,6 @@ function getGroupNotificationMessage(
   totalParticipants: number,
   score: number,
 ): { title: string; body: string } {
-  const ordinal = getOrdinalSuffix(placement);
-
   if (placement === 1) {
     return {
       title: "You won!",
@@ -656,22 +655,8 @@ function getGroupNotificationMessage(
 
   return {
     title: "Challenge Complete",
-    body: `You placed ${placement}${ordinal} out of ${totalParticipants} with ${score} pts.`,
+    body: `You placed ${formatPlacement(placement)} out of ${totalParticipants} with ${score} pts.`,
   };
-}
-
-/**
- * Return the ordinal suffix for a number (1st, 2nd, 3rd, 4th, etc.).
- */
-function getOrdinalSuffix(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-
-  if (mod100 >= 11 && mod100 <= 13) return "th";
-  if (mod10 === 1) return "st";
-  if (mod10 === 2) return "nd";
-  if (mod10 === 3) return "rd";
-  return "th";
 }
 
 function getChallengeNotificationMessage(
