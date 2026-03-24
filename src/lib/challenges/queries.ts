@@ -984,6 +984,240 @@ export async function createGroupChallenge(
   return createdChallenge;
 }
 
+/**
+ * Respond to a group challenge: accept, decline, or cancel.
+ * Accept/decline updates the participant row (not the challenge status directly).
+ * Cancel by the creator cancels the entire group challenge.
+ */
+export async function respondToGroupChallenge(
+  admin: SupabaseClient<Database>,
+  challengeId: string,
+  userId: string,
+  action: ValidAction,
+  convertToSolo?: boolean
+): Promise<Challenge> {
+  // Fetch the challenge
+  const { data: challenge, error: fetchError } = await (admin.from("challenges") as any)
+    .select("*")
+    .eq("id", challengeId)
+    .single();
+
+  if (fetchError || !challenge) {
+    throw new ChallengeNotFoundError();
+  }
+
+  const ch = challenge as Challenge;
+
+  if (ch.lobby_type !== "group") {
+    throw new ChallengeValidationError("This function is only for group challenges");
+  }
+
+  // Find this user's participant row
+  const { data: participantRows } = await (admin.from("challenge_participants") as any)
+    .select("id, status, is_creator")
+    .eq("challenge_id", challengeId)
+    .eq("user_id", userId)
+    .limit(1);
+
+  const participant = ((participantRows ?? []) as Array<{
+    id: string;
+    status: ParticipantStatus;
+    is_creator: boolean;
+  }>)[0];
+
+  if (!participant) {
+    throw new ChallengeValidationError("You are not a participant in this challenge", 403);
+  }
+
+  if (action === "cancel") {
+    // Only the creator can cancel
+    if (!participant.is_creator) {
+      throw new ChallengeValidationError("Only the challenge creator can cancel", 403);
+    }
+    if (ch.status !== "draft" && ch.status !== "pending" && ch.status !== "accepted") {
+      throw new ChallengeValidationError(
+        "Can only cancel a draft, pending, or accepted challenge",
+        400
+      );
+    }
+
+    // Convert creator's card to solo if requested
+    if (convertToSolo && ch.game_mode !== "sabotage") {
+      await (admin.from("cards") as any)
+        .update({ challenge_id: null })
+        .eq("challenge_id", challengeId)
+        .eq("user_id", ch.challenger_id);
+    }
+
+    // Mark all participants as declined
+    await declineAllGroupParticipants(admin, challengeId);
+
+    // Cancel the entire challenge
+    const { data: updated, error: cancelError } = await (admin.from("challenges") as any)
+      .update({ status: "cancelled" })
+      .eq("id", challengeId)
+      .select("*")
+      .single();
+
+    if (cancelError || !updated) {
+      throw new Error(`Failed to cancel group challenge: ${cancelError?.message ?? "Unknown error"}`);
+    }
+
+    return updated as Challenge;
+  }
+
+  // Accept or decline — update participant status
+  if (action === "accept" || action === "decline") {
+    if (participant.is_creator) {
+      throw new ChallengeValidationError("The creator cannot accept or decline their own challenge", 400);
+    }
+
+    if (participant.status !== "invited") {
+      throw new ChallengeValidationError(
+        `Cannot ${action} — participant status is already '${participant.status}'`,
+        400
+      );
+    }
+
+    if (ch.status !== "draft" && ch.status !== "pending") {
+      throw new ChallengeValidationError(
+        `Cannot ${action} a challenge that is not draft or pending (current: ${ch.status})`,
+        400
+      );
+    }
+
+    const newParticipantStatus: ParticipantStatus = action === "accept" ? "accepted" : "declined";
+    const updated = await updateParticipantStatus(admin, participant.id, newParticipantStatus);
+
+    if (!updated) {
+      throw new Error(`Failed to update participant status to '${newParticipantStatus}'`);
+    }
+
+    // If declining, check if enough participants remain
+    if (action === "decline") {
+      await checkMinimumParticipants(admin, challengeId, ch);
+    }
+  }
+
+  // Return the current challenge state
+  const { data: currentChallenge, error: refetchError } = await (admin.from("challenges") as any)
+    .select("*")
+    .eq("id", challengeId)
+    .single();
+
+  if (refetchError || !currentChallenge) {
+    throw new Error("Failed to refetch challenge after group response");
+  }
+
+  return currentChallenge as Challenge;
+}
+
+/**
+ * Check if a group challenge still has enough non-declined participants.
+ * If fewer than MIN_LOBBY_SIZE remain, cancel the challenge and convert creator's card to solo.
+ */
+async function checkMinimumParticipants(
+  admin: SupabaseClient<Database>,
+  challengeId: string,
+  challenge: Challenge,
+): Promise<void> {
+  const { data: allParticipants } = await (admin.from("challenge_participants") as any)
+    .select("id, status")
+    .eq("challenge_id", challengeId);
+
+  const remaining = ((allParticipants ?? []) as Array<{ id: string; status: string }>)
+    .filter((p) => p.status !== "declined");
+
+  if (remaining.length < MIN_LOBBY_SIZE) {
+    // Not enough participants — cancel the challenge
+    if (challenge.game_mode !== "sabotage") {
+      await (admin.from("cards") as any)
+        .update({ challenge_id: null })
+        .eq("challenge_id", challengeId)
+        .eq("user_id", challenge.challenger_id);
+    }
+
+    await declineAllGroupParticipants(admin, challengeId);
+    await cancelChallenge(admin, challengeId);
+  }
+}
+
+/**
+ * Link a card to a participant row in a group challenge.
+ * Sets card_id and status='active' on the participant row.
+ * Then checks if all non-declined participants are active — if so, transitions challenge to 'active'.
+ */
+export async function linkCardToParticipant(
+  admin: SupabaseClient<Database>,
+  challengeId: string,
+  userId: string,
+  cardId: string
+): Promise<void> {
+  // Find the participant row for this user
+  const { data: participantRows, error: findError } = await (admin.from("challenge_participants") as any)
+    .select("id, status")
+    .eq("challenge_id", challengeId)
+    .eq("user_id", userId)
+    .limit(1);
+
+  if (findError) {
+    logError("challenges", "Failed to find participant for card linking", "linkCardToParticipant", findError);
+    return;
+  }
+
+  const participant = ((participantRows ?? []) as Array<{ id: string; status: string }>)[0];
+  if (!participant) {
+    logError("challenges", "No participant row found for card linking", "linkCardToParticipant", new Error(`No participant for user in challenge ${challengeId}`));
+    return;
+  }
+
+  // Update participant: set card_id and status to 'active'
+  const { error: updateError } = await (admin.from("challenge_participants") as any)
+    .update({ card_id: cardId, status: "active" })
+    .eq("id", participant.id);
+
+  if (updateError) {
+    logError("challenges", "Failed to link card to participant", "linkCardToParticipant", updateError);
+    return;
+  }
+
+  // Check if all non-declined participants are now active
+  await checkGroupChallengeActivation(admin, challengeId);
+}
+
+/**
+ * Check if all non-declined participants in a group challenge have status='active'.
+ * If so, transition the challenge to 'active'.
+ */
+async function checkGroupChallengeActivation(
+  admin: SupabaseClient<Database>,
+  challengeId: string
+): Promise<void> {
+  const { data: allParticipants, error } = await (admin.from("challenge_participants") as any)
+    .select("id, status")
+    .eq("challenge_id", challengeId);
+
+  if (error) {
+    logError("challenges", "Failed to fetch participants for activation check", "checkGroupChallengeActivation", error);
+    return;
+  }
+
+  const participants = (allParticipants ?? []) as Array<{ id: string; status: string }>;
+  const nonDeclined = participants.filter((p) => p.status !== "declined");
+
+  // All non-declined participants must be active, and we need at least MIN_LOBBY_SIZE
+  if (nonDeclined.length >= MIN_LOBBY_SIZE && nonDeclined.every((p) => p.status === "active")) {
+    const { error: activateError } = await (admin.from("challenges") as any)
+      .update({ status: "active" })
+      .eq("id", challengeId)
+      .in("status", ["draft", "pending", "accepted"]);
+
+    if (activateError) {
+      logError("challenges", "Failed to activate group challenge", "checkGroupChallengeActivation", activateError);
+    }
+  }
+}
+
 export class ChallengeValidationError extends Error {
   public status: number;
   constructor(message: string, status: number = 400) {
