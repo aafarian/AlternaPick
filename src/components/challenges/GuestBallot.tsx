@@ -233,7 +233,7 @@ export default function GuestBallot({
         )}
 
         {/* Ballot cards — matches PropLine rendering from ballot page */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 pb-24 md:grid-cols-2 md:pb-0 lg:grid-cols-3">
           {props.map((prop) => {
             const isExpired =
               new Date(prop.commence_time).getTime() - now <= LOCK_BUFFER_MS;
@@ -367,11 +367,11 @@ export default function GuestBallot({
 
         {/* Lock Card button */}
         {!allExpired && (
-          <div className="sticky bottom-4 z-30 mx-auto w-full max-w-md">
+          <div className="fixed bottom-0 left-0 right-0 z-30 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-3 bg-background/80 backdrop-blur-xl border-t border-border md:static md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
             <Button
               onClick={handleLock}
               disabled={!allPicked || submitting}
-              className="w-full gap-2 py-6 text-base font-bold"
+              className="mx-auto block w-full max-w-md gap-2 py-6 text-base font-bold"
               size="lg"
             >
               {submitting ? (

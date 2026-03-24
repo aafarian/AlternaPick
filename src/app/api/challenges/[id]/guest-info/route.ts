@@ -48,7 +48,7 @@ export async function GET(
       admin.from("challenges") as any
     )
       .select(
-        "id, game_mode, card_size, status, challenger:profiles!challenges_challenger_id_fkey(username)"
+        "id, game_mode, card_size, status, challenger_id, challenger:profiles!challenges_challenger_id_fkey(username)"
       )
       .eq("id", challengeId)
       .single();
@@ -61,6 +61,15 @@ export async function GET(
       challenger: { username: string };
     };
 
+    // Look up the challenger's actual pick count so the guest is held to the
+    // same card size — the configured card_size may be a larger default.
+    const { data: challengerCard } = (await (admin.from("cards") as any)
+      .select("total_picks")
+      .eq("challenge_id", challengeId)
+      .eq("user_id", challenge.challenger_id)
+      .limit(1)
+      .maybeSingle()) as { data: { total_picks: number } | null; error: unknown };
+
     return NextResponse.json({
       challenge: {
         id: challenge.id,
@@ -68,6 +77,7 @@ export async function GET(
         card_size: challenge.card_size,
         status: challenge.status,
         challenger_name: challenge.challenger.username,
+        challenger_total_picks: challengerCard?.total_picks ?? null,
       },
     });
   } catch (error) {

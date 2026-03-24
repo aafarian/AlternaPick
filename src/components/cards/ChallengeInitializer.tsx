@@ -45,11 +45,18 @@ export default function ChallengeInitializer() {
           const info = data.challenge;
           if (!info) return;
 
+          // Use the challenger's actual pick count when available, matching
+          // the authenticated flow logic (lines 79-82 below).
+          const actualCardSize =
+            info.challenger_total_picks ??
+            info.card_size ??
+            6;
+
           setChallenge(
             id,
             { username: info.challenger_name },
             info.game_mode ?? "classic",
-            info.card_size ?? 6,
+            actualCardSize,
             guestToken,
           );
           return;

@@ -44,6 +44,8 @@ interface SendEmailParams {
   text?: string;
   /** Pre-generated unsubscribe URL for List-Unsubscribe headers. */
   unsubscribeUrl?: string;
+  /** Skip the email allowlist check (e.g. challenge invite emails to non-users). */
+  bypassAllowlist?: boolean;
 }
 
 interface SendEmailResult {
@@ -66,6 +68,7 @@ export async function sendEmail({
   react,
   text,
   unsubscribeUrl,
+  bypassAllowlist = false,
 }: SendEmailParams): Promise<SendEmailResult> {
   try {
     // Step 0: Check global email toggle
@@ -86,7 +89,7 @@ export async function sendEmail({
     const allowlistRaw = (await getFlagValue("email_allowlist")) ?? "";
     const recipientLower = to.toLowerCase().trim();
 
-    if (allowlistRaw.trim() !== "*") {
+    if (!bypassAllowlist && allowlistRaw.trim() !== "*") {
       const allowedEmails = allowlistRaw
         .split(",")
         .map((e) => e.trim().toLowerCase())
