@@ -17,7 +17,7 @@ import OpponentAvatar from "@/components/challenges/OpponentAvatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, AlertCircle, Loader2, Crown, Trophy, Check } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Crown, Trophy, Check, Clock } from "lucide-react";
 import TrashTalkBubble from "@/components/challenges/TrashTalkBubble";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import ShareButton from "@/components/ui/ShareButton";
@@ -167,18 +167,18 @@ function RosterTile({
           </div>
         </div>
 
-        {/* Score pill (right side) */}
-        {card && (card.status === "resolved" || card.status === "locked") && (
-          <div className="flex shrink-0 flex-col items-end gap-0.5">
-            {card.status === "resolved" ? (
-              <span className="text-sm font-bold tabular-nums text-foreground">
-                {card.score}/{card.total_picks}
-              </span>
-            ) : (
-              <Check className="h-4 w-4 text-neon-green" />
-            )}
-          </div>
-        )}
+        {/* Right indicator */}
+        <div className="flex shrink-0 items-center">
+          {card && card.status === "resolved" ? (
+            <span className="text-sm font-bold tabular-nums text-foreground">
+              {card.score}/{card.total_picks}
+            </span>
+          ) : card && card.status === "locked" ? (
+            <Check className="h-4 w-4 text-neon-green" />
+          ) : participant.status === "invited" || participant.status === "accepted" ? (
+            <Clock className="h-3.5 w-3.5 text-muted-foreground/40" />
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );
@@ -387,7 +387,7 @@ export default function GroupLobbyView({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       {/* Back link */}
       <SlideUp duration={0.3} offset={16}>
         <Link
@@ -532,7 +532,7 @@ export default function GroupLobbyView({
       )}
 
       {/* Participant Roster — compact tiles, all same height */}
-      <StaggerChildren className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <StaggerChildren className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {activeParticipants.map((participant) => (
           <StaggerItem key={participant.id}>
             <RosterTile
@@ -667,10 +667,15 @@ export default function GroupLobbyView({
         </FadeIn>
       )}
 
-      {/* Pick Sections — full width, one per participant with visible picks */}
+      {/* Pick Sections — 2-col grid on desktop so cards sit side-by-side */}
       {sortedPickSections.length > 0 && (
         <FadeIn delay={0.15} duration={0.3}>
-          <div className="flex flex-col gap-6">
+          <div className={cn(
+            "grid gap-4",
+            sortedPickSections.length === 1
+              ? "grid-cols-1"
+              : "grid-cols-1 md:grid-cols-2",
+          )}>
             {sortedPickSections.map((participant) => {
               const cardId = participant.card?.id;
               const liveMap = cardId
