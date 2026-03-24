@@ -162,7 +162,8 @@ async function getCachedPropsInternal(sport?: SportKey): Promise<
 
   if (result.error) {
     logError("props-cache", "getCachedProps query failed", undefined, result.error);
-    return null;
+    // Throw so unstable_cache does NOT cache the failure for 120s
+    throw new Error(`getCachedProps query failed: ${result.error.message}`);
   }
 
   return result.data as (Game & { props: Prop[] })[] | null;
@@ -194,7 +195,8 @@ async function getPropCountsBySportInternal(): Promise<Record<string, number>> {
 
   if (result.error) {
     logError("props-cache", "getPropCountsBySport query failed", undefined, result.error);
-    return {};
+    // Throw so unstable_cache does NOT cache the failure for 120s
+    throw new Error(`getPropCountsBySport query failed: ${result.error.message}`);
   }
 
   const games = (result.data ?? []) as { sport: string; props: { count: number }[] }[];
