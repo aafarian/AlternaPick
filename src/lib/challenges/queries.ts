@@ -117,9 +117,11 @@ export async function getChallenges(
   const limit = options?.limit;
   const offset = options?.offset ?? 0;
 
-  // For group challenges, the user may be a participant but not challenger/opponent.
-  // Fetch group challenge IDs where the user is a participant first.
   const admin = createAdminClient();
+
+  // For group challenges, the user is a participant but not challenger/opponent.
+  // RLS on the challenges table only allows challenger_id/opponent_id, so we
+  // must fetch group challenges via admin client and merge them in.
   const { data: participantRows } = await (admin.from("challenge_participants") as any)
     .select("challenge_id")
     .eq("user_id", userId);
@@ -127,45 +129,61 @@ export async function getChallenges(
     (r: { challenge_id: string }) => r.challenge_id
   );
 
-  let query = typedFrom(supabase, "challenges")
-    .select(
-      "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url, icon_config), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url, icon_config)"
-    )
+  const selectFields =
+    "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url, icon_config), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url, icon_config)";
+
+  // 1. Fetch 1v1 challenges via user client (RLS handles auth)
+  let userQuery = typedFrom(supabase, "challenges")
+    .select(selectFields)
+    .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
     .order("created_at", { ascending: false });
 
-  // Include challenges where user is challenger, opponent, OR a group participant.
-  if (groupChallengeIds.length > 0) {
-    query = query.or(
-      `challenger_id.eq.${userId},opponent_id.eq.${userId},id.in.(${groupChallengeIds.join(",")})`
-    );
-  } else {
-    query = query.or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`);
-  }
-
-  // Note: email invite challenges (opponent_id is null) are included via the
-  // challenger_id filter above. The FK join returns opponent: null for these.
-
   if (statusFilter && statusFilter.length > 0) {
-    query = query.in("status", statusFilter);
+    userQuery = userQuery.in("status", statusFilter);
   }
 
-  if (limit !== undefined) {
-    // Fetch one extra to check if there are more
-    query = query.range(offset, offset + limit);
+  // 2. Fetch group challenges via admin client (bypasses RLS)
+  let groupQuery = groupChallengeIds.length > 0
+    ? (admin.from("challenges") as any)
+        .select(selectFields)
+        .in("id", groupChallengeIds)
+        .order("created_at", { ascending: false })
+    : null;
+
+  if (groupQuery && statusFilter && statusFilter.length > 0) {
+    groupQuery = groupQuery.in("status", statusFilter);
   }
 
-  const { data, error } = await query;
+  const [userResult, groupResult] = await Promise.all([
+    userQuery,
+    groupQuery,
+  ]);
 
-  if (error) {
-    throw new Error(`Failed to fetch challenges: ${error.message}`);
+  if (userResult.error) {
+    throw new Error(`Failed to fetch challenges: ${userResult.error.message}`);
   }
 
-  const results = (data ?? []) as ChallengeWithProfiles[];
+  const userChallenges = (userResult.data ?? []) as ChallengeWithProfiles[];
+  const groupChallenges = (groupResult?.data ?? []) as ChallengeWithProfiles[];
 
-  // Evaluate hasMore against the raw result set BEFORE filtering,
-  // since draft filtering can silently remove the extra "+1" row.
-  const hasMore = limit !== undefined && results.length > limit;
-  const paginated = hasMore ? results.slice(0, limit) : results;
+  // Merge and deduplicate (creator of a group challenge appears in both queries)
+  const seenIds = new Set<string>();
+  const merged: ChallengeWithProfiles[] = [];
+  for (const c of [...userChallenges, ...groupChallenges]) {
+    if (!seenIds.has(c.id)) {
+      seenIds.add(c.id);
+      merged.push(c);
+    }
+  }
+
+  // Sort by created_at descending
+  merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  // Apply pagination to the merged set (both queries fetched all matching rows,
+  // so we paginate the combined result)
+  const sliced = limit !== undefined ? merged.slice(offset, offset + limit + 1) : merged;
+  const hasMore = limit !== undefined && sliced.length > limit;
+  const paginated = hasMore ? sliced.slice(0, limit) : sliced;
 
   // Exclude draft challenges where the querying user is the opponent
   // (challenger should see their own drafts to continue prop selection)
@@ -183,15 +201,16 @@ export async function getChallenges(
  * Fetch a single challenge by ID with both players' cards, picks, and profiles.
  */
 export async function getChallenge(
-  supabase: SupabaseClient<Database>,
+  _supabase: SupabaseClient<Database>,
   challengeId: string,
   userId: string
 ): Promise<ChallengeDetail | null> {
-  // Fetch the challenge with profiles
-  const { data: challenge, error: challengeError } = await typedFrom(
-    supabase,
-    "challenges"
-  )
+  // Use admin client to fetch the challenge — RLS on the challenges table only
+  // allows challenger_id/opponent_id, which excludes group participants.
+  // Authorization is enforced manually below.
+  const admin = createAdminClient();
+
+  const { data: challenge, error: challengeError } = await (admin.from("challenges") as any)
     .select(
       "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url, icon_config), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url, icon_config)"
     )
@@ -203,8 +222,6 @@ export async function getChallenge(
   }
 
   const ch = challenge as ChallengeWithProfiles;
-
-  const admin = createAdminClient();
   const isGroup = ch.lobby_type === "group";
 
   // Verify user is a participant.
