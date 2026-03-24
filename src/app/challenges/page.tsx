@@ -234,11 +234,17 @@ export default function ChallengesPage() {
     onReconnect: handleReconnect,
   });
 
-  // Initial load
+  // Initial load — only show skeleton on the first fetch. Subsequent triggers
+  // (e.g. Supabase TOKEN_REFRESHED on window focus creating a new user ref)
+  // silently refresh data without flashing the skeleton.
+  const initialLoadDoneRef = useRef(false);
   useEffect(() => {
     if (authLoading || !user) return;
 
-    setLoading(true);
+    const isFirstLoad = !initialLoadDoneRef.current;
+    if (isFirstLoad) {
+      setLoading(true);
+    }
     setError(null);
 
     Promise.all([fetchCore(), fetchCompleted(0, false)])
@@ -247,6 +253,7 @@ export default function ChallengesPage() {
       })
       .finally(() => {
         setLoading(false);
+        initialLoadDoneRef.current = true;
         markReady();
       });
   }, [user, authLoading, fetchCore, fetchCompleted, markReady]);
@@ -333,20 +340,34 @@ export default function ChallengesPage() {
   const userId = user?.id ?? "";
 
   // Segment core challenges
+  // For group challenges, incoming = pending + user is still "invited" (not yet accepted)
   const inboxChallenges = coreChallenges.filter(
-    (c) => c.status === "pending" && c.opponent_id === userId
+    (c) =>
+      c.status === "pending" &&
+      (c.lobby_type === "group"
+        ? c.challenger_id !== userId && c.my_participant_status === "invited"
+        : c.opponent_id === userId)
   );
   const sentChallenges = coreChallenges.filter(
     (c) => (c.status === "pending" || c.status === "draft") && c.challenger_id === userId
   );
   const activeChallenges = coreChallenges
-    .filter((c) => c.status === "accepted" || c.status === "active")
+    .filter((c) =>
+      c.status === "accepted" || c.status === "active" ||
+      // Group challenges where user has accepted but challenge is still pending (waiting for others)
+      (c.status === "pending" && c.lobby_type === "group" &&
+        c.challenger_id !== userId && c.my_participant_status !== "invited" && c.my_participant_status !== "declined")
+    )
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  // Search filter helper
+  // Search filter helper — matches opponent name (1v1) or any participant name (group)
   const sq = searchQuery.trim().toLowerCase();
   const matchesSearch = (c: ChallengeWithProfiles) => {
     if (!sq) return true;
+    // For group challenges, search all participant names
+    if (c.lobby_type === "group" && c.participant_names) {
+      return c.participant_names.some((name) => name.toLowerCase().includes(sq));
+    }
     const opp = c.challenger_id === userId ? c.opponent : c.challenger;
     const name = (opp?.display_name || opp?.username || c.opponent_email || "").toLowerCase();
     return name.includes(sq);
@@ -425,7 +446,7 @@ export default function ChallengesPage() {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search opponents..."
+            placeholder="Search players..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-9 w-full rounded-lg border border-border bg-secondary/50 pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"

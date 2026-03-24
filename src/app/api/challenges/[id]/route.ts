@@ -8,6 +8,7 @@ import type { Challenge, NotificationPreferences } from "@/lib/supabase/types";
 import {
   getChallenge,
   respondToChallenge,
+  respondToGroupChallenge,
 } from "@/lib/challenges/queries";
 import { LOCK_BUFFER_MS } from "@/lib/challenges/constants";
 
@@ -30,7 +31,7 @@ export async function GET(
 
     const { id } = await context.params;
 
-    const challenge = await getChallenge(supabase, id, user.id);
+    const challenge = await getChallenge(id, user.id);
 
     if (!challenge) {
       return notFound("Challenge");
@@ -65,25 +66,80 @@ export async function PATCH(
     };
 
     if (!body.action) {
-      return badRequest("action is required (accept, decline, or cancel)");
+      return badRequest("action is required (accept, decline, cancel, or start)");
     }
 
-    const validActions = ["accept", "decline", "cancel"];
+    const validActions = ["accept", "decline", "cancel", "start"];
     if (!validActions.includes(body.action)) {
-      return badRequest(`Invalid action: ${body.action}. Must be accept, decline, or cancel`);
+      return badRequest(`Invalid action: ${body.action}. Must be accept, decline, cancel, or start`);
     }
+
+    // Use admin client to fetch the challenge — RLS only allows
+    // challenger_id/opponent_id which excludes group participants.
+    // Authorization is checked per-path below.
+    const adminClient = createAdminClient();
+    const { data: challengeRow } = await (adminClient.from("challenges") as any)
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    const challengeData = challengeRow as Challenge | null;
+    if (!challengeData) {
+      return notFound("Challenge");
+    }
+
+    if (challengeData.lobby_type === "group") {
+      const challenge = await respondToGroupChallenge(
+        adminClient,
+        id,
+        user.id,
+        body.action as "accept" | "decline" | "cancel",
+        body.action === "cancel" ? body.convert_to_solo : undefined
+      );
+
+      // Fire-and-forget: notify creator when a participant accepts
+      if (body.action === "accept") {
+        try {
+          const [{ data: acceptorProfile }, { data: challengerProfile }] =
+            await Promise.all([
+              (adminClient.from("profiles") as any)
+                .select("username")
+                .eq("id", user.id)
+                .single() as Promise<{
+                data: { username: string } | null;
+              }>,
+              (adminClient.from("profiles") as any)
+                .select("notification_preferences")
+                .eq("id", challengeData.challenger_id)
+                .single() as Promise<{
+                data: { notification_preferences: NotificationPreferences | null } | null;
+              }>,
+            ]);
+          const acceptorName =
+            (acceptorProfile as { username: string } | null)?.username ?? "Someone";
+          const challengerPrefs = challengerProfile?.notification_preferences ?? null;
+          await createNotification(adminClient, {
+            user_id: challengeData.challenger_id,
+            type: "challenge_accepted",
+            title: "Challenge Accepted",
+            body: `${acceptorName} accepted your group challenge!`,
+            metadata: { challenge_id: challengeData.id },
+          }, challengerPrefs);
+        } catch (notifError) {
+          logError("challenges", "Failed to create group challenge_accepted notification", undefined, notifError);
+        }
+      }
+
+      return NextResponse.json({ challenge });
+    }
+
+    // --- 1v1 challenge flow ---
 
     // For mirror/random accept: validate that mirror_props haven't expired
     let mirrorWarning: string | null = null;
     if (body.action === "accept") {
-      const { data: rawChallenge } = await supabase
-        .from("challenges")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      const ch = rawChallenge as Challenge | null;
-      if (ch?.mirror_props && ch.mirror_props.length > 0) {
+      const ch = challengeData;
+      if (ch.mirror_props && ch.mirror_props.length > 0) {
         const lockCutoff = new Date(Date.now() + LOCK_BUFFER_MS);
 
         // Fetch the games for these props to check commence times

@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedButton } from "@/components/ui/animated-button";
+import { Badge } from "@/components/ui/badge";
 import UserAvatar from "@/components/icons/UserAvatar";
 import {
   Tooltip,
@@ -19,6 +20,8 @@ import { getOpponentDisplayName } from "@/lib/challenges/display";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
+import StackedAvatars from "@/components/challenges/StackedAvatars";
+import { Users } from "lucide-react";
 
 interface IncomingChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -43,8 +46,11 @@ export default function IncomingChallengeCard({
   actionLoading,
 }: IncomingChallengeCardProps) {
   const isChallenger = challenge.challenger_id === currentUserId;
+  const isGroup = challenge.lobby_type === "group";
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
-  const displayName = getOpponentDisplayName(opponent, challenge.opponent_email);
+  const displayName = isGroup
+    ? `Group Challenge (${challenge.participant_count ?? 0} players)`
+    : getOpponentDisplayName(opponent, challenge.opponent_email);
   const isLoading = actionLoading === challenge.id;
   const { hoverProps, prefersReduced } = useCardHover(
     -2,
@@ -65,13 +71,17 @@ export default function IncomingChallengeCard({
           <CardContent className="flex items-center gap-3 px-4 py-3">
             {/* Challenger avatar */}
             <div className="shrink-0">
-              <UserAvatar
-                avatarUrl={opponent?.avatar_url ?? null}
-                iconConfig={parseIconConfig(opponent?.icon_config ?? null)}
-                userId={opponent?.id ?? ""}
-                username={opponent?.username ?? displayName}
-                size={40}
-              />
+              {isGroup && challenge.participant_avatars ? (
+                <StackedAvatars participants={challenge.participant_avatars} size={32} />
+              ) : (
+                <UserAvatar
+                  avatarUrl={opponent?.avatar_url ?? null}
+                  iconConfig={parseIconConfig(opponent?.icon_config ?? null)}
+                  userId={opponent?.id ?? ""}
+                  username={opponent?.username ?? displayName}
+                  size={40}
+                />
+              )}
             </div>
 
             {/* Info block */}
@@ -92,6 +102,12 @@ export default function IncomingChallengeCard({
                     size="md"
                     showClassic
                   />
+                )}
+                {isGroup && (
+                  <Badge variant="secondary" className="gap-1 bg-violet-500/10 text-violet-400 border-violet-500/20 text-[10px] px-1.5 py-0.5">
+                    <Users className="h-2.5 w-2.5" />
+                    <span>Group</span>
+                  </Badge>
                 )}
                 <span className="text-xs text-muted-foreground">
                   {relativeTime}

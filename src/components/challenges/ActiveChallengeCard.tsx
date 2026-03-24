@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedButton } from "@/components/ui/animated-button";
+import { Badge } from "@/components/ui/badge";
 import UserAvatar from "@/components/icons/UserAvatar";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import { useCardHover } from "@/components/challenges/useCardHover";
@@ -15,6 +16,8 @@ import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
 import OpponentAvatar from "@/components/challenges/OpponentAvatar";
+import StackedAvatars from "@/components/challenges/StackedAvatars";
+import { Users } from "lucide-react";
 
 interface ActiveChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -44,11 +47,14 @@ export default function ActiveChallengeCard({
   const isLoading = actionLoading === challenge.id;
 
   const isChallenger = challenge.challenger_id === currentUserId;
+  const isGroup = challenge.lobby_type === "group";
   const currentUser = isChallenger ? challenge.challenger : challenge.opponent;
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
 
   const currentUserName = currentUser?.display_name || currentUser?.username || "You";
-  const opponentName = getOpponentDisplayName(opponent, challenge.opponent_email);
+  const opponentName = isGroup
+    ? `${challenge.participant_count ?? 0} players`
+    : getOpponentDisplayName(opponent, challenge.opponent_email);
 
   // Determine status text
   const isActive = challenge.status === "active";
@@ -76,6 +82,12 @@ export default function ActiveChallengeCard({
                     showClassic
                   />
                 )}
+                {isGroup && (
+                  <Badge variant="secondary" className="gap-1 bg-violet-500/10 text-violet-400 border-violet-500/20 text-[10px] px-1.5 py-0.5">
+                    <Users className="h-2.5 w-2.5" />
+                    <span>Group</span>
+                  </Badge>
+                )}
                 <div className="flex items-center gap-1">
                   <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
                   <span className="text-[10px] font-bold uppercase text-primary">
@@ -88,44 +100,53 @@ export default function ActiveChallengeCard({
               </span>
             </div>
 
-            {/* Matchup row: inline horizontal — avatar name VS name avatar */}
-            <div className="flex items-center justify-between">
-              {/* Current user - left side */}
-              <div className="flex min-w-0 items-center gap-1.5">
-                <div className="shrink-0">
-                  <UserAvatar
-                    avatarUrl={currentUser?.avatar_url ?? null}
-                    iconConfig={parseIconConfig(currentUser?.icon_config ?? null)}
-                    userId={currentUser?.id ?? ""}
-                    username={currentUser?.username ?? currentUserName}
-                    size={28}
-                  />
-                </div>
-                <span className="truncate text-sm font-semibold">
-                  {currentUserName}
+            {/* Matchup row */}
+            {isGroup && challenge.participant_avatars ? (
+              <div className="flex items-center gap-2">
+                <StackedAvatars participants={challenge.participant_avatars} size={28} />
+                <span className="text-sm font-semibold text-muted-foreground">
+                  {challenge.participant_count} players
                 </span>
               </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                {/* Current user - left side */}
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <div className="shrink-0">
+                    <UserAvatar
+                      avatarUrl={currentUser?.avatar_url ?? null}
+                      iconConfig={parseIconConfig(currentUser?.icon_config ?? null)}
+                      userId={currentUser?.id ?? ""}
+                      username={currentUser?.username ?? currentUserName}
+                      size={28}
+                    />
+                  </div>
+                  <span className="truncate text-sm font-semibold">
+                    {currentUserName}
+                  </span>
+                </div>
 
-              {/* VS indicator */}
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
-                VS
-              </div>
+                {/* VS indicator */}
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
+                  VS
+                </div>
 
-              {/* Opponent - right side */}
-              <div className="flex min-w-0 items-center gap-1.5">
-                <span className="truncate text-sm font-semibold text-right">
-                  {opponentName}
-                </span>
-                <div className="shrink-0">
-                  <OpponentAvatar
-                    opponent={opponent}
-                    opponentEmail={challenge.opponent_email}
-                    displayName={opponentName}
-                    size={28}
-                  />
+                {/* Opponent - right side */}
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate text-sm font-semibold text-right">
+                    {opponentName}
+                  </span>
+                  <div className="shrink-0">
+                    <OpponentAvatar
+                      opponent={opponent}
+                      opponentEmail={challenge.opponent_email}
+                      displayName={opponentName}
+                      size={28}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Bottom row: status text + Make Picks CTA */}
             <div className="flex items-center justify-between">

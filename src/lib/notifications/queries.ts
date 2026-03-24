@@ -6,6 +6,7 @@ import type {
   NotificationType,
 } from "@/lib/supabase/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface UnreadCounts {
   pendingFriendRequests: number;
@@ -38,8 +39,8 @@ export async function getUnreadCounts(
     );
   }
 
-  // Count pending challenges received by the user
-  const { count: challengeCount, error: challengeError } = await typedFrom(
+  // Count pending 1v1 challenges received by the user
+  const { count: oneVOneCount, error: challengeError } = await typedFrom(
     supabase,
     "challenges"
   )
@@ -52,6 +53,30 @@ export async function getUnreadCounts(
       `Failed to count pending challenges: ${challengeError.message}`
     );
   }
+
+  // Count group challenge invites where user is still "invited" AND the
+  // challenge itself is still "pending". This matches the inbox criteria in
+  // challenges/page.tsx — participants can be "invited" on active/resolved
+  // challenges (e.g., creator started early) but those don't appear in the inbox.
+  // Uses admin client because challenge_participants RLS does not grant
+  // direct read access to participants (the challenges API also uses admin).
+  const admin = createAdminClient();
+  const { count: groupInviteCount, error: groupError } = await (
+    admin.from("challenge_participants") as any
+  )
+    .select("id, challenges!inner(status)", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("status", "invited")
+    .eq("is_creator", false)
+    .eq("challenges.status", "pending");
+
+  if (groupError) {
+    throw new Error(
+      `Failed to count group challenge invites: ${(groupError as Error).message}`
+    );
+  }
+
+  const challengeCount = (oneVOneCount ?? 0) + (groupInviteCount ?? 0);
 
   // Count unread notifications
   const { count: notifCount, error: notifError } = await typedFrom(

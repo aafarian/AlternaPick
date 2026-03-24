@@ -105,8 +105,23 @@ export default async function GuestPickPage({
       redirect(`/challenges/${challengeId}`);
     }
 
-    // Skip if challenge already has an opponent (idempotent)
-    if (!challenge.opponent_id) {
+    // Claim the challenge for the logged-in user (idempotent).
+    // 1v1: set opponent_id on the challenge.
+    // Group: set user_id on the participant row.
+    if (challenge.lobby_type === "group") {
+      // Link this user to their email-based participant row
+      const { error: claimError } = await (admin.from("challenge_participants") as any)
+        .update({ user_id: user.id })
+        .eq("challenge_id", challengeId)
+        .eq("email", tokenData.email.toLowerCase().trim())
+        .is("user_id", null);
+
+      if (claimError) {
+        logError("guest-page", "Failed to claim group participant for logged-in user", "GET /challenges/[id]/guest", claimError);
+      } else {
+        logInfo("guest-page", `Logged-in user ${user.id} claimed group participant in challenge ${challengeId}`);
+      }
+    } else if (!challenge.opponent_id) {
       const { error: claimError } = await (admin.from("challenges") as any)
         .update({ opponent_id: user.id })
         .eq("id", challengeId)

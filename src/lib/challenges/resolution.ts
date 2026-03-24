@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatPlacement } from "@/lib/challenges/display";
 import { logError, logWarn } from "@/lib/logger";
 import { createNotification } from "@/lib/notifications/queries";
 import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
@@ -19,10 +20,27 @@ export interface ChallengeResolutionResult {
   is_tie: boolean;
 }
 
+/** Participant data fetched from challenge_participants joined with their card. */
+interface GroupParticipantCard {
+  participant_id: string;
+  user_id: string | null;
+  card_id: string | null;
+  card_score: number;
+  card_status: string;
+}
+
+/** Profile data for notification/email sending. */
+type ProfileRow = {
+  username: string;
+  email?: string;
+  notification_preferences?: NotificationPreferences | null;
+} | null;
+
 /**
- * Resolves all eligible challenges where both linked cards have been resolved.
- * Determines the winner by comparing card scores, updates the challenge row,
- * and updates h2h_wins/h2h_losses in leaderboard_entries.
+ * Resolves all eligible challenges where linked cards have been resolved.
+ * For 1v1 challenges: determines the winner by comparing card scores.
+ * For group challenges: ranks all participants by score with dense ranking.
+ * Updates the challenge row and (for 1v1 only) h2h_wins/h2h_losses in leaderboard_entries.
  */
 export async function resolveEligibleChallenges(): Promise<
   ChallengeResolutionResult[]
@@ -44,6 +62,17 @@ export async function resolveEligibleChallenges(): Promise<
   const results: ChallengeResolutionResult[] = [];
 
   for (const challenge of challenges) {
+    // Branch: group challenges use participant-based resolution
+    if (challenge.lobby_type === "group") {
+      const groupResult = await resolveGroupChallenge(supabase, challenge);
+      if (groupResult) {
+        results.push(groupResult);
+      }
+      continue;
+    }
+
+    // --- 1v1 resolution (existing logic, unchanged) ---
+
     // Fetch both cards linked to this challenge
     const cardsResult = await (supabase.from("cards") as any)
       .select("*")
@@ -116,12 +145,6 @@ export async function resolveEligibleChallenges(): Promise<
 
     // Fire-and-forget: notify both participants about challenge result
     try {
-      type ProfileRow = {
-        username: string;
-        email?: string;
-        notification_preferences?: NotificationPreferences | null;
-      } | null;
-
       const { data: challengerProfile, error: challengerProfileErr } = await (
         supabase.from("profiles") as any
       )
@@ -313,6 +336,327 @@ export async function resolveEligibleChallenges(): Promise<
   }
 
   return results;
+}
+
+/**
+ * Resolve a group challenge. All active participants' cards must be resolved.
+ * Ranks participants by score descending with dense ranking (ties get same placement).
+ * Updates challenge_participants rows with placement/score, sets challenge to resolved.
+ * Sends notifications and emails to all participants. Skips H2H stats.
+ */
+async function resolveGroupChallenge(
+  supabase: ReturnType<typeof createAdminClient>,
+  challenge: Challenge,
+): Promise<ChallengeResolutionResult | null> {
+  // Fetch active participants with their card_id
+  const { data: participantRows, error: participantError } = await (
+    supabase.from("challenge_participants") as any
+  )
+    .select("id, user_id, card_id, status")
+    .eq("challenge_id", challenge.id)
+    .eq("status", "active");
+
+  if (participantError) {
+    logError(
+      "challenge-resolution",
+      `Failed to fetch participants for group challenge ${challenge.id}: ${participantError.message}`,
+    );
+    return null;
+  }
+
+  const activeParticipants = (participantRows ?? []) as Array<{
+    id: string;
+    user_id: string | null;
+    card_id: string | null;
+    status: string;
+  }>;
+
+  // Need at least 2 active participants
+  if (activeParticipants.length < 2) return null;
+
+  // All active participants must have a card
+  const participantsWithCards = activeParticipants.filter((p) => p.card_id != null);
+  if (participantsWithCards.length !== activeParticipants.length) return null;
+
+  // Fetch all cards for active participants
+  const cardIds = participantsWithCards.map((p) => p.card_id as string);
+  const { data: cardsData, error: cardsError } = await (supabase.from("cards") as any)
+    .select("id, user_id, score, status")
+    .in("id", cardIds);
+
+  if (cardsError) {
+    logError(
+      "challenge-resolution",
+      `Failed to fetch cards for group challenge ${challenge.id}: ${cardsError.message}`,
+    );
+    return null;
+  }
+
+  const cards = (cardsData ?? []) as Array<{
+    id: string;
+    user_id: string | null;
+    score: number;
+    status: string;
+  }>;
+
+  // All cards must be resolved
+  if (!cards.every((c) => c.status === "resolved")) return null;
+
+  // Build participant-card mapping
+  const cardMap = new Map(cards.map((c) => [c.id, c]));
+  const participantCards: GroupParticipantCard[] = [];
+
+  for (const p of participantsWithCards) {
+    const card = cardMap.get(p.card_id as string);
+    if (!card) return null; // Card not found — skip resolution
+
+    participantCards.push({
+      participant_id: p.id,
+      user_id: p.user_id,
+      card_id: p.card_id,
+      card_score: card.score,
+      card_status: card.status,
+    });
+  }
+
+  // Sort by score descending for ranking
+  participantCards.sort((a, b) => b.card_score - a.card_score);
+
+  // Assign placements with dense ranking (ties get same placement, next skips)
+  const placements: Array<{ participant_id: string; user_id: string | null; placement: number; score: number }> = [];
+  let currentPlacement = 1;
+
+  for (let i = 0; i < participantCards.length; i++) {
+    if (i > 0 && participantCards[i].card_score < participantCards[i - 1].card_score) {
+      currentPlacement = i + 1; // Standard competition ranking (1st, 1st, 3rd — not 1st, 1st, 2nd)
+    }
+    placements.push({
+      participant_id: participantCards[i].participant_id,
+      user_id: participantCards[i].user_id,
+      placement: currentPlacement,
+      score: participantCards[i].card_score,
+    });
+  }
+
+  // Determine winner: participant(s) with placement 1
+  const firstPlaceParticipants = placements.filter((p) => p.placement === 1);
+  const hasFirstPlaceTie = firstPlaceParticipants.length > 1;
+  // If there's a tie for 1st, winner_id is null; otherwise it's the sole 1st-place user
+  const winnerId = hasFirstPlaceTie ? null : (firstPlaceParticipants[0]?.user_id ?? null);
+
+  // Update each challenge_participants row with placement and score
+  for (const p of placements) {
+    const { error: updateErr } = await (supabase.from("challenge_participants") as any)
+      .update({ placement: p.placement, score: p.score })
+      .eq("id", p.participant_id);
+
+    if (updateErr) {
+      logError(
+        "challenge-resolution",
+        `Failed to update placement for participant ${p.participant_id} in challenge ${challenge.id}: ${updateErr.message}`,
+      );
+      // Continue updating other participants
+    }
+  }
+
+  // Update challenge row: resolved with winner
+  const updateResult = await (supabase.from("challenges") as any)
+    .update({
+      status: "resolved",
+      winner_id: winnerId,
+      resolved_at: new Date().toISOString(),
+    })
+    .eq("id", challenge.id);
+
+  if (updateResult.error) {
+    logError(
+      "challenge-resolution",
+      `Failed to update group challenge ${challenge.id}: ${updateResult.error.message}`,
+    );
+    return null;
+  }
+
+  // Skip H2H stats for group challenges (only tracked for 1v1)
+
+  const totalParticipants = placements.length;
+
+  // Build the result using the top two scores for backward-compatible fields
+  const topScore = placements[0]?.score ?? 0;
+  const secondScore = placements.length > 1
+    ? placements.find((p) => p.placement > 1)?.score ?? topScore
+    : topScore;
+
+  const challengeResult: ChallengeResolutionResult = {
+    challenge_id: challenge.id,
+    winner_id: winnerId,
+    challenger_score: topScore,
+    opponent_score: secondScore,
+    is_tie: hasFirstPlaceTie,
+  };
+
+  // Fire-and-forget: notify all participants about their placement
+  try {
+    // Fetch profiles for all participants with user_ids
+    const userIds = placements
+      .map((p) => p.user_id)
+      .filter((id): id is string => id != null);
+
+    const profileMap = new Map<string, ProfileRow>();
+
+    if (userIds.length > 0) {
+      const { data: profiles, error: profilesError } = await (
+        supabase.from("profiles") as any
+      )
+        .select("id, username, email, notification_preferences")
+        .in("id", userIds);
+
+      if (profilesError) {
+        logWarn("challenge-resolution", "Failed to fetch profiles for group notification", profilesError);
+      }
+
+      for (const prof of (profiles ?? []) as Array<{
+        id: string;
+        username: string;
+        email?: string;
+        notification_preferences?: NotificationPreferences | null;
+      }>) {
+        profileMap.set(prof.id, prof);
+      }
+    }
+
+    for (const p of placements) {
+      if (!p.user_id) continue; // Guest participants without user_id — skip notification
+
+      const profile = profileMap.get(p.user_id);
+      const prefs = profile?.notification_preferences ?? null;
+      const msg = getGroupNotificationMessage(p.placement, totalParticipants, p.score);
+
+      await createNotification(
+        supabase,
+        {
+          user_id: p.user_id,
+          type: "challenge_resolved",
+          title: msg.title,
+          body: msg.body,
+          metadata: { challenge_id: challenge.id, placement: p.placement },
+        },
+        prefs
+      );
+
+      // Send email if the user has an email and hasn't opted out
+      try {
+        const userEmail = profile?.email;
+        if (userEmail && shouldSendEmail("challenge_resolved", prefs)) {
+          const username = profile?.username ?? "Player";
+          const unsubUrl = tryGetUnsubscribeUrl(userEmail);
+          // Use the 1v1 email template with group-adapted data (placement as score comparison)
+          const emailProps = getChallengeResolvedEmailProps({
+            username,
+            myScore: p.score,
+            theirScore: secondScore,
+            opponentName: `${totalParticipants - 1} others`,
+            isWinner: p.placement === 1,
+            isTie: hasFirstPlaceTie && p.placement === 1,
+            challengeId: challenge.id,
+            unsubscribeUrl: unsubUrl,
+          });
+          void sendEmail({
+            to: userEmail,
+            subject: emailProps.subject,
+            react: emailProps.react,
+            text: emailProps.text,
+            unsubscribeUrl: unsubUrl,
+          });
+        }
+      } catch (emailError) {
+        logError(
+          "challenge-resolution",
+          `Failed to send group challenge_resolved email for user ${p.user_id}`,
+          undefined,
+          emailError
+        );
+      }
+    }
+  } catch (notifError) {
+    logError(
+      "challenge-resolution",
+      "Failed to create group challenge_resolved notifications",
+      undefined,
+      notifError
+    );
+  }
+
+  // Fire-and-forget: check achievements for all participants
+  for (const p of placements) {
+    if (!p.user_id) continue;
+
+    try {
+      const lbResult = await (supabase.from("leaderboard_entries") as any)
+        .select(
+          "total_cards, current_streak, best_streak, win_rate, h2h_wins, h2h_losses"
+        )
+        .eq("user_id", p.user_id)
+        .single();
+
+      const lb = (lbResult.data ?? {
+        total_cards: 0,
+        current_streak: 0,
+        best_streak: 0,
+        win_rate: 0,
+        h2h_wins: 0,
+        h2h_losses: 0,
+      }) as {
+        total_cards: number;
+        current_streak: number;
+        best_streak: number;
+        win_rate: number;
+        h2h_wins: number;
+        h2h_losses: number;
+      };
+
+      await checkAndUnlockAchievements(supabase, p.user_id, {
+        challengeResolved: challengeResult,
+        leaderboardStats: lb,
+      });
+    } catch (achievementError) {
+      logError(
+        "challenge-resolution",
+        `Failed to check achievements for user ${p.user_id} after group challenge resolution`,
+        undefined,
+        achievementError
+      );
+    }
+  }
+
+  return challengeResult;
+}
+
+/**
+ * Generate a notification message for a group challenge participant based on their placement.
+ */
+function getGroupNotificationMessage(
+  placement: number,
+  totalParticipants: number,
+  score: number,
+): { title: string; body: string } {
+  if (placement === 1) {
+    return {
+      title: "You won!",
+      body: `You placed 1st out of ${totalParticipants} with ${score} pts. Dominant.`,
+    };
+  }
+
+  if (placement === 2) {
+    return {
+      title: "So Close!",
+      body: `You placed 2nd out of ${totalParticipants} with ${score} pts. Almost had it.`,
+    };
+  }
+
+  return {
+    title: "Challenge Complete",
+    body: `You placed ${formatPlacement(placement)} out of ${totalParticipants} with ${score} pts.`,
+  };
 }
 
 function getChallengeNotificationMessage(

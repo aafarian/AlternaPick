@@ -252,7 +252,13 @@ export default function CardBuilderPanel() {
         pickCount={picks.length}
         onGuestLockIn={guestToken ? handleGuestLockIn : undefined}
         guestLoading={guestLocking}
-        redirectTo={challengeId ? `/challenges/${challengeId}` : undefined}
+        redirectTo={
+          guestToken && challengeId
+            ? `/challenges/${challengeId}/guest?token=${guestToken}`
+            : challengeId
+              ? `/challenges/${challengeId}`
+              : undefined
+        }
       />
 
       <div className="fixed bottom-0 left-0 right-0 z-50 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0">

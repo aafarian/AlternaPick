@@ -67,11 +67,50 @@ export function toLivePickData(pick: {
     stat_category: string;
     line: number;
     game_id: string;
-    games?: { sport: string };
+    games?: { sport: string; commence_time?: string | null };
   } | null;
 }): LivePickData {
   const hasResult =
     pick.result === "hit" || pick.result === "miss" || pick.result === "push" || pick.result === "dnp";
+
+  const gameId = pick.prop?.game_id ?? "";
+  const sport = pick.prop?.games?.sport ?? "";
+
+  // Build game_status for both resolved and pre-game picks.
+  // Returning null causes isAwaitingLive=true in computePickDisplay, showing
+  // a loading spinner — use "scheduled" for pre-game picks instead.
+  let gameStatus: LivePickData["game_status"];
+  if (hasResult) {
+    gameStatus = {
+      game_id: gameId,
+      external_event_id: gameId,
+      status: "final" as const,
+      period: usesHalves(sport) ? 2 : 4,
+      clock: "0:00",
+      home_team: "",
+      away_team: "",
+      home_tricode: "",
+      away_tricode: "",
+      home_score: 0,
+      away_score: 0,
+      commence_time: null,
+    };
+  } else {
+    gameStatus = {
+      game_id: gameId,
+      external_event_id: gameId,
+      status: "scheduled" as const,
+      period: 0,
+      clock: "",
+      home_team: "",
+      away_team: "",
+      home_tricode: "",
+      away_tricode: "",
+      home_score: 0,
+      away_score: 0,
+      commence_time: pick.prop?.games?.commence_time ?? null,
+    };
+  }
 
   return {
     pick_id: pick.id,
@@ -85,43 +124,46 @@ export function toLivePickData(pick: {
     selection: pick.selection as PickSelection,
     current_value: pick.actual_value,
     trending: hasResult ? (pick.result as "hit" | "miss" | "push" | "dnp") : null,
-    // Resolved picks should show as "final" — null causes "PRE" display
-    game_status: hasResult
-      ? {
-          game_id: pick.prop?.game_id ?? "",
-          external_event_id: pick.prop?.game_id ?? "",
-          status: "final" as const,
-          period: usesHalves(pick.prop?.games?.sport ?? "") ? 2 : 4,
-          clock: "0:00",
-          home_team: "",
-          away_team: "",
-          home_tricode: "",
-          away_tricode: "",
-          home_score: 0,
-          away_score: 0,
-          commence_time: null,
-        }
-      : null,
+    game_status: gameStatus,
   };
+}
+
+/** Per-participant live data returned for group challenges. */
+export interface LiveParticipantData {
+  user_id: string | null;
+  username: string | null;
+  email: string | null;
+  card: {
+    card_id: string;
+    picks: LivePickData[];
+    has_live_games: boolean;
+    all_games_final: boolean;
+  } | null;
+  placement?: number;
+  status: string;
 }
 
 export interface LiveChallengeData {
   challenge_id: string;
+  /** Present for 1v1 challenges (backward compat). Null for group challenges. */
   challenger_card: {
     card_id: string;
     picks: LivePickData[];
     has_live_games: boolean;
     all_games_final: boolean;
   } | null;
+  /** Present for 1v1 challenges (backward compat). Null for group challenges. */
   opponent_card: {
     card_id: string;
     picks: LivePickData[];
     has_live_games: boolean;
     all_games_final: boolean;
   } | null;
+  /** Present for group challenges — live data for each participant. */
+  participants?: LiveParticipantData[];
   games: LiveGameStatus[];
   has_live_games: boolean;
-  /** True when every game across both cards has definitively reached "final" status */
+  /** True when every game across all cards has definitively reached "final" status */
   all_games_final: boolean;
   /** True when cards/challenge were resolved during this request */
   challenge_resolved?: boolean;

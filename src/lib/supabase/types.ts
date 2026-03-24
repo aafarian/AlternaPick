@@ -330,6 +330,8 @@ export interface Database {
           mirror_props: string[] | null;
           card_size: number;
           winner_id: string | null;
+          lobby_type: string;
+          max_participants: number;
           created_at: string;
           resolved_at: string | null;
         };
@@ -344,6 +346,8 @@ export interface Database {
           mirror_props?: string[] | null;
           card_size?: number;
           winner_id?: string | null;
+          lobby_type?: string;
+          max_participants?: number;
           created_at?: string;
           resolved_at?: string | null;
         };
@@ -357,6 +361,8 @@ export interface Database {
           mirror_props?: string[] | null;
           card_size?: number;
           winner_id?: string | null;
+          lobby_type?: string;
+          max_participants?: number;
           resolved_at?: string | null;
         };
       };
@@ -670,6 +676,42 @@ export interface Database {
           used_at?: string | null;
         };
       };
+      challenge_participants: {
+        Row: {
+          id: string;
+          challenge_id: string;
+          user_id: string | null;
+          email: string | null;
+          status: string;
+          card_id: string | null;
+          placement: number | null;
+          score: number | null;
+          is_creator: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          challenge_id: string;
+          user_id?: string | null;
+          email?: string | null;
+          status?: string;
+          card_id?: string | null;
+          placement?: number | null;
+          score?: number | null;
+          is_creator?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          challenge_id?: string;
+          user_id?: string | null;
+          email?: string | null;
+          status?: string;
+          card_id?: string | null;
+          placement?: number | null;
+          score?: number | null;
+          is_creator?: boolean;
+        };
+      };
     };
     Enums: {
       stat_category: StatCategory;
@@ -708,3 +750,9 @@ export type LeaderboardEntry =
   Database["public"]["Tables"]["leaderboard_entries"]["Row"];
 export type Recap = Database["public"]["Tables"]["recaps"]["Row"];
 export type GuestToken = Database["public"]["Tables"]["guest_tokens"]["Row"];
+export type ChallengeParticipant =
+  Database["public"]["Tables"]["challenge_participants"]["Row"];
+
+export type LobbyType = "1v1" | "group";
+
+export type ParticipantStatus = "invited" | "accepted" | "declined" | "active";

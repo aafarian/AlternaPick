@@ -5,14 +5,17 @@ import { useRouter } from "next/navigation";
 import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedButton } from "@/components/ui/animated-button";
+import { Badge } from "@/components/ui/badge";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import { useCardHover } from "@/components/challenges/useCardHover";
-import { getOpponentDisplayName } from "@/lib/challenges/display";
+import { getOpponentDisplayName, formatPlacement } from "@/lib/challenges/display";
 import type { GameMode } from "@/lib/modes/types";
 import { cn } from "@/lib/utils";
 import { motion } from "@/lib/motion";
 import { ScaleIn } from "@/components/motion";
 import OpponentAvatar from "@/components/challenges/OpponentAvatar";
+import StackedAvatars from "@/components/challenges/StackedAvatars";
+import { Users } from "lucide-react";
 
 interface ChallengeCardProps {
   challenge: ChallengeWithProfiles;
@@ -35,9 +38,12 @@ export default function ChallengeCard({
 }: ChallengeCardProps) {
   const router = useRouter();
   const isChallenger = challenge.challenger_id === currentUserId;
+  const isGroup = challenge.lobby_type === "group";
   const opponent = isChallenger ? challenge.opponent : challenge.challenger;
-  const isEmailInvite = !opponent && !!challenge.opponent_email;
-  const displayName = getOpponentDisplayName(opponent, challenge.opponent_email);
+  const isEmailInvite = !isGroup && !opponent && !!challenge.opponent_email;
+  const displayName = isGroup
+    ? `Group (${challenge.participant_count ?? 0} players)`
+    : getOpponentDisplayName(opponent, challenge.opponent_email);
   const isLoading = actionLoading === challenge.id;
   const { hoverProps, prefersReduced } = useCardHover();
 
@@ -87,12 +93,16 @@ export default function ChallengeCard({
           <CardContent className="flex items-center gap-3 px-4 py-2.5">
             {/* Avatar */}
             <div className="shrink-0">
-              <OpponentAvatar
-                opponent={opponent}
-                opponentEmail={challenge.opponent_email}
-                displayName={displayName}
-                size={36}
-              />
+              {isGroup && challenge.participant_avatars ? (
+                <StackedAvatars participants={challenge.participant_avatars} size={28} />
+              ) : (
+                <OpponentAvatar
+                  opponent={opponent}
+                  opponentEmail={challenge.opponent_email}
+                  displayName={displayName}
+                  size={36}
+                />
+              )}
             </div>
 
             {/* Info — name row has inline status */}
@@ -112,18 +122,33 @@ export default function ChallengeCard({
                     <span className="text-[10px] font-bold text-primary">ACTIVE</span>
                   </div>
                 )}
-                {won && (
+                {isGroup && isResolved && challenge.my_placement != null ? (
                   <ScaleIn initialScale={0.5} duration={0.35}>
-                    <span className="text-[10px] font-bold text-neon-green">WIN</span>
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold",
+                        challenge.my_placement === 1 ? "text-neon-green" : "text-muted-foreground"
+                      )}
+                    >
+                      {formatPlacement(challenge.my_placement)} of {challenge.participant_count}
+                    </span>
                   </ScaleIn>
-                )}
-                {lost && (
-                  <ScaleIn initialScale={0.5} duration={0.35}>
-                    <span className="text-[10px] font-bold text-bold-red">LOSS</span>
-                  </ScaleIn>
-                )}
-                {isResolved && !challenge.winner_id && (
-                  <span className="text-[10px] font-bold text-muted-foreground">DRAW</span>
+                ) : (
+                  <>
+                    {won && (
+                      <ScaleIn initialScale={0.5} duration={0.35}>
+                        <span className="text-[10px] font-bold text-neon-green">WIN</span>
+                      </ScaleIn>
+                    )}
+                    {lost && (
+                      <ScaleIn initialScale={0.5} duration={0.35}>
+                        <span className="text-[10px] font-bold text-bold-red">LOSS</span>
+                      </ScaleIn>
+                    )}
+                    {isResolved && !challenge.winner_id && (
+                      <span className="text-[10px] font-bold text-muted-foreground">DRAW</span>
+                    )}
+                  </>
                 )}
                 {isOutgoing && (
                   <span className="text-[10px] font-medium text-muted-foreground/60">
@@ -143,6 +168,12 @@ export default function ChallengeCard({
                     size="md"
                     showClassic
                   />
+                )}
+                {isGroup && (
+                  <Badge variant="secondary" className="gap-1 bg-violet-500/10 text-violet-400 border-violet-500/20 text-[10px] px-1.5 py-0.5">
+                    <Users className="h-2.5 w-2.5" />
+                    <span>Group</span>
+                  </Badge>
                 )}
                 <span className="text-xs text-muted-foreground">
                   {isIncoming

@@ -3,14 +3,27 @@ import type {
   Database,
   Challenge,
   ChallengeStatus,
+  ParticipantStatus,
 } from "@/lib/supabase/types";
 import type { GameMode } from "@/lib/modes/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError, logInfo } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications/queries";
+import { MAX_LOBBY_SIZE, MIN_LOBBY_SIZE } from "@/lib/challenges/constants";
 
 export interface ChallengeProfile {
   id: string;
   username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  icon_config: Record<string, unknown> | null;
+}
+
+/** Compact avatar data for group challenge list display. */
+export interface ParticipantAvatar {
+  user_id: string | null;
+  username: string | null;
   display_name: string | null;
   avatar_url: string | null;
   icon_config: Record<string, unknown> | null;
@@ -28,11 +41,39 @@ export interface ChallengeWithProfiles extends Challenge {
   challenger_score?: number | null;
   /** Populated for resolved challenges — opponent's card score */
   opponent_score?: number | null;
+  /** Populated for group challenges — total number of participants */
+  participant_count?: number;
+  /** Populated for resolved group challenges — current user's placement (1-based) */
+  my_placement?: number | null;
+  /** Populated for group challenges — current user's participant status */
+  my_participant_status?: string | null;
+  /** Populated for group challenges — compact avatar data for stacked display */
+  participant_avatars?: ParticipantAvatar[];
+  /** Populated for group challenges — participant display names for search matching */
+  participant_names?: string[];
+}
+
+export interface ChallengeParticipantProfile {
+  id: string;
+  user_id: string | null;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  icon_config: Record<string, unknown> | null;
+  email: string | null;
+  status: ParticipantStatus;
+  card_id: string | null;
+  placement: number | null;
+  score: number | null;
+  is_creator: boolean;
+  card: ChallengeCard | null;
 }
 
 export interface ChallengeDetail extends ChallengeWithProfiles {
   challenger_card: ChallengeCard | null;
   opponent_card: ChallengeCard | null;
+  /** Populated for group challenges (lobby_type === 'group'). */
+  participants?: ChallengeParticipantProfile[];
 }
 
 interface ChallengeCard {
@@ -59,11 +100,11 @@ interface ChallengePick {
     stat_category: string;
     line: number;
     game_id: string;
-    games?: { sport: string };
+    games?: { sport: string; commence_time: string };
   } | null;
 }
 
-type ValidAction = "accept" | "decline" | "cancel";
+type ValidAction = "accept" | "decline" | "cancel" | "start";
 
 /**
  * Fetch challenges for a user, optionally filtered by status.
@@ -77,37 +118,86 @@ export async function getChallenges(
   const limit = options?.limit;
   const offset = options?.offset ?? 0;
 
-  let query = typedFrom(supabase, "challenges")
-    .select(
-      "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url, icon_config), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url, icon_config)"
-    )
+  const admin = createAdminClient();
+
+  // For group challenges, the user is a participant but not challenger/opponent.
+  // RLS on the challenges table only allows challenger_id/opponent_id, so we
+  // must fetch group challenges via admin client and merge them in.
+  // Fetch group challenge IDs where this user is a participant.
+  // Limit to a reasonable cap — users with extreme participation should paginate.
+  const { data: participantRows } = await (admin.from("challenge_participants") as any)
+    .select("challenge_id")
+    .eq("user_id", userId)
+    .limit(500);
+  const groupChallengeIds = (participantRows ?? []).map(
+    (r: { challenge_id: string }) => r.challenge_id
+  );
+
+  const selectFields =
+    "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url, icon_config), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url, icon_config)";
+
+  // Cap each query to avoid unbounded fetches. Since we merge + deduplicate,
+  // each source may contribute up to the full page — fetch enough from each.
+  const queryLimit = limit !== undefined ? offset + limit + 1 : undefined;
+
+  // 1. Fetch 1v1 challenges via user client (RLS handles auth)
+  let userQuery = typedFrom(supabase, "challenges")
+    .select(selectFields)
     .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
     .order("created_at", { ascending: false });
 
-  // Note: email invite challenges (opponent_id is null) are included via the
-  // challenger_id filter above. The FK join returns opponent: null for these.
-
   if (statusFilter && statusFilter.length > 0) {
-    query = query.in("status", statusFilter);
+    userQuery = userQuery.in("status", statusFilter);
+  }
+  if (queryLimit !== undefined) {
+    userQuery = userQuery.limit(queryLimit);
   }
 
-  if (limit !== undefined) {
-    // Fetch one extra to check if there are more
-    query = query.range(offset, offset + limit);
+  // 2. Fetch group challenges via admin client (bypasses RLS)
+  let groupQuery = groupChallengeIds.length > 0
+    ? (admin.from("challenges") as any)
+        .select(selectFields)
+        .in("id", groupChallengeIds)
+        .order("created_at", { ascending: false })
+    : null;
+
+  if (groupQuery && statusFilter && statusFilter.length > 0) {
+    groupQuery = groupQuery.in("status", statusFilter);
+  }
+  if (groupQuery && queryLimit !== undefined) {
+    groupQuery = groupQuery.limit(queryLimit);
   }
 
-  const { data, error } = await query;
+  const [userResult, groupResult] = await Promise.all([
+    userQuery,
+    groupQuery,
+  ]);
 
-  if (error) {
-    throw new Error(`Failed to fetch challenges: ${error.message}`);
+  if (userResult.error) {
+    throw new Error(`Failed to fetch challenges: ${userResult.error.message}`);
   }
 
-  const results = (data ?? []) as ChallengeWithProfiles[];
+  const userChallenges = (userResult.data ?? []) as ChallengeWithProfiles[];
+  const groupChallenges = (groupResult?.data ?? []) as ChallengeWithProfiles[];
 
-  // Evaluate hasMore against the raw result set BEFORE filtering,
-  // since draft filtering can silently remove the extra "+1" row.
-  const hasMore = limit !== undefined && results.length > limit;
-  const paginated = hasMore ? results.slice(0, limit) : results;
+  // Merge and deduplicate (creator of a group challenge appears in both queries)
+  const seenIds = new Set<string>();
+  const merged: ChallengeWithProfiles[] = [];
+  for (const c of [...userChallenges, ...groupChallenges]) {
+    if (!seenIds.has(c.id)) {
+      seenIds.add(c.id);
+      merged.push(c);
+    }
+  }
+
+  // Sort by created_at descending
+  merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  // Apply pagination to the merged set (both queries fetched all matching rows,
+  // so we paginate the combined result)
+  const sliced = limit !== undefined ? merged.slice(offset, offset + limit + 1) : merged;
+  const hasMore = limit !== undefined && sliced.length > limit;
+  const paginated = hasMore ? sliced.slice(0, limit) : sliced;
 
   // Exclude draft challenges where the querying user is the opponent
   // (challenger should see their own drafts to continue prop selection)
@@ -125,15 +215,15 @@ export async function getChallenges(
  * Fetch a single challenge by ID with both players' cards, picks, and profiles.
  */
 export async function getChallenge(
-  supabase: SupabaseClient<Database>,
   challengeId: string,
   userId: string
 ): Promise<ChallengeDetail | null> {
-  // Fetch the challenge with profiles
-  const { data: challenge, error: challengeError } = await typedFrom(
-    supabase,
-    "challenges"
-  )
+  // Use admin client to fetch the challenge — RLS on the challenges table only
+  // allows challenger_id/opponent_id, which excludes group participants.
+  // Authorization is enforced manually below.
+  const admin = createAdminClient();
+
+  const { data: challenge, error: challengeError } = await (admin.from("challenges") as any)
     .select(
       "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url, icon_config), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url, icon_config)"
     )
@@ -145,10 +235,23 @@ export async function getChallenge(
   }
 
   const ch = challenge as ChallengeWithProfiles;
+  const isGroup = ch.lobby_type === "group";
 
   // Verify user is a participant.
-  // Email invite challenges have opponent_id = null — allow the challenger to view them.
-  if (ch.challenger_id !== userId && ch.opponent_id !== userId) {
+  // For group challenges, check the challenge_participants table.
+  // For 1v1, check challenger_id / opponent_id directly.
+  if (isGroup) {
+    const { data: participantCheck } = await (admin.from("challenge_participants") as any)
+      .select("id")
+      .eq("challenge_id", challengeId)
+      .eq("user_id", userId)
+      .limit(1);
+
+    if (!participantCheck || (participantCheck as Array<{ id: string }>).length === 0) {
+      return null;
+    }
+  } else if (ch.challenger_id !== userId && ch.opponent_id !== userId) {
+    // Email invite challenges have opponent_id = null — allow the challenger to view them.
     return null;
   }
 
@@ -157,10 +260,9 @@ export async function getChallenge(
 
   // Fetch cards linked to this challenge
   // Must use admin client to bypass RLS — user can't see opponent's card
-  const admin = createAdminClient();
   const { data: cards } = await (admin.from("cards") as any)
     .select(
-      "id, user_id, status, score, total_picks, locked_at, resolved_at, picks(id, selection, result, actual_value, prop:props(id, player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport)))"
+      "id, user_id, status, score, total_picks, locked_at, resolved_at, picks(id, selection, result, actual_value, prop:props(id, player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport, commence_time)))"
     )
     .eq("challenge_id", challengeId);
 
@@ -174,15 +276,6 @@ export async function getChallenge(
     resolved_at: string | null;
     picks: ChallengePick[];
   }>;
-
-  const challengerCard =
-    cardsList.find((c) => c.user_id === ch.challenger_id) ?? null;
-  // Find the opponent's card as "any card that isn't the challenger's".
-  // This handles email invite challenges where both opponent_id and the guest
-  // card's user_id may be null, and also survives partial conversion failures
-  // where opponent_id was set but the card's user_id update failed.
-  const opponentCard =
-    cardsList.find((c) => c.user_id !== ch.challenger_id) ?? null;
 
   const formatCard = (
     card: (typeof cardsList)[number] | null
@@ -199,12 +292,56 @@ export async function getChallenge(
     };
   };
 
+  // For group challenges, fetch participants with profiles and link cards
+  if (isGroup) {
+    const participants = await getParticipants(admin, challengeId);
+
+    // Build a card lookup by user_id and card_id for linking
+    const cardByUserId = new Map<string, (typeof cardsList)[number]>();
+    const cardById = new Map<string, (typeof cardsList)[number]>();
+    for (const c of cardsList) {
+      if (c.user_id) cardByUserId.set(c.user_id, c);
+      cardById.set(c.id, c);
+    }
+
+    const participantsWithCards: ChallengeParticipantProfile[] = participants.map((p) => {
+      const card = p.card_id
+        ? cardById.get(p.card_id) ?? null
+        : p.user_id
+          ? cardByUserId.get(p.user_id) ?? null
+          : null;
+
+      return {
+        ...p,
+        card: formatCard(card),
+      };
+    });
+
+    return {
+      ...ch,
+      challenger_card: formatCard(cardsList.find((c) => c.user_id === ch.challenger_id) ?? null),
+      opponent_card: null,
+      participants: participantsWithCards,
+    };
+  }
+
+  // 1v1 path: find challenger and opponent cards
+  const challengerCard =
+    cardsList.find((c) => c.user_id === ch.challenger_id) ?? null;
+  // Find the opponent's card as "any card that isn't the challenger's".
+  // This handles email invite challenges where both opponent_id and the guest
+  // card's user_id may be null, and also survives partial conversion failures
+  // where opponent_id was set but the card's user_id update failed.
+  const opponentCard =
+    cardsList.find((c) => c.user_id !== ch.challenger_id) ?? null;
+
   return {
     ...ch,
     challenger_card: formatCard(challengerCard),
     opponent_card: formatCard(opponentCard),
   };
 }
+
 
 /** Options for creating a challenge beyond the basic challenger/opponent IDs. */
 export interface CreateChallengeOptions {
@@ -315,7 +452,7 @@ export async function respondToChallenge(
   supabase: SupabaseClient<Database>,
   challengeId: string,
   userId: string,
-  action: ValidAction,
+  action: Exclude<ValidAction, "start">,
   convertToSolo?: boolean
 ): Promise<Challenge> {
   // Fetch current challenge
@@ -373,7 +510,7 @@ export async function respondToChallenge(
     }
   }
 
-  const statusMap: Record<ValidAction, ChallengeStatus> = {
+  const statusMap: Record<Exclude<ValidAction, "start">, ChallengeStatus> = {
     accept: "accepted",
     decline: "declined",
     cancel: "cancelled",
@@ -413,7 +550,7 @@ export async function respondToChallenge(
 /**
  * Expire stale challenges. Called by cron (every 5 min).
  *
- * Three expiration triggers:
+ * Three expiration triggers (apply to both 1v1 and group challenges):
  * 1. **Time-based**: draft/pending/accepted challenges older than 24h → cancelled
  * 2. **Card-resolved**: the challenger's card has fully resolved while the
  *    challenge is still waiting for the opponent — the opponent missed their window.
@@ -426,6 +563,7 @@ export async function respondToChallenge(
  *
  * In all cases, the challenger's card is detached and converted to solo
  * (unless sabotage mode, where card ownership is swapped).
+ * For group challenges, all participants are also marked as declined.
  */
 export async function expireStaleChallenges(
   admin: SupabaseClient<Database>
@@ -438,12 +576,15 @@ export async function expireStaleChallenges(
 
   // --- Trigger 1: Time-based (24h) ---
   const { data: stale } = await (admin.from("challenges") as any)
-    .select("id, challenger_id, game_mode")
+    .select("id, challenger_id, game_mode, lobby_type")
     .in("status", ["draft", "pending", "accepted"])
     .lt("created_at", cutoff);
 
-  for (const ch of (stale ?? []) as Array<{ id: string; challenger_id: string; game_mode: string }>) {
+  for (const ch of (stale ?? []) as StaleChallengeRow[]) {
     converted += await convertChallengerCardToSolo(admin, ch);
+    if (ch.lobby_type === "group") {
+      await declineAllGroupParticipants(admin, ch.id);
+    }
     await cancelChallenge(admin, ch.id);
     expired++;
     processedIds.add(ch.id);
@@ -455,15 +596,12 @@ export async function expireStaleChallenges(
   // but the opponent still hasn't responded. Convert the challenger's card to
   // solo so they still get credit, then cancel the challenge.
   const { data: pending } = await (admin.from("challenges") as any)
-    .select("id, challenger_id, game_mode, mirror_props")
+    .select("id, challenger_id, game_mode, mirror_props, lobby_type")
     .in("status", ["draft", "pending", "accepted"]);
 
-  const pendingChallenges = (pending ?? []) as Array<{
-    id: string;
-    challenger_id: string;
-    game_mode: string;
-    mirror_props: string[] | null;
-  }>;
+  const pendingChallenges = (pending ?? []) as Array<
+    StaleChallengeRow & { mirror_props: string[] | null }
+  >;
 
   for (const ch of pendingChallenges) {
     if (processedIds.has(ch.id)) continue;
@@ -480,6 +618,9 @@ export async function expireStaleChallenges(
 
     // Challenger's card has resolved but opponent hasn't responded — expire
     converted += await convertChallengerCardToSolo(admin, ch);
+    if (ch.lobby_type === "group") {
+      await declineAllGroupParticipants(admin, ch.id);
+    }
     await cancelChallenge(admin, ch.id);
     expired++;
     processedIds.add(ch.id);
@@ -509,11 +650,113 @@ export async function expireStaleChallenges(
     if (!allStarted) continue;
 
     converted += await convertChallengerCardToSolo(admin, ch);
+    if (ch.lobby_type === "group") {
+      await declineAllGroupParticipants(admin, ch.id);
+    }
     await cancelChallenge(admin, ch.id);
     expired++;
   }
 
   return { expired, converted };
+}
+
+/** Row shape used by expireStaleChallenges for both 1v1 and group queries. */
+interface StaleChallengeRow {
+  id: string;
+  challenger_id: string;
+  game_mode: string;
+  lobby_type: string;
+}
+
+/**
+ * Expire individual group challenge participants who haven't responded within 24h.
+ * Called by cron (every 5 min), separately from expireStaleChallenges.
+ *
+ * For each active group challenge, finds participants still in "invited" status
+ * whose created_at is older than 24h and marks them as "declined".
+ * After marking declines, checks if the remaining non-declined participants
+ * are below MIN_LOBBY_SIZE — if so, cancels the entire challenge and
+ * converts the creator's card to solo.
+ */
+export async function expireStaleGroupParticipants(
+  admin: SupabaseClient<Database>
+): Promise<{ participantsDeclined: number; challengesCancelled: number }> {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  let participantsDeclined = 0;
+  let challengesCancelled = 0;
+
+  // Fetch group challenges that are still in a pre-resolved state
+  const { data: groupChallenges } = await (admin.from("challenges") as any)
+    .select("id, challenger_id, game_mode, lobby_type")
+    .eq("lobby_type", "group")
+    .in("status", ["draft", "pending", "accepted", "active"]);
+
+  if (!groupChallenges || (groupChallenges as StaleChallengeRow[]).length === 0) {
+    return { participantsDeclined, challengesCancelled };
+  }
+
+  for (const ch of groupChallenges as StaleChallengeRow[]) {
+    // Find invited participants whose invite is older than 24h
+    const { data: staleParticipants } = await (admin.from("challenge_participants") as any)
+      .select("id")
+      .eq("challenge_id", ch.id)
+      .eq("status", "invited")
+      .lt("created_at", cutoff);
+
+    const staleRows = (staleParticipants ?? []) as Array<{ id: string }>;
+
+    // Mark each stale participant as declined
+    for (const p of staleRows) {
+      const { error } = await (admin.from("challenge_participants") as any)
+        .update({ status: "declined" })
+        .eq("id", p.id)
+        .eq("status", "invited"); // Guard: only update if still invited (idempotent)
+
+      if (error) {
+        logError("challenges", "Failed to decline stale group participant", "expireStaleGroupParticipants", error);
+        continue;
+      }
+      participantsDeclined++;
+    }
+
+    // If we declined anyone, check if enough participants remain
+    if (staleRows.length > 0) {
+      const { data: remaining } = await (admin.from("challenge_participants") as any)
+        .select("id")
+        .eq("challenge_id", ch.id)
+        .in("status", ["invited", "accepted", "active"]);
+
+      const remainingCount = ((remaining ?? []) as Array<{ id: string }>).length;
+
+      if (remainingCount < MIN_LOBBY_SIZE) {
+        logInfo("challenges", `Group challenge ${ch.id} cancelled: only ${remainingCount} non-declined participants remain (min ${MIN_LOBBY_SIZE})`);
+        await declineAllGroupParticipants(admin, ch.id);
+        await convertChallengerCardToSolo(admin, ch);
+        await cancelChallenge(admin, ch.id);
+        challengesCancelled++;
+      }
+    }
+  }
+
+  return { participantsDeclined, challengesCancelled };
+}
+
+/**
+ * Mark all non-declined participants as "declined" for a group challenge.
+ * Used when the entire group challenge is being cancelled.
+ */
+async function declineAllGroupParticipants(
+  admin: SupabaseClient<Database>,
+  challengeId: string
+): Promise<void> {
+  const { error } = await (admin.from("challenge_participants") as any)
+    .update({ status: "declined" })
+    .eq("challenge_id", challengeId)
+    .in("status", ["invited", "accepted", "active"]);
+
+  if (error) {
+    logError("challenges", "Failed to decline all group participants", "declineAllGroupParticipants", error);
+  }
 }
 
 /** Detach the challenger's card from the challenge (convert to solo). Returns 1 if converted, 0 otherwise. */
@@ -547,6 +790,695 @@ async function cancelChallenge(
   await (admin.from("challenges") as any)
     .update({ status: "cancelled" })
     .eq("id", challengeId);
+}
+
+/**
+ * Fetch participants for a group challenge, with profile data joined via user_id.
+ * Guest participants (email-only, no user_id) will have null profile fields.
+ */
+export async function getParticipants(
+  admin: SupabaseClient<Database>,
+  challengeId: string
+): Promise<ChallengeParticipantProfile[]> {
+  const { data, error } = await (admin.from("challenge_participants") as any)
+    .select(
+      "id, user_id, card_id, status, placement, score, is_creator, email, profile:profiles!challenge_participants_user_id_fkey(username, display_name, avatar_url, icon_config)"
+    )
+    .eq("challenge_id", challengeId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    logError("challenges", "Failed to fetch participants", "getParticipants", error);
+    return [];
+  }
+
+  return ((data ?? []) as Array<{
+    id: string;
+    user_id: string | null;
+    card_id: string | null;
+    status: ParticipantStatus;
+    placement: number | null;
+    score: number | null;
+    is_creator: boolean;
+    email: string | null;
+    profile: {
+      username: string;
+      display_name: string | null;
+      avatar_url: string | null;
+      icon_config: Record<string, unknown> | null;
+    } | null;
+  }>).map((p) => ({
+    id: p.id,
+    user_id: p.user_id,
+    username: p.profile?.username ?? null,
+    display_name: p.profile?.display_name ?? null,
+    avatar_url: p.profile?.avatar_url ?? null,
+    icon_config: p.profile?.icon_config ?? null,
+    email: p.email,
+    status: p.status,
+    card_id: p.card_id,
+    placement: p.placement,
+    score: p.score,
+    is_creator: p.is_creator,
+    card: null,
+  }));
+}
+
+/**
+ * Create a new challenge participant record.
+ */
+export async function createParticipant(
+  admin: SupabaseClient<Database>,
+  data: {
+    challenge_id: string;
+    user_id?: string | null;
+    email?: string | null;
+    status?: ParticipantStatus;
+    is_creator?: boolean;
+  }
+): Promise<{ id: string } | null> {
+  const { data: participant, error } = await (admin.from("challenge_participants") as any)
+    .insert({
+      challenge_id: data.challenge_id,
+      user_id: data.user_id ?? null,
+      email: data.email ?? null,
+      status: data.status ?? "invited",
+      is_creator: data.is_creator ?? false,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    logError("challenges", "Failed to create participant", "createParticipant", error);
+    return null;
+  }
+
+  return participant as { id: string };
+}
+
+/**
+ * Update a participant's status (e.g., invited → accepted).
+ */
+export async function updateParticipantStatus(
+  admin: SupabaseClient<Database>,
+  participantId: string,
+  status: ParticipantStatus
+): Promise<boolean> {
+  const { error } = await (admin.from("challenge_participants") as any)
+    .update({ status })
+    .eq("id", participantId);
+
+  if (error) {
+    logError("challenges", "Failed to update participant status", "updateParticipantStatus", error);
+    return false;
+  }
+
+  return true;
+}
+
+/** A single opponent entry in a group challenge request. Exactly one of user_id or email must be set. */
+export interface GroupOpponent {
+  user_id?: string;
+  email?: string;
+}
+
+/** Options for creating a group challenge. */
+export interface CreateGroupChallengeOptions {
+  gameMode?: GameMode;
+  message?: string | null;
+  cardSize?: number;
+  mirrorProps?: string[] | null;
+  status?: ChallengeStatus;
+}
+
+/**
+ * Create a group challenge with multiple opponents.
+ * Validates opponents, creates the challenge row with lobby_type='group',
+ * and creates challenge_participants rows for the creator and each opponent.
+ *
+ * For friend opponents (user_id set): validates accepted friendship.
+ * For email opponents (email set): leaves user_id null on participant row.
+ */
+export async function createGroupChallenge(
+  supabase: SupabaseClient<Database>,
+  challengerId: string,
+  challengerEmail: string | null,
+  opponents: GroupOpponent[],
+  options: CreateGroupChallengeOptions = {}
+): Promise<Challenge> {
+  const {
+    gameMode = "classic",
+    message = null,
+    cardSize = 6,
+    mirrorProps = null,
+    status = "draft",
+  } = options;
+
+  // Max opponents is MAX_LOBBY_SIZE - 1 (the creator takes one slot)
+  const maxOpponents = MAX_LOBBY_SIZE - 1;
+  if (opponents.length > maxOpponents) {
+    throw new ChallengeValidationError(
+      `Too many opponents: max ${maxOpponents} (${MAX_LOBBY_SIZE} total including you)`
+    );
+  }
+
+  // Validate each opponent has exactly one of user_id or email
+  for (const opp of opponents) {
+    if (opp.user_id && opp.email) {
+      throw new ChallengeValidationError(
+        "Each opponent must have either user_id or email, not both"
+      );
+    }
+    if (!opp.user_id && !opp.email) {
+      throw new ChallengeValidationError(
+        "Each opponent must have either user_id or email"
+      );
+    }
+  }
+
+  // Check for self-challenge (by user_id or email)
+  const normalizedCreatorEmail = challengerEmail?.toLowerCase() ?? null;
+  for (const opp of opponents) {
+    if (opp.user_id && opp.user_id === challengerId) {
+      throw new ChallengeValidationError("Cannot challenge yourself");
+    }
+    if (opp.email && normalizedCreatorEmail && opp.email.toLowerCase() === normalizedCreatorEmail) {
+      throw new ChallengeValidationError("Cannot challenge yourself");
+    }
+  }
+
+  // Check for duplicate opponents
+  const seenUserIds = new Set<string>();
+  const seenEmails = new Set<string>();
+  for (const opp of opponents) {
+    if (opp.user_id) {
+      if (seenUserIds.has(opp.user_id)) {
+        throw new ChallengeValidationError("Duplicate opponent detected");
+      }
+      seenUserIds.add(opp.user_id);
+    }
+    if (opp.email) {
+      const lower = opp.email.toLowerCase();
+      if (seenEmails.has(lower)) {
+        throw new ChallengeValidationError("Duplicate opponent email detected");
+      }
+      seenEmails.add(lower);
+    }
+  }
+
+  // Validate friendships for user_id opponents
+  const friendUserIds = opponents
+    .filter((o): o is GroupOpponent & { user_id: string } => Boolean(o.user_id))
+    .map((o) => o.user_id);
+
+  if (friendUserIds.length > 0) {
+    // Fetch all accepted friendships between challenger and these user IDs
+    const orConditions = friendUserIds.map(
+      (uid) => `and(requester_id.eq.${challengerId},addressee_id.eq.${uid}),and(requester_id.eq.${uid},addressee_id.eq.${challengerId})`
+    ).join(",");
+
+    const { data: friendships, error: friendError } = await typedFrom(
+      supabase,
+      "friendships"
+    )
+      .select("requester_id, addressee_id")
+      .eq("status", "accepted")
+      .or(orConditions);
+
+    if (friendError) {
+      throw new Error(`Failed to check friendships: ${friendError.message}`);
+    }
+
+    // Build a set of confirmed friend IDs
+    const confirmedFriends = new Set<string>();
+    for (const f of (friendships ?? []) as Array<{ requester_id: string; addressee_id: string }>) {
+      if (f.requester_id === challengerId) {
+        confirmedFriends.add(f.addressee_id);
+      } else {
+        confirmedFriends.add(f.requester_id);
+      }
+    }
+
+    for (const uid of friendUserIds) {
+      if (!confirmedFriends.has(uid)) {
+        throw new ChallengeValidationError(
+          "All user_id opponents must be accepted friends",
+          403
+        );
+      }
+    }
+  }
+
+  // Create the challenge row with lobby_type='group' using admin client (RLS bypass for group challenges)
+  const admin = createAdminClient();
+  const totalParticipants = opponents.length + 1;
+
+  const insertPayload: Record<string, unknown> = {
+    challenger_id: challengerId,
+    opponent_id: null,
+    status,
+    game_mode: gameMode,
+    card_size: cardSize,
+    lobby_type: "group",
+    max_participants: totalParticipants,
+  };
+
+  if (message) {
+    insertPayload.message = message;
+  }
+
+  if (mirrorProps) {
+    insertPayload.mirror_props = mirrorProps;
+  }
+
+  const { data: challenge, error: createError } = await (admin.from("challenges") as any)
+    .insert(insertPayload)
+    .select(
+      "*, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url, icon_config), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url, icon_config)"
+    )
+    .single();
+
+  if (createError || !challenge) {
+    throw new Error(
+      `Failed to create group challenge: ${createError?.message ?? "Unknown error"}`
+    );
+  }
+
+  const createdChallenge = challenge as Challenge;
+
+  // Create participant rows: creator first, then each opponent
+  const creatorResult = await createParticipant(admin, {
+    challenge_id: createdChallenge.id,
+    user_id: challengerId,
+    is_creator: true,
+    status: "invited",
+  });
+
+  if (!creatorResult) {
+    // Creator participant failed — clean up the challenge
+    await (admin.from("challenges") as any)
+      .update({ status: "cancelled" })
+      .eq("id", createdChallenge.id);
+    throw new Error("Failed to create creator participant for group challenge");
+  }
+
+  for (const opp of opponents) {
+    const participantResult = await createParticipant(admin, {
+      challenge_id: createdChallenge.id,
+      user_id: opp.user_id ?? null,
+      email: opp.email?.toLowerCase() ?? null,
+      is_creator: false,
+      status: "invited",
+    });
+
+    if (!participantResult) {
+      logError(
+        "challenges",
+        "Failed to create opponent participant for group challenge",
+        "createGroupChallenge",
+        new Error(`participant creation failed for challenge ${createdChallenge.id}`)
+      );
+      // Continue creating other participants — partial failure is better than full failure
+    }
+  }
+
+  return createdChallenge;
+}
+
+/**
+ * Respond to a group challenge: accept, decline, or cancel.
+ * Accept/decline updates the participant row (not the challenge status directly).
+ * Cancel by the creator cancels the entire group challenge.
+ */
+export async function respondToGroupChallenge(
+  admin: SupabaseClient<Database>,
+  challengeId: string,
+  userId: string,
+  action: ValidAction,
+  convertToSolo?: boolean
+): Promise<Challenge> {
+  // Fetch the challenge
+  const { data: challenge, error: fetchError } = await (admin.from("challenges") as any)
+    .select("*")
+    .eq("id", challengeId)
+    .single();
+
+  if (fetchError || !challenge) {
+    throw new ChallengeNotFoundError();
+  }
+
+  const ch = challenge as Challenge;
+
+  if (ch.lobby_type !== "group") {
+    throw new ChallengeValidationError("This function is only for group challenges");
+  }
+
+  // Find this user's participant row
+  const { data: participantRows } = await (admin.from("challenge_participants") as any)
+    .select("id, status, is_creator")
+    .eq("challenge_id", challengeId)
+    .eq("user_id", userId)
+    .limit(1);
+
+  const participant = ((participantRows ?? []) as Array<{
+    id: string;
+    status: ParticipantStatus;
+    is_creator: boolean;
+  }>)[0];
+
+  if (!participant) {
+    throw new ChallengeValidationError("You are not a participant in this challenge", 403);
+  }
+
+  if (action === "cancel") {
+    // Only the creator can cancel
+    if (!participant.is_creator) {
+      throw new ChallengeValidationError("Only the challenge creator can cancel", 403);
+    }
+    if (ch.status !== "draft" && ch.status !== "pending" && ch.status !== "accepted") {
+      throw new ChallengeValidationError(
+        "Can only cancel a draft, pending, or accepted challenge",
+        400
+      );
+    }
+
+    // Convert creator's card to solo if requested
+    if (convertToSolo && ch.game_mode !== "sabotage") {
+      await (admin.from("cards") as any)
+        .update({ challenge_id: null })
+        .eq("challenge_id", challengeId)
+        .eq("user_id", ch.challenger_id);
+    }
+
+    // Mark all participants as declined
+    await declineAllGroupParticipants(admin, challengeId);
+
+    // Cancel the entire challenge
+    const { data: updated, error: cancelError } = await (admin.from("challenges") as any)
+      .update({ status: "cancelled" })
+      .eq("id", challengeId)
+      .select("*")
+      .single();
+
+    if (cancelError || !updated) {
+      throw new Error(`Failed to cancel group challenge: ${cancelError?.message ?? "Unknown error"}`);
+    }
+
+    return updated as Challenge;
+  }
+
+  // Start — creator force-activates with whoever has locked in
+  if (action === "start") {
+    if (!participant.is_creator) {
+      throw new ChallengeValidationError("Only the challenge creator can start the challenge", 403);
+    }
+    if (ch.status !== "pending" && ch.status !== "accepted") {
+      throw new ChallengeValidationError(
+        `Cannot start a challenge that is ${ch.status}`,
+        400
+      );
+    }
+
+    // Count participants who have locked in (status = "active")
+    const { data: allParts } = await (admin.from("challenge_participants") as any)
+      .select("id, status")
+      .eq("challenge_id", challengeId);
+
+    const parts = (allParts ?? []) as Array<{ id: string; status: string }>;
+    const activeParts = parts.filter((p) => p.status === "active");
+
+    if (activeParts.length < MIN_LOBBY_SIZE) {
+      throw new ChallengeValidationError(
+        `Need at least ${MIN_LOBBY_SIZE} locked-in participants to start (currently ${activeParts.length})`,
+        400
+      );
+    }
+
+    // Mark remaining invited/accepted participants as declined.
+    // Use a status guard to prevent racing with a concurrent lock-in
+    // that transitions a participant to "active" between our read and this write.
+    const pendingParts = parts.filter((p) => p.status === "invited" || p.status === "accepted");
+    if (pendingParts.length > 0) {
+      await (admin.from("challenge_participants") as any)
+        .update({ status: "declined" })
+        .in("id", pendingParts.map((p) => p.id))
+        .in("status", ["invited", "accepted"]);
+    }
+
+    // Activate the challenge
+    const { data: activated, error: activateError } = await (admin.from("challenges") as any)
+      .update({ status: "active" })
+      .eq("id", challengeId)
+      .select("*")
+      .single();
+
+    if (activateError || !activated) {
+      throw new Error(`Failed to start group challenge: ${activateError?.message ?? "Unknown error"}`);
+    }
+
+    return activated as Challenge;
+  }
+
+  // Accept or decline — update participant status
+  if (action === "accept" || action === "decline") {
+    if (participant.is_creator) {
+      throw new ChallengeValidationError("The creator cannot accept or decline their own challenge", 400);
+    }
+
+    if (participant.status !== "invited") {
+      throw new ChallengeValidationError(
+        `Cannot ${action} — participant status is already '${participant.status}'`,
+        400
+      );
+    }
+
+    if (ch.status !== "draft" && ch.status !== "pending") {
+      throw new ChallengeValidationError(
+        `Cannot ${action} a challenge that is not draft or pending (current: ${ch.status})`,
+        400
+      );
+    }
+
+    const newParticipantStatus: ParticipantStatus = action === "accept" ? "accepted" : "declined";
+    const updated = await updateParticipantStatus(admin, participant.id, newParticipantStatus);
+
+    if (!updated) {
+      throw new Error(`Failed to update participant status to '${newParticipantStatus}'`);
+    }
+
+    // If declining, check if enough participants remain
+    if (action === "decline") {
+      await checkMinimumParticipants(admin, challengeId, ch);
+    }
+  }
+
+  // Return the current challenge state
+  const { data: currentChallenge, error: refetchError } = await (admin.from("challenges") as any)
+    .select("*")
+    .eq("id", challengeId)
+    .single();
+
+  if (refetchError || !currentChallenge) {
+    throw new Error("Failed to refetch challenge after group response");
+  }
+
+  return currentChallenge as Challenge;
+}
+
+/**
+ * Check if a group challenge still has enough non-declined participants.
+ * If fewer than MIN_LOBBY_SIZE remain, cancel the challenge and convert creator's card to solo.
+ */
+async function checkMinimumParticipants(
+  admin: SupabaseClient<Database>,
+  challengeId: string,
+  challenge: Challenge,
+): Promise<void> {
+  const { data: allParticipants } = await (admin.from("challenge_participants") as any)
+    .select("id, status")
+    .eq("challenge_id", challengeId);
+
+  const remaining = ((allParticipants ?? []) as Array<{ id: string; status: string }>)
+    .filter((p) => p.status !== "declined");
+
+  if (remaining.length < MIN_LOBBY_SIZE) {
+    // Not enough participants — cancel the challenge
+    if (challenge.game_mode !== "sabotage") {
+      await (admin.from("cards") as any)
+        .update({ challenge_id: null })
+        .eq("challenge_id", challengeId)
+        .eq("user_id", challenge.challenger_id);
+    }
+
+    await declineAllGroupParticipants(admin, challengeId);
+    await cancelChallenge(admin, challengeId);
+  }
+}
+
+/**
+ * Link a card to a participant row in a group challenge.
+ * Sets card_id and status='active' on the participant row.
+ * Then checks if all non-declined participants are active — if so, transitions challenge to 'active'.
+ */
+export async function linkCardToParticipant(
+  admin: SupabaseClient<Database>,
+  challengeId: string,
+  userId: string,
+  cardId: string
+): Promise<void> {
+  // Find the participant row for this user
+  const { data: participantRows, error: findError } = await (admin.from("challenge_participants") as any)
+    .select("id, status, is_creator")
+    .eq("challenge_id", challengeId)
+    .eq("user_id", userId)
+    .limit(1);
+
+  if (findError) {
+    logError("challenges", "Failed to find participant for card linking", "linkCardToParticipant", findError);
+    return;
+  }
+
+  const participant = ((participantRows ?? []) as Array<{ id: string; status: string; is_creator: boolean }>)[0];
+  if (!participant) {
+    logError("challenges", "No participant row found for card linking", "linkCardToParticipant", new Error(`No participant for user in challenge ${challengeId}`));
+    return;
+  }
+
+  // Update participant: set card_id and status to 'active'
+  const { error: updateError } = await (admin.from("challenge_participants") as any)
+    .update({ card_id: cardId, status: "active" })
+    .eq("id", participant.id);
+
+  if (updateError) {
+    logError("challenges", "Failed to link card to participant", "linkCardToParticipant", updateError);
+    return;
+  }
+
+  // Non-creator locking in from "invited" implicitly accepts the challenge.
+  // Notify the creator — this covers the direct pick-and-lock flow (detail
+  // page / email invite redirect) where PATCH /accept is never called.
+  // Skip if status is "accepted" — the PATCH /accept endpoint already sent
+  // the notification when the user explicitly accepted.
+  if (!participant.is_creator && participant.status === "invited") {
+    try {
+      const { data: challenge } = await (admin.from("challenges") as any)
+        .select("challenger_id")
+        .eq("id", challengeId)
+        .single();
+
+      if (challenge) {
+        const { data: profile } = await (admin.from("profiles") as any)
+          .select("username")
+          .eq("id", userId)
+          .single();
+
+        const name = (profile as { username: string } | null)?.username ?? "Someone";
+        await createNotification(admin, {
+          user_id: (challenge as { challenger_id: string }).challenger_id,
+          type: "challenge_accepted",
+          title: "Challenge Accepted",
+          body: `${name} accepted your group challenge!`,
+          metadata: { challenge_id: challengeId },
+        });
+      }
+    } catch (notifError) {
+      logError("challenges", "Failed to notify challenger about group accept", "linkCardToParticipant", notifError);
+    }
+  }
+
+  // When the creator locks in, promote the challenge from "draft" to "pending"
+  // so it appears in opponents' inboxes and becomes eligible for early-start.
+  if (participant.is_creator) {
+    const { error: promoteError } = await (admin.from("challenges") as any)
+      .update({ status: "pending" })
+      .eq("id", challengeId)
+      .eq("status", "draft");
+
+    if (promoteError) {
+      logError("challenges", "Failed to promote group challenge to pending", "linkCardToParticipant", promoteError);
+    }
+  }
+
+  // Check if all non-declined participants are now active
+  await checkGroupChallengeActivation(admin, challengeId);
+}
+
+/**
+ * Check if all non-declined participants in a group challenge have status='active'.
+ * If so, transition the challenge to 'active'.
+ */
+async function checkGroupChallengeActivation(
+  admin: SupabaseClient<Database>,
+  challengeId: string
+): Promise<void> {
+  const { data: allParticipants, error } = await (admin.from("challenge_participants") as any)
+    .select("id, status")
+    .eq("challenge_id", challengeId);
+
+  if (error) {
+    logError("challenges", "Failed to fetch participants for activation check", "checkGroupChallengeActivation", error);
+    return;
+  }
+
+  const participants = (allParticipants ?? []) as Array<{ id: string; status: string }>;
+  const nonDeclined = participants.filter((p) => p.status !== "declined");
+
+  // All non-declined participants must be active, and we need at least MIN_LOBBY_SIZE
+  if (nonDeclined.length >= MIN_LOBBY_SIZE && nonDeclined.every((p) => p.status === "active")) {
+    const { error: activateError } = await (admin.from("challenges") as any)
+      .update({ status: "active" })
+      .eq("id", challengeId)
+      .in("status", ["draft", "pending", "accepted"]);
+
+    if (activateError) {
+      logError("challenges", "Failed to activate group challenge", "checkGroupChallengeActivation", activateError);
+    }
+  }
+}
+
+/**
+ * Link a card to a guest participant row in a group challenge (looked up by email).
+ * Sets card_id and status='active' on the participant row.
+ * Then checks if all non-declined participants are active — if so, transitions challenge to 'active'.
+ */
+export async function linkCardToGuestParticipant(
+  admin: SupabaseClient<Database>,
+  challengeId: string,
+  email: string,
+  cardId: string
+): Promise<void> {
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // Find the participant row by email
+  const { data: participantRows, error: findError } = await (admin.from("challenge_participants") as any)
+    .select("id, status")
+    .eq("challenge_id", challengeId)
+    .eq("email", normalizedEmail)
+    .limit(1);
+
+  if (findError) {
+    logError("challenges", "Failed to find guest participant for card linking", "linkCardToGuestParticipant", findError);
+    return;
+  }
+
+  const participant = ((participantRows ?? []) as Array<{ id: string; status: string }>)[0];
+  if (!participant) {
+    // Not a group challenge participant — this is normal for 1v1 email invites
+    return;
+  }
+
+  // Update participant: set card_id and status to 'active'
+  const { error: updateError } = await (admin.from("challenge_participants") as any)
+    .update({ card_id: cardId, status: "active" })
+    .eq("id", participant.id);
+
+  if (updateError) {
+    logError("challenges", "Failed to link card to guest participant", "linkCardToGuestParticipant", updateError);
+    return;
+  }
+
+  // Check if all non-declined participants are now active
+  await checkGroupChallengeActivation(admin, challengeId);
 }
 
 export class ChallengeValidationError extends Error {

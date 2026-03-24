@@ -11,6 +11,7 @@ import type { GameMode, PickValidationInput } from "@/lib/modes/types";
 import type { Card, Challenge, Pick, PickSelection } from "@/lib/supabase/types";
 import { CARD_SELECT } from "@/lib/cards/api";
 import { notifyChallengeOpponent } from "@/lib/challenges/notify-opponent";
+import { linkCardToParticipant } from "@/lib/challenges/queries";
 
 interface CreatePickInput {
   prop_id: string;
@@ -83,8 +84,10 @@ export async function POST(request: NextRequest) {
         return unauthorized();
       }
 
-      // Fetch the challenge
-      const challengeResult = await (supabase.from("challenges") as any)
+      // Fetch the challenge via admin client — RLS only allows
+      // challenger_id/opponent_id which excludes group participants.
+      const adminFetch = createAdminClient();
+      const challengeResult = await (adminFetch.from("challenges") as any)
         .select("*")
         .eq("id", challenge_id)
         .single();
@@ -96,7 +99,18 @@ export async function POST(request: NextRequest) {
       const challenge = challengeResult.data as Challenge;
 
       // Validate user is a participant
-      if (
+      if (challenge.lobby_type === "group") {
+        // For group challenges, check the challenge_participants table
+        const { data: participantCheck } = await (adminFetch.from("challenge_participants") as any)
+          .select("id")
+          .eq("challenge_id", challenge_id)
+          .eq("user_id", user.id)
+          .limit(1);
+
+        if (!participantCheck || (participantCheck as { id: string }[]).length === 0) {
+          return forbidden("You are not a participant in this challenge");
+        }
+      } else if (
         challenge.challenger_id !== user.id &&
         challenge.opponent_id !== user.id
       ) {
@@ -104,26 +118,20 @@ export async function POST(request: NextRequest) {
       }
 
       // Validate challenge status
-      // The challenger can lock in their card while the challenge is still "pending"
-      // (they create the challenge + card in one step).
-      // The opponent can only create a card after accepting (status = "accepted" or "active"),
-      // OR for email-invite challenges where the opponent signed in with pending picks,
-      // they can also create a card in "draft" or "pending" status (implicit accept).
+      // All participants can create cards in draft/pending/accepted/active.
+      // Creating a card for a pending challenge implicitly accepts it (transition below).
       const isChallenger = challenge.challenger_id === user.id;
-      const isEmailInvite = !!challenge.opponent_email;
-      const validStatuses = isChallenger
-        ? ["draft", "pending", "accepted", "active"]
-        : isEmailInvite
-          ? ["draft", "pending", "accepted", "active"]
-          : ["accepted", "active"];
+      const validStatuses = ["draft", "pending", "accepted", "active"];
 
       if (!validStatuses.includes(challenge.status)) {
         return badRequest("Challenge is not in a valid state for card creation");
       }
 
-      // Email-invite opponent creating a card implicitly accepts the challenge.
+      // 1v1 only: opponent creating a card implicitly accepts the challenge.
       // Transition draft/pending → accepted so the challenge lifecycle continues.
-      if (!isChallenger && isEmailInvite && (challenge.status === "draft" || challenge.status === "pending")) {
+      // Group challenges stay "pending" — their lifecycle is managed by
+      // linkCardToParticipant / checkGroupChallengeActivation instead.
+      if (!isChallenger && challenge.lobby_type !== "group" && (challenge.status === "draft" || challenge.status === "pending")) {
         const adminClient = createAdminClient();
         await (adminClient.from("challenges") as any)
           .update({ status: "accepted" })
@@ -322,50 +330,65 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If this is a challenge card, check if both participants now have locked cards
-    // Must use admin client to bypass RLS (user can't see opponent's card)
+    // For group challenges, link the card to the participant row and check activation.
+    // For 1v1, check if both participants now have locked cards.
     if (challenge_id && user) {
       const adminClient = createAdminClient();
-      const allChallengeCardsResult = await (adminClient.from("cards") as any)
-        .select("id, user_id, status")
-        .eq("challenge_id", challenge_id)
-        .eq("status", "locked");
 
-      if (!allChallengeCardsResult.error) {
-        const challengeCards = (allChallengeCardsResult.data ?? []) as {
-          id: string;
-          user_id: string;
-          status: string;
-        }[];
+      // Check if this is a group challenge
+      const { data: challengeForLink } = await (adminClient.from("challenges") as any)
+        .select("lobby_type")
+        .eq("id", challenge_id)
+        .single();
 
-        // Both participants have locked cards — transition challenge to active
-        if (challengeCards.length >= 2) {
-          const { error: activateError } = await (adminClient.from("challenges") as any)
-            .update({ status: "active" })
-            .eq("id", challenge_id)
-            .in("status", ["accepted", "pending"]);
+      const lobbyType = (challengeForLink as { lobby_type: string } | null)?.lobby_type;
 
-          if (activateError) {
-            logError("cards", `Failed to activate challenge ${challenge_id}`, "POST /api/cards", activateError);
-          }
+      if (lobbyType === "group") {
+        // Link card to participant and check if all participants are active
+        await linkCardToParticipant(adminClient, challenge_id, user.id, card.id);
+      } else {
+        // 1v1: check if both participants now have locked cards
+        const allChallengeCardsResult = await (adminClient.from("cards") as any)
+          .select("id, user_id, status")
+          .eq("challenge_id", challenge_id)
+          .eq("status", "locked");
 
-          // Sabotage mode: swap user_id on both cards so each player
-          // ends up "owning" the card their opponent built for them.
-          if (gameMode === "sabotage" && challengeCards.length === 2) {
-            const cardA = challengeCards[0];
-            const cardB = challengeCards[1];
+        if (!allChallengeCardsResult.error) {
+          const challengeCards = (allChallengeCardsResult.data ?? []) as {
+            id: string;
+            user_id: string;
+            status: string;
+          }[];
 
-            // Swap user_ids via admin client (bypasses RLS)
-            const { error: swapErr1 } = await (adminClient.from("cards") as any)
-              .update({ user_id: cardB.user_id })
-              .eq("id", cardA.id);
+          // Both participants have locked cards — transition challenge to active
+          if (challengeCards.length >= 2) {
+            const { error: activateError } = await (adminClient.from("challenges") as any)
+              .update({ status: "active" })
+              .eq("id", challenge_id)
+              .in("status", ["accepted", "pending"]);
 
-            const { error: swapErr2 } = await (adminClient.from("cards") as any)
-              .update({ user_id: cardA.user_id })
-              .eq("id", cardB.id);
+            if (activateError) {
+              logError("cards", `Failed to activate challenge ${challenge_id}`, "POST /api/cards", activateError);
+            }
 
-            if (swapErr1 || swapErr2) {
-              logError("cards", `Failed to swap sabotage cards for challenge ${challenge_id}`, "POST /api/cards", swapErr1 ?? swapErr2);
+            // Sabotage mode: swap user_id on both cards so each player
+            // ends up "owning" the card their opponent built for them.
+            if (gameMode === "sabotage" && challengeCards.length === 2) {
+              const cardA = challengeCards[0];
+              const cardB = challengeCards[1];
+
+              // Swap user_ids via admin client (bypasses RLS)
+              const { error: swapErr1 } = await (adminClient.from("cards") as any)
+                .update({ user_id: cardB.user_id })
+                .eq("id", cardA.id);
+
+              const { error: swapErr2 } = await (adminClient.from("cards") as any)
+                .update({ user_id: cardA.user_id })
+                .eq("id", cardB.id);
+
+              if (swapErr1 || swapErr2) {
+                logError("cards", `Failed to swap sabotage cards for challenge ${challenge_id}`, "POST /api/cards", swapErr1 ?? swapErr2);
+              }
             }
           }
         }
