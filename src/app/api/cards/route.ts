@@ -84,8 +84,10 @@ export async function POST(request: NextRequest) {
         return unauthorized();
       }
 
-      // Fetch the challenge
-      const challengeResult = await (supabase.from("challenges") as any)
+      // Fetch the challenge via admin client — RLS only allows
+      // challenger_id/opponent_id which excludes group participants.
+      const adminFetch = createAdminClient();
+      const challengeResult = await (adminFetch.from("challenges") as any)
         .select("*")
         .eq("id", challenge_id)
         .single();

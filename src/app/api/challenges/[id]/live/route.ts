@@ -55,8 +55,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params;
 
-    // Fetch challenge with lobby_type for group detection
-    const { data: challenge, error: challengeError } = await (supabase.from("challenges") as any)
+    // Fetch challenge via admin client — RLS only allows challenger_id/opponent_id
+    // which excludes group participants. Authorization is checked below.
+    const admin = createAdminClient();
+    const { data: challenge, error: challengeError } = await (admin.from("challenges") as any)
       .select("id, challenger_id, opponent_id, status, lobby_type")
       .eq("id", id)
       .single();
@@ -66,7 +68,6 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     }
 
     const isGroup = challenge.lobby_type === "group";
-    const admin = createAdminClient();
 
     // --- Participant verification ---
     if (isGroup) {
