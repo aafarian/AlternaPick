@@ -3,10 +3,12 @@ import type {
   Database,
   Challenge,
   ChallengeStatus,
+  ParticipantStatus,
 } from "@/lib/supabase/types";
 import type { GameMode } from "@/lib/modes/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/logger";
 
 export interface ChallengeProfile {
   id: string;
@@ -30,9 +32,23 @@ export interface ChallengeWithProfiles extends Challenge {
   opponent_score?: number | null;
 }
 
+export interface ChallengeParticipantProfile {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  icon_config: Record<string, unknown> | null;
+  status: ParticipantStatus;
+  placement: number | null;
+  score: number | null;
+  is_creator: boolean;
+  email: string | null;
+}
+
 export interface ChallengeDetail extends ChallengeWithProfiles {
   challenger_card: ChallengeCard | null;
   opponent_card: ChallengeCard | null;
+  participants?: ChallengeParticipantProfile[];
 }
 
 interface ChallengeCard {
@@ -547,6 +563,106 @@ async function cancelChallenge(
   await (admin.from("challenges") as any)
     .update({ status: "cancelled" })
     .eq("id", challengeId);
+}
+
+/**
+ * Fetch participants for a group challenge, with profile data joined via user_id.
+ * Guest participants (email-only, no user_id) will have null profile fields.
+ */
+export async function getParticipants(
+  admin: SupabaseClient<Database>,
+  challengeId: string
+): Promise<ChallengeParticipantProfile[]> {
+  const { data, error } = await (admin.from("challenge_participants") as any)
+    .select(
+      "id, status, placement, score, is_creator, email, user_id, profile:profiles!challenge_participants_user_id_fkey(username, display_name, avatar_url, icon_config)"
+    )
+    .eq("challenge_id", challengeId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    logError("challenges", "Failed to fetch participants", "getParticipants", error);
+    return [];
+  }
+
+  return ((data ?? []) as Array<{
+    id: string;
+    status: ParticipantStatus;
+    placement: number | null;
+    score: number | null;
+    is_creator: boolean;
+    email: string | null;
+    user_id: string | null;
+    profile: {
+      username: string;
+      display_name: string | null;
+      avatar_url: string | null;
+      icon_config: Record<string, unknown> | null;
+    } | null;
+  }>).map((p) => ({
+    id: p.id,
+    username: p.profile?.username ?? null,
+    display_name: p.profile?.display_name ?? null,
+    avatar_url: p.profile?.avatar_url ?? null,
+    icon_config: p.profile?.icon_config ?? null,
+    status: p.status,
+    placement: p.placement,
+    score: p.score,
+    is_creator: p.is_creator,
+    email: p.email,
+  }));
+}
+
+/**
+ * Create a new challenge participant record.
+ */
+export async function createParticipant(
+  admin: SupabaseClient<Database>,
+  data: {
+    challenge_id: string;
+    user_id?: string | null;
+    email?: string | null;
+    status?: ParticipantStatus;
+    is_creator?: boolean;
+  }
+): Promise<{ id: string } | null> {
+  const { data: participant, error } = await (admin.from("challenge_participants") as any)
+    .insert({
+      challenge_id: data.challenge_id,
+      user_id: data.user_id ?? null,
+      email: data.email ?? null,
+      status: data.status ?? "invited",
+      is_creator: data.is_creator ?? false,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    logError("challenges", "Failed to create participant", "createParticipant", error);
+    return null;
+  }
+
+  return participant as { id: string };
+}
+
+/**
+ * Update a participant's status (e.g., invited → accepted).
+ */
+export async function updateParticipantStatus(
+  admin: SupabaseClient<Database>,
+  participantId: string,
+  status: ParticipantStatus
+): Promise<boolean> {
+  const { error } = await (admin.from("challenge_participants") as any)
+    .update({ status })
+    .eq("id", participantId);
+
+  if (error) {
+    logError("challenges", "Failed to update participant status", "updateParticipantStatus", error);
+    return false;
+  }
+
+  return true;
 }
 
 export class ChallengeValidationError extends Error {
