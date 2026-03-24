@@ -101,8 +101,7 @@ export async function POST(request: NextRequest) {
       // Validate user is a participant
       if (challenge.lobby_type === "group") {
         // For group challenges, check the challenge_participants table
-        const adminForCheck = createAdminClient();
-        const { data: participantCheck } = await (adminForCheck.from("challenge_participants") as any)
+        const { data: participantCheck } = await (adminFetch.from("challenge_participants") as any)
           .select("id")
           .eq("challenge_id", challenge_id)
           .eq("user_id", user.id)

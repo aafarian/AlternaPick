@@ -31,7 +31,7 @@ export async function GET(
 
     const { id } = await context.params;
 
-    const challenge = await getChallenge(supabase, id, user.id);
+    const challenge = await getChallenge(id, user.id);
 
     if (!challenge) {
       return notFound("Challenge");

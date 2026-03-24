@@ -214,7 +214,6 @@ export async function getChallenges(
  * Fetch a single challenge by ID with both players' cards, picks, and profiles.
  */
 export async function getChallenge(
-  _supabase: SupabaseClient<Database>,
   challengeId: string,
   userId: string
 ): Promise<ChallengeDetail | null> {
@@ -731,10 +730,7 @@ export async function expireStaleGroupParticipants(
       if (remainingCount < MIN_LOBBY_SIZE) {
         logInfo("challenges", `Group challenge ${ch.id} cancelled: only ${remainingCount} non-declined participants remain (min ${MIN_LOBBY_SIZE})`);
         await declineAllGroupParticipants(admin, ch.id);
-        const convertResult = await convertChallengerCardToSolo(admin, ch);
-        if (convertResult > 0) {
-          // converted count tracked at caller level if needed
-        }
+        await convertChallengerCardToSolo(admin, ch);
         await cancelChallenge(admin, ch.id);
         challengesCancelled++;
       }

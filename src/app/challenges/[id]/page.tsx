@@ -20,7 +20,7 @@ export default async function ChallengeDetailPage({
     redirect("/auth/login");
   }
 
-  const challenge = await getChallenge(supabase, id, user.id);
+  const challenge = await getChallenge(id, user.id);
 
   // getChallenge returns null if not found or user is not a participant
   if (!challenge) {

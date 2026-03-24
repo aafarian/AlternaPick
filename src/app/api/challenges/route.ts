@@ -82,9 +82,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch card scores for resolved challenges (admin client bypasses RLS for opponent cards).
-    // Skip email invite challenges with no opponent_id — they can't have opponent scores.
+    // Include group challenges (opponent_id is null) — they have participant cards.
     const resolvedIds = challenges
-      .filter((c) => c.status === "resolved" && c.opponent_id)
+      .filter((c) => c.status === "resolved" && (c.opponent_id || c.lobby_type === "group"))
       .map((c) => c.id);
 
     if (resolvedIds.length > 0) {

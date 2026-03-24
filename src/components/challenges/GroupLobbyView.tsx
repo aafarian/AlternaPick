@@ -393,48 +393,23 @@ export default function GroupLobbyView({
       ? `/challenges/${challenge.id}/ballot`
       : `/props?challenge_id=${challenge.id}`;
 
-  async function handleCancel() {
+  async function handleAction(action: string) {
     setActionLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/challenges/${challenge.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel" }),
+        body: JSON.stringify({ action }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(
-          data.error ?? "Failed to cancel challenge"
-        );
+        throw new Error(data.error ?? `Failed to ${action} challenge`);
       }
       router.refresh();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to cancel challenge"
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  async function handleStart() {
-    setActionLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/challenges/${challenge.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "start" }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "Failed to start challenge");
-      }
-      router.refresh();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to start challenge"
+        err instanceof Error ? err.message : `Failed to ${action} challenge`
       );
     } finally {
       setActionLoading(false);
@@ -620,7 +595,7 @@ export default function GroupLobbyView({
                   <Button size="sm">Pick Props</Button>
                 </Link>
                 <Button
-                  onClick={handleCancel}
+                  onClick={() => handleAction("cancel")}
                   disabled={actionLoading}
                   variant="outline"
                   size="sm"
@@ -660,7 +635,7 @@ export default function GroupLobbyView({
                   <div className="flex gap-2">
                     {canStartEarly && (
                       <Button
-                        onClick={handleStart}
+                        onClick={() => handleAction("start")}
                         disabled={actionLoading}
                         size="sm"
                       >
@@ -668,7 +643,7 @@ export default function GroupLobbyView({
                       </Button>
                     )}
                     <Button
-                      onClick={handleCancel}
+                      onClick={() => handleAction("cancel")}
                       disabled={actionLoading}
                       variant="outline"
                       size="sm"
@@ -718,7 +693,7 @@ export default function GroupLobbyView({
                       {lockedInCount} of {activeParticipants.length} players locked in — you can start now or wait for more
                     </p>
                     <Button
-                      onClick={handleStart}
+                      onClick={() => handleAction("start")}
                       disabled={actionLoading}
                       size="sm"
                     >
