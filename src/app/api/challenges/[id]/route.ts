@@ -66,12 +66,12 @@ export async function PATCH(
     };
 
     if (!body.action) {
-      return badRequest("action is required (accept, decline, or cancel)");
+      return badRequest("action is required (accept, decline, cancel, or start)");
     }
 
-    const validActions = ["accept", "decline", "cancel"];
+    const validActions = ["accept", "decline", "cancel", "start"];
     if (!validActions.includes(body.action)) {
-      return badRequest(`Invalid action: ${body.action}. Must be accept, decline, or cancel`);
+      return badRequest(`Invalid action: ${body.action}. Must be accept, decline, cancel, or start`);
     }
 
     // Use admin client to fetch the challenge — RLS only allows

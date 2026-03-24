@@ -23,6 +23,7 @@ import GameModeBadge from "@/components/challenges/GameModeBadge";
 import ShareButton from "@/components/ui/ShareButton";
 import ReactionBar from "@/components/challenges/ReactionBar";
 import { parseIconConfig } from "@/lib/icons/parse";
+import { MIN_LOBBY_SIZE } from "@/lib/challenges/constants";
 import type { GameMode } from "@/lib/modes/types";
 import { maskEmail } from "@/lib/format";
 import { SlideUp, ScaleIn, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
@@ -417,6 +418,35 @@ export default function GroupLobbyView({
     }
   }
 
+  async function handleStart() {
+    setActionLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/challenges/${challenge.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "start" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to start challenge");
+      }
+      router.refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to start challenge"
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  // Count locked-in participants (status = "active" means they submitted their card)
+  const lockedInCount = activeParticipants.filter(
+    (p: ChallengeParticipantProfile) => p.card && (p.card.status === "locked" || p.card.status === "resolved")
+  ).length;
+  const canStartEarly = isCreator && myCard && lockedInCount >= MIN_LOBBY_SIZE;
+
   return (
     <div className="flex flex-col gap-5">
       {/* Back link */}
@@ -616,19 +646,34 @@ export default function GroupLobbyView({
                         <Button size="sm">Make Your Picks</Button>
                       </Link>
                     </>
+                  ) : canStartEarly ? (
+                    <p className="text-sm text-muted-foreground">
+                      {lockedInCount} of {activeParticipants.length} players locked in — you can start now or wait for more
+                    </p>
                   ) : (
                     <p className="text-sm text-muted-foreground">
                       Picks submitted! Waiting for others to join and lock in
                     </p>
                   )}
-                  <Button
-                    onClick={handleCancel}
-                    disabled={actionLoading}
-                    variant="outline"
-                    size="sm"
-                  >
-                    {actionLoading ? "Cancelling..." : "Cancel Challenge"}
-                  </Button>
+                  <div className="flex gap-2">
+                    {canStartEarly && (
+                      <Button
+                        onClick={handleStart}
+                        disabled={actionLoading}
+                        size="sm"
+                      >
+                        {actionLoading ? "Starting..." : "Start Challenge"}
+                      </Button>
+                    )}
+                    <Button
+                      onClick={handleCancel}
+                      disabled={actionLoading}
+                      variant="outline"
+                      size="sm"
+                    >
+                      {actionLoading ? "Cancelling..." : "Cancel Challenge"}
+                    </Button>
+                  </div>
                 </div>
               ) : currentParticipant && !myCard ? (
                 <div className="flex flex-col items-center gap-3 text-center">

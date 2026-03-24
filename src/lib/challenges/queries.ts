@@ -103,7 +103,7 @@ interface ChallengePick {
   } | null;
 }
 
-type ValidAction = "accept" | "decline" | "cancel";
+type ValidAction = "accept" | "decline" | "cancel" | "start";
 
 /**
  * Fetch challenges for a user, optionally filtered by status.
@@ -439,7 +439,7 @@ export async function respondToChallenge(
   supabase: SupabaseClient<Database>,
   challengeId: string,
   userId: string,
-  action: ValidAction,
+  action: Exclude<ValidAction, "start">,
   convertToSolo?: boolean
 ): Promise<Challenge> {
   // Fetch current challenge
@@ -497,7 +497,7 @@ export async function respondToChallenge(
     }
   }
 
-  const statusMap: Record<ValidAction, ChallengeStatus> = {
+  const statusMap: Record<Exclude<ValidAction, "start">, ChallengeStatus> = {
     accept: "accepted",
     decline: "declined",
     cancel: "cancelled",
@@ -1175,6 +1175,55 @@ export async function respondToGroupChallenge(
     }
 
     return updated as Challenge;
+  }
+
+  // Start — creator force-activates with whoever has locked in
+  if (action === "start") {
+    if (!participant.is_creator) {
+      throw new ChallengeValidationError("Only the challenge creator can start the challenge", 403);
+    }
+    if (ch.status !== "pending" && ch.status !== "accepted") {
+      throw new ChallengeValidationError(
+        `Cannot start a challenge that is ${ch.status}`,
+        400
+      );
+    }
+
+    // Count participants who have locked in (status = "active")
+    const { data: allParts } = await (admin.from("challenge_participants") as any)
+      .select("id, status")
+      .eq("challenge_id", challengeId);
+
+    const parts = (allParts ?? []) as Array<{ id: string; status: string }>;
+    const activeParts = parts.filter((p) => p.status === "active");
+
+    if (activeParts.length < MIN_LOBBY_SIZE) {
+      throw new ChallengeValidationError(
+        `Need at least ${MIN_LOBBY_SIZE} locked-in participants to start (currently ${activeParts.length})`,
+        400
+      );
+    }
+
+    // Mark remaining invited/accepted participants as declined
+    const pendingParts = parts.filter((p) => p.status === "invited" || p.status === "accepted");
+    if (pendingParts.length > 0) {
+      await (admin.from("challenge_participants") as any)
+        .update({ status: "declined" })
+        .in("id", pendingParts.map((p) => p.id));
+    }
+
+    // Activate the challenge
+    const { data: activated, error: activateError } = await (admin.from("challenges") as any)
+      .update({ status: "active" })
+      .eq("id", challengeId)
+      .select("*")
+      .single();
+
+    if (activateError || !activated) {
+      throw new Error(`Failed to start group challenge: ${activateError?.message ?? "Unknown error"}`);
+    }
+
+    return activated as Challenge;
   }
 
   // Accept or decline — update participant status
