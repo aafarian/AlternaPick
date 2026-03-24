@@ -8,8 +8,8 @@ import type {
 import type { GameMode } from "@/lib/modes/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logError } from "@/lib/logger";
-import { MAX_LOBBY_SIZE } from "@/lib/challenges/constants";
+import { logError, logInfo } from "@/lib/logger";
+import { MAX_LOBBY_SIZE, MIN_LOBBY_SIZE } from "@/lib/challenges/constants";
 
 export interface ChallengeProfile {
   id: string;
@@ -430,7 +430,7 @@ export async function respondToChallenge(
 /**
  * Expire stale challenges. Called by cron (every 5 min).
  *
- * Three expiration triggers:
+ * Three expiration triggers (apply to both 1v1 and group challenges):
  * 1. **Time-based**: draft/pending/accepted challenges older than 24h → cancelled
  * 2. **Card-resolved**: the challenger's card has fully resolved while the
  *    challenge is still waiting for the opponent — the opponent missed their window.
@@ -443,6 +443,7 @@ export async function respondToChallenge(
  *
  * In all cases, the challenger's card is detached and converted to solo
  * (unless sabotage mode, where card ownership is swapped).
+ * For group challenges, all participants are also marked as declined.
  */
 export async function expireStaleChallenges(
   admin: SupabaseClient<Database>
@@ -455,12 +456,15 @@ export async function expireStaleChallenges(
 
   // --- Trigger 1: Time-based (24h) ---
   const { data: stale } = await (admin.from("challenges") as any)
-    .select("id, challenger_id, game_mode")
+    .select("id, challenger_id, game_mode, lobby_type")
     .in("status", ["draft", "pending", "accepted"])
     .lt("created_at", cutoff);
 
-  for (const ch of (stale ?? []) as Array<{ id: string; challenger_id: string; game_mode: string }>) {
+  for (const ch of (stale ?? []) as StaleChallengeRow[]) {
     converted += await convertChallengerCardToSolo(admin, ch);
+    if (ch.lobby_type === "group") {
+      await declineAllGroupParticipants(admin, ch.id);
+    }
     await cancelChallenge(admin, ch.id);
     expired++;
     processedIds.add(ch.id);
@@ -472,15 +476,12 @@ export async function expireStaleChallenges(
   // but the opponent still hasn't responded. Convert the challenger's card to
   // solo so they still get credit, then cancel the challenge.
   const { data: pending } = await (admin.from("challenges") as any)
-    .select("id, challenger_id, game_mode, mirror_props")
+    .select("id, challenger_id, game_mode, mirror_props, lobby_type")
     .in("status", ["draft", "pending", "accepted"]);
 
-  const pendingChallenges = (pending ?? []) as Array<{
-    id: string;
-    challenger_id: string;
-    game_mode: string;
-    mirror_props: string[] | null;
-  }>;
+  const pendingChallenges = (pending ?? []) as Array<
+    StaleChallengeRow & { mirror_props: string[] | null }
+  >;
 
   for (const ch of pendingChallenges) {
     if (processedIds.has(ch.id)) continue;
@@ -497,6 +498,9 @@ export async function expireStaleChallenges(
 
     // Challenger's card has resolved but opponent hasn't responded — expire
     converted += await convertChallengerCardToSolo(admin, ch);
+    if (ch.lobby_type === "group") {
+      await declineAllGroupParticipants(admin, ch.id);
+    }
     await cancelChallenge(admin, ch.id);
     expired++;
     processedIds.add(ch.id);
@@ -526,11 +530,116 @@ export async function expireStaleChallenges(
     if (!allStarted) continue;
 
     converted += await convertChallengerCardToSolo(admin, ch);
+    if (ch.lobby_type === "group") {
+      await declineAllGroupParticipants(admin, ch.id);
+    }
     await cancelChallenge(admin, ch.id);
     expired++;
   }
 
   return { expired, converted };
+}
+
+/** Row shape used by expireStaleChallenges for both 1v1 and group queries. */
+interface StaleChallengeRow {
+  id: string;
+  challenger_id: string;
+  game_mode: string;
+  lobby_type: string;
+}
+
+/**
+ * Expire individual group challenge participants who haven't responded within 24h.
+ * Called by cron (every 5 min), separately from expireStaleChallenges.
+ *
+ * For each active group challenge, finds participants still in "invited" status
+ * whose created_at is older than 24h and marks them as "declined".
+ * After marking declines, checks if the remaining non-declined participants
+ * are below MIN_LOBBY_SIZE — if so, cancels the entire challenge and
+ * converts the creator's card to solo.
+ */
+export async function expireStaleGroupParticipants(
+  admin: SupabaseClient<Database>
+): Promise<{ participantsDeclined: number; challengesCancelled: number }> {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  let participantsDeclined = 0;
+  let challengesCancelled = 0;
+
+  // Fetch group challenges that are still in a pre-resolved state
+  const { data: groupChallenges } = await (admin.from("challenges") as any)
+    .select("id, challenger_id, game_mode, lobby_type")
+    .eq("lobby_type", "group")
+    .in("status", ["draft", "pending", "accepted", "active"]);
+
+  if (!groupChallenges || (groupChallenges as StaleChallengeRow[]).length === 0) {
+    return { participantsDeclined, challengesCancelled };
+  }
+
+  for (const ch of groupChallenges as StaleChallengeRow[]) {
+    // Find invited participants whose invite is older than 24h
+    const { data: staleParticipants } = await (admin.from("challenge_participants") as any)
+      .select("id")
+      .eq("challenge_id", ch.id)
+      .eq("status", "invited")
+      .lt("created_at", cutoff);
+
+    const staleRows = (staleParticipants ?? []) as Array<{ id: string }>;
+
+    // Mark each stale participant as declined
+    for (const p of staleRows) {
+      const { error } = await (admin.from("challenge_participants") as any)
+        .update({ status: "declined" })
+        .eq("id", p.id)
+        .eq("status", "invited"); // Guard: only update if still invited (idempotent)
+
+      if (error) {
+        logError("challenges", "Failed to decline stale group participant", "expireStaleGroupParticipants", error);
+        continue;
+      }
+      participantsDeclined++;
+    }
+
+    // If we declined anyone, check if enough participants remain
+    if (staleRows.length > 0) {
+      const { data: remaining } = await (admin.from("challenge_participants") as any)
+        .select("id")
+        .eq("challenge_id", ch.id)
+        .in("status", ["invited", "accepted", "active"]);
+
+      const remainingCount = ((remaining ?? []) as Array<{ id: string }>).length;
+
+      if (remainingCount < MIN_LOBBY_SIZE) {
+        logInfo("challenges", `Group challenge ${ch.id} cancelled: only ${remainingCount} non-declined participants remain (min ${MIN_LOBBY_SIZE})`);
+        await declineAllGroupParticipants(admin, ch.id);
+        const convertResult = await convertChallengerCardToSolo(admin, ch);
+        if (convertResult > 0) {
+          // converted count tracked at caller level if needed
+        }
+        await cancelChallenge(admin, ch.id);
+        challengesCancelled++;
+      }
+    }
+  }
+
+  return { participantsDeclined, challengesCancelled };
+}
+
+/**
+ * Mark all non-declined participants as "declined" for a group challenge.
+ * Used when the entire group challenge is being cancelled.
+ */
+async function declineAllGroupParticipants(
+  admin: SupabaseClient<Database>,
+  challengeId: string
+): Promise<void> {
+  const { error } = await (admin.from("challenge_participants") as any)
+    .update({ status: "declined" })
+    .eq("challenge_id", challengeId)
+    .in("status", ["invited", "accepted", "active"]);
+
+  if (error) {
+    logError("challenges", "Failed to decline all group participants", "declineAllGroupParticipants", error);
+  }
 }
 
 /** Detach the challenger's card from the challenge (convert to solo). Returns 1 if converted, 0 otherwise. */
