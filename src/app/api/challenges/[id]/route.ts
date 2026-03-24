@@ -74,9 +74,11 @@ export async function PATCH(
       return badRequest(`Invalid action: ${body.action}. Must be accept, decline, or cancel`);
     }
 
-    // Detect group challenges early and route to group-specific handler
-    const { data: challengeRow } = await supabase
-      .from("challenges")
+    // Use admin client to fetch the challenge — RLS only allows
+    // challenger_id/opponent_id which excludes group participants.
+    // Authorization is checked per-path below.
+    const adminClient = createAdminClient();
+    const { data: challengeRow } = await (adminClient.from("challenges") as any)
       .select("*")
       .eq("id", id)
       .single();
@@ -87,7 +89,6 @@ export async function PATCH(
     }
 
     if (challengeData.lobby_type === "group") {
-      const adminClient = createAdminClient();
       const challenge = await respondToGroupChallenge(
         adminClient,
         id,
