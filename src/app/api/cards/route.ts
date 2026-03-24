@@ -127,11 +127,11 @@ export async function POST(request: NextRequest) {
         return badRequest("Challenge is not in a valid state for card creation");
       }
 
-      // Opponent creating a card implicitly accepts the challenge.
+      // 1v1 only: opponent creating a card implicitly accepts the challenge.
       // Transition draft/pending → accepted so the challenge lifecycle continues.
-      // This covers both email-invite opponents and opponents who picked props
-      // before signing in (PendingCardHandler flow).
-      if (!isChallenger && (challenge.status === "draft" || challenge.status === "pending")) {
+      // Group challenges stay "pending" — their lifecycle is managed by
+      // linkCardToParticipant / checkGroupChallengeActivation instead.
+      if (!isChallenger && challenge.lobby_type !== "group" && (challenge.status === "draft" || challenge.status === "pending")) {
         const adminClient = createAdminClient();
         await (adminClient.from("challenges") as any)
           .update({ status: "accepted" })

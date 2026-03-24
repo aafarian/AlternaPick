@@ -234,11 +234,17 @@ export default function ChallengesPage() {
     onReconnect: handleReconnect,
   });
 
-  // Initial load
+  // Initial load — only show skeleton on the first fetch. Subsequent triggers
+  // (e.g. Supabase TOKEN_REFRESHED on window focus creating a new user ref)
+  // silently refresh data without flashing the skeleton.
+  const initialLoadDoneRef = useRef(false);
   useEffect(() => {
     if (authLoading || !user) return;
 
-    setLoading(true);
+    const isFirstLoad = !initialLoadDoneRef.current;
+    if (isFirstLoad) {
+      setLoading(true);
+    }
     setError(null);
 
     Promise.all([fetchCore(), fetchCompleted(0, false)])
@@ -247,6 +253,7 @@ export default function ChallengesPage() {
       })
       .finally(() => {
         setLoading(false);
+        initialLoadDoneRef.current = true;
         markReady();
       });
   }, [user, authLoading, fetchCore, fetchCompleted, markReady]);

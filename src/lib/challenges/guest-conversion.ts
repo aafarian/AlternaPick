@@ -127,17 +127,21 @@ export async function convertGuestChallenges(
 
     converted++;
 
-    // Notify the challenger that their opponent accepted
-    try {
-      await createNotification(admin, {
-        user_id: challenge.challenger_id,
-        type: "challenge_accepted",
-        title: "Challenge Accepted",
-        body: `${displayName} accepted your challenge!`,
-        metadata: { challenge_id: challenge.id },
-      });
-    } catch (notifError) {
-      logError("guest-conversion", "Failed to notify challenger about conversion", "convertGuestChallenges", notifError);
+    // For 1v1 challenges, conversion IS acceptance (we set opponent_id above).
+    // For group challenges, conversion only links user_id to the participant row —
+    // the user still needs to explicitly accept, which sends its own notification.
+    if (challenge.lobby_type !== "group") {
+      try {
+        await createNotification(admin, {
+          user_id: challenge.challenger_id,
+          type: "challenge_accepted",
+          title: "Challenge Accepted",
+          body: `${displayName} accepted your challenge!`,
+          metadata: { challenge_id: challenge.id },
+        });
+      } catch (notifError) {
+        logError("guest-conversion", "Failed to notify challenger about conversion", "convertGuestChallenges", notifError);
+      }
     }
   }
 

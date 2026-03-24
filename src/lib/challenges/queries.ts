@@ -9,6 +9,7 @@ import type { GameMode } from "@/lib/modes/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo } from "@/lib/logger";
+import { createNotification } from "@/lib/notifications/queries";
 import { MAX_LOBBY_SIZE, MIN_LOBBY_SIZE } from "@/lib/challenges/constants";
 
 export interface ChallengeProfile {
@@ -1351,6 +1352,38 @@ export async function linkCardToParticipant(
   if (updateError) {
     logError("challenges", "Failed to link card to participant", "linkCardToParticipant", updateError);
     return;
+  }
+
+  // Non-creator locking in from "invited" implicitly accepts the challenge.
+  // Notify the creator — this covers the direct pick-and-lock flow (detail
+  // page / email invite redirect) where PATCH /accept is never called.
+  // Skip if status is "accepted" — the PATCH /accept endpoint already sent
+  // the notification when the user explicitly accepted.
+  if (!participant.is_creator && participant.status === "invited") {
+    try {
+      const { data: challenge } = await (admin.from("challenges") as any)
+        .select("challenger_id")
+        .eq("id", challengeId)
+        .single();
+
+      if (challenge) {
+        const { data: profile } = await (admin.from("profiles") as any)
+          .select("username")
+          .eq("id", userId)
+          .single();
+
+        const name = (profile as { username: string } | null)?.username ?? "Someone";
+        await createNotification(admin, {
+          user_id: (challenge as { challenger_id: string }).challenger_id,
+          type: "challenge_accepted",
+          title: "Challenge Accepted",
+          body: `${name} accepted your group challenge!`,
+          metadata: { challenge_id: challengeId },
+        });
+      }
+    } catch (notifError) {
+      logError("challenges", "Failed to notify challenger about group accept", "linkCardToParticipant", notifError);
+    }
   }
 
   // When the creator locks in, promote the challenge from "draft" to "pending"

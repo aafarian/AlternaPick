@@ -6,6 +6,7 @@ import type {
   NotificationType,
 } from "@/lib/supabase/types";
 import { typedFrom } from "@/lib/supabase/typed-queries";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface UnreadCounts {
   pendingFriendRequests: number;
@@ -53,14 +54,21 @@ export async function getUnreadCounts(
     );
   }
 
-  // Count group challenge invites where user is still "invited"
+  // Count group challenge invites where user is still "invited" AND the
+  // challenge itself is still "pending". This matches the inbox criteria in
+  // challenges/page.tsx — participants can be "invited" on active/resolved
+  // challenges (e.g., creator started early) but those don't appear in the inbox.
+  // Uses admin client because challenge_participants RLS does not grant
+  // direct read access to participants (the challenges API also uses admin).
+  const admin = createAdminClient();
   const { count: groupInviteCount, error: groupError } = await (
-    supabase.from("challenge_participants") as any
+    admin.from("challenge_participants") as any
   )
-    .select("id", { count: "exact", head: true })
+    .select("id, challenges!inner(status)", { count: "exact", head: true })
     .eq("user_id", userId)
     .eq("status", "invited")
-    .eq("is_creator", false);
+    .eq("is_creator", false)
+    .eq("challenges.status", "pending");
 
   if (groupError) {
     throw new Error(

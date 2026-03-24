@@ -7,6 +7,10 @@ import { createCard } from "@/lib/cards/api";
 import { logWarn } from "@/lib/logger";
 import { toast } from "sonner";
 
+// Module-level flag survives React strict mode unmount/remount cycles,
+// unlike useRef which resets on each mount.
+let processing = false;
+
 /**
  * Runs at the root layout level. When a guest saves picks to sessionStorage
  * and then signs up / logs in, this creates the card and navigates to the
@@ -19,24 +23,29 @@ export default function PendingCardHandler() {
   const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const processingRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     if (!user) return;
-    if (processingRef.current) return;
+    if (processing) return;
 
     const pending = sessionStorage.getItem("pending_card_picks");
     if (!pending) return;
 
-    // Mark as processing to prevent duplicate calls (React strict mode, re-renders)
-    processingRef.current = true;
+    // Module-level flag prevents duplicate calls across strict mode remounts
+    processing = true;
 
     let savedPicks, savedMode, cardSize, challengeId;
     try {
       ({ picks: savedPicks, gameMode: savedMode, cardSize, challengeId } = JSON.parse(pending));
     } catch {
       sessionStorage.removeItem("pending_card_picks");
-      processingRef.current = false;
+      processing = false;
       logWarn("pending-card", "Failed to parse pending_card_picks from sessionStorage");
       return;
     }
@@ -44,21 +53,30 @@ export default function PendingCardHandler() {
     (async () => {
       try {
         await createCard(savedPicks, undefined, challengeId ?? null, savedMode, cardSize);
-        // Only clear after successful creation — keeps picks recoverable on failure
         sessionStorage.removeItem("pending_card_picks");
-        toast.success("Card locked in!");
-        const target = challengeId ? `/challenges/${challengeId}` : "/picks";
-        if (pathname === target) {
-          // Already on the target page — refresh server data instead of pushing
-          router.refresh();
-        } else {
-          router.push(target);
-        }
+        if (mountedRef.current) toast.success("Card locked in!");
       } catch (err) {
-        // Keep sessionStorage intact so a page refresh can retry
-        processingRef.current = false;
-        logWarn("pending-card", "Failed to create card from sessionStorage picks", err);
-        toast.error("Failed to lock in your saved picks. Refresh to retry.");
+        const message = err instanceof Error ? err.message : "";
+
+        // 409: card already exists — treat as success (e.g. strict mode double-fire
+        // or page refresh after the first call succeeded).
+        if (message.includes("already have a card")) {
+          sessionStorage.removeItem("pending_card_picks");
+        } else {
+          // Keep sessionStorage intact so a page refresh can retry
+          processing = false;
+          logWarn("pending-card", "Failed to create card from sessionStorage picks", err);
+          if (mountedRef.current) toast.error("Failed to lock in your saved picks. Refresh to retry.");
+          return;
+        }
+      }
+
+      if (!mountedRef.current) return;
+      const target = challengeId ? `/challenges/${challengeId}` : "/picks";
+      if (pathname === target) {
+        router.refresh();
+      } else {
+        router.push(target);
       }
     })();
   }, [user, router, pathname]);
