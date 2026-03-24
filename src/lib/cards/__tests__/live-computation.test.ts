@@ -1107,7 +1107,29 @@ describe("toLivePickData", () => {
     expect(result.game_status!.period).toBe(4);
   });
 
-  it("unresolved pick has null game_status", () => {
+  it("unresolved pick has scheduled game_status with commence_time", () => {
+    const pick = {
+      id: "pick-pending",
+      selection: "over",
+      result: "pending",
+      actual_value: null,
+      prop: {
+        id: "prop-1",
+        player_name: "Test Player",
+        player_id: null,
+        stat_category: "points",
+        line: 20.5,
+        game_id: "game-1",
+        games: { sport: "ncaab", commence_time: "2026-03-24T00:00:00Z" },
+      },
+    };
+    const result = toLivePickData(pick);
+    expect(result.game_status).not.toBeNull();
+    expect(result.game_status!.status).toBe("scheduled");
+    expect(result.game_status!.commence_time).toBe("2026-03-24T00:00:00Z");
+  });
+
+  it("unresolved pick without commence_time still has scheduled game_status", () => {
     const pick = {
       id: "pick-pending",
       selection: "over",
@@ -1124,6 +1146,8 @@ describe("toLivePickData", () => {
       },
     };
     const result = toLivePickData(pick);
-    expect(result.game_status).toBeNull();
+    expect(result.game_status).not.toBeNull();
+    expect(result.game_status!.status).toBe("scheduled");
+    expect(result.game_status!.commence_time).toBeNull();
   });
 });

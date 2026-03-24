@@ -97,7 +97,7 @@ interface ChallengePick {
     stat_category: string;
     line: number;
     game_id: string;
-    games?: { sport: string };
+    games?: { sport: string; commence_time: string };
   } | null;
 }
 
@@ -230,7 +230,7 @@ export async function getChallenge(
   // Must use admin client to bypass RLS — user can't see opponent's card
   const { data: cards } = await (admin.from("cards") as any)
     .select(
-      "id, user_id, status, score, total_picks, locked_at, resolved_at, picks(id, selection, result, actual_value, prop:props(id, player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport)))"
+      "id, user_id, status, score, total_picks, locked_at, resolved_at, picks(id, selection, result, actual_value, prop:props(id, player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport, commence_time)))"
     )
     .eq("challenge_id", challengeId);
 
