@@ -10,6 +10,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, GameMode, StatCategory } from "@/lib/supabase/types";
+import { logError } from "@/lib/logger";
 
 /** Resolved mode filter: undefined or "all" means no filtering. */
 type ModeFilter = GameMode | "all" | undefined;
@@ -75,7 +76,11 @@ async function fetchResolvedPicks(
 
   const cardsResult = await cardsQuery;
 
-  if (cardsResult.error || !cardsResult.data) return [];
+  if (cardsResult.error) {
+    logError("analytics", `fetchResolvedPicks: failed to fetch card IDs: ${cardsResult.error.message}`, "fetchResolvedPicks", cardsResult.error);
+    throw new Error(`Failed to fetch resolved card IDs: ${cardsResult.error.message}`);
+  }
+  if (!cardsResult.data) return [];
 
   const cardIds = (cardsResult.data as { id: string }[]).map((c) => c.id);
   if (cardIds.length === 0) return [];
@@ -88,7 +93,11 @@ async function fetchResolvedPicks(
     .in("card_id", cardIds)
     .in("result", ["hit", "miss"]);
 
-  if (picksResult.error || !picksResult.data) return [];
+  if (picksResult.error) {
+    logError("analytics", `fetchResolvedPicks: failed to fetch picks: ${picksResult.error.message}`, "fetchResolvedPicks", picksResult.error);
+    throw new Error(`Failed to fetch resolved picks: ${picksResult.error.message}`);
+  }
+  if (!picksResult.data) return [];
 
   let picks = picksResult.data as ResolvedPickRow[];
 
@@ -121,7 +130,11 @@ async function fetchResolvedCards(
 
   const result = await query;
 
-  if (result.error || !result.data) return [];
+  if (result.error) {
+    logError("analytics", `fetchResolvedCards: failed to fetch cards: ${result.error.message}`, "fetchResolvedCards", result.error);
+    throw new Error(`Failed to fetch resolved cards: ${result.error.message}`);
+  }
+  if (!result.data) return [];
 
   let cards = result.data as ResolvedCardRow[];
 
@@ -136,7 +149,11 @@ async function fetchResolvedCards(
       .in("card_id", cardIds)
       .in("result", ["hit", "miss"]);
 
-    if (picksResult.error || !picksResult.data) return [];
+    if (picksResult.error) {
+      logError("analytics", `fetchResolvedCards: failed to fetch picks for sport filter: ${picksResult.error.message}`, "fetchResolvedCards", picksResult.error);
+      throw new Error(`Failed to fetch picks for sport filter: ${picksResult.error.message}`);
+    }
+    if (!picksResult.data) return [];
 
     const matchingCardIds = new Set<string>();
     for (const pick of picksResult.data as { card_id: string; props: { games: { sport: string } | null } | null }[]) {
@@ -294,7 +311,11 @@ export async function getTrendData(
 
   const cardsResult = await cardsQuery;
 
-  if (cardsResult.error || !cardsResult.data) return [];
+  if (cardsResult.error) {
+    logError("analytics", `getTrendData: failed to fetch cards: ${cardsResult.error.message}`, "getTrendData", cardsResult.error);
+    throw new Error(`Failed to fetch trend cards: ${cardsResult.error.message}`);
+  }
+  if (!cardsResult.data) return [];
 
   const cards = cardsResult.data as {
     id: string;
@@ -319,7 +340,11 @@ export async function getTrendData(
     .in("card_id", cardIds)
     .in("result", ["hit", "miss"]);
 
-  if (picksResult.error || !picksResult.data) return [];
+  if (picksResult.error) {
+    logError("analytics", `getTrendData: failed to fetch picks: ${picksResult.error.message}`, "getTrendData", picksResult.error);
+    throw new Error(`Failed to fetch trend picks: ${picksResult.error.message}`);
+  }
+  if (!picksResult.data) return [];
 
   let picks = picksResult.data as {
     card_id: string;

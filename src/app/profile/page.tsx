@@ -16,6 +16,7 @@ import ReferralSection from "@/components/profile/ReferralSection";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
 import { SlideUp, FadeIn } from "@/components/motion";
+import { logWarn } from "@/lib/logger";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -76,8 +77,8 @@ export default async function ProfilePage() {
     ]);
     referralInfo = info;
     referredUsers = stats_referral.referredUsers;
-  } catch {
-    // Silently degrade — referral section will still render with defaults
+  } catch (error) {
+    logWarn("profile", "Failed to fetch referral data, using defaults", error);
   }
 
   const baseUrl =

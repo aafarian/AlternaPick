@@ -13,6 +13,7 @@ import PropsGameList from "@/components/props/PropsGameList";
 import NcaabTeamRegistrar from "@/components/props/NcaabTeamRegistrar";
 import { SlideUp, FadeIn } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
+import { logWarn } from "@/lib/logger";
 
 interface PropsPageProps {
   searchParams: Promise<{ category?: string; player?: string; sport?: string }>;
@@ -24,9 +25,9 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
   // Fetch prop counts first so we can pick the best default sport
   let propCounts: Record<string, number> = {};
   try {
-    propCounts = await getCachedPropCounts().catch(() => ({} as Record<string, number>));
-  } catch {
-    // continue with empty counts
+    propCounts = await getCachedPropCounts();
+  } catch (error) {
+    logWarn("props-page", "Failed to fetch prop counts, using empty defaults", error);
   }
 
   // Determine sport: use URL param if set, otherwise pick the first sport with props
@@ -42,7 +43,8 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
   let games: Awaited<ReturnType<typeof getCachedProps>> = null;
   try {
     games = await getCachedProps(sport);
-  } catch {
+  } catch (error) {
+    logWarn("props-page", `Failed to fetch props for ${sport}`, error);
     games = null;
   }
 
@@ -52,8 +54,8 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
   if (sport === "ncaab") {
     try {
       ncaabTeams = await fetchNcaabTeams();
-    } catch {
-      // ESPN unavailable — team logos fall back to tricode text
+    } catch (error) {
+      logWarn("props-page", "ESPN unavailable for NCAAB teams, falling back to tricode text", error);
     }
   }
 
