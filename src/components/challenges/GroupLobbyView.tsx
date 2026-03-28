@@ -672,6 +672,16 @@ export default function GroupLobbyView({
                     {lockedInCount} of {activeParticipants.length} locked in — challenge activates when everyone locks in
                   </p>
                 )}
+                {isCreator && (
+                  <Button
+                    onClick={() => handleAction("cancel")}
+                    disabled={actionLoading}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {actionLoading ? "Cancelling..." : "Cancel Challenge"}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
