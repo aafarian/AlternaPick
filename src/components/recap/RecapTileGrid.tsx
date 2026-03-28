@@ -45,7 +45,13 @@ const GROUPED_TYPES: Set<SpotlightType> = new Set([
   "consensus_upset",
 ]);
 
-export function RecapTileGrid({ recapData }: { recapData: RecapData }) {
+interface RecapTileGridProps {
+  recapData: RecapData;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export function RecapTileGrid({ recapData, dateFrom, dateTo }: RecapTileGridProps) {
   const [selectedProp, setSelectedProp] = useState<PropClickInfo | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerClickInfo | null>(null);
   const onPropClick = useCallback((info: PropClickInfo) => setSelectedProp(info), []);
@@ -278,6 +284,8 @@ export function RecapTileGrid({ recapData }: { recapData: RecapData }) {
         playerName={selectedPlayer?.playerName ?? null}
         sport={selectedPlayer?.sport}
         statCategory={selectedPlayer?.statCategory}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
         onClose={() => setSelectedPlayer(null)}
       />
     </StaggerChildren>

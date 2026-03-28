@@ -30,6 +30,8 @@ interface PlayerPicksModalProps {
   playerName: string | null;
   sport?: string;
   statCategory?: string;
+  dateFrom?: string;
+  dateTo?: string;
   onClose: () => void;
 }
 
@@ -37,6 +39,8 @@ export function PlayerPicksModal({
   playerName,
   sport,
   statCategory: filterStat,
+  dateFrom,
+  dateTo,
   onClose,
 }: PlayerPicksModalProps) {
   const [propResults, setPropResults] = useState<PropResult[]>([]);
@@ -54,6 +58,8 @@ export function PlayerPicksModal({
     setExpandedProp(null);
     const params = new URLSearchParams({ playerName });
     if (filterStat) params.set("statCategory", filterStat);
+    if (dateFrom) params.set("from", dateFrom);
+    if (dateTo) params.set("to", dateTo);
     fetch(`/api/recap/player-picks?${params.toString()}`)
       .then((res) => res.json())
       .then((data) => {
@@ -63,7 +69,7 @@ export function PlayerPicksModal({
         // Silently fail — empty state is shown in the UI
       })
       .finally(() => setLoading(false));
-  }, [playerName, filterStat]);
+  }, [playerName, filterStat, dateFrom, dateTo]);
 
   const totalPicks = propResults.reduce((sum, p) => sum + p.pickCount, 0);
   const totalHits = propResults.reduce(

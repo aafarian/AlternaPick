@@ -14,9 +14,11 @@ import { PlayerPicksModal } from "@/components/recap/PlayerPicksModal";
 
 interface SpotlightsCardProps {
   spotlights: Spotlight[];
+  dateFrom?: string;
+  dateTo?: string;
 }
 
-export function SpotlightsCard({ spotlights }: SpotlightsCardProps) {
+export function SpotlightsCard({ spotlights, dateFrom, dateTo }: SpotlightsCardProps) {
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerClickInfo | null>(null);
 
   const handleSpotlightClick = useCallback((spotlight: Spotlight) => {
@@ -100,6 +102,8 @@ export function SpotlightsCard({ spotlights }: SpotlightsCardProps) {
         playerName={selectedPlayer?.playerName ?? null}
         sport={selectedPlayer?.sport}
         statCategory={selectedPlayer?.statCategory}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
         onClose={() => setSelectedPlayer(null)}
       />
     </>
