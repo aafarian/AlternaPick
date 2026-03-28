@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { CATEGORY_LABELS } from "@/lib/constants";
+import { CATEGORY_LABELS, getSiteUrl } from "@/lib/constants";
 import type { StatCategory } from "@/lib/supabase/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,14 +14,6 @@ import {
 import { CheckCircle2, XCircle, Clock, ArrowRight } from "lucide-react";
 
 // ---------- Helpers ----------
-
-function getSiteUrl(): string {
-  const base =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.NEXT_PUBLIC_VERCEL_URL ??
-    "http://localhost:3000";
-  return base.startsWith("http") ? base : `https://${base}`;
-}
 
 interface CardData {
   id: string;

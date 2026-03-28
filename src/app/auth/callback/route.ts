@@ -5,6 +5,7 @@ import { claimAnonymousCards } from "@/lib/auth/claim-cards";
 import { processReferral } from "@/lib/referrals/queries";
 import { convertGuestChallenges } from "@/lib/challenges/guest-conversion";
 import { logError } from "@/lib/logger";
+import { SITE_URL } from "@/lib/constants";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
   const host = forwardedHost ?? request.headers.get("host");
   const origin = host
     ? `${forwardedProto}://${host}`
-    : (process.env.NEXT_PUBLIC_SITE_URL ?? "https://alternapick.com");
+    : SITE_URL;
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/props";
 
