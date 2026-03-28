@@ -25,10 +25,39 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://alternapick.com";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "AlternaPick - Predict. Compete. Dominate.",
   description:
     "Pick over/unders on real player props across NBA, college basketball, soccer, and more. Challenge friends head-to-head and climb the leaderboard. Free to play.",
+  keywords: [
+    "player props",
+    "over under",
+    "NBA predictions",
+    "sports picks",
+    "head to head",
+    "free sports game",
+    "basketball props",
+    "soccer props",
+    "college basketball",
+    "leaderboard",
+  ],
+  openGraph: {
+    title: "AlternaPick - Predict. Compete. Dominate.",
+    description:
+      "Pick over/unders on real player props across NBA, college basketball, soccer, and more. Challenge friends head-to-head and climb the leaderboard.",
+    type: "website",
+    siteName: "AlternaPick",
+  },
+  twitter: {
+    card: "summary",
+    title: "AlternaPick - Predict. Compete. Dominate.",
+    description:
+      "Pick over/unders on real player props. Challenge friends and climb the leaderboard. Free to play.",
+  },
 };
 
 export default function RootLayout({
@@ -39,7 +68,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
