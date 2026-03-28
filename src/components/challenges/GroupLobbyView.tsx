@@ -23,7 +23,6 @@ import GameModeBadge from "@/components/challenges/GameModeBadge";
 import ShareButton from "@/components/ui/ShareButton";
 import ReactionBar from "@/components/challenges/ReactionBar";
 import { parseIconConfig } from "@/lib/icons/parse";
-import { MIN_LOBBY_SIZE } from "@/lib/challenges/constants";
 import { formatPlacement } from "@/lib/challenges/display";
 import type { GameMode } from "@/lib/modes/types";
 import { maskEmail } from "@/lib/format";
@@ -323,10 +322,11 @@ export default function GroupLobbyView({
   const showOtherPicks =
     hasLockedCard || challenge.status === "active" || challenge.status === "resolved";
 
-  // Live stats — only poll when the challenge is active (all locked) or resolved.
-  // Don't poll during pending/draft — games aren't relevant until everyone has locked in.
+  // Live stats — poll when the current user has locked their card OR the challenge
+  // is resolved. This lets users see live scores as soon as they lock in, even if
+  // other participants haven't locked in yet (AP-007).
   const shouldFetchLive =
-    challenge.status === "active" || challenge.status === "resolved";
+    hasLockedCard || challenge.status === "resolved";
 
   const { data: liveData, isLoading: liveLoading, challengeResolved } = useLiveChallenge(
     challenge.id,
@@ -410,13 +410,10 @@ export default function GroupLobbyView({
     }
   }
 
-  // Count locked-in participants using participant status "active" to match
-  // the backend validation in respondToGroupChallenge (which checks p.status === "active").
+  // Count locked-in participants
   const lockedInCount = activeParticipants.filter(
     (p: ChallengeParticipantProfile) => p.status === "active"
   ).length;
-  const canStartEarly = isCreator && lockedInCount >= MIN_LOBBY_SIZE &&
-    (challenge.status === "pending" || challenge.status === "accepted");
 
   return (
     <div className="flex flex-col gap-5">
@@ -617,34 +614,19 @@ export default function GroupLobbyView({
                         <Button size="sm">Make Your Picks</Button>
                       </Link>
                     </>
-                  ) : canStartEarly ? (
-                    <p className="text-sm text-muted-foreground">
-                      {lockedInCount} of {activeParticipants.length} players locked in — you can start now or wait for more
-                    </p>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Picks submitted! Waiting for others to join and lock in
+                      {lockedInCount} of {activeParticipants.length} locked in — challenge activates when everyone locks in
                     </p>
                   )}
-                  <div className="flex gap-2">
-                    {canStartEarly && (
-                      <Button
-                        onClick={() => handleAction("start")}
-                        disabled={actionLoading}
-                        size="sm"
-                      >
-                        {actionLoading ? "Starting..." : "Start Challenge"}
-                      </Button>
-                    )}
-                    <Button
-                      onClick={() => handleAction("cancel")}
-                      disabled={actionLoading}
-                      variant="outline"
-                      size="sm"
-                    >
-                      {actionLoading ? "Cancelling..." : "Cancel Challenge"}
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={() => handleAction("cancel")}
+                    disabled={actionLoading}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {actionLoading ? "Cancelling..." : "Cancel Challenge"}
+                  </Button>
                 </div>
               ) : currentParticipant && !myCard ? (
                 <div className="flex flex-col items-center gap-3 text-center">
@@ -681,26 +663,13 @@ export default function GroupLobbyView({
                       <Button size="sm">Make Your Picks</Button>
                     </Link>
                   </>
-                ) : canStartEarly ? (
-                  <>
-                    <p className="text-sm text-muted-foreground">
-                      {lockedInCount} of {activeParticipants.length} players locked in — you can start now or wait for more
-                    </p>
-                    <Button
-                      onClick={() => handleAction("start")}
-                      disabled={actionLoading}
-                      size="sm"
-                    >
-                      {actionLoading ? "Starting..." : "Start Challenge"}
-                    </Button>
-                  </>
                 ) : !hasLockedCard ? (
                   <p className="text-sm text-muted-foreground">
                     Waiting for everyone to lock in their picks
                   </p>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    All participants are locking in. The challenge will begin soon.
+                    {lockedInCount} of {activeParticipants.length} locked in — challenge activates when everyone locks in
                   </p>
                 )}
               </div>
