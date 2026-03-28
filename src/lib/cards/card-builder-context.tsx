@@ -123,7 +123,9 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
   );
 
   const isFull = state.picks.length >= state.cardSize;
-  const canLockIn = state.picks.length >= 2;
+  const canLockIn = state.challengeId
+    ? state.picks.length === state.cardSize
+    : state.picks.length >= 2;
 
   return (
     <CardBuilderContext.Provider

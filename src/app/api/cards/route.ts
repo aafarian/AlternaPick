@@ -117,6 +117,13 @@ export async function POST(request: NextRequest) {
         return forbidden("You are not a participant in this challenge");
       }
 
+      // Enforce challenge card_size — all participants must match the challenge's card_size
+      if (challenge.card_size && picks.length !== challenge.card_size) {
+        return badRequest(
+          `This challenge requires exactly ${challenge.card_size} picks`
+        );
+      }
+
       // Validate challenge status
       // All participants can create cards in draft/pending/accepted/active.
       // Creating a card for a pending challenge implicitly accepts it (transition below).
