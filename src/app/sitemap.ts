@@ -7,19 +7,21 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
       url: siteUrl,
-      lastModified: new Date(),
+    {
+      url: siteUrl,
+      lastModified: new Date("2025-01-01"),
       changeFrequency: "daily",
       priority: 1,
     },
     {
       url: `${siteUrl}/props`,
-      lastModified: new Date(),
+      lastModified: new Date("2025-01-01"),
       changeFrequency: "daily",
       priority: 0.9,
     },
     {
       url: `${siteUrl}/leaderboard`,
-      lastModified: new Date(),
+      lastModified: new Date("2025-01-01"),
       changeFrequency: "daily",
       priority: 0.7,
     },
