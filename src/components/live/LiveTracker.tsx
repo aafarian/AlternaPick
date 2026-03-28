@@ -54,7 +54,7 @@ function CardTypeBadge({ card }: { card: CardWithPicks }) {
     if (c.lobby_type === "group") {
       return (
         <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
-          Group{c.max_participants ? ` · ${c.max_participants} players` : ""}
+          Group
         </Badge>
       );
     }
