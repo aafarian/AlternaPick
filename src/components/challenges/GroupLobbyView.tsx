@@ -377,7 +377,7 @@ export default function GroupLobbyView({
       if (aLocked !== bLocked) return aLocked - bLocked;
       // Within each group: creator first, then alphabetical
       if (a.is_creator !== b.is_creator) return a.is_creator ? -1 : 1;
-      return (a.username ?? "").localeCompare(b.username ?? "");
+      return getParticipantDisplayName(a).localeCompare(getParticipantDisplayName(b));
     });
 
   // Sort all active participants: current user first, then by placement or creator
