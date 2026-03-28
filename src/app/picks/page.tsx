@@ -46,7 +46,8 @@ async function getCardsByStatus(
     .limit(limit);
 
   if (result.error) {
-    logError("picks-page", `Failed to fetch ${status} cards: ${result.error.message}`);
+    logError("picks-page", `Failed to fetch ${status} cards: ${result.error.message}`, "getCardsByStatus", result.error);
+    throw new Error(`Failed to fetch ${status} cards: ${result.error.message}`);
   }
 
   return (result.data ?? []) as CardWithPicks[];

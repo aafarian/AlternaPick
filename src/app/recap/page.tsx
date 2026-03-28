@@ -419,7 +419,7 @@ export default async function RecapPage({
   const { data: recap, error } = await query.maybeSingle();
 
   if (error) {
-    logError("recap", `Failed to fetch recap: ${error.message}`);
+    logError("recap", `Failed to fetch recap: ${error.message}`, "RecapPage", error);
   }
 
   const typedRecap = recap as RecapRow | null;
