@@ -339,7 +339,7 @@ export default function CreateChallengeModal({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="bg-card border-border max-w-md max-h-[90vh] flex flex-col overflow-y-auto">
+      <DialogContent className="bg-card border-border max-w-md max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <div className="flex items-center gap-2">
             {step !== "opponent" && (
