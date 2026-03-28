@@ -261,7 +261,7 @@ export default function CardBuilderPanel() {
         }
       />
 
-      <div className="fixed bottom-0 left-0 right-0 z-50 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+      <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-50 md:bottom-0">
         {/* Challenge picker panel — sits ABOVE the bar */}
         {showChallengePicker && (
           <div className="border-t border-orange-500/30 bg-surface/95 backdrop-blur-xl">
