@@ -99,6 +99,11 @@ export const CHALLENGE_STATUS_STYLES: Record<string, string> = {
   cancelled: "bg-muted/15 text-muted-foreground border-border",
 };
 
+/* ---------- Site URL ---------- */
+
+export const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://alternapick.com";
+
 /* ---------- Polling ---------- */
 
 export const POLL_INTERVAL_MS = 30_000;

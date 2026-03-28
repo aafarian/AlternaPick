@@ -1,26 +1,22 @@
 import type { MetadataRoute } from "next";
-
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://alternapick.com";
+import { SITE_URL } from "@/lib/constants";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: siteUrl,
-    {
-      url: siteUrl,
+      url: SITE_URL,
       lastModified: new Date("2025-01-01"),
       changeFrequency: "daily",
       priority: 1,
     },
     {
-      url: `${siteUrl}/props`,
+      url: `${SITE_URL}/props`,
       lastModified: new Date("2025-01-01"),
       changeFrequency: "daily",
       priority: 0.9,
     },
     {
-      url: `${siteUrl}/leaderboard`,
+      url: `${SITE_URL}/leaderboard`,
       lastModified: new Date("2025-01-01"),
       changeFrequency: "daily",
       priority: 0.7,

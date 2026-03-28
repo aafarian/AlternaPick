@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { SITE_URL } from "@/lib/constants";
 import Header from "@/components/layout/Header";
 import NavigationProgress from "@/components/layout/NavigationProgress";
 import Footer from "@/components/layout/Footer";
@@ -25,11 +26,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://alternapick.com";
-
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: new URL(SITE_URL),
   title: "AlternaPick - Predict. Compete. Dominate.",
   description:
     "Pick over/unders on real player props across NBA, college basketball, soccer, and more. Challenge friends head-to-head and climb the leaderboard. Free to play.",
@@ -51,9 +49,10 @@ export const metadata: Metadata = {
       "Pick over/unders on real player props across NBA, college basketball, soccer, and more. Challenge friends head-to-head and climb the leaderboard.",
     type: "website",
     siteName: "AlternaPick",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "AlternaPick - Predict. Compete. Dominate.",
     description:
       "Pick over/unders on real player props. Challenge friends and climb the leaderboard. Free to play.",
