@@ -138,14 +138,24 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
           <ScaleIn delay={0.1} duration={0.35}>
             <StatusBadge status={card.status} score={card.score} total={card.total_picks} />
           </ScaleIn>
-          {card.challenge_id ? (
+          {card.challenge_id && card.challenges ? (
+            card.challenges.lobby_type === "group" ? (
+              <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
+                Group{card.challenges.participant_count ? ` · ${card.challenges.participant_count} players` : ""}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
+                H2H{(() => {
+                  const c = card.challenges;
+                  const opponent = card.user_id === c.challenger_id ? c.opponent : c.challenger;
+                  const name = opponent?.username ?? (c.opponent_email ? "Invited" : null);
+                  return name ? ` · ${name}` : "";
+                })()}
+              </Badge>
+            )
+          ) : card.challenge_id ? (
             <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
-              H2H{(() => {
-                const c = card.challenges;
-                if (!c) return "";
-                const name = card.user_id === c.challenger_id ? c.opponent?.username : c.challenger?.username;
-                return ` · ${name}`;
-              })()}
+              H2H
             </Badge>
           ) : (
             <Badge variant="outline" className="text-muted-foreground text-[10px] px-1.5 py-0">

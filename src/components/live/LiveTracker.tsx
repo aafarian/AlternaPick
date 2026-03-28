@@ -49,15 +49,27 @@ function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
 }
 
 function CardTypeBadge({ card }: { card: CardWithPicks }) {
-  if (card.challenge_id) {
-    const opponentName = card.challenges
-      ? card.user_id === card.challenges.challenger_id
-        ? card.challenges.opponent?.username
-        : card.challenges.challenger?.username
-      : null;
+  if (card.challenge_id && card.challenges) {
+    const c = card.challenges;
+    if (c.lobby_type === "group") {
+      return (
+        <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
+          Group{c.participant_count ? ` · ${c.participant_count} players` : ""}
+        </Badge>
+      );
+    }
+    const opponent = card.user_id === c.challenger_id ? c.opponent : c.challenger;
+    const name = opponent?.username ?? (c.opponent_email ? "Invited" : null);
     return (
       <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
-        H2H{opponentName ? ` · ${opponentName}` : ""}
+        H2H{name ? ` · ${name}` : ""}
+      </Badge>
+    );
+  }
+  if (card.challenge_id) {
+    return (
+      <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
+        H2H
       </Badge>
     );
   }
