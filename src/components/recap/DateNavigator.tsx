@@ -143,7 +143,7 @@ export function DateNavigator({
   return (
     <div
       ref={scrollRef}
-      className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-0.5"
+      className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5"
     >
       {reversedItems.map((item) => {
         const isActive = item === activeItem;

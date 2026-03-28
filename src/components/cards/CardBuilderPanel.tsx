@@ -266,27 +266,35 @@ export default function CardBuilderPanel() {
         {showChallengePicker && (
           <div className="border-t border-orange-500/30 bg-surface/95 backdrop-blur-xl">
             <div className="mx-auto max-w-6xl px-4 py-2.5">
-              {/* Row 1: Mode pills */}
-              <div className="mb-2">
-                <ModeSelector
-                  activeMode={gameMode}
-                  onSelect={handleModeSelect}
-                  compact
-                  modes={["classic", "sabotage", "mirror", "one_player", "one_team"]}
+              {/* Row 1: Mode pills (60%) + trash talk (40%) */}
+              <div className="mb-2 flex items-center gap-2">
+                <div className="min-w-0 basis-3/5">
+                  <ModeSelector
+                    activeMode={gameMode}
+                    onSelect={handleModeSelect}
+                    compact
+                    modes={["classic", "sabotage", "mirror", "one_player", "one_team"]}
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Trash talk..."
+                  value={challengeMessage}
+                  onChange={(e) => setChallengeMessage(e.target.value.slice(0, 200))}
+                  className="h-8 min-w-0 basis-2/5 rounded-md border border-border bg-background px-2.5 text-xs placeholder:text-muted-foreground focus:border-orange-500 focus:outline-none"
                 />
               </div>
 
-              {/* Row 2: Friends + trash talk + send */}
+              {/* Row 2: Friend selection + send */}
               <div className="flex items-center gap-2">
-                {/* Friend selection */}
-                {loadingFriends ? (
-                  <div className="flex gap-1.5">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-8 w-20 animate-pulse rounded-lg bg-secondary" />
-                    ))}
-                  </div>
-                ) : friends.length === 0 ? (
-                  <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
+                  {loadingFriends ? (
+                    <div className="flex gap-1.5">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-8 w-20 animate-pulse rounded-lg bg-secondary" />
+                      ))}
+                    </div>
+                  ) : friends.length === 0 ? (
                     <UserSearchBar
                       onSendRequest={async (username) => {
                         await fetch("/api/friends", {
@@ -296,76 +304,64 @@ export default function CardBuilderPanel() {
                         });
                       }}
                     />
-                  </div>
-                ) : (() => {
-                  const query = friendSearch.toLowerCase().trim();
-                  const filtered = query
-                    ? friends.filter((f) =>
-                        f.username.toLowerCase().includes(query)
-                      )
-                    : friends;
-                  return (
-                    <>
-                      {/* Search — only if 5+ friends */}
-                      {friends.length >= 5 && (
-                        <input
-                          type="text"
-                          placeholder="Search..."
-                          value={friendSearch}
-                          onChange={(e) => setFriendSearch(e.target.value)}
-                          className="h-8 w-28 shrink-0 rounded-md border border-border bg-background px-2 text-xs placeholder:text-muted-foreground focus:border-orange-500 focus:outline-none"
-                        />
-                      )}
-                      {filtered.length === 0 ? (
-                        <span className="shrink-0 text-xs text-muted-foreground">No match</span>
-                      ) : (
-                        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-                          {filtered.map((friend) => {
-                            const name = friend.username;
-                            const isSelected = selectedFriendId === friend.id;
-                            return (
-                              <button
-                                key={friend.id}
-                                onClick={() => setSelectedFriendId(isSelected ? null : friend.id)}
-                                disabled={creatingChallenge}
-                                className={cn(
-                                  "flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 transition-all",
-                                  isSelected
-                                    ? "border-orange-500 bg-orange-500/15 text-orange-400"
-                                    : "border-border bg-card hover:border-orange-500/50 hover:bg-orange-500/10",
-                                  creatingChallenge && "opacity-50"
-                                )}
-                              >
-                                <Avatar className="h-5 w-5">
-                                  <AvatarFallback className={cn(
-                                    "text-[9px] font-bold",
-                                    isSelected ? "bg-orange-500/20 text-orange-400" : "bg-primary/10 text-primary"
-                                  )}>
-                                    {name.charAt(0).toUpperCase()}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-xs font-bold">{name}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
+                  ) : (() => {
+                    const query = friendSearch.toLowerCase().trim();
+                    const filtered = query
+                      ? friends.filter((f) =>
+                          f.username.toLowerCase().includes(query)
+                        )
+                      : friends;
+                    return (
+                      <div className="flex items-center gap-2">
+                        {/* Search — only if 5+ friends */}
+                        {friends.length >= 5 && (
+                          <input
+                            type="text"
+                            placeholder="Search..."
+                            value={friendSearch}
+                            onChange={(e) => setFriendSearch(e.target.value)}
+                            className="h-8 w-28 shrink-0 rounded-md border border-border bg-background px-2 text-xs placeholder:text-muted-foreground focus:border-orange-500 focus:outline-none"
+                          />
+                        )}
+                        {filtered.length === 0 ? (
+                          <span className="shrink-0 text-xs text-muted-foreground">No match</span>
+                        ) : (
+                          <div className="flex gap-1.5 overflow-x-auto pb-2 -mb-2 scrollbar-thin">
+                            {filtered.map((friend) => {
+                              const name = friend.username;
+                              const isSelected = selectedFriendId === friend.id;
+                              return (
+                                <button
+                                  key={friend.id}
+                                  onClick={() => setSelectedFriendId(isSelected ? null : friend.id)}
+                                  disabled={creatingChallenge}
+                                  className={cn(
+                                    "flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 transition-all",
+                                    isSelected
+                                      ? "border-orange-500 bg-orange-500/15 text-orange-400"
+                                      : "border-border bg-card hover:border-orange-500/50 hover:bg-orange-500/10",
+                                    creatingChallenge && "opacity-50"
+                                  )}
+                                >
+                                  <Avatar className="h-5 w-5">
+                                    <AvatarFallback className={cn(
+                                      "text-[9px] font-bold",
+                                      isSelected ? "bg-orange-500/20 text-orange-400" : "bg-primary/10 text-primary"
+                                    )}>
+                                      {name.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-xs font-bold">{name}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
 
-                <div className="h-5 w-px shrink-0 bg-border" />
-
-                {/* Trash talk */}
-                <input
-                  type="text"
-                  placeholder="Trash talk..."
-                  value={challengeMessage}
-                  onChange={(e) => setChallengeMessage(e.target.value.slice(0, 200))}
-                  className="h-8 w-32 shrink-0 rounded-md border border-border bg-background px-2.5 text-xs placeholder:text-muted-foreground focus:border-orange-500 focus:outline-none"
-                />
-
-                {/* Send button */}
                 <Button
                   onClick={() => {
                     if (selectedFriendId) handleChallengeFromPicks(selectedFriendId);
@@ -532,7 +528,7 @@ export default function CardBuilderPanel() {
 
               {/* Scrollable picks — fills remaining space */}
               {picks.length > 0 && (
-                <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto scrollbar-hide">
+                <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto scrollbar-thin">
                   {picks.map((pick) => (
                     <Badge
                       key={pick.prop_id}
