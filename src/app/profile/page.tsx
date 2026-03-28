@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
 import { SlideUp, FadeIn } from "@/components/motion";
 import { logWarn } from "@/lib/logger";
+import { getSiteUrl } from "@/lib/constants";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -81,13 +82,7 @@ export default async function ProfilePage() {
     logWarn("profile", "Failed to fetch referral data, using defaults", error);
   }
 
-  const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.NEXT_PUBLIC_VERCEL_URL ??
-    "http://localhost:3000";
-  const referralBaseUrl = baseUrl.startsWith("http")
-    ? baseUrl
-    : `https://${baseUrl}`;
+  const referralBaseUrl = getSiteUrl();
 
   const checklistItems: ChecklistItem[] = [
     {

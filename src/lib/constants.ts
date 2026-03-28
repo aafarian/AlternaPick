@@ -99,6 +99,20 @@ export const CHALLENGE_STATUS_STYLES: Record<string, string> = {
   cancelled: "bg-muted/15 text-muted-foreground border-border",
 };
 
+/* ---------- Site URL ---------- */
+
+export const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://alternapick.com";
+
+/** Resolve the site origin with Vercel preview URL fallback and http:// prefix handling. */
+export function getSiteUrl(): string {
+  const base =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.NEXT_PUBLIC_VERCEL_URL ??
+    "http://localhost:3000";
+  return base.startsWith("http") ? base : `https://${base}`;
+}
+
 /* ---------- Polling ---------- */
 
 export const POLL_INTERVAL_MS = 30_000;

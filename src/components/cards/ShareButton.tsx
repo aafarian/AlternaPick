@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Share2, Check, Loader2, XCircle } from "lucide-react";
+import { SITE_URL } from "@/lib/constants";
 
 interface ShareButtonProps {
   cardId: string;
@@ -31,10 +32,7 @@ export default function ShareButton({ cardId }: ShareButtonProps) {
       }
 
       // Build the OG-enabled share URL
-      const siteUrl =
-        process.env.NEXT_PUBLIC_SITE_URL ??
-        (typeof window !== "undefined" ? window.location.origin : "https://alternapick.com");
-      const shareUrl = `${siteUrl}/cards/share?id=${cardId}`;
+      const shareUrl = `${SITE_URL}/cards/share?id=${cardId}`;
       const shareTitle = "Check out my AlternaPick card!";
       const shareText = "See how I did on my NBA player prop picks!";
 

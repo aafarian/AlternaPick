@@ -11,16 +11,9 @@ import {
 import { parseIconConfig } from "@/lib/icons/parse";
 import UserAvatar from "@/components/icons/UserAvatar";
 import { ArrowRight } from "lucide-react";
+import { getSiteUrl } from "@/lib/constants";
 
 // ---------- Helpers ----------
-
-function getSiteUrl(): string {
-  const base =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.NEXT_PUBLIC_VERCEL_URL ??
-    "http://localhost:3000";
-  return base.startsWith("http") ? base : `https://${base}`;
-}
 
 interface ChallengeData {
   id: string;

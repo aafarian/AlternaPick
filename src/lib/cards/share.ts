@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import type { StatCategory, PickSelection, PickResult } from "@/lib/supabase/types";
-import { CATEGORY_LABELS } from "@/lib/constants";
+import { CATEGORY_LABELS, getSiteUrl } from "@/lib/constants";
 
 /**
  * Generates a random 12-character alphanumeric share token.
@@ -19,12 +19,7 @@ export function generateShareToken(): string {
  * Constructs the public share URL for a given share token.
  */
 export function getShareUrl(shareToken: string): string {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.NEXT_PUBLIC_VERCEL_URL ??
-    "http://localhost:3000";
-  const origin = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
-  return `${origin}/picks/share/${shareToken}`;
+  return `${getSiteUrl()}/picks/share/${shareToken}`;
 }
 
 interface PickSummaryInput {
