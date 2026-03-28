@@ -368,8 +368,17 @@ export default function GroupLobbyView({
     year: "numeric",
   });
 
-  // Visible participants (not declined)
-  const activeParticipants = participants.filter((p) => p.status !== "declined");
+  // Visible participants (not declined), sorted: locked-in first, then invited/accepted
+  const activeParticipants = participants
+    .filter((p) => p.status !== "declined")
+    .sort((a, b) => {
+      const aLocked = a.status === "active" ? 0 : 1;
+      const bLocked = b.status === "active" ? 0 : 1;
+      if (aLocked !== bLocked) return aLocked - bLocked;
+      // Within each group: creator first, then alphabetical
+      if (a.is_creator !== b.is_creator) return a.is_creator ? -1 : 1;
+      return (a.username ?? "").localeCompare(b.username ?? "");
+    });
 
   // Sort all active participants: current user first, then by placement or creator
   const sortedPickSections = [...activeParticipants].sort((a, b) => {
