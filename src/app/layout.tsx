@@ -66,6 +66,7 @@ export default function RootLayout({
               position="top-right"
               offset={72}
               duration={5000}
+              visibleToasts={3}
               toastOptions={{
                 style: {
                   background: "hsl(var(--card))",

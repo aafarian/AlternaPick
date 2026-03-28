@@ -132,6 +132,8 @@ export default function Header() {
     // Used after reconnection to fetch anything we missed.
     let lastEventAt = new Date().toISOString();
 
+    const MAX_INDIVIDUAL_CATCHUP_TOASTS = 3;
+
     async function catchUpMissedNotifications() {
       try {
         const res = await fetch(
@@ -140,12 +142,28 @@ export default function Header() {
         if (!res.ok) return;
         const data = await res.json();
         const notifications = (data.notifications ?? []) as Notification[];
-        for (const n of notifications) {
-          if (!n.read && new Date(n.created_at).getTime() >= new Date(lastEventAt).getTime()) {
+        const missed = notifications.filter(
+          (n) => !n.read && new Date(n.created_at).getTime() >= new Date(lastEventAt).getTime()
+        );
+
+        // Prepend all missed notifications into the bell dropdown
+        for (const n of missed) {
+          prependNotificationRef.current?.(n);
+        }
+
+        // Avoid toast storm: if too many missed, show a single summary toast
+        if (missed.length > MAX_INDIVIDUAL_CATCHUP_TOASTS) {
+          toast(`You have ${missed.length} new notifications`, { duration: 5000 });
+          // Mark all as "toasted" so they don't re-fire individually
+          for (const n of missed) {
+            toastedIdsRef.current.add(n.id);
+          }
+        } else {
+          for (const n of missed) {
             showNotificationToast(n);
-            prependNotificationRef.current?.(n);
           }
         }
+
         // Also refresh counts
         fetchCounts();
       } catch {
