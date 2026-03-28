@@ -2,7 +2,7 @@ import type { PickSelection, CardStatus } from "@/lib/supabase/types";
 
 /** Supabase select string for cards with picks, props, and game data.
  *  Superset of all card queries — includes card_size and game_mode. */
-export const CARD_SELECT = "id, user_id, status, score, total_picks, card_size, game_mode, locked_at, resolved_at, created_at, challenge_id, challenges(challenger_id, opponent_id, opponent_email, lobby_type, participant_count, challenger:profiles!challenges_challenger_id_fkey(username), opponent:profiles!challenges_opponent_id_fkey(username)), picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport, home_team, away_team, home_score, away_score, commence_time, external_event_id, status)))" as const;
+export const CARD_SELECT = "id, user_id, status, score, total_picks, card_size, game_mode, locked_at, resolved_at, created_at, challenge_id, challenges(challenger_id, opponent_id, opponent_email, lobby_type, challenger:profiles!challenges_challenger_id_fkey(username), opponent:profiles!challenges_opponent_id_fkey(username)), picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport, home_team, away_team, home_score, away_score, commence_time, external_event_id, status)))" as const;
 
 export interface CardWithPicks {
   id: string;
@@ -18,7 +18,6 @@ export interface CardWithPicks {
     opponent_id: string | null;
     opponent_email: string | null;
     lobby_type: string;
-    participant_count: number | null;
     challenger: { username: string };
     opponent: { username: string } | null;
   } | null;

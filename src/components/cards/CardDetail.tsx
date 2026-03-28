@@ -141,7 +141,7 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
           {card.challenge_id && card.challenges ? (
             card.challenges.lobby_type === "group" ? (
               <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
-                Group{card.challenges.participant_count ? ` · ${card.challenges.participant_count} players` : ""}
+                Group
               </Badge>
             ) : (
               <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
