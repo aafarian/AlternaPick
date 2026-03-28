@@ -26,7 +26,7 @@ export default function ModeSelector({
 
   if (compact) {
     return (
-      <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+      <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
         {modeList.map((mode) => {
           const isActive = activeMode === mode.key;
           return (
