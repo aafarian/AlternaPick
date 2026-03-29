@@ -117,10 +117,12 @@ export async function POST(request: NextRequest) {
         return forbidden("You are not a participant in this challenge");
       }
 
-      // Enforce challenge card_size — all participants must match the challenge's card_size
-      if (challenge.card_size != null && picks.length !== challenge.card_size) {
+      // Enforce challenge card_size — participants must not exceed the challenge's card_size.
+      // We allow fewer picks than card_size because mirror-ballot props can expire,
+      // leaving fewer valid props than the challenger originally picked.
+      if (challenge.card_size != null && picks.length > challenge.card_size) {
         return badRequest(
-          `This challenge requires exactly ${challenge.card_size} picks`
+          `This challenge allows at most ${challenge.card_size} picks`
         );
       }
 
