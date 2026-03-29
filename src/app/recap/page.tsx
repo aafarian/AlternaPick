@@ -386,7 +386,7 @@ export default async function RecapPage({
         {/* This Week — trend chart */}
         <ScrollReveal>
           <section aria-label="This Week" data-section="this-week">
-            <ThisWeek weeklyData={weeklyData} personalWeekly={personalWeekly} hideStats />
+            <ThisWeek weeklyData={weeklyData} personalWeekly={personalWeekly} hideStats dateFrom={monday} dateTo={sunday} />
           </section>
         </ScrollReveal>
 
@@ -394,7 +394,7 @@ export default async function RecapPage({
         {weeklyRecapData && (
           <FadeIn delay={0.15}>
             <section aria-label="Highlights" data-section="highlights">
-              <RecapTileGrid recapData={weeklyRecapData} />
+              <RecapTileGrid recapData={weeklyRecapData} dateFrom={monday} dateTo={sunday} />
             </section>
           </FadeIn>
         )}
@@ -527,7 +527,7 @@ export default async function RecapPage({
       {/* 5. Tile Grid — spotlights, most picked, breakdowns, traps, locks, etc. */}
       <FadeIn delay={0.15}>
         <section aria-label="Highlights" data-section="highlights">
-          <RecapTileGrid recapData={recapData} />
+          <RecapTileGrid recapData={recapData} dateFrom={currentDate} dateTo={currentDate} />
         </section>
       </FadeIn>
 

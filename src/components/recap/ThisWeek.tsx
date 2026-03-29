@@ -27,6 +27,8 @@ interface ThisWeekProps {
   personalWeekly?: WeeklyPersonalStats | null;
   /** Hide the stats grid when PlatformStats is already shown above */
   hideStats?: boolean;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 function hitRateColor(rate: number): string {
@@ -47,7 +49,7 @@ function formatDateRange(startDate: string, endDate: string): string {
   return `${start.toLocaleDateString("en-US", opts)} - ${end.toLocaleDateString("en-US", opts)}`;
 }
 
-export function ThisWeek({ weeklyData, personalWeekly, hideStats }: ThisWeekProps) {
+export function ThisWeek({ weeklyData, personalWeekly, hideStats, dateFrom, dateTo }: ThisWeekProps) {
   const {
     dailyTrend,
     weeklyHitRate,
@@ -248,7 +250,7 @@ export function ThisWeek({ weeklyData, personalWeekly, hideStats }: ThisWeekProp
         {weeklyData.recapData?.spotlights && weeklyData.recapData.spotlights.length > 0 && (
           <>
             <div className="my-4 border-t border-border/40" />
-            <SpotlightsCard spotlights={weeklyData.recapData.spotlights} />
+            <SpotlightsCard spotlights={weeklyData.recapData.spotlights} dateFrom={dateFrom} dateTo={dateTo} />
           </>
         )}
 

@@ -32,6 +32,23 @@ export async function GET(request: NextRequest) {
     }
 
     const statCategory = request.nextUrl.searchParams.get("statCategory");
+    const from = request.nextUrl.searchParams.get("from"); // ISO date, e.g. "2026-03-21"
+    const to = request.nextUrl.searchParams.get("to"); // ISO date, e.g. "2026-03-27"
+
+    const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+    if (from && !ISO_DATE_RE.test(from)) {
+      return NextResponse.json(
+        { error: "Invalid 'from' date format, expected YYYY-MM-DD" },
+        { status: 400 },
+      );
+    }
+    if (to && !ISO_DATE_RE.test(to)) {
+      return NextResponse.json(
+        { error: "Invalid 'to' date format, expected YYYY-MM-DD" },
+        { status: 400 },
+      );
+    }
+
     const supabase = createAdminClient();
 
     // Find all props for this player (optionally filtered by stat category)
@@ -52,13 +69,51 @@ export async function GET(request: NextRequest) {
 
     const propIds = (props as Array<{ id: string }>).map((p) => p.id);
 
-    // Fetch all non-pending picks for these props
-    const { data: picks, error: picksError } = await typedFrom(supabase, "picks")
+    // When a date range is provided, first resolve which card IDs fall within it.
+    // PostgREST embedded-resource filters don't exclude parent rows, so we need
+    // a two-step approach: find eligible cards, then filter picks by card_id.
+    let cardIdFilter: string[] | null = null;
+
+    if (from || to) {
+      let cardsQuery = typedFrom(supabase, "cards")
+        .select("id")
+        .eq("status", "resolved")
+        .limit(10000);
+
+      if (from) {
+        cardsQuery = cardsQuery.gte("resolved_at", `${from}T00:00:00Z`);
+      }
+      if (to) {
+        const toDate = new Date(`${to}T00:00:00Z`);
+        toDate.setUTCDate(toDate.getUTCDate() + 1);
+        cardsQuery = cardsQuery.lt("resolved_at", toDate.toISOString());
+      }
+
+      const { data: cardRows, error: cardsError } = await cardsQuery;
+      if (cardsError) {
+        throw new Error(`Failed to fetch cards for date range: ${cardsError.message}`);
+      }
+      cardIdFilter = ((cardRows ?? []) as { id: string }[]).map((c) => c.id);
+
+      // No cards in range — nothing to show
+      if (cardIdFilter.length === 0) {
+        return NextResponse.json({ playerName, props: [] });
+      }
+    }
+
+    // Fetch non-pending picks for these props
+    let picksQuery = typedFrom(supabase, "picks")
       .select(
         "prop_id, selection, result, actual_value, cards!picks_card_id_fkey(user_id, profiles:profiles!cards_user_id_fkey(username))",
       )
       .in("prop_id", propIds)
       .neq("result", "pending");
+
+    if (cardIdFilter) {
+      picksQuery = picksQuery.in("card_id", cardIdFilter);
+    }
+
+    const { data: picks, error: picksError } = await picksQuery;
 
     if (picksError) {
       throw new Error(`Failed to fetch picks: ${picksError.message}`);
