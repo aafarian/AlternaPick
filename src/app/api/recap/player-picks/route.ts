@@ -34,6 +34,21 @@ export async function GET(request: NextRequest) {
     const statCategory = request.nextUrl.searchParams.get("statCategory");
     const from = request.nextUrl.searchParams.get("from"); // ISO date, e.g. "2026-03-21"
     const to = request.nextUrl.searchParams.get("to"); // ISO date, e.g. "2026-03-27"
+
+    const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+    if (from && !ISO_DATE_RE.test(from)) {
+      return NextResponse.json(
+        { error: "Invalid 'from' date format, expected YYYY-MM-DD" },
+        { status: 400 },
+      );
+    }
+    if (to && !ISO_DATE_RE.test(to)) {
+      return NextResponse.json(
+        { error: "Invalid 'to' date format, expected YYYY-MM-DD" },
+        { status: 400 },
+      );
+    }
+
     const supabase = createAdminClient();
 
     // Find all props for this player (optionally filtered by stat category)
@@ -62,7 +77,8 @@ export async function GET(request: NextRequest) {
     if (from || to) {
       let cardsQuery = typedFrom(supabase, "cards")
         .select("id")
-        .eq("status", "resolved");
+        .eq("status", "resolved")
+        .limit(10000);
 
       if (from) {
         cardsQuery = cardsQuery.gte("resolved_at", `${from}T00:00:00Z`);
@@ -88,7 +104,7 @@ export async function GET(request: NextRequest) {
     // Fetch non-pending picks for these props
     let picksQuery = typedFrom(supabase, "picks")
       .select(
-        "prop_id, card_id, selection, result, actual_value, cards!picks_card_id_fkey(user_id, profiles:profiles!cards_user_id_fkey(username))",
+        "prop_id, selection, result, actual_value, cards!picks_card_id_fkey(user_id, profiles:profiles!cards_user_id_fkey(username))",
       )
       .in("prop_id", propIds)
       .neq("result", "pending");
