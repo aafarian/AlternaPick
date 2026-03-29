@@ -9,7 +9,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "./NotificationBell";
 import StreakBadge from "./StreakBadge";
-import { POLL_INTERVAL_MS, getNotificationIcon, getNotificationTitle } from "@/lib/constants";
+import { POLL_INTERVAL_MS, MAX_VISIBLE_TOASTS, getNotificationIcon, getNotificationTitle } from "@/lib/constants";
 import { getNavigationPath } from "@/lib/notifications/utils";
 import { toast } from "sonner";
 import {
@@ -132,8 +132,6 @@ export default function Header() {
     // Used after reconnection to fetch anything we missed.
     let lastEventAt = new Date().toISOString();
 
-    const MAX_INDIVIDUAL_CATCHUP_TOASTS = 3;
-
     async function catchUpMissedNotifications() {
       try {
         const res = await fetch(
@@ -151,15 +149,21 @@ export default function Header() {
           prependNotificationRef.current?.(n);
         }
 
+        // Filter out already-toasted IDs so reconnects don't re-fire
+        const untoasted = missed.filter((n) => !toastedIdsRef.current.has(n.id));
+        if (untoasted.length === 0) {
+          fetchCounts();
+          return;
+        }
+
         // Avoid toast storm: if too many missed, show a single summary toast
-        if (missed.length > MAX_INDIVIDUAL_CATCHUP_TOASTS) {
-          toast(`You have ${missed.length} new notifications`, { duration: 5000 });
-          // Mark all as "toasted" so they don't re-fire individually
-          for (const n of missed) {
+        if (untoasted.length > MAX_VISIBLE_TOASTS) {
+          toast(`You have ${untoasted.length} new notifications`, { duration: 5000 });
+          for (const n of untoasted) {
             toastedIdsRef.current.add(n.id);
           }
         } else {
-          for (const n of missed) {
+          for (const n of untoasted) {
             showNotificationToast(n);
           }
         }

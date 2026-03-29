@@ -13,6 +13,7 @@ import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import PendingCardHandler from "@/components/cards/PendingCardHandler";
 import PageTransitionShell from "@/components/layout/PageTransitionShell";
 import { Toaster } from "sonner";
+import { MAX_VISIBLE_TOASTS } from "@/lib/constants";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -66,7 +67,7 @@ export default function RootLayout({
               position="top-right"
               offset={72}
               duration={5000}
-              visibleToasts={3}
+              visibleToasts={MAX_VISIBLE_TOASTS}
               toastOptions={{
                 style: {
                   background: "hsl(var(--card))",

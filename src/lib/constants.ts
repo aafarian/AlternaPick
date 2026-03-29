@@ -109,6 +109,12 @@ export const POLL_TIMEOUT_MS = 6 * 60 * 60 * 1000;
 /** Delay before re-fetching to confirm all-final is not a transient blip */
 export const CONFIRMATION_DELAY_MS = 5_000;
 
+/* ---------- Toast ---------- */
+
+/** Max toasts shown at once in the Sonner <Toaster>. Also used to decide
+ *  whether to collapse catch-up notifications into a single summary toast. */
+export const MAX_VISIBLE_TOASTS = 3;
+
 /* ---------- Team data ---------- */
 
 const TEAM_TRICODES: Record<string, string> = {
