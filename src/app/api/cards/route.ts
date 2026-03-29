@@ -117,6 +117,15 @@ export async function POST(request: NextRequest) {
         return forbidden("You are not a participant in this challenge");
       }
 
+      // Enforce challenge card_size — participants must not exceed the challenge's card_size.
+      // We allow fewer picks than card_size because mirror-ballot props can expire,
+      // leaving fewer valid props than the challenger originally picked.
+      if (challenge.card_size != null && picks.length > challenge.card_size) {
+        return badRequest(
+          `This challenge allows at most ${challenge.card_size} picks`
+        );
+      }
+
       // Validate challenge status
       // All participants can create cards in draft/pending/accepted/active.
       // Creating a card for a pending challenge implicitly accepts it (transition below).
