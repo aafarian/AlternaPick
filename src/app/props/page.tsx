@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getCachedProps, getCachedPropCounts } from "@/lib/odds-api/cache";
+import { getCachedProps } from "@/lib/odds-api/cache";
 import type { StatCategory } from "@/lib/supabase/types";
 import { teamMatchesQuery } from "@/lib/constants";
 import { fetchNcaabTeams } from "@/lib/stats-service/client";
@@ -22,12 +22,26 @@ interface PropsPageProps {
 export default async function PropsPage({ searchParams }: PropsPageProps) {
   const { category: rawCategory, player, sport: rawSport } = await searchParams;
 
-  // Fetch prop counts first so we can pick the best default sport
-  let propCounts: Record<string, number> = {};
+  // Fetch all sports' data in a single cached call so tab counts and content
+  // are derived from the same snapshot — eliminates the count/content mismatch
+  // where tabs showed "NBA (403)" but content showed "No games available".
+  let allGames: Awaited<ReturnType<typeof getCachedProps>> = null;
   try {
-    propCounts = await getCachedPropCounts();
+    allGames = await getCachedProps();
   } catch (error) {
-    logWarn("props-page", "Failed to fetch prop counts, using empty defaults", error);
+    logWarn("props-page", "Failed to fetch props", error);
+  }
+
+  const now = Date.now();
+
+  // Apply LOCK_BUFFER_MS filter to all games, then compute per-sport counts.
+  // Both tab counts and content use this same filtered set → always consistent.
+  const propCounts: Record<string, number> = {};
+  for (const game of allGames ?? []) {
+    if (new Date(game.commence_time).getTime() - now <= LOCK_BUFFER_MS) continue;
+    if (game.props.length === 0) continue;
+    const s = game.sport;
+    propCounts[s] = (propCounts[s] ?? 0) + game.props.length;
   }
 
   // Determine sport: use URL param if set, otherwise pick the first sport with props
@@ -39,14 +53,8 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
   }
   const emptyEmoji = SPORT_CONFIG[sport].icon;
 
-  // Fetch props for the selected sport
-  let games: Awaited<ReturnType<typeof getCachedProps>> = null;
-  try {
-    games = await getCachedProps(sport);
-  } catch (error) {
-    logWarn("props-page", `Failed to fetch props for ${sport}`, error);
-    games = null;
-  }
+  // Filter to selected sport
+  const games = (allGames ?? []).filter((g) => g.sport === sport);
 
   // Fetch NCAAB team ESPN IDs for client-side logo rendering
   // (RSC and client components use separate module instances, so we pass via props)
@@ -65,8 +73,10 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
 
   const playerQuery = player?.trim().toLowerCase() ?? "";
 
-  const filtered =
-    games?.map((game) => ({
+  // Apply category/player filters and LOCK_BUFFER_MS to the selected sport's games
+  const withProps = games
+    .filter((g) => new Date(g.commence_time).getTime() - now > LOCK_BUFFER_MS)
+    .map((game) => ({
       ...game,
       props: game.props
         .filter(
@@ -82,16 +92,8 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
             game.away_team.toLowerCase().includes(playerQuery)
         )
         .sort((a, b) => a.player_name.localeCompare(b.player_name)),
-    })) ?? [];
-
-  const now = Date.now();
-
-  // Show all upcoming games (not just today) sorted by start time
-  const withProps = filtered
-    .filter((g) => g.props.length > 0)
-    .filter(
-      (g) => new Date(g.commence_time).getTime() - now > LOCK_BUFFER_MS
-    );
+    }))
+    .filter((g) => g.props.length > 0);
 
   return (
     <div className="flex flex-col gap-6 py-8">
