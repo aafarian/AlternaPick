@@ -11,6 +11,7 @@ import type {
   CardBuilderPick,
   CardBuilderState,
   ChallengeOpponent,
+  PendingChallenge,
 } from "./types";
 import type { PickSelection } from "@/lib/supabase/types";
 import type { GameMode } from "@/lib/modes/types";
@@ -28,6 +29,7 @@ interface CardBuilderContextValue {
   setLocking: (isLocking: boolean) => void;
   setError: (error: string | null) => void;
   setChallenge: (challengeId: string, opponent: ChallengeOpponent, gameMode?: GameMode, cardSize?: number, guestToken?: string) => void;
+  setPendingChallenge: (pendingChallenge: PendingChallenge, gameMode: GameMode) => void;
   setMode: (mode: GameMode) => void;
   setCardSize: (size: number) => void;
   isPickSelected: (propId: string) => boolean;
@@ -89,6 +91,12 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const setPendingChallenge = useCallback(
+    (pendingChallenge: PendingChallenge, gameMode: GameMode) =>
+      dispatch({ type: "SET_PENDING_CHALLENGE", pendingChallenge, gameMode }),
+    []
+  );
+
   const setMode = useCallback(
     (mode: GameMode) => dispatch({ type: "SET_MODE", mode }),
     []
@@ -140,6 +148,7 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
         setLocking,
         setError,
         setChallenge,
+        setPendingChallenge,
         setMode,
         setCardSize,
         isPickSelected,

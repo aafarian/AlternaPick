@@ -13,6 +13,7 @@ export const initialCardBuilderState: CardBuilderState = {
   error: null,
   challengeId: null,
   challengeOpponent: null,
+  pendingChallenge: null,
   guestToken: null,
   showSuccess: false,
 };
@@ -82,6 +83,14 @@ export function cardBuilderReducer(
         guestToken: action.guestToken ?? state.guestToken,
       };
     }
+    case "SET_PENDING_CHALLENGE":
+      return {
+        ...state,
+        pendingChallenge: action.pendingChallenge,
+        challengeOpponent: { username: action.pendingChallenge.opponentLabel },
+        gameMode: action.gameMode,
+        cardSizeConstrained: false,
+      };
     case "SHOW_SUCCESS":
       return { ...state, showSuccess: true, isLocking: false };
     case "HIDE_SUCCESS":

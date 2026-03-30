@@ -38,7 +38,8 @@ export default function CardBuilderPanel() {
     hideSuccess,
     canLockIn,
   } = useCardBuilder();
-  const { picks, error, challengeId, challengeOpponent, gameMode, guestToken } = state;
+  const { picks, error, challengeId, challengeOpponent, pendingChallenge, gameMode, guestToken } = state;
+  const isInChallengeMode = !!(challengeId || pendingChallenge);
   const redirectRef = useRef<string | null>(null);
 
   // Local locking state — context dispatch doesn't reliably trigger re-renders
@@ -156,7 +157,7 @@ export default function CardBuilderPanel() {
     [setMode]
   );
 
-  if (picks.length === 0 && !challengeId && !state.showSuccess) return null;
+  if (picks.length === 0 && !isInChallengeMode && !state.showSuccess) return null;
 
   const opponentLabel = challengeOpponent?.username ?? null;
 
@@ -220,15 +221,51 @@ export default function CardBuilderPanel() {
     setError(null);
 
     try {
+      let effectiveChallengeId = challengeId;
+
+      // Deferred challenge: create the challenge now, then create the card.
+      if (pendingChallenge && !challengeId) {
+        const challengePayload: Record<string, unknown> = {
+          game_mode: gameMode,
+          card_size: picks.length,
+          message: pendingChallenge.message || undefined,
+        };
+
+        if (pendingChallenge.opponents.length === 1) {
+          const opp = pendingChallenge.opponents[0];
+          if (opp.email) {
+            challengePayload.opponent_email = opp.email;
+          } else if (opp.user_id) {
+            challengePayload.opponent_id = opp.user_id;
+          }
+        } else {
+          challengePayload.opponents = pendingChallenge.opponents;
+        }
+
+        const challengeRes = await fetch("/api/challenges", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(challengePayload),
+        });
+        const challengeData = await challengeRes.json();
+        if (!challengeRes.ok) {
+          throw new Error(challengeData.error ?? "Failed to create challenge");
+        }
+        effectiveChallengeId = challengeData.challenge.id;
+
+        // Clean up sessionStorage
+        sessionStorage.removeItem("pending_challenge");
+      }
+
       await createCard(
         picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
         undefined,
-        challengeId,
+        effectiveChallengeId,
         gameMode,
         picks.length
       );
-      redirectRef.current = challengeId
-        ? `/challenges/${challengeId}`
+      redirectRef.current = effectiveChallengeId
+        ? `/challenges/${effectiveChallengeId}`
         : "/picks";
       showSuccess();
     } catch (err) {
@@ -255,7 +292,7 @@ export default function CardBuilderPanel() {
         redirectTo={
           guestToken && challengeId
             ? `/challenges/${challengeId}/guest?token=${guestToken}`
-            : challengeId
+            : isInChallengeMode && challengeId
               ? `/challenges/${challengeId}`
               : undefined
         }
@@ -396,7 +433,7 @@ export default function CardBuilderPanel() {
         <div className="border-t border-border bg-surface/80 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl px-4 py-3">
             {/* Challenge banner — existing challenge context */}
-            {challengeId && opponentLabel && (
+            {isInChallengeMode && opponentLabel && (
               <div className="mb-2 flex items-center gap-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-1.5">
                 <span className="text-sm font-semibold text-orange-400">
                   Challenge vs. {opponentLabel}
@@ -428,8 +465,8 @@ export default function CardBuilderPanel() {
             <div className="flex items-center gap-3">
               {/* CTA buttons — LEFT side */}
               <div className="flex shrink-0 items-center gap-2">
-                {challengeId ? (
-                  /* Existing challenge — single Lock In button */
+                {isInChallengeMode ? (
+                  /* Challenge mode — single Lock In button */
                   <Button
                     onClick={handleLockIn}
                     disabled={!canLockIn || isLocking}

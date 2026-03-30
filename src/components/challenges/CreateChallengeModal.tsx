@@ -191,7 +191,43 @@ export default function CreateChallengeModal({
 
   /* ---------- Create challenge ---------- */
 
-  const handleCreate = async () => {
+  /* ---------- Build normalized opponents list ---------- */
+
+  const buildOpponents = () =>
+    selectedOpponents.map((o) => {
+      if (o.type === "email") return { email: o.email };
+      return { user_id: o.friend.friend_profile.id };
+    });
+
+  const buildOpponentLabel = () => {
+    if (selectedOpponents.length === 1) {
+      return getOpponentLabel(selectedOpponents[0]);
+    }
+    return selectedOpponents.map(getOpponentLabel).join(", ");
+  };
+
+  /* ---------- Deferred challenge (classic / sabotage / one_player / one_team) ---------- */
+
+  const handleDeferredCreate = () => {
+    if (selectedOpponents.length === 0) return;
+
+    // Store the challenge intent — it will be created when the challenger locks in.
+    const intent = {
+      opponents: buildOpponents(),
+      opponentLabel: buildOpponentLabel(),
+      message: message.trim(),
+      gameMode,
+    };
+    sessionStorage.setItem("pending_challenge", JSON.stringify(intent));
+
+    onCreated();
+    onClose();
+    router.push("/props?pending_challenge=1");
+  };
+
+  /* ---------- Immediate challenge (mirror / random — props are pre-selected) ---------- */
+
+  const handleImmediateCreate = async () => {
     if (selectedOpponents.length === 0) return;
     setCreating(true);
     setError(null);
@@ -201,7 +237,6 @@ export default function CreateChallengeModal({
       };
 
       if (selectedOpponents.length === 1) {
-        // 1v1: use existing API fields for backward compatibility
         const opponent = selectedOpponents[0];
         if (opponent.type === "email") {
           payload.opponent_email = opponent.email;
@@ -209,13 +244,7 @@ export default function CreateChallengeModal({
           payload.opponent_id = opponent.friend.friend_profile.id;
         }
       } else {
-        // Group challenge: send opponents array
-        payload.opponents = selectedOpponents.map((o) => {
-          if (o.type === "email") {
-            return { email: o.email };
-          }
-          return { user_id: o.friend.friend_profile.id };
-        });
+        payload.opponents = buildOpponents();
       }
 
       if (message.trim()) {
@@ -223,7 +252,7 @@ export default function CreateChallengeModal({
       }
       if (gameMode === "mirror" && mirrorProps.length > 0) {
         payload.mirror_props = mirrorProps;
-        payload.card_size = mirrorProps.length; // Mirror: card_size = number of shared props
+        payload.card_size = mirrorProps.length;
       }
 
       const res = await fetch("/api/challenges", {
@@ -237,13 +266,7 @@ export default function CreateChallengeModal({
       }
       onCreated();
       onClose();
-      if (gameMode === "random" || gameMode === "mirror") {
-        // Props are pre-selected — go straight to ballot to call over/under
-        router.push(`/challenges/${data.challenge.id}/ballot`);
-      } else {
-        // Redirect challenger to props page to make their picks
-        router.push(`/props?challenge_id=${data.challenge.id}`);
-      }
+      router.push(`/challenges/${data.challenge.id}/ballot`);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to create challenge"
@@ -262,11 +285,16 @@ export default function CreateChallengeModal({
       if (gameMode === "mirror") {
         setMirrorProps([]);
         setStep("mirror_props");
+      } else if (gameMode === "random") {
+        // Random: props are generated server-side, create immediately
+        handleImmediateCreate();
       } else {
-        handleCreate();
+        // Classic, sabotage, one_player, one_team: defer to lock-in
+        handleDeferredCreate();
       }
     } else if (step === "mirror_props") {
-      handleCreate();
+      // Mirror: shared props selected, create immediately
+      handleImmediateCreate();
     }
   };
 
