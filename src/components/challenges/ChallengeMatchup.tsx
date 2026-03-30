@@ -18,7 +18,8 @@ import OpponentAvatar from "@/components/challenges/OpponentAvatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, AlertCircle, Loader2, Crown, UserPlus, X } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Crown, UserPlus } from "lucide-react";
+import InvitePanel from "@/components/challenges/InvitePanel";
 import ReactionBar from "@/components/challenges/ReactionBar";
 import TrashTalkBubble from "@/components/challenges/TrashTalkBubble";
 import QuickActions from "@/components/challenges/QuickActions";
@@ -201,10 +202,6 @@ export default function ChallengeMatchup({
     }
   });
   const [showInvite, setShowInvite] = useState(false);
-  const [inviteFriends, setInviteFriends] = useState<Array<{ id: string; username: string }>>([]);
-  const [inviteSearch, setInviteSearch] = useState("");
-  const [inviteLoading, setInviteLoading] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
   const prefersReduced = useReducedMotion();
 
   // Live stats — enabled when cards are locked (polling) or challenge is
@@ -305,23 +302,6 @@ export default function ChallengeMatchup({
     year: "numeric",
   });
 
-  async function fetchFriendsForInvite() {
-    setInviteLoading(true);
-    try {
-      const res = await fetch("/api/friends?status=accepted");
-      if (!res.ok) return;
-      const data = await res.json();
-      const list = (data.friends ?? []).map(
-        (f: { friend_profile: { id: string; username: string } }) => f.friend_profile
-      );
-      setInviteFriends(list);
-    } catch {
-      // Non-fatal
-    } finally {
-      setInviteLoading(false);
-    }
-  }
-
   async function handleInvite(opts: { user_id?: string; email?: string }) {
     setActionLoading(true);
     setError(null);
@@ -335,8 +315,6 @@ export default function ChallengeMatchup({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Failed to invite");
       }
-      setInviteEmail("");
-      // Invite converts 1v1 to group — full page reload to switch to GroupLobbyView
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to invite");
@@ -599,99 +577,23 @@ export default function ChallengeMatchup({
               variant="outline"
               size="sm"
               className="mx-auto flex gap-1.5"
-              onClick={() => {
-                setShowInvite(true);
-                fetchFriendsForInvite();
-              }}
+              onClick={() => setShowInvite(true)}
             >
               <UserPlus className="h-4 w-4" />
               Invite Friends
             </Button>
           ) : (
-            <Card className="border-border bg-card">
-              <CardContent className="flex flex-col gap-3 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Invite Friends</span>
-                  <button
-                    onClick={() => { setShowInvite(false); setInviteSearch(""); }}
-                    className="rounded p-1 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                {inviteLoading ? (
-                  <div className="flex items-center justify-center py-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  </div>
-                ) : inviteFriends.length === 0 ? (
-                  <p className="text-center text-xs text-muted-foreground">
-                    No friends found. Add friends first!
-                  </p>
-                ) : (
-                  <>
-                    {inviteFriends.length >= 5 && (
-                      <input
-                        type="text"
-                        placeholder="Search friends..."
-                        value={inviteSearch}
-                        onChange={(e) => setInviteSearch(e.target.value)}
-                        className="h-8 rounded-md border border-border bg-background px-2.5 text-xs placeholder:text-muted-foreground focus:border-orange-500 focus:outline-none"
-                      />
-                    )}
-                    <div className="flex flex-wrap gap-2">
-                      {inviteFriends
-                        .filter((f) => {
-                          // Exclude existing participants
-                          if (f.id === challenge.challenger_id || f.id === challenge.opponent?.id) return false;
-                          if (!inviteSearch.trim()) return true;
-                          return f.username.toLowerCase().includes(inviteSearch.toLowerCase().trim());
-                        })
-                        .map((friend) => (
-                          <button
-                            key={friend.id}
-                            onClick={() => handleInvite({ user_id: friend.id })}
-                            disabled={actionLoading}
-                            className={cn(
-                              "flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs transition-all",
-                              "hover:border-orange-500/50 hover:bg-orange-500/10",
-                              actionLoading && "opacity-50",
-                            )}
-                          >
-                            <UserPlus className="h-3 w-3" />
-                            {friend.username}
-                          </button>
-                        ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        type="email"
-                        placeholder="Invite by email..."
-                        value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && inviteEmail.includes("@")) {
-                            handleInvite({ email: inviteEmail.trim() });
-                          }
-                        }}
-                        className="h-8 flex-1 rounded-md border border-border bg-background px-2.5 text-xs placeholder:text-muted-foreground focus:border-orange-500 focus:outline-none"
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs"
-                        disabled={actionLoading || !inviteEmail.includes("@")}
-                        onClick={() => handleInvite({ email: inviteEmail.trim() })}
-                      >
-                        Send
-                      </Button>
-                    </div>
-                    <p className="text-center text-[10px] text-muted-foreground">
-                      Adding a friend converts this to a group challenge
-                    </p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+            <InvitePanel
+              excludeUserIds={[challenge.challenger_id, challenge.opponent?.id].filter(Boolean) as string[]}
+              actionLoading={actionLoading}
+              onInviteUsers={async (userIds) => {
+                for (const uid of userIds) {
+                  await handleInvite({ user_id: uid });
+                }
+              }}
+              onInviteEmail={(email) => handleInvite({ email })}
+              onClose={() => setShowInvite(false)}
+            />
           )}
         </FadeIn>
       )}
