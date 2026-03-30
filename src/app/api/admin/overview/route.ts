@@ -99,11 +99,41 @@ export async function GET() {
       .limit(10000);
     if (winRateResult.error) throw new Error(winRateResult.error.message);
 
-    const dailyActiveUsersResult = await supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .gte("last_active_at", todayStart);
-    if (dailyActiveUsersResult.error) throw new Error(dailyActiveUsersResult.error.message);
+    // DAU: combine middleware-tracked visits with actual activity signals.
+    // Users in real-time sessions (e.g. group challenge lobbies) don't trigger
+    // HTTP middleware, so last_active_at alone undercounts.
+    const [dauProfilesResult, dauCardsResult, dauPicksResult] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id")
+        .gte("last_active_at", todayStart)
+        .limit(10000),
+      supabase
+        .from("cards")
+        .select("user_id")
+        .gte("created_at", todayStart)
+        .not("user_id", "is", null)
+        .limit(10000),
+      supabase
+        .from("picks")
+        .select("cards!picks_card_id_fkey(user_id)")
+        .gte("created_at", todayStart)
+        .limit(10000),
+    ]);
+    if (dauProfilesResult.error) throw new Error(dauProfilesResult.error.message);
+    if (dauCardsResult.error) throw new Error(dauCardsResult.error.message);
+    if (dauPicksResult.error) throw new Error(dauPicksResult.error.message);
+
+    const activeUserIds = new Set<string>();
+    for (const row of (dauProfilesResult.data ?? []) as { id: string }[]) {
+      activeUserIds.add(row.id);
+    }
+    for (const row of (dauCardsResult.data ?? []) as { user_id: string }[]) {
+      activeUserIds.add(row.user_id);
+    }
+    for (const row of (dauPicksResult.data ?? []) as { cards: { user_id: string } | null }[]) {
+      if (row.cards?.user_id) activeUserIds.add(row.cards.user_id);
+    }
 
     // Compute average win rate from fetched rows
     const winRates =
@@ -114,7 +144,7 @@ export async function GET() {
           winRates.length
         : 0;
 
-    const dailyActiveUsers = dailyActiveUsersResult.count ?? 0;
+    const dailyActiveUsers = activeUserIds.size;
 
     const stats: AdminOverviewStats = {
       totalUsers: totalUsersResult.count ?? 0,
