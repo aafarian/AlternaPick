@@ -1429,6 +1429,206 @@ export async function linkCardToGuestParticipant(
   await checkGroupChallengeActivation(admin, challengeId);
 }
 
+/**
+ * Add a new participant to an existing group challenge.
+ * Only allowed when the challenge is draft, pending, or accepted and
+ * the lobby hasn't reached max capacity.
+ */
+export async function addParticipantToGroup(
+  admin: SupabaseClient<Database>,
+  challengeId: string,
+  inviterId: string,
+  newParticipant: { user_id?: string; email?: string },
+): Promise<{ id: string }> {
+  // Fetch the challenge
+  const { data: challenge, error: fetchError } = await (admin.from("challenges") as any)
+    .select("*")
+    .eq("id", challengeId)
+    .single();
+
+  if (fetchError || !challenge) {
+    throw new ChallengeNotFoundError();
+  }
+
+  const ch = challenge as Challenge;
+
+  if (ch.lobby_type !== "group") {
+    throw new ChallengeValidationError("Can only add participants to group challenges");
+  }
+
+  if (ch.status !== "draft" && ch.status !== "pending" && ch.status !== "accepted") {
+    throw new ChallengeValidationError(
+      `Cannot add participants to a ${ch.status} challenge`
+    );
+  }
+
+  // Verify the inviter is a participant
+  const { data: inviterRows } = await (admin.from("challenge_participants") as any)
+    .select("id, status")
+    .eq("challenge_id", challengeId)
+    .eq("user_id", inviterId)
+    .limit(1);
+
+  const inviter = ((inviterRows ?? []) as Array<{ id: string; status: string }>)[0];
+  if (!inviter || inviter.status === "declined") {
+    throw new ChallengeValidationError("You are not an active participant in this challenge", 403);
+  }
+
+  // Check lobby capacity (count non-declined participants)
+  const { data: allParticipants } = await (admin.from("challenge_participants") as any)
+    .select("id, status, user_id, email")
+    .eq("challenge_id", challengeId);
+
+  const active = ((allParticipants ?? []) as Array<{ id: string; status: string; user_id: string | null; email: string | null }>)
+    .filter((p) => p.status !== "declined");
+
+  if (active.length >= MAX_LOBBY_SIZE) {
+    throw new ChallengeValidationError(
+      `Lobby is full (max ${MAX_LOBBY_SIZE} participants)`
+    );
+  }
+
+  // Prevent adding someone who is already a participant
+  if (newParticipant.user_id) {
+    const existing = active.find((p) => p.user_id === newParticipant.user_id);
+    if (existing) {
+      throw new ChallengeValidationError("This user is already in the challenge");
+    }
+    // Prevent self-invite
+    if (newParticipant.user_id === inviterId) {
+      throw new ChallengeValidationError("Cannot invite yourself");
+    }
+  }
+  if (newParticipant.email) {
+    const normalizedEmail = newParticipant.email.toLowerCase();
+    const existing = active.find((p) => p.email?.toLowerCase() === normalizedEmail);
+    if (existing) {
+      throw new ChallengeValidationError("This email is already in the challenge");
+    }
+  }
+
+  // Create the participant row
+  const result = await createParticipant(admin, {
+    challenge_id: challengeId,
+    user_id: newParticipant.user_id ?? null,
+    email: newParticipant.email?.toLowerCase() ?? null,
+    is_creator: false,
+    status: "invited",
+  });
+
+  if (!result) {
+    throw new Error("Failed to add participant to group challenge");
+  }
+
+  // Update max_participants to reflect the new count
+  await (admin.from("challenges") as any)
+    .update({ max_participants: active.length + 1 })
+    .eq("id", challengeId);
+
+  return result;
+}
+
+/**
+ * Remove a participant from a group challenge.
+ * Only the creator can remove participants. Cannot remove yourself (use cancel instead).
+ * If removing drops below MIN_LOBBY_SIZE, the challenge is cancelled.
+ */
+export async function removeParticipantFromGroup(
+  admin: SupabaseClient<Database>,
+  challengeId: string,
+  creatorId: string,
+  targetUserId: string,
+): Promise<void> {
+  // Fetch the challenge
+  const { data: challenge, error: fetchError } = await (admin.from("challenges") as any)
+    .select("*")
+    .eq("id", challengeId)
+    .single();
+
+  if (fetchError || !challenge) {
+    throw new ChallengeNotFoundError();
+  }
+
+  const ch = challenge as Challenge;
+
+  if (ch.lobby_type !== "group") {
+    throw new ChallengeValidationError("Can only remove participants from group challenges");
+  }
+
+  if (ch.status !== "draft" && ch.status !== "pending" && ch.status !== "accepted") {
+    throw new ChallengeValidationError(
+      `Cannot remove participants from a ${ch.status} challenge`
+    );
+  }
+
+  // Verify the requester is the creator
+  const { data: creatorRows } = await (admin.from("challenge_participants") as any)
+    .select("id, is_creator")
+    .eq("challenge_id", challengeId)
+    .eq("user_id", creatorId)
+    .limit(1);
+
+  const creator = ((creatorRows ?? []) as Array<{ id: string; is_creator: boolean }>)[0];
+  if (!creator?.is_creator) {
+    throw new ChallengeValidationError("Only the challenge creator can remove participants", 403);
+  }
+
+  if (targetUserId === creatorId) {
+    throw new ChallengeValidationError("Cannot remove yourself — use cancel instead");
+  }
+
+  // Find the target participant
+  const { data: targetRows } = await (admin.from("challenge_participants") as any)
+    .select("id, status, card_id")
+    .eq("challenge_id", challengeId)
+    .eq("user_id", targetUserId)
+    .limit(1);
+
+  const target = ((targetRows ?? []) as Array<{ id: string; status: string; card_id: string | null }>)[0];
+  if (!target) {
+    throw new ChallengeValidationError("Participant not found in this challenge");
+  }
+
+  if (target.status === "declined") {
+    throw new ChallengeValidationError("This participant has already declined");
+  }
+
+  // If the participant had a card linked, detach it
+  if (target.card_id) {
+    await (admin.from("cards") as any)
+      .update({ challenge_id: null })
+      .eq("id", target.card_id);
+  }
+
+  // Mark participant as declined (soft delete — preserves history)
+  await updateParticipantStatus(admin, target.id, "declined");
+
+  // Update max_participants
+  const { data: remaining } = await (admin.from("challenge_participants") as any)
+    .select("id, status")
+    .eq("challenge_id", challengeId);
+
+  const nonDeclined = ((remaining ?? []) as Array<{ id: string; status: string }>)
+    .filter((p) => p.status !== "declined");
+
+  await (admin.from("challenges") as any)
+    .update({ max_participants: nonDeclined.length })
+    .eq("id", challengeId);
+
+  // Check if enough participants remain
+  if (nonDeclined.length < MIN_LOBBY_SIZE) {
+    // Not enough participants — cancel the challenge
+    if (ch.game_mode !== "sabotage") {
+      await (admin.from("cards") as any)
+        .update({ challenge_id: null })
+        .eq("challenge_id", challengeId)
+        .eq("user_id", ch.challenger_id);
+    }
+    await declineAllGroupParticipants(admin, challengeId);
+    await cancelChallenge(admin, challengeId);
+  }
+}
+
 export class ChallengeValidationError extends Error {
   public status: number;
   constructor(message: string, status: number = 400) {

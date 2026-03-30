@@ -17,7 +17,7 @@ import OpponentAvatar from "@/components/challenges/OpponentAvatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, AlertCircle, Loader2, Crown, Trophy, Check, Clock, Lock } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Crown, Trophy, Check, Clock, Lock, X, UserPlus } from "lucide-react";
 import TrashTalkBubble from "@/components/challenges/TrashTalkBubble";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import ShareButton from "@/components/ui/ShareButton";
@@ -97,10 +97,12 @@ function RosterTile({
   participant,
   isCurrentUser,
   isResolved,
+  onKick,
 }: {
   participant: ChallengeParticipantProfile;
   isCurrentUser: boolean;
   isResolved: boolean;
+  onKick?: () => void;
 }) {
   const name = getParticipantDisplayName(participant);
   const card = participant.card;
@@ -162,7 +164,7 @@ function RosterTile({
         </div>
 
         {/* Right indicator */}
-        <div className="flex shrink-0 items-center">
+        <div className="flex shrink-0 items-center gap-1.5">
           {card && card.status === "resolved" ? (
             <span className="text-sm font-bold tabular-nums text-foreground">
               {card.score}/{card.total_picks}
@@ -172,6 +174,15 @@ function RosterTile({
           ) : participant.status === "invited" || participant.status === "accepted" ? (
             <Clock className="h-3.5 w-3.5 text-muted-foreground/40" />
           ) : null}
+          {onKick && (
+            <button
+              onClick={onKick}
+              className="rounded p-0.5 text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
+              title="Remove from challenge"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -308,6 +319,10 @@ export default function GroupLobbyView({
   const router = useRouter();
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteFriends, setInviteFriends] = useState<Array<{ id: string; username: string }>>([]);
+  const [inviteSearch, setInviteSearch] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(false);
   const prefersReduced = useReducedMotion();
 
   const participants = challenge.participants ?? [];
@@ -414,6 +429,65 @@ export default function GroupLobbyView({
       setError(
         err instanceof Error ? err.message : `Failed to ${action} challenge`
       );
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function fetchFriendsForInvite() {
+    setInviteLoading(true);
+    try {
+      const res = await fetch("/api/friends?status=accepted");
+      if (!res.ok) return;
+      const data = await res.json();
+      const list = (data.friends ?? []).map(
+        (f: { friend_profile: { id: string; username: string } }) => f.friend_profile
+      );
+      setInviteFriends(list);
+    } catch {
+      // Non-fatal
+    } finally {
+      setInviteLoading(false);
+    }
+  }
+
+  async function handleInvite(userId: string) {
+    setActionLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/challenges/${challenge.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "invite", user_id: userId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to invite");
+      }
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to invite");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleKick(userId: string) {
+    setActionLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/challenges/${challenge.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "kick", user_id: userId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to remove participant");
+      }
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove participant");
     } finally {
       setActionLoading(false);
     }
@@ -571,16 +645,107 @@ export default function GroupLobbyView({
 
       {/* Participant Roster — compact tiles, all same height */}
       <StaggerChildren className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {activeParticipants.map((participant) => (
-          <StaggerItem key={participant.id}>
-            <RosterTile
-              participant={participant}
-              isCurrentUser={participant.user_id === currentUserId}
-              isResolved={isResolved}
-            />
-          </StaggerItem>
-        ))}
+        {activeParticipants.map((participant) => {
+          const canKick =
+            isCreator &&
+            !participant.is_creator &&
+            participant.user_id !== currentUserId &&
+            participant.status !== "active" &&
+            !isResolved &&
+            challenge.status !== "active";
+          return (
+            <StaggerItem key={participant.id}>
+              <RosterTile
+                participant={participant}
+                isCurrentUser={participant.user_id === currentUserId}
+                isResolved={isResolved}
+                onKick={canKick && participant.user_id ? () => handleKick(participant.user_id!) : undefined}
+              />
+            </StaggerItem>
+          );
+        })}
       </StaggerChildren>
+
+      {/* Invite friends — available for all participants when lobby isn't full */}
+      {!isResolved && challenge.status !== "active" && activeParticipants.length < 8 && (
+        <FadeIn delay={0.2} duration={0.3}>
+          {!showInvite ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mx-auto flex gap-1.5"
+              onClick={() => {
+                setShowInvite(true);
+                fetchFriendsForInvite();
+              }}
+            >
+              <UserPlus className="h-4 w-4" />
+              Invite Friends
+            </Button>
+          ) : (
+            <Card className="border-border bg-card">
+              <CardContent className="flex flex-col gap-3 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Invite Friends</span>
+                  <button
+                    onClick={() => { setShowInvite(false); setInviteSearch(""); }}
+                    className="rounded p-1 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                {inviteLoading ? (
+                  <div className="flex items-center justify-center py-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : inviteFriends.length === 0 ? (
+                  <p className="text-center text-xs text-muted-foreground">
+                    No friends found. Add friends first!
+                  </p>
+                ) : (
+                  <>
+                    {inviteFriends.length >= 5 && (
+                      <input
+                        type="text"
+                        placeholder="Search friends..."
+                        value={inviteSearch}
+                        onChange={(e) => setInviteSearch(e.target.value)}
+                        className="h-8 rounded-md border border-border bg-background px-2.5 text-xs placeholder:text-muted-foreground focus:border-orange-500 focus:outline-none"
+                      />
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {inviteFriends
+                        .filter((f) => {
+                          // Exclude already-in-challenge participants
+                          const alreadyIn = activeParticipants.some((p) => p.user_id === f.id);
+                          if (alreadyIn) return false;
+                          // Apply search filter
+                          if (!inviteSearch.trim()) return true;
+                          return f.username.toLowerCase().includes(inviteSearch.toLowerCase().trim());
+                        })
+                        .map((friend) => (
+                          <button
+                            key={friend.id}
+                            onClick={() => handleInvite(friend.id)}
+                            disabled={actionLoading}
+                            className={cn(
+                              "flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs transition-all",
+                              "hover:border-orange-500/50 hover:bg-orange-500/10",
+                              actionLoading && "opacity-50",
+                            )}
+                          >
+                            <UserPlus className="h-3 w-3" />
+                            {friend.username}
+                          </button>
+                        ))}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </FadeIn>
+      )}
 
       {/* Status-specific CTAs */}
       {challenge.status === "draft" && isCreator && (
