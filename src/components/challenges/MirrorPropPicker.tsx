@@ -9,6 +9,7 @@ import { CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/constants";
 import type { Game, Prop, StatCategory } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
 import { Shuffle, Check } from "lucide-react";
+import { MIN_CARD_SIZE } from "@/lib/modes";
 
 interface MirrorPropPickerProps {
   maxPicks: number;
@@ -57,9 +58,10 @@ export default function MirrorPropPicker({
   };
 
   const handleRandom = () => {
-    if (allProps.length < maxPicks) return;
+    if (allProps.length < MIN_CARD_SIZE) return;
+    const count = Math.min(allProps.length, maxPicks);
     const shuffled = [...allProps].sort(() => Math.random() - 0.5);
-    onSelectionChange(shuffled.slice(0, maxPicks).map((p) => p.id));
+    onSelectionChange(shuffled.slice(0, count).map((p) => p.id));
   };
 
   if (loading) {
@@ -105,7 +107,7 @@ export default function MirrorPropPicker({
           variant="outline"
           size="sm"
           onClick={handleRandom}
-          disabled={allProps.length < maxPicks}
+          disabled={allProps.length < MIN_CARD_SIZE}
           className="gap-1.5 text-xs"
         >
           <Shuffle className="h-3.5 w-3.5" />

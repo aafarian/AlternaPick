@@ -17,9 +17,9 @@ import { cn } from "@/lib/utils";
 import {
   GAME_MODE_LIST,
   DEFAULT_CARD_SIZE,
+  MIN_CARD_SIZE,
   isValidGameMode,
 } from "@/lib/modes";
-import { MIN_CARD_SIZE } from "@/lib/modes/types";
 import type { GameMode } from "@/lib/modes";
 import { parseIconConfig } from "@/lib/icons/parse";
 import MirrorPropPicker from "./MirrorPropPicker";
