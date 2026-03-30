@@ -31,7 +31,7 @@ interface Participant {
 interface Pick {
   id: string;
   card_id: string;
-  commence_time: string;
+  games: { commence_time: string };
 }
 
 // ---------------------------------------------------------------------------
@@ -66,16 +66,19 @@ function canAddParticipant(
     }
   }
 
-  // Self-invite check
-  if (newUserId === inviterId) {
-    return { ok: false, reason: "Cannot invite yourself" };
-  }
-
-  // H2H: check against challenger/opponent
+  // H2H path: duplicate check BEFORE self-invite (matches production order)
   if (challenge.lobby_type !== "group") {
     if (newUserId === challenge.challenger_id || newUserId === challenge.opponent_id) {
       return { ok: false, reason: "This user is already in the challenge" };
     }
+
+    // Self-invite check (for H2H, only reachable if not already a duplicate)
+    if (newUserId === inviterId) {
+      return { ok: false, reason: "Cannot invite yourself" };
+    }
+  } else if (newUserId === inviterId) {
+    // Group path: self-invite check BEFORE duplicate (matches production order)
+    return { ok: false, reason: "Cannot invite yourself" };
   }
 
   // Lobby capacity
@@ -168,7 +171,7 @@ function canKickParticipant(
     const now = new Date();
     const hasLiveGames = picks
       .filter((p) => p.card_id === target.card_id)
-      .some((p) => new Date(p.commence_time) <= now);
+      .some((p) => new Date(p.games.commence_time) <= now);
 
     if (hasLiveGames) {
       return { ok: false, reason: "Cannot remove a participant who has games in progress" };
@@ -360,11 +363,13 @@ describe("Adding participants (invite)", () => {
   });
 
   describe("self-invite prevention", () => {
-    it("blocks inviting yourself in 1v1", () => {
+    it("blocks inviting yourself in 1v1 (hits duplicate check first)", () => {
       const ch = makeChallenge({ lobby_type: "1v1" });
+      // In H2H, the duplicate check fires before self-invite,
+      // so "creator" is caught as "already in the challenge"
       const result = canAddParticipant(ch, "creator", "creator", null, []);
       expect(result.ok).toBe(false);
-      expect(result.reason).toMatch(/Cannot invite yourself/);
+      expect(result.reason).toMatch(/already in the challenge/);
     });
 
     it("blocks inviting yourself in group", () => {
@@ -656,7 +661,7 @@ describe("Removing participants (kick)", () => {
         makeParticipant({ user_id: "target", card_id: "card-target" }),
       ];
       const picks: Pick[] = [
-        { id: "pick-1", card_id: "card-target", commence_time: new Date(Date.now() - 60_000).toISOString() },
+        { id: "pick-1", card_id: "card-target", games: { commence_time: new Date(Date.now() - 60_000).toISOString() } },
       ];
       const result = canKickParticipant(ch, "creator", "target", participants, picks);
       expect(result.ok).toBe(false);
@@ -670,7 +675,7 @@ describe("Removing participants (kick)", () => {
         makeParticipant({ user_id: "target", card_id: "card-target" }),
       ];
       const picks: Pick[] = [
-        { id: "pick-1", card_id: "card-target", commence_time: new Date(Date.now() + 3_600_000).toISOString() },
+        { id: "pick-1", card_id: "card-target", games: { commence_time: new Date(Date.now() + 3_600_000).toISOString() } },
       ];
       const result = canKickParticipant(ch, "creator", "target", participants, picks);
       expect(result.ok).toBe(true);
@@ -694,8 +699,8 @@ describe("Removing participants (kick)", () => {
       ];
       // Creator has a live game, but target does not
       const picks: Pick[] = [
-        { id: "pick-1", card_id: "card-creator", commence_time: new Date(Date.now() - 60_000).toISOString() },
-        { id: "pick-2", card_id: "card-target", commence_time: new Date(Date.now() + 3_600_000).toISOString() },
+        { id: "pick-1", card_id: "card-creator", games: { commence_time: new Date(Date.now() - 60_000).toISOString() } },
+        { id: "pick-2", card_id: "card-target", games: { commence_time: new Date(Date.now() + 3_600_000).toISOString() } },
       ];
       const result = canKickParticipant(ch, "creator", "target", participants, picks);
       expect(result.ok).toBe(true);
