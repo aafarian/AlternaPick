@@ -204,6 +204,7 @@ export default function ChallengeMatchup({
   const [inviteFriends, setInviteFriends] = useState<Array<{ id: string; username: string }>>([]);
   const [inviteSearch, setInviteSearch] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
   const prefersReduced = useReducedMotion();
 
   // Live stats — enabled when cards are locked (polling) or challenge is
@@ -321,19 +322,20 @@ export default function ChallengeMatchup({
     }
   }
 
-  async function handleInvite(userId: string) {
+  async function handleInvite(opts: { user_id?: string; email?: string }) {
     setActionLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/challenges/${challenge.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "invite", user_id: userId }),
+        body: JSON.stringify({ action: "invite", ...opts }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Failed to invite");
       }
+      setInviteEmail("");
       // Invite converts 1v1 to group — full page reload to switch to GroupLobbyView
       router.refresh();
     } catch (err) {
@@ -647,7 +649,7 @@ export default function ChallengeMatchup({
                         .map((friend) => (
                           <button
                             key={friend.id}
-                            onClick={() => handleInvite(friend.id)}
+                            onClick={() => handleInvite({ user_id: friend.id })}
                             disabled={actionLoading}
                             className={cn(
                               "flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs transition-all",
@@ -659,6 +661,29 @@ export default function ChallengeMatchup({
                             {friend.username}
                           </button>
                         ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        placeholder="Invite by email..."
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && inviteEmail.includes("@")) {
+                            handleInvite({ email: inviteEmail.trim() });
+                          }
+                        }}
+                        className="h-8 flex-1 rounded-md border border-border bg-background px-2.5 text-xs placeholder:text-muted-foreground focus:border-orange-500 focus:outline-none"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        disabled={actionLoading || !inviteEmail.includes("@")}
+                        onClick={() => handleInvite({ email: inviteEmail.trim() })}
+                      >
+                        Send
+                      </Button>
                     </div>
                     <p className="text-center text-[10px] text-muted-foreground">
                       Adding a friend converts this to a group challenge

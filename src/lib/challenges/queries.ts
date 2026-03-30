@@ -1558,15 +1558,15 @@ export async function addParticipantToGroup(
     );
   }
 
-  // Prevent adding someone who is already a participant (group path)
+  // Prevent adding someone who is already active, or reactivate a declined participant
   if (!isH2H) {
     if (newParticipant.user_id) {
+      if (newParticipant.user_id === inviterId) {
+        throw new ChallengeValidationError("Cannot invite yourself");
+      }
       const existing = active.find((p) => p.user_id === newParticipant.user_id);
       if (existing) {
         throw new ChallengeValidationError("This user is already in the challenge");
-      }
-      if (newParticipant.user_id === inviterId) {
-        throw new ChallengeValidationError("Cannot invite yourself");
       }
     }
     if (newParticipant.email) {
@@ -1578,14 +1578,33 @@ export async function addParticipantToGroup(
     }
   }
 
-  // Create the participant row
-  const result = await createParticipant(admin, {
-    challenge_id: challengeId,
-    user_id: newParticipant.user_id ?? null,
-    email: newParticipant.email?.toLowerCase() ?? null,
-    is_creator: false,
-    status: "invited",
-  });
+  // Check if this user was previously kicked (declined row still exists).
+  // If so, reactivate them instead of inserting a duplicate.
+  const allRows = (allParticipants ?? []) as Array<{ id: string; status: string; user_id: string | null; email: string | null }>;
+  const declinedRow = newParticipant.user_id
+    ? allRows.find((p) => p.user_id === newParticipant.user_id && p.status === "declined")
+    : newParticipant.email
+      ? allRows.find((p) => p.email?.toLowerCase() === newParticipant.email!.toLowerCase() && p.status === "declined")
+      : null;
+
+  let result: { id: string } | null;
+
+  if (declinedRow) {
+    // Reactivate the existing declined row
+    await (admin.from("challenge_participants") as any)
+      .update({ status: "invited", card_id: null })
+      .eq("id", declinedRow.id);
+    result = { id: declinedRow.id };
+  } else {
+    // Create a new participant row
+    result = await createParticipant(admin, {
+      challenge_id: challengeId,
+      user_id: newParticipant.user_id ?? null,
+      email: newParticipant.email?.toLowerCase() ?? null,
+      is_creator: false,
+      status: "invited",
+    });
+  }
 
   if (!result) {
     throw new Error("Failed to add participant to challenge");
