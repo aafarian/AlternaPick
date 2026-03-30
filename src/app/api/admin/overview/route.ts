@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { handleApiError } from "@/lib/api/errors";
+import { logWarn } from "@/lib/logger";
 import type { AdminOverviewStats } from "@/lib/admin/types";
+
+const DAU_ROW_LIMIT = 10000;
 
 /**
  * GET /api/admin/overview
@@ -107,22 +110,34 @@ export async function GET() {
         .from("profiles")
         .select("id")
         .gte("last_active_at", todayStart)
-        .limit(10000),
+        .eq("is_deactivated", false)
+        .limit(DAU_ROW_LIMIT),
       supabase
         .from("cards")
         .select("user_id")
         .gte("created_at", todayStart)
         .not("user_id", "is", null)
-        .limit(10000),
+        .limit(DAU_ROW_LIMIT),
+      // picks has no user_id column — join through cards to get the card author,
+      // who IS the user that made the picks (each card belongs to a single user).
       supabase
         .from("picks")
         .select("cards!picks_card_id_fkey(user_id)")
         .gte("created_at", todayStart)
-        .limit(10000),
+        .limit(DAU_ROW_LIMIT),
     ]);
     if (dauProfilesResult.error) throw new Error(dauProfilesResult.error.message);
     if (dauCardsResult.error) throw new Error(dauCardsResult.error.message);
     if (dauPicksResult.error) throw new Error(dauPicksResult.error.message);
+
+    // Warn if any query hit the row limit — DAU count may be an undercount
+    const dauResults = [dauProfilesResult.data, dauCardsResult.data, dauPicksResult.data];
+    for (const rows of dauResults) {
+      if (rows && rows.length >= DAU_ROW_LIMIT) {
+        logWarn("admin", `DAU query hit ${DAU_ROW_LIMIT} row limit — count may be underreported`, new Error("DAU row limit reached"));
+        break;
+      }
+    }
 
     const activeUserIds = new Set<string>();
     for (const row of (dauProfilesResult.data ?? []) as { id: string }[]) {
