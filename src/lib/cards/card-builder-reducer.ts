@@ -8,6 +8,7 @@ export const initialCardBuilderState: CardBuilderState = {
   maxPicks: DEFAULT_CARD_SIZE,
   gameMode: "classic",
   cardSize: DEFAULT_CARD_SIZE,
+  cardSizeConstrained: false,
   isLocking: false,
   error: null,
   challengeId: null,
@@ -75,6 +76,9 @@ export function cardBuilderReducer(
         gameMode: action.gameMode ?? state.gameMode,
         cardSize: newSize,
         maxPicks: newSize,
+        // Constrained = opponent must match the challenger's exact pick count.
+        // Unconstrained = challenger picks freely (2-6), card_size set on lock-in.
+        cardSizeConstrained: action.cardSize != null,
         guestToken: action.guestToken ?? state.guestToken,
       };
     }

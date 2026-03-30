@@ -20,6 +20,8 @@ export interface CardBuilderState {
   maxPicks: number;
   gameMode: GameMode;
   cardSize: number;
+  /** When true, the user must pick exactly cardSize props (opponent matching challenger). */
+  cardSizeConstrained: boolean;
   isLocking: boolean;
   error: string | null;
   challengeId: string | null;

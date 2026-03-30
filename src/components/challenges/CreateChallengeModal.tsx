@@ -16,11 +16,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
   GAME_MODE_LIST,
-  CARD_SIZES,
   DEFAULT_CARD_SIZE,
   isValidGameMode,
 } from "@/lib/modes";
-import type { GameMode, CardSize } from "@/lib/modes";
+import { MIN_CARD_SIZE } from "@/lib/modes/types";
+import type { GameMode } from "@/lib/modes";
 import { parseIconConfig } from "@/lib/icons/parse";
 import MirrorPropPicker from "./MirrorPropPicker";
 import UserSearchBar from "@/components/friends/UserSearchBar";
@@ -90,9 +90,8 @@ export default function CreateChallengeModal({
   const [opponentMode, setOpponentMode] = useState<"friend" | "email">("friend");
   const [opponentEmail, setOpponentEmail] = useState("");
 
-  // Step 2: Game mode + card size + trash talk
+  // Step 2: Game mode + trash talk
   const [gameMode, setGameMode] = useState<GameMode>("classic");
-  const [cardSize, setCardSize] = useState<CardSize>(DEFAULT_CARD_SIZE);
   const [message, setMessage] = useState("");
 
   // Step 3 (mirror only): Prop selection
@@ -134,7 +133,6 @@ export default function CreateChallengeModal({
       setGameMode(
         initialMode && isValidGameMode(initialMode) ? initialMode : "classic"
       );
-      setCardSize(DEFAULT_CARD_SIZE);
       setMessage("");
       setMirrorProps([]);
       setError(null);
@@ -200,7 +198,6 @@ export default function CreateChallengeModal({
     try {
       const payload: Record<string, unknown> = {
         game_mode: gameMode,
-        card_size: cardSize,
       };
 
       if (selectedOpponents.length === 1) {
@@ -226,7 +223,7 @@ export default function CreateChallengeModal({
       }
       if (gameMode === "mirror" && mirrorProps.length > 0) {
         payload.mirror_props = mirrorProps;
-        payload.card_size = mirrorProps.length;
+        payload.card_size = mirrorProps.length; // Mirror: card_size = number of shared props
       }
 
       const res = await fetch("/api/challenges", {
@@ -286,7 +283,7 @@ export default function CreateChallengeModal({
 
   const canProceedFromOpponent = selectedOpponents.length > 0;
   const canProceedFromSettings = true;
-  const canProceedFromMirror = mirrorProps.length === cardSize;
+  const canProceedFromMirror = mirrorProps.length >= MIN_CARD_SIZE;
 
   const canProceed =
     step === "opponent"
@@ -681,35 +678,6 @@ export default function CreateChallengeModal({
 
             </div>
 
-            {/* Card Size Selection */}
-            <div className="flex flex-col gap-2">
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                Card Size
-              </p>
-              <div className="flex gap-2">
-                {CARD_SIZES.map((size) => {
-                  const isSelected = cardSize === size;
-                  return (
-                    <button
-                      key={size}
-                      onClick={() => setCardSize(size)}
-                      className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-lg border text-sm font-bold transition-all",
-                        isSelected
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border bg-secondary/50 text-muted-foreground hover:bg-secondary"
-                      )}
-                    >
-                      {size}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-[10px] text-muted-foreground">
-                Number of picks each player will make
-              </p>
-            </div>
-
             {/* Trash Talk Input */}
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-1.5">
@@ -755,7 +723,7 @@ export default function CreateChallengeModal({
         {/* ========== STEP 3: Mirror Prop Selection ========== */}
         {step === "mirror_props" && (
           <MirrorPropPicker
-            cardSize={cardSize}
+            maxPicks={DEFAULT_CARD_SIZE}
             selectedPropIds={mirrorProps}
             onSelectionChange={setMirrorProps}
           />

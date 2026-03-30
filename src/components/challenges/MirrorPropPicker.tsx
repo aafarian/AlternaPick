@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { Shuffle, Check } from "lucide-react";
 
 interface MirrorPropPickerProps {
-  cardSize: number;
+  maxPicks: number;
   selectedPropIds: string[];
   onSelectionChange: (propIds: string[]) => void;
 }
@@ -19,7 +19,7 @@ interface MirrorPropPickerProps {
 type GameWithProps = Game & { props: Prop[] };
 
 export default function MirrorPropPicker({
-  cardSize,
+  maxPicks,
   selectedPropIds,
   onSelectionChange,
 }: MirrorPropPickerProps) {
@@ -51,15 +51,15 @@ export default function MirrorPropPicker({
   const toggleProp = (propId: string) => {
     if (selectedPropIds.includes(propId)) {
       onSelectionChange(selectedPropIds.filter((id) => id !== propId));
-    } else if (selectedPropIds.length < cardSize) {
+    } else if (selectedPropIds.length < maxPicks) {
       onSelectionChange([...selectedPropIds, propId]);
     }
   };
 
   const handleRandom = () => {
-    if (allProps.length < cardSize) return;
+    if (allProps.length < maxPicks) return;
     const shuffled = [...allProps].sort(() => Math.random() - 0.5);
-    onSelectionChange(shuffled.slice(0, cardSize).map((p) => p.id));
+    onSelectionChange(shuffled.slice(0, maxPicks).map((p) => p.id));
   };
 
   if (loading) {
@@ -98,14 +98,14 @@ export default function MirrorPropPicker({
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
           Select{" "}
-          <span className="font-bold text-foreground">{cardSize}</span> props
+          <span className="font-bold text-foreground">2–{maxPicks}</span> props
           for the mirror challenge
         </p>
         <Button
           variant="outline"
           size="sm"
           onClick={handleRandom}
-          disabled={allProps.length < cardSize}
+          disabled={allProps.length < maxPicks}
           className="gap-1.5 text-xs"
         >
           <Shuffle className="h-3.5 w-3.5" />
@@ -116,7 +116,7 @@ export default function MirrorPropPicker({
       {/* Selection counter */}
       <div className="flex items-center gap-2">
         <div className="flex gap-1">
-          {Array.from({ length: cardSize }).map((_, i) => (
+          {Array.from({ length: maxPicks }).map((_, i) => (
             <div
               key={i}
               className={cn(
@@ -129,7 +129,7 @@ export default function MirrorPropPicker({
           ))}
         </div>
         <span className="text-xs tabular-nums text-muted-foreground">
-          {selectedPropIds.length}/{cardSize}
+          {selectedPropIds.length}/{maxPicks}
         </span>
       </div>
 
@@ -146,7 +146,7 @@ export default function MirrorPropPicker({
                 <div className="flex flex-col gap-1">
                   {game.props.map((prop) => {
                     const isSelected = selectedPropIds.includes(prop.id);
-                    const atMax = selectedPropIds.length >= cardSize;
+                    const atMax = selectedPropIds.length >= maxPicks;
                     const catLabel =
                       CATEGORY_LABELS[prop.stat_category as StatCategory] ??
                       prop.stat_category;

@@ -81,12 +81,12 @@ export default function ChallengeInitializer() {
         );
 
         // If the challenger already locked a card, the opponent must match
-        // the challenger's actual pick count — not the challenge's configured
-        // card_size (which may be a larger default like 6).
-        const actualCardSize =
-          challenge.challenger_card?.total_picks ??
-          challenge.card_size ??
-          6;
+        // the challenger's actual pick count. If the challenger hasn't locked
+        // in yet (draft challenge), don't constrain — let them pick 2-6 freely.
+        const challengerPickCount = challenge.challenger_card?.total_picks ?? null;
+        const actualCardSize = isChallenger && !challengerPickCount
+          ? undefined  // Challenger picks freely; card_size set on lock-in (AP-015)
+          : (challengerPickCount ?? challenge.card_size ?? 6);
 
         setChallenge(
           id,

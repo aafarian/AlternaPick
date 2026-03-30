@@ -123,7 +123,9 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
   );
 
   const isFull = state.picks.length >= state.cardSize;
-  const canLockIn = state.challengeId
+  // Constrained challenge: opponent must match the challenger's exact pick count.
+  // Unconstrained (challenger or solo): lock in with 2+ picks.
+  const canLockIn = state.challengeId && state.cardSizeConstrained
     ? state.picks.length === state.cardSize
     : state.picks.length >= 2;
 
