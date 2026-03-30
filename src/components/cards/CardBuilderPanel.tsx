@@ -157,6 +157,12 @@ export default function CardBuilderPanel() {
     [setMode]
   );
 
+  // Dynamic lock-in label: show pick count when the user has a choice (unconstrained).
+  // Constrained opponents already see "3/3" in the counter — just say "Lock In Challenge".
+  const pickCountLabel = !state.cardSizeConstrained && picks.length >= 2
+    ? `${picks.length}-Pick `
+    : "";
+
   if (picks.length === 0 && !isInChallengeMode && !state.showSuccess) return null;
 
   const opponentLabel = challengeOpponent?.username ?? null;
@@ -487,7 +493,7 @@ export default function CardBuilderPanel() {
                     ) : (
                       <>
                         <Lock className="mr-1.5 h-3.5 w-3.5" />
-                        Lock In Challenge
+                        Lock In {pickCountLabel}Challenge
                       </>
                     )}
                   </Button>
@@ -514,7 +520,7 @@ export default function CardBuilderPanel() {
                       ) : (
                         <>
                           <Lock className="mr-1.5 h-3.5 w-3.5" />
-                          Lock In Solo
+                          Lock In {pickCountLabel}Solo
                         </>
                       )}
                     </Button>
