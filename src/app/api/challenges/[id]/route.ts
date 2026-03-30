@@ -94,44 +94,45 @@ export async function PATCH(
       return notFound("Challenge");
     }
 
+    // Handle invite action — works for both 1v1 and group challenges.
+    // For 1v1, this converts the challenge to a group challenge.
+    if (body.action === "invite") {
+      if (!body.user_id && !body.email) {
+        return badRequest("invite requires user_id or email");
+      }
+      const result = await addParticipantToGroup(
+        adminClient,
+        id,
+        user.id,
+        { user_id: body.user_id, email: body.email },
+      );
+
+      // Fire-and-forget: send notification to the invited user
+      if (body.user_id) {
+        notifyChallengeOpponent(adminClient, {
+          challengeId: id,
+          challengerId: user.id,
+          opponentId: body.user_id,
+          gameMode: (challengeData.game_mode ?? "classic") as GameMode,
+          message: challengeData.message ?? null,
+        }).catch((err) => {
+          logError("challenges", "Failed to notify invited participant", "invite", err);
+        });
+      }
+
+      return NextResponse.json({ success: true, participantId: result.id });
+    }
+
+    // Handle kick action — creator only, works for group challenges
+    if (body.action === "kick") {
+      if (!body.user_id) {
+        return badRequest("kick requires user_id");
+      }
+      await removeParticipantFromGroup(adminClient, id, user.id, body.user_id);
+      return NextResponse.json({ success: true });
+    }
+
     if (challengeData.lobby_type === "group") {
-      // Handle invite action — any participant can invite friends
-      if (body.action === "invite") {
-        if (!body.user_id && !body.email) {
-          return badRequest("invite requires user_id or email");
-        }
-        const result = await addParticipantToGroup(
-          adminClient,
-          id,
-          user.id,
-          { user_id: body.user_id, email: body.email },
-        );
-
-        // Fire-and-forget: send notification to the invited user
-        if (body.user_id) {
-          notifyChallengeOpponent(adminClient, {
-            challengeId: id,
-            challengerId: user.id,
-            opponentId: body.user_id,
-            gameMode: (challengeData.game_mode ?? "classic") as GameMode,
-            message: challengeData.message ?? null,
-          }).catch((err) => {
-            logError("challenges", "Failed to notify invited participant", "invite", err);
-          });
-        }
-
-        return NextResponse.json({ success: true, participantId: result.id });
-      }
-
-      // Handle kick action — creator only
-      if (body.action === "kick") {
-        if (!body.user_id) {
-          return badRequest("kick requires user_id");
-        }
-        await removeParticipantFromGroup(adminClient, id, user.id, body.user_id);
-        return NextResponse.json({ success: true });
-      }
-
       const challenge = await respondToGroupChallenge(
         adminClient,
         id,

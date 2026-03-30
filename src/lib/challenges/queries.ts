@@ -1452,26 +1452,96 @@ export async function addParticipantToGroup(
 
   const ch = challenge as Challenge;
 
-  if (ch.lobby_type !== "group") {
-    throw new ChallengeValidationError("Can only add participants to group challenges");
-  }
-
-  if (ch.status !== "draft" && ch.status !== "pending" && ch.status !== "accepted") {
+  if (ch.status === "resolved" || ch.status === "cancelled") {
     throw new ChallengeValidationError(
       `Cannot add participants to a ${ch.status} challenge`
     );
   }
 
-  // Verify the inviter is a participant
-  const { data: inviterRows } = await (admin.from("challenge_participants") as any)
-    .select("id, status")
-    .eq("challenge_id", challengeId)
-    .eq("user_id", inviterId)
-    .limit(1);
+  // For 1v1 challenges, convert to group on first invite.
+  // The inviter must be either the challenger or the opponent.
+  const isH2H = ch.lobby_type !== "group";
 
-  const inviter = ((inviterRows ?? []) as Array<{ id: string; status: string }>)[0];
-  if (!inviter || inviter.status === "declined") {
-    throw new ChallengeValidationError("You are not an active participant in this challenge", 403);
+  if (isH2H) {
+    if (inviterId !== ch.challenger_id && inviterId !== ch.opponent_id) {
+      throw new ChallengeValidationError("You are not a participant in this challenge", 403);
+    }
+  } else {
+    // Group challenge — verify inviter is a non-declined participant
+    const { data: inviterRows } = await (admin.from("challenge_participants") as any)
+      .select("id, status")
+      .eq("challenge_id", challengeId)
+      .eq("user_id", inviterId)
+      .limit(1);
+
+    const inviter = ((inviterRows ?? []) as Array<{ id: string; status: string }>)[0];
+    if (!inviter || inviter.status === "declined") {
+      throw new ChallengeValidationError("You are not an active participant in this challenge", 403);
+    }
+  }
+
+  // For H2H→group conversion, bootstrap participant rows first
+  if (isH2H) {
+    // Prevent inviting someone already in the challenge
+    if (newParticipant.user_id === ch.challenger_id || newParticipant.user_id === ch.opponent_id) {
+      throw new ChallengeValidationError("This user is already in the challenge");
+    }
+    if (newParticipant.user_id === inviterId) {
+      throw new ChallengeValidationError("Cannot invite yourself");
+    }
+
+    // Find existing cards linked to this challenge
+    const { data: existingCards } = await (admin.from("cards") as any)
+      .select("id, user_id")
+      .eq("challenge_id", challengeId)
+      .limit(10);
+
+    const cardsByUser = new Map<string, string>();
+    for (const card of (existingCards ?? []) as Array<{ id: string; user_id: string }>) {
+      cardsByUser.set(card.user_id, card.id);
+    }
+
+    // Convert to group: create participant rows for existing challenger + opponent
+    const challengerCard = cardsByUser.get(ch.challenger_id) ?? null;
+    const challengerParticipantStatus: ParticipantStatus = challengerCard ? "active" : "accepted";
+    const challengerParticipant = await createParticipant(admin, {
+      challenge_id: challengeId,
+      user_id: ch.challenger_id,
+      is_creator: true,
+      status: challengerParticipantStatus,
+    });
+    // Link card to participant row
+    if (challengerCard && challengerParticipant) {
+      await (admin.from("challenge_participants") as any)
+        .update({ card_id: challengerCard })
+        .eq("id", challengerParticipant.id);
+    }
+
+    if (ch.opponent_id) {
+      const opponentCard = cardsByUser.get(ch.opponent_id) ?? null;
+      const opponentStatus: ParticipantStatus =
+        opponentCard ? "active" :
+        ch.status === "pending" ? "invited" :
+        ch.status === "accepted" || ch.status === "active" ? "accepted" :
+        "invited";
+
+      const opponentParticipant = await createParticipant(admin, {
+        challenge_id: challengeId,
+        user_id: ch.opponent_id,
+        is_creator: false,
+        status: opponentStatus,
+      });
+      if (opponentCard && opponentParticipant) {
+        await (admin.from("challenge_participants") as any)
+          .update({ card_id: opponentCard })
+          .eq("id", opponentParticipant.id);
+      }
+    }
+
+    // Update challenge to group type
+    await (admin.from("challenges") as any)
+      .update({ lobby_type: "group", opponent_id: null })
+      .eq("id", challengeId);
   }
 
   // Check lobby capacity (count non-declined participants)
@@ -1488,22 +1558,23 @@ export async function addParticipantToGroup(
     );
   }
 
-  // Prevent adding someone who is already a participant
-  if (newParticipant.user_id) {
-    const existing = active.find((p) => p.user_id === newParticipant.user_id);
-    if (existing) {
-      throw new ChallengeValidationError("This user is already in the challenge");
+  // Prevent adding someone who is already a participant (group path)
+  if (!isH2H) {
+    if (newParticipant.user_id) {
+      const existing = active.find((p) => p.user_id === newParticipant.user_id);
+      if (existing) {
+        throw new ChallengeValidationError("This user is already in the challenge");
+      }
+      if (newParticipant.user_id === inviterId) {
+        throw new ChallengeValidationError("Cannot invite yourself");
+      }
     }
-    // Prevent self-invite
-    if (newParticipant.user_id === inviterId) {
-      throw new ChallengeValidationError("Cannot invite yourself");
-    }
-  }
-  if (newParticipant.email) {
-    const normalizedEmail = newParticipant.email.toLowerCase();
-    const existing = active.find((p) => p.email?.toLowerCase() === normalizedEmail);
-    if (existing) {
-      throw new ChallengeValidationError("This email is already in the challenge");
+    if (newParticipant.email) {
+      const normalizedEmail = newParticipant.email.toLowerCase();
+      const existing = active.find((p) => p.email?.toLowerCase() === normalizedEmail);
+      if (existing) {
+        throw new ChallengeValidationError("This email is already in the challenge");
+      }
     }
   }
 
@@ -1517,7 +1588,7 @@ export async function addParticipantToGroup(
   });
 
   if (!result) {
-    throw new Error("Failed to add participant to group challenge");
+    throw new Error("Failed to add participant to challenge");
   }
 
   // Re-count after insert to guard against concurrent invites pushing past capacity.
@@ -1528,7 +1599,6 @@ export async function addParticipantToGroup(
     .neq("status", "declined");
 
   if (currentCount != null && currentCount > MAX_LOBBY_SIZE) {
-    // Over capacity — remove the just-added participant
     await (admin.from("challenge_participants") as any)
       .delete()
       .eq("id", result.id);
@@ -1549,6 +1619,7 @@ export async function addParticipantToGroup(
 /**
  * Remove a participant from a group challenge.
  * Only the creator can remove participants. Cannot remove yourself (use cancel instead).
+ * Cannot remove participants who have live or started games on their card.
  * If removing drops below MIN_LOBBY_SIZE, the challenge is cancelled.
  */
 export async function removeParticipantFromGroup(
@@ -1573,7 +1644,7 @@ export async function removeParticipantFromGroup(
     throw new ChallengeValidationError("Can only remove participants from group challenges");
   }
 
-  if (ch.status !== "draft" && ch.status !== "pending" && ch.status !== "accepted") {
+  if (ch.status === "resolved" || ch.status === "cancelled") {
     throw new ChallengeValidationError(
       `Cannot remove participants from a ${ch.status} challenge`
     );
@@ -1611,14 +1682,24 @@ export async function removeParticipantFromGroup(
     throw new ChallengeValidationError("This participant has already declined");
   }
 
-  if (target.status === "active") {
-    throw new ChallengeValidationError(
-      "Cannot remove a participant who has already locked in their picks"
-    );
-  }
-
-  // If the participant had a card linked, detach it
+  // Block removal if the participant has any picks with live/started games
   if (target.card_id) {
+    const { data: picks } = await (admin.from("picks") as any)
+      .select("id, games!inner(commence_time)")
+      .eq("card_id", target.card_id)
+      .limit(100);
+
+    const now = new Date();
+    const hasLiveGames = ((picks ?? []) as Array<{ id: string; games: { commence_time: string } }>)
+      .some((p) => new Date(p.games.commence_time) <= now);
+
+    if (hasLiveGames) {
+      throw new ChallengeValidationError(
+        "Cannot remove a participant who has games in progress"
+      );
+    }
+
+    // No live games — detach the card
     await (admin.from("cards") as any)
       .update({ challenge_id: null })
       .eq("id", target.card_id);

@@ -651,9 +651,7 @@ export default function GroupLobbyView({
             isCreator &&
             !participant.is_creator &&
             participant.user_id !== currentUserId &&
-            participant.status !== "active" &&
-            !isResolved &&
-            challenge.status !== "active";
+            !isResolved;
           return (
             <StaggerItem key={participant.id}>
               <RosterTile
@@ -668,7 +666,7 @@ export default function GroupLobbyView({
       </StaggerChildren>
 
       {/* Invite friends — available for all participants when lobby isn't full */}
-      {!isResolved && challenge.status !== "active" && activeParticipants.length < MAX_LOBBY_SIZE && (
+      {!isResolved && activeParticipants.length < MAX_LOBBY_SIZE && (
         <FadeIn delay={0.2} duration={0.3}>
           {!showInvite ? (
             <Button
