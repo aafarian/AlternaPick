@@ -73,7 +73,10 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
     [state.picks]
   );
 
-  const clearCard = useCallback(() => dispatch({ type: "CLEAR_CARD" }), []);
+  const clearCard = useCallback(() => {
+    sessionStorage.removeItem("pending_challenge");
+    dispatch({ type: "CLEAR_CARD" });
+  }, []);
 
   const setLocking = useCallback(
     (isLocking: boolean) => dispatch({ type: "SET_LOCKING", isLocking }),
