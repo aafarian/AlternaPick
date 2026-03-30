@@ -15,15 +15,26 @@ export interface ChallengeOpponent {
   username: string;
 }
 
+/** Stored when the user configures a challenge in the modal but hasn't locked in yet. */
+export interface PendingChallenge {
+  opponents: Array<{ user_id?: string; email?: string }>;
+  opponentLabel: string;
+  message: string;
+}
+
 export interface CardBuilderState {
   picks: CardBuilderPick[];
   maxPicks: number;
   gameMode: GameMode;
   cardSize: number;
+  /** When true, the user must pick exactly cardSize props (opponent matching challenger). */
+  cardSizeConstrained: boolean;
   isLocking: boolean;
   error: string | null;
   challengeId: string | null;
   challengeOpponent: ChallengeOpponent | null;
+  /** Challenge intent not yet created on the server — created at lock-in. */
+  pendingChallenge: PendingChallenge | null;
   /** Guest token for email-invite challenges (unauthenticated flow) */
   guestToken: string | null;
   showSuccess: boolean;
@@ -43,6 +54,11 @@ export type CardBuilderAction =
       gameMode?: GameMode;
       cardSize?: number;
       guestToken?: string;
+    }
+  | {
+      type: "SET_PENDING_CHALLENGE";
+      pendingChallenge: PendingChallenge;
+      gameMode: GameMode;
     }
   | { type: "SHOW_SUCCESS" }
   | { type: "HIDE_SUCCESS" }

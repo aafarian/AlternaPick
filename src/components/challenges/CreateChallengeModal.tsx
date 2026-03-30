@@ -16,11 +16,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
   GAME_MODE_LIST,
-  CARD_SIZES,
   DEFAULT_CARD_SIZE,
+  MIN_CARD_SIZE,
   isValidGameMode,
 } from "@/lib/modes";
-import type { GameMode, CardSize } from "@/lib/modes";
+import type { GameMode } from "@/lib/modes";
 import { parseIconConfig } from "@/lib/icons/parse";
 import MirrorPropPicker from "./MirrorPropPicker";
 import UserSearchBar from "@/components/friends/UserSearchBar";
@@ -90,9 +90,8 @@ export default function CreateChallengeModal({
   const [opponentMode, setOpponentMode] = useState<"friend" | "email">("friend");
   const [opponentEmail, setOpponentEmail] = useState("");
 
-  // Step 2: Game mode + card size + trash talk
+  // Step 2: Game mode + trash talk
   const [gameMode, setGameMode] = useState<GameMode>("classic");
-  const [cardSize, setCardSize] = useState<CardSize>(DEFAULT_CARD_SIZE);
   const [message, setMessage] = useState("");
 
   // Step 3 (mirror only): Prop selection
@@ -134,7 +133,6 @@ export default function CreateChallengeModal({
       setGameMode(
         initialMode && isValidGameMode(initialMode) ? initialMode : "classic"
       );
-      setCardSize(DEFAULT_CARD_SIZE);
       setMessage("");
       setMirrorProps([]);
       setError(null);
@@ -193,18 +191,52 @@ export default function CreateChallengeModal({
 
   /* ---------- Create challenge ---------- */
 
-  const handleCreate = async () => {
+  /* ---------- Build normalized opponents list ---------- */
+
+  const buildOpponents = () =>
+    selectedOpponents.map((o) => {
+      if (o.type === "email") return { email: o.email };
+      return { user_id: o.friend.friend_profile.id };
+    });
+
+  const buildOpponentLabel = () => {
+    if (selectedOpponents.length === 1) {
+      return getOpponentLabel(selectedOpponents[0]);
+    }
+    return selectedOpponents.map(getOpponentLabel).join(", ");
+  };
+
+  /* ---------- Deferred challenge (classic / sabotage / one_player / one_team) ---------- */
+
+  const handleDeferredCreate = () => {
+    if (selectedOpponents.length === 0) return;
+
+    // Store the challenge intent — it will be created when the challenger locks in.
+    const intent = {
+      opponents: buildOpponents(),
+      opponentLabel: buildOpponentLabel(),
+      message: message.trim(),
+      gameMode,
+    };
+    sessionStorage.setItem("pending_challenge", JSON.stringify(intent));
+
+    onCreated();
+    onClose();
+    router.push("/props?pending_challenge=1");
+  };
+
+  /* ---------- Immediate challenge (mirror / random — props are pre-selected) ---------- */
+
+  const handleImmediateCreate = async () => {
     if (selectedOpponents.length === 0) return;
     setCreating(true);
     setError(null);
     try {
       const payload: Record<string, unknown> = {
         game_mode: gameMode,
-        card_size: cardSize,
       };
 
       if (selectedOpponents.length === 1) {
-        // 1v1: use existing API fields for backward compatibility
         const opponent = selectedOpponents[0];
         if (opponent.type === "email") {
           payload.opponent_email = opponent.email;
@@ -212,13 +244,7 @@ export default function CreateChallengeModal({
           payload.opponent_id = opponent.friend.friend_profile.id;
         }
       } else {
-        // Group challenge: send opponents array
-        payload.opponents = selectedOpponents.map((o) => {
-          if (o.type === "email") {
-            return { email: o.email };
-          }
-          return { user_id: o.friend.friend_profile.id };
-        });
+        payload.opponents = buildOpponents();
       }
 
       if (message.trim()) {
@@ -240,13 +266,7 @@ export default function CreateChallengeModal({
       }
       onCreated();
       onClose();
-      if (gameMode === "random" || gameMode === "mirror") {
-        // Props are pre-selected — go straight to ballot to call over/under
-        router.push(`/challenges/${data.challenge.id}/ballot`);
-      } else {
-        // Redirect challenger to props page to make their picks
-        router.push(`/props?challenge_id=${data.challenge.id}`);
-      }
+      router.push(`/challenges/${data.challenge.id}/ballot`);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to create challenge"
@@ -265,11 +285,16 @@ export default function CreateChallengeModal({
       if (gameMode === "mirror") {
         setMirrorProps([]);
         setStep("mirror_props");
+      } else if (gameMode === "random") {
+        // Random: props are generated server-side, create immediately
+        handleImmediateCreate();
       } else {
-        handleCreate();
+        // Classic, sabotage, one_player, one_team: defer to lock-in
+        handleDeferredCreate();
       }
     } else if (step === "mirror_props") {
-      handleCreate();
+      // Mirror: shared props selected, create immediately
+      handleImmediateCreate();
     }
   };
 
@@ -286,7 +311,7 @@ export default function CreateChallengeModal({
 
   const canProceedFromOpponent = selectedOpponents.length > 0;
   const canProceedFromSettings = true;
-  const canProceedFromMirror = mirrorProps.length === cardSize;
+  const canProceedFromMirror = mirrorProps.length >= MIN_CARD_SIZE;
 
   const canProceed =
     step === "opponent"
@@ -681,35 +706,6 @@ export default function CreateChallengeModal({
 
             </div>
 
-            {/* Card Size Selection */}
-            <div className="flex flex-col gap-2">
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                Card Size
-              </p>
-              <div className="flex gap-2">
-                {CARD_SIZES.map((size) => {
-                  const isSelected = cardSize === size;
-                  return (
-                    <button
-                      key={size}
-                      onClick={() => setCardSize(size)}
-                      className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-lg border text-sm font-bold transition-all",
-                        isSelected
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border bg-secondary/50 text-muted-foreground hover:bg-secondary"
-                      )}
-                    >
-                      {size}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-[10px] text-muted-foreground">
-                Number of picks each player will make
-              </p>
-            </div>
-
             {/* Trash Talk Input */}
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-1.5">
@@ -755,7 +751,7 @@ export default function CreateChallengeModal({
         {/* ========== STEP 3: Mirror Prop Selection ========== */}
         {step === "mirror_props" && (
           <MirrorPropPicker
-            cardSize={cardSize}
+            maxPicks={DEFAULT_CARD_SIZE}
             selectedPropIds={mirrorProps}
             onSelectionChange={setMirrorProps}
           />

@@ -5,24 +5,55 @@ import { useSearchParams } from "next/navigation";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { getOpponentDisplayName } from "@/lib/challenges/display";
+import type { PendingChallenge } from "@/lib/cards/types";
+import type { GameMode } from "@/lib/modes/types";
 
 /**
  * Reads `challenge_id` (and optional `guest_token`) search params from the URL.
+ * Also handles `pending_challenge=1` for deferred challenge creation (AP-015).
  *
  * - Authenticated users: fetches challenge details from the auth-gated API.
  * - Guests with a token: fetches challenge context from the guest-info endpoint
  *   and stores the token in card builder state for later use at lock-in.
+ * - Pending challenge: reads intent from sessionStorage, sets up card builder
+ *   in challenge mode without creating the challenge yet.
  *
  * Renders nothing visible.
  */
 export default function ChallengeInitializer() {
   const searchParams = useSearchParams();
   const challengeId = searchParams.get("challenge_id");
+  const pendingChallengeParam = searchParams.get("pending_challenge");
   const guestToken = searchParams.get("guest_token");
-  const { setChallenge, state } = useCardBuilder();
+  const { setChallenge, setPendingChallenge, state } = useCardBuilder();
   const { user } = useAuth();
   const fetchedRef = useRef<string | null>(null);
 
+  // Handle pending challenge from sessionStorage (deferred creation)
+  useEffect(() => {
+    if (pendingChallengeParam !== "1") return;
+    // Already loaded
+    if (state.pendingChallenge) return;
+
+    try {
+      const raw = sessionStorage.getItem("pending_challenge");
+      if (!raw) return;
+
+      const intent = JSON.parse(raw) as PendingChallenge & { gameMode: string };
+      setPendingChallenge(
+        {
+          opponents: intent.opponents,
+          opponentLabel: intent.opponentLabel,
+          message: intent.message,
+        },
+        (intent.gameMode ?? "classic") as GameMode,
+      );
+    } catch {
+      // Invalid data — user can still build a normal card
+    }
+  }, [pendingChallengeParam, setPendingChallenge, state.pendingChallenge]);
+
+  // Handle existing challenge (challenge_id in URL)
   useEffect(() => {
     if (!challengeId) return;
     // Avoid re-fetching if we already loaded this challenge
@@ -46,7 +77,7 @@ export default function ChallengeInitializer() {
           if (!info) return;
 
           // Use the challenger's actual pick count when available, matching
-          // the authenticated flow logic (lines 79-82 below).
+          // the authenticated flow logic below.
           const actualCardSize =
             info.challenger_total_picks ??
             info.card_size ??
@@ -81,12 +112,12 @@ export default function ChallengeInitializer() {
         );
 
         // If the challenger already locked a card, the opponent must match
-        // the challenger's actual pick count — not the challenge's configured
-        // card_size (which may be a larger default like 6).
-        const actualCardSize =
-          challenge.challenger_card?.total_picks ??
-          challenge.card_size ??
-          6;
+        // the challenger's actual pick count. If the challenger hasn't locked
+        // in yet (draft challenge), don't constrain — let them pick 2-6 freely.
+        const challengerPickCount = challenge.challenger_card?.total_picks ?? null;
+        const actualCardSize = isChallenger && !challengerPickCount
+          ? undefined  // Challenger picks freely; card_size set on lock-in (AP-015)
+          : (challengerPickCount ?? challenge.card_size ?? 6);
 
         setChallenge(
           id,

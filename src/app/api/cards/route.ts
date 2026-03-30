@@ -174,10 +174,12 @@ export async function POST(request: NextRequest) {
           if (stuckDraft) {
             const ch = stuckDraft as { status: string; game_mode: string; opponent_id: string; message: string | null };
             const adminClient = createAdminClient();
-            const retryPayload: Record<string, unknown> = { status: "pending" };
+            const retryPayload: Record<string, unknown> = {
+              status: "pending",
+              card_size: picks.length,
+            };
             if (ch.game_mode === "mirror") {
               retryPayload.mirror_props = propIds;
-              retryPayload.card_size = propIds.length;
             }
             const { data: activated, error: retryErr } = await (adminClient.from("challenges") as any)
               .update(retryPayload)
@@ -308,11 +310,15 @@ export async function POST(request: NextRequest) {
       if (ch && ch.challenger_id === user.id) {
         const adminClient = createAdminClient();
 
-        // Activate the draft challenge now that the challenger has submitted their card
-        const updatePayload: Record<string, unknown> = { status: "pending" };
+        // Activate the draft challenge now that the challenger has submitted their card.
+        // Always set card_size to the challenger's actual pick count so opponents
+        // are constrained to match (AP-015).
+        const updatePayload: Record<string, unknown> = {
+          status: "pending",
+          card_size: picks.length,
+        };
         if (ch.game_mode === "mirror") {
           updatePayload.mirror_props = propIds;
-          updatePayload.card_size = propIds.length;
         }
 
         // Select the updated row back so we only notify when we actually performed
