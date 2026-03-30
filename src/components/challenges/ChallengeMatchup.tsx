@@ -302,19 +302,44 @@ export default function ChallengeMatchup({
     year: "numeric",
   });
 
-  async function handleInvite(opts: { user_id?: string; email?: string }) {
+  async function handleInviteUsers(friends: Array<{ id: string; username: string }>) {
+    setActionLoading(true);
+    setError(null);
+    try {
+      for (const friend of friends) {
+        const res = await fetch(`/api/challenges/${challenge.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "invite", user_id: friend.id }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error ?? "Failed to invite");
+        }
+      }
+      setShowInvite(false);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to invite");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleInviteEmail(email: string) {
     setActionLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/challenges/${challenge.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "invite", ...opts }),
+        body: JSON.stringify({ action: "invite", email }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Failed to invite");
       }
+      setShowInvite(false);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to invite");
@@ -586,12 +611,8 @@ export default function ChallengeMatchup({
             <InvitePanel
               excludeUserIds={[challenge.challenger_id, challenge.opponent?.id].filter(Boolean) as string[]}
               actionLoading={actionLoading}
-              onInviteUsers={async (userIds) => {
-                for (const uid of userIds) {
-                  await handleInvite({ user_id: uid });
-                }
-              }}
-              onInviteEmail={(email) => handleInvite({ email })}
+              onInviteUsers={handleInviteUsers}
+              onInviteEmail={handleInviteEmail}
               onClose={() => setShowInvite(false)}
             />
           )}

@@ -11,8 +11,8 @@ interface InvitePanelProps {
   excludeUserIds: string[];
   /** Whether an action is in progress */
   actionLoading: boolean;
-  /** Called when inviting one or more friends by user_id */
-  onInviteUsers: (userIds: string[]) => void;
+  /** Called when inviting one or more friends */
+  onInviteUsers: (friends: Array<{ id: string; username: string }>) => void;
   /** Called when inviting by email */
   onInviteEmail: (email: string) => void;
   /** Called when the panel is closed */
@@ -164,7 +164,10 @@ export default function InvitePanel({
                     size="sm"
                     className="mx-auto"
                     disabled={actionLoading}
-                    onClick={() => onInviteUsers(Array.from(selected))}
+                    onClick={() => {
+                      const selectedFriends = friends.filter((f) => selected.has(f.id));
+                      onInviteUsers(selectedFriends);
+                    }}
                   >
                     {actionLoading ? (
                       <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
