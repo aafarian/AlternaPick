@@ -18,7 +18,8 @@ import OpponentAvatar from "@/components/challenges/OpponentAvatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, AlertCircle, Loader2, Crown } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Crown, UserPlus } from "lucide-react";
+import InvitePanel from "@/components/challenges/InvitePanel";
 import ReactionBar from "@/components/challenges/ReactionBar";
 import TrashTalkBubble from "@/components/challenges/TrashTalkBubble";
 import QuickActions from "@/components/challenges/QuickActions";
@@ -200,6 +201,7 @@ export default function ChallengeMatchup({
       return false;
     }
   });
+  const [showInvite, setShowInvite] = useState(false);
   const prefersReduced = useReducedMotion();
 
   // Live stats — enabled when cards are locked (polling) or challenge is
@@ -299,6 +301,52 @@ export default function ChallengeMatchup({
     day: "numeric",
     year: "numeric",
   });
+
+  async function handleInviteUsers(friends: Array<{ id: string; username: string }>) {
+    setActionLoading(true);
+    setError(null);
+    try {
+      for (const friend of friends) {
+        const res = await fetch(`/api/challenges/${challenge.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "invite", user_id: friend.id }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error ?? "Failed to invite");
+        }
+      }
+      setShowInvite(false);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to invite");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleInviteEmail(email: string) {
+    setActionLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/challenges/${challenge.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "invite", email }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to invite");
+      }
+      setShowInvite(false);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to invite");
+    } finally {
+      setActionLoading(false);
+    }
+  }
 
   async function handleAction(action: "accept" | "decline" | "cancel") {
     setActionLoading(true);
@@ -545,6 +593,31 @@ export default function ChallengeMatchup({
           ) : undefined}
         />
       </div>
+
+      {/* Invite friends — converts 1v1 to group challenge */}
+      {challenge.status !== "resolved" && challenge.status !== "cancelled" && (
+        <FadeIn delay={0.2} duration={0.3}>
+          {!showInvite ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mx-auto flex gap-1.5"
+              onClick={() => setShowInvite(true)}
+            >
+              <UserPlus className="h-4 w-4" />
+              Invite Friends
+            </Button>
+          ) : (
+            <InvitePanel
+              excludeUserIds={[challenge.challenger_id, challenge.opponent?.id].filter(Boolean) as string[]}
+              actionLoading={actionLoading}
+              onInviteUsers={handleInviteUsers}
+              onInviteEmail={handleInviteEmail}
+              onClose={() => setShowInvite(false)}
+            />
+          )}
+        </FadeIn>
+      )}
 
       {/* Status-specific CTAs */}
       {challenge.status === "draft" && isChallenger && (

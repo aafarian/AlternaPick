@@ -17,16 +17,18 @@ import OpponentAvatar from "@/components/challenges/OpponentAvatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, AlertCircle, Loader2, Crown, Trophy, Check, Clock, Lock } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Crown, Trophy, Check, Clock, Lock, X, UserPlus } from "lucide-react";
+import InvitePanel from "@/components/challenges/InvitePanel";
 import TrashTalkBubble from "@/components/challenges/TrashTalkBubble";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
 import ShareButton from "@/components/ui/ShareButton";
 import ReactionBar from "@/components/challenges/ReactionBar";
 import { parseIconConfig } from "@/lib/icons/parse";
 import { formatPlacement } from "@/lib/challenges/display";
+import { MAX_LOBBY_SIZE } from "@/lib/challenges/constants";
 import type { GameMode } from "@/lib/modes/types";
 import { maskEmail } from "@/lib/format";
-import { SlideUp, ScaleIn, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
+import { SlideUp, ScaleIn, FadeIn } from "@/components/motion";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 
 interface GroupLobbyViewProps {
@@ -97,10 +99,14 @@ function RosterTile({
   participant,
   isCurrentUser,
   isResolved,
+  onKick,
+  kickLoading,
 }: {
   participant: ChallengeParticipantProfile;
   isCurrentUser: boolean;
   isResolved: boolean;
+  onKick?: () => void;
+  kickLoading?: boolean;
 }) {
   const name = getParticipantDisplayName(participant);
   const card = participant.card;
@@ -162,7 +168,7 @@ function RosterTile({
         </div>
 
         {/* Right indicator */}
-        <div className="flex shrink-0 items-center">
+        <div className="flex shrink-0 items-center gap-1.5">
           {card && card.status === "resolved" ? (
             <span className="text-sm font-bold tabular-nums text-foreground">
               {card.score}/{card.total_picks}
@@ -172,6 +178,20 @@ function RosterTile({
           ) : participant.status === "invited" || participant.status === "accepted" ? (
             <Clock className="h-3.5 w-3.5 text-muted-foreground/40" />
           ) : null}
+          {onKick && (
+            <button
+              onClick={onKick}
+              disabled={kickLoading}
+              className="rounded p-0.5 text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:pointer-events-none"
+              title="Remove from challenge"
+            >
+              {kickLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <X className="h-3.5 w-3.5" />
+              )}
+            </button>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -307,16 +327,43 @@ export default function GroupLobbyView({
 }: GroupLobbyViewProps) {
   const router = useRouter();
   const [actionLoading, setActionLoading] = useState(false);
+  const [kickingUserId, setKickingUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showInvite, setShowInvite] = useState(false);
+  const [optimisticParticipants, setOptimisticParticipants] = useState<ChallengeParticipantProfile[]>([]);
   const prefersReduced = useReducedMotion();
 
-  const participants = challenge.participants ?? [];
+  const serverParticipants = challenge.participants ?? [];
+  // Merge optimistic participants, filtering out any that the server already has as non-declined
+  // (kicked users remain in server data as "declined", so we must not dedup against those)
+  const activeServerUserIds = new Set(
+    serverParticipants.filter((p) => p.status !== "declined").map((p) => p.user_id).filter(Boolean)
+  );
+  const activeServerEmails = new Set(
+    serverParticipants.filter((p) => p.status !== "declined").map((p) => p.email).filter(Boolean)
+  );
+  const participants = [
+    ...serverParticipants,
+    ...optimisticParticipants.filter((op) => {
+      if (op.user_id && activeServerUserIds.has(op.user_id)) return false;
+      if (op.email && activeServerEmails.has(op.email)) return false;
+      return true;
+    }),
+  ];
   const currentParticipant = participants.find((p) => p.user_id === currentUserId);
   const isCreator = currentParticipant?.is_creator ?? false;
 
   // Has the current user locked their card?
   const myCard = currentParticipant?.card ?? null;
   const hasLockedCard = myCard?.status === "locked" || myCard?.status === "resolved";
+
+  // Clear optimistic participants once server data includes them
+  useEffect(() => {
+    if (optimisticParticipants.length > 0) {
+      setOptimisticParticipants([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverParticipants.length]);
 
   // Pick visibility: show other participants' picks only after current user locks in
   const showOtherPicks =
@@ -416,6 +463,111 @@ export default function GroupLobbyView({
       );
     } finally {
       setActionLoading(false);
+    }
+  }
+
+  async function handleInviteUsers(friends: Array<{ id: string; username: string }>) {
+    setActionLoading(true);
+    setError(null);
+    try {
+      for (const friend of friends) {
+        const res = await fetch(`/api/challenges/${challenge.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "invite", user_id: friend.id }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error ?? "Failed to invite");
+        }
+      }
+      // Add optimistic roster tiles immediately
+      setOptimisticParticipants((prev) => [
+        ...prev,
+        ...friends.map((f) => ({
+          id: `optimistic-${f.id}`,
+          user_id: f.id,
+          username: f.username,
+          display_name: null,
+          avatar_url: null,
+          icon_config: null,
+          email: null,
+          status: "invited" as const,
+          card_id: null,
+          placement: null,
+          score: null,
+          is_creator: false,
+          card: null,
+        })),
+      ]);
+      setShowInvite(false);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to invite");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleInviteEmail(email: string) {
+    setActionLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/challenges/${challenge.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "invite", email }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to invite");
+      }
+      // Add optimistic roster tile immediately
+      setOptimisticParticipants((prev) => [
+        ...prev,
+        {
+          id: `optimistic-${email}`,
+          user_id: null,
+          username: null,
+          display_name: null,
+          avatar_url: null,
+          icon_config: null,
+          email,
+          status: "invited" as const,
+          card_id: null,
+          placement: null,
+          score: null,
+          is_creator: false,
+          card: null,
+        },
+      ]);
+      setShowInvite(false);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to invite");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleKick(userId: string) {
+    setKickingUserId(userId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/challenges/${challenge.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "kick", user_id: userId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to remove participant");
+      }
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove participant");
+    } finally {
+      setKickingUserId(null);
     }
   }
 
@@ -570,17 +722,61 @@ export default function GroupLobbyView({
       )}
 
       {/* Participant Roster — compact tiles, all same height */}
-      <StaggerChildren className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {activeParticipants.map((participant) => (
-          <StaggerItem key={participant.id}>
-            <RosterTile
-              participant={participant}
-              isCurrentUser={participant.user_id === currentUserId}
-              isResolved={isResolved}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <AnimatePresence initial={false}>
+          {activeParticipants.map((participant) => {
+            const canKick =
+              isCreator &&
+              !participant.is_creator &&
+              participant.user_id !== currentUserId &&
+              !isResolved;
+            // Use user_id (or email) as key so optimistic → server transitions don't remount
+            const stableKey = participant.user_id ?? participant.email ?? participant.id;
+            return (
+              <motion.div
+                key={stableKey}
+                initial={prefersReduced ? false : { opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={prefersReduced ? undefined : { opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.25 }}
+              >
+                <RosterTile
+                  participant={participant}
+                  isCurrentUser={participant.user_id === currentUserId}
+                  isResolved={isResolved}
+                  onKick={canKick && participant.user_id ? () => handleKick(participant.user_id!) : undefined}
+                  kickLoading={kickingUserId === participant.user_id}
+                />
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+
+      {/* Invite friends — available for all participants when lobby isn't full */}
+      {!isResolved && activeParticipants.length < MAX_LOBBY_SIZE && (
+        <FadeIn delay={0.2} duration={0.3}>
+          {!showInvite ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mx-auto flex gap-1.5"
+              onClick={() => setShowInvite(true)}
+            >
+              <UserPlus className="h-4 w-4" />
+              Invite Friends
+            </Button>
+          ) : (
+            <InvitePanel
+              excludeUserIds={activeParticipants.map((p) => p.user_id).filter(Boolean) as string[]}
+              actionLoading={actionLoading}
+              onInviteUsers={handleInviteUsers}
+              onInviteEmail={handleInviteEmail}
+              onClose={() => setShowInvite(false)}
             />
-          </StaggerItem>
-        ))}
-      </StaggerChildren>
+          )}
+        </FadeIn>
+      )}
 
       {/* Status-specific CTAs */}
       {challenge.status === "draft" && isCreator && (
