@@ -1520,9 +1520,27 @@ export async function addParticipantToGroup(
     throw new Error("Failed to add participant to group challenge");
   }
 
+  // Re-count after insert to guard against concurrent invites pushing past capacity.
+  // If the lobby is now over the limit, roll back the insert.
+  const { count: currentCount } = await (admin.from("challenge_participants") as any)
+    .select("id", { count: "exact", head: true })
+    .eq("challenge_id", challengeId)
+    .neq("status", "declined");
+
+  if (currentCount != null && currentCount > MAX_LOBBY_SIZE) {
+    // Over capacity — remove the just-added participant
+    await (admin.from("challenge_participants") as any)
+      .delete()
+      .eq("id", result.id);
+    throw new ChallengeValidationError(
+      `Lobby is full (max ${MAX_LOBBY_SIZE} participants)`
+    );
+  }
+
   // Update max_participants to reflect the new count
+  const newCount = currentCount ?? active.length + 1;
   await (admin.from("challenges") as any)
-    .update({ max_participants: active.length + 1 })
+    .update({ max_participants: newCount })
     .eq("id", challengeId);
 
   return result;
@@ -1591,6 +1609,12 @@ export async function removeParticipantFromGroup(
 
   if (target.status === "declined") {
     throw new ChallengeValidationError("This participant has already declined");
+  }
+
+  if (target.status === "active") {
+    throw new ChallengeValidationError(
+      "Cannot remove a participant who has already locked in their picks"
+    );
   }
 
   // If the participant had a card linked, detach it

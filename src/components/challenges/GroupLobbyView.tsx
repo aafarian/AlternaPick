@@ -24,6 +24,7 @@ import ShareButton from "@/components/ui/ShareButton";
 import ReactionBar from "@/components/challenges/ReactionBar";
 import { parseIconConfig } from "@/lib/icons/parse";
 import { formatPlacement } from "@/lib/challenges/display";
+import { MAX_LOBBY_SIZE } from "@/lib/challenges/constants";
 import type { GameMode } from "@/lib/modes/types";
 import { maskEmail } from "@/lib/format";
 import { SlideUp, ScaleIn, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
@@ -667,7 +668,7 @@ export default function GroupLobbyView({
       </StaggerChildren>
 
       {/* Invite friends — available for all participants when lobby isn't full */}
-      {!isResolved && challenge.status !== "active" && activeParticipants.length < 8 && (
+      {!isResolved && challenge.status !== "active" && activeParticipants.length < MAX_LOBBY_SIZE && (
         <FadeIn delay={0.2} duration={0.3}>
           {!showInvite ? (
             <Button
