@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import type { FriendRequest } from "./FriendRequestCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import UserAvatar from "@/components/icons/UserAvatar";
 import { parseIconConfig } from "@/lib/icons/parse";
+import UserProfilePopover from "@/components/user/UserProfilePopover";
 
 interface FriendsListProps {
   friends: FriendRequest[];
@@ -51,23 +51,30 @@ export default function FriendsList({ friends, onUnfriend }: FriendsListProps) {
         return (
           <Card key={friend.id} className="border-border bg-card">
             <CardContent className="flex items-center gap-4 p-4">
-              <Link href={`/users/${profile.username}`} className="flex items-center gap-4 min-w-0 flex-1">
-                <UserAvatar
-                  avatarUrl={profile.avatar_url}
-                  iconConfig={parseIconConfig(profile.icon_config)}
-                  userId={profile.id}
-                  username={profile.username}
-                  size={48}
-                  className="shrink-0"
-                />
+              <UserProfilePopover
+                userId={profile.id}
+                username={profile.username}
+                className="flex min-w-0 flex-1"
+                align="start"
+              >
+                <div className="flex items-center gap-4 min-w-0 flex-1">
+                  <UserAvatar
+                    avatarUrl={profile.avatar_url}
+                    iconConfig={parseIconConfig(profile.icon_config)}
+                    userId={profile.id}
+                    username={profile.username}
+                    size={48}
+                    className="shrink-0"
+                  />
 
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-bold hover:text-primary transition-colors">
-                    {profile.username}
-                  </p>
-                  <p className="truncate text-sm text-muted-foreground">@{profile.username}</p>
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="truncate font-bold hover:text-primary transition-colors">
+                      {profile.username}
+                    </p>
+                    <p className="truncate text-sm text-muted-foreground">@{profile.username}</p>
+                  </div>
                 </div>
-              </Link>
+              </UserProfilePopover>
 
               <div className="flex shrink-0 gap-2">
                 {isConfirming ? (

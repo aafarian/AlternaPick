@@ -29,6 +29,7 @@ import type { IconConfig } from "@/lib/icons/types";
 import { parseIconConfig } from "@/lib/icons/parse";
 import type { GameMode } from "@/lib/modes/types";
 import { getOpponentDisplayName } from "@/lib/challenges/display";
+import UserProfilePopover from "@/components/user/UserProfilePopover";
 import { SlideUp, ScaleIn, FadeIn } from "@/components/motion";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 
@@ -42,6 +43,7 @@ interface ChallengeMatchupProps {
 function PlayerSide({
   label,
   name,
+  username,
   avatarUrl,
   iconConfig,
   userId,
@@ -56,6 +58,8 @@ function PlayerSide({
 }: {
   label: string;
   name: string;
+  /** URL-safe username for the profile popover (may differ from display name) */
+  username?: string;
   avatarUrl: string | null;
   iconConfig: IconConfig | null;
   userId: string;
@@ -117,14 +121,19 @@ function PlayerSide({
       {/* Player identity */}
       <div className="flex flex-col items-center gap-2">
         {avatarSlot ?? (
-          <UserAvatar
-            avatarUrl={avatarUrl}
-            iconConfig={iconConfig}
+          <UserProfilePopover
             userId={userId}
-            username={name}
-            size={56}
-            className={isWinner ? "animate-winner-ring" : undefined}
-          />
+            username={username}
+          >
+            <UserAvatar
+              avatarUrl={avatarUrl}
+              iconConfig={iconConfig}
+              userId={userId}
+              username={name}
+              size={56}
+              className={isWinner ? "animate-winner-ring" : undefined}
+            />
+          </UserProfilePopover>
         )}
         <span className="text-sm font-semibold">
           {isWinner && <Crown className="mr-1 inline h-4 w-4 text-neon-green" />}
@@ -538,6 +547,7 @@ export default function ChallengeMatchup({
         <PlayerSide
           label={isChallenger ? "You" : "Opponent"}
           name={challengerName}
+          username={challenge.challenger.username}
           avatarUrl={challenge.challenger.avatar_url}
           iconConfig={parseIconConfig(challenge.challenger.icon_config)}
           userId={challenge.challenger.id}
@@ -573,6 +583,7 @@ export default function ChallengeMatchup({
         <PlayerSide
           label={isChallenger ? "Opponent" : "You"}
           name={opponentName}
+          username={challenge.opponent?.username}
           avatarUrl={challenge.opponent?.avatar_url ?? null}
           iconConfig={parseIconConfig(challenge.opponent?.icon_config ?? null)}
           userId={challenge.opponent?.id ?? ""}
