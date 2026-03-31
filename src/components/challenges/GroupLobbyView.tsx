@@ -375,7 +375,7 @@ export default function GroupLobbyView({
   const shouldFetchLive =
     hasLockedCard || challenge.status === "resolved";
 
-  const { data: liveData, isLoading: liveLoading, challengeResolved } = useLiveChallenge(
+  const { data: liveData, isLoading: liveLoading, error: liveError, challengeResolved } = useLiveChallenge(
     challenge.id,
     shouldFetchLive
   );
@@ -935,7 +935,7 @@ export default function GroupLobbyView({
                   showPicks={isMe || showOtherPicks}
                   livePickMap={liveMap}
                   hasLiveGames={liveData?.has_live_games ?? false}
-                  liveLoading={shouldFetchLive && !liveData}
+                  liveLoading={shouldFetchLive && !liveData && !liveError}
                   isResolved={isResolved}
                 />
               );
