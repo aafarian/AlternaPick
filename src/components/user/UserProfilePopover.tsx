@@ -17,7 +17,7 @@ interface UserProfilePopoverProps {
   /** Target user's ID */
   userId: string;
   /** Target user's username */
-  username: string;
+  username?: string;
   /** Friendship ID — if provided, enables the Unfriend action */
   friendshipId?: string;
   /** Called when the user confirms unfriend */
@@ -46,8 +46,8 @@ export default function UserProfilePopover({
   const [unfriendLoading, setUnfriendLoading] = useState(false);
   const isCurrentUser = user?.id === userId;
 
-  // When disabled or no userId, render children without wrapper
-  if (disabled || !userId) {
+  // When disabled, no userId, or no username, render children without wrapper
+  if (disabled || !userId || !username) {
     return <>{children}</>;
   }
 

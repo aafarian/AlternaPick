@@ -152,7 +152,7 @@ function RosterTile({
               avatarUrl={participant.avatar_url}
               iconConfig={parseIconConfig(participant.icon_config)}
               userId={participant.user_id}
-              username={participant.username ?? undefined}
+              username={participant.username ?? ""}
               size={36}
               className={isResolved && participant.placement === 1 ? "animate-winner-ring" : undefined}
             />
@@ -260,7 +260,7 @@ function ParticipantPickSection({
             avatarUrl={participant.avatar_url}
             iconConfig={parseIconConfig(participant.icon_config)}
             userId={participant.user_id}
-            username={participant.username ?? undefined}
+            username={participant.username ?? ""}
             size={24}
             className={isResolved && participant.placement === 1 ? "animate-winner-ring" : undefined}
           />
