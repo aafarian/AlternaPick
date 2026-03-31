@@ -113,12 +113,20 @@ function RosterTile({
   const card = participant.card;
   const cfg = statusConfig[participant.status] ?? statusConfig.invited;
 
+  function handleTileClick() {
+    const el = document.getElementById(`picks-${participant.id}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   return (
-    <Card className={cn(
-      "overflow-hidden border-border bg-card",
-      isCurrentUser && "ring-1 ring-primary/30",
-      isResolved && participant.placement === 1 && "ring-1 ring-neon-green/30",
-    )}>
+    <Card
+      className={cn(
+        "overflow-hidden border-border bg-card cursor-pointer transition-colors hover:bg-accent/50",
+        isCurrentUser && "ring-1 ring-primary/30",
+        isResolved && participant.placement === 1 && "ring-1 ring-neon-green/30",
+      )}
+      onClick={handleTileClick}
+    >
       <CardContent className="flex items-center gap-3 p-3">
         {/* Avatar */}
         {participant.user_id ? (
@@ -181,7 +189,7 @@ function RosterTile({
           ) : null}
           {onKick && (
             <button
-              onClick={onKick}
+              onClick={(e) => { e.stopPropagation(); onKick(); }}
               disabled={kickLoading}
               className="rounded p-0.5 text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:pointer-events-none"
               title="Remove from challenge"
@@ -252,7 +260,7 @@ function ParticipantPickSection({
   // No card yet — show waiting placeholder
   if (!card) {
     return (
-      <div className="flex flex-col gap-2">
+      <div id={`picks-${participant.id}`} className="scroll-mt-20 flex flex-col gap-2">
         {sectionLabel}
         <Card className="border-border bg-card">
           <CardContent className="flex items-center justify-center gap-2 px-4 py-8">
@@ -269,7 +277,7 @@ function ParticipantPickSection({
   // Card exists but picks are hidden (privacy: user hasn't locked yet)
   if (!showPicks && !isCurrentUser) {
     return (
-      <div className="flex flex-col gap-2">
+      <div id={`picks-${participant.id}`} className="scroll-mt-20 flex flex-col gap-2">
         {sectionLabel}
         <Card className="border-border bg-card">
           <CardContent className="flex items-center justify-center gap-2 px-4 py-8">
@@ -306,7 +314,7 @@ function ParticipantPickSection({
   );
 
   return (
-    <div className="flex flex-col gap-2">
+    <div id={`picks-${participant.id}`} className="scroll-mt-20 flex flex-col gap-2">
       {sectionLabel}
       <LivePickCard
         picks={picks}
