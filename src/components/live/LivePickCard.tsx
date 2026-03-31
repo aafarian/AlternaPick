@@ -6,6 +6,7 @@ import LivePickRow from "./LivePickRow";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function PickRowSkeleton() {
@@ -63,6 +64,9 @@ export default function LivePickCard({
             </div>
           )}
           {statusLabel}
+          {loading && picks.length > 0 && (
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/50" />
+          )}
         </div>
 
         {/* Dot scoreboard */}
@@ -111,7 +115,7 @@ export default function LivePickCard({
       {picks.length > 0 && (
         <>
           <Separator className="opacity-30" />
-          <div className="flex flex-col">
+          <div className={cn("flex flex-col transition-opacity", loading && "opacity-60")}>
             {picks.map((pick, i) => (
               <div key={pick.pick_id}>
                 {i > 0 && <Separator className="ml-4 opacity-20" />}
