@@ -73,23 +73,30 @@ jobs:
             # Build new images WHILE old containers still serve traffic
             docker compose build
 
-            # Stop old containers and start new ones
-            docker compose down --remove-orphans
-            docker compose up -d
+            # Zero-downtime restart: recreate containers one at a time.
+            # Old containers keep serving until the new ones pass health checks.
+            # --no-deps prevents cascading restarts of dependent services.
+            # Failures are caught here (not via set -e) so rollback can run.
+            healthy=true
+            docker compose up -d --no-deps --wait stats-service || { echo "stats-service failed healthcheck"; healthy=false; }
+            docker compose up -d --no-deps --wait nextjs       || { echo "nextjs failed healthcheck";       healthy=false; }
+            docker compose up -d --remove-orphans
 
-            # Health check
-            echo "Waiting for app to start..."
-            sleep 5
-            healthy=false
-            for i in 1 2 3 4 5; do
-              if curl -sf --max-time 5 http://localhost > /dev/null 2>&1; then
-                echo "Health check passed!"
-                healthy=true
-                break
-              fi
-              echo "Health check attempt $i failed, retrying in 5s..."
-              sleep 5
-            done
+            # Verify the deploy via the health endpoint
+            if [ "$healthy" != "false" ]; then
+              echo "Verifying deploy via /api/health..."
+              sleep 3
+              healthy=false
+              for i in 1 2 3 4 5; do
+                if curl -sf --max-time 5 http://localhost/api/health > /dev/null 2>&1; then
+                  echo "Health check passed!"
+                  healthy=true
+                  break
+                fi
+                echo "Health check attempt $i failed, retrying in 5s..."
+                sleep 5
+              done
+            fi
 
             if [ "$healthy" = false ]; then
               echo "ROLLBACK: Health check failed, restoring previous images..."
@@ -99,12 +106,11 @@ jobs:
                   docker tag "${img}:rollback" "${img}:latest"
                 fi
               done
-              docker compose down
-              docker compose up -d
-              sleep 5
+              docker compose up -d --force-recreate --wait nextjs stats-service
+              sleep 3
               rollback_ok=false
               for i in 1 2 3 4 5; do
-                if curl -sf --max-time 5 http://localhost > /dev/null 2>&1; then
+                if curl -sf --max-time 5 http://localhost/api/health > /dev/null 2>&1; then
                   echo "Rollback succeeded — restored previous images"
                   rollback_ok=true
                   break
