@@ -132,7 +132,7 @@ function RosterTile({
       role="button"
       tabIndex={0}
       className={cn(
-        "overflow-hidden border-border bg-card cursor-pointer transition-colors hover:bg-accent/50",
+        "overflow-hidden border-border bg-card cursor-pointer transition-colors hover:bg-muted outline-none focus-visible:ring-1 focus-visible:ring-primary/50",
         isCurrentUser && "ring-1 ring-primary/30",
         isResolved && participant.placement === 1 && "ring-1 ring-neon-green/30",
       )}
