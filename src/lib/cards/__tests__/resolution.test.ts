@@ -12,6 +12,7 @@ vi.mock("@/lib/sports/fetchers", () => ({
 // Mock logger to suppress output during tests
 vi.mock("@/lib/logger", () => ({
   logError: vi.fn(),
+  logWarn: vi.fn(),
 }));
 
 /* ---------- extractStatValue ---------- */
