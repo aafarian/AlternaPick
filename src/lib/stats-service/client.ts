@@ -1,4 +1,4 @@
-import { logWarn } from "@/lib/logger";
+import { logError } from "@/lib/logger";
 
 const STATS_SERVICE_URL =
   process.env.STATS_SERVICE_URL || "http://localhost:8000";
@@ -168,7 +168,7 @@ function recordFailure(): void {
   consecutiveFailures++;
   if (consecutiveFailures >= CIRCUIT_OPEN_THRESHOLD) {
     circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
-    logWarn("stats-service", `Circuit breaker OPEN after ${consecutiveFailures} consecutive failures, cooldown ${CIRCUIT_COOLDOWN_MS / 1000}s`);
+    logError("stats-service", `Circuit breaker OPEN after ${consecutiveFailures} consecutive failures, cooldown ${CIRCUIT_COOLDOWN_MS / 1000}s`);
   }
 }
 
