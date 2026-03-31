@@ -25,15 +25,19 @@ export function logError(
   endpoint?: string,
   error?: unknown,
 ): void {
-  const stack = error instanceof Error ? error.stack : undefined;
-  console.error(`[${category}] ${message}`, ...(stack ? ["\n", stack] : error !== undefined ? [error] : []));
+  const errorDetail = error instanceof Error
+    ? error.stack
+    : error != null
+      ? JSON.stringify(error)
+      : undefined;
+  console.error(`[${category}] ${message}`, ...(errorDetail ? ["\n", errorDetail] : error !== undefined ? [error] : []));
   if (process.env.NODE_ENV !== "production") return;
   entries.push({
     message,
     category,
     timestamp: new Date().toISOString(),
     endpoint: endpoint ?? null,
-    ...(stack ? { stack } : {}),
+    ...(errorDetail ? { stack: errorDetail } : {}),
   });
   if (entries.length > MAX_ENTRIES) {
     entries.shift();

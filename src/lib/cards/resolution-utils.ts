@@ -1,4 +1,4 @@
-import { logError } from "@/lib/logger";
+import { logWarn } from "@/lib/logger";
 import type { PlayerBoxScore } from "@/lib/stats-service/client";
 import type { StatCategory } from "@/lib/supabase/types";
 
@@ -47,7 +47,7 @@ export function extractStatValue(
     case "saves":
       return stats.saves ?? 0;
     default:
-      logError("resolution", `Unknown stat category: ${category}`);
+      logWarn("resolution", `Unknown stat category: ${category}`);
       return 0;
   }
 }

@@ -58,7 +58,7 @@ export async function updateSession(
         .update({ last_active_at: new Date().toISOString() })
         .eq("id", user.id)
         .then(({ error }) => {
-          if (error) logError("DAU", `last_active_at update failed: ${error.message}`);
+          if (error) logError("DAU", "last_active_at update failed", undefined, error);
         });
     }
   }

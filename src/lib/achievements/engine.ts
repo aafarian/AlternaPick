@@ -67,9 +67,8 @@ export async function checkAndUnlockAchievements(
       let passed = false;
       try {
         passed = checkFn(context);
-      } catch {
-        // Individual check failure should not block others
-        logError("achievement-engine", `Achievement check "${key}" threw an error`);
+      } catch (checkErr) {
+        logError("achievement-engine", `Achievement check "${key}" threw an error`, undefined, checkErr);
         continue;
       }
 

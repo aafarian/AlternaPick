@@ -16,6 +16,7 @@ import { SlideUp } from "@/components/motion";
 import { StaggerChildren, StaggerItem } from "@/components/motion";
 import { AnimatePresence, motion, useReducedMotion } from "@/lib/motion";
 import { AlertCircle } from "lucide-react";
+import { logWarn } from "@/lib/logger";
 
 function SignupForm() {
   const router = useRouter();
@@ -94,7 +95,7 @@ function SignupForm() {
 
     // Step 3: Claim any anonymous cards created before signup
     if (localStorage.getItem("ap_anon_id")) {
-      await claimCardsAfterLogin().catch(() => {});
+      await claimCardsAfterLogin().catch((err) => { logWarn("auth", "Failed to claim anonymous cards after signup", err); });
     }
     clearAnonymousId();
 

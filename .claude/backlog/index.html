@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlternaPick Backlog</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface-hover: #1a1a1a;
+    --border: #262626;
+    --border-light: #333;
+    --text: #e5e5e5;
+    --text-muted: #737373;
+    --text-dim: #525252;
+    --green: #22c55e;
+    --green-dim: rgba(34, 197, 94, 0.15);
+    --lime: #84cc16;
+    --lime-dim: rgba(132, 204, 22, 0.12);
+    --amber: #f59e0b;
+    --amber-dim: rgba(245, 158, 11, 0.12);
+    --orange: #f97316;
+    --orange-dim: rgba(249, 115, 22, 0.12);
+    --red: #ef4444;
+    --red-dim: rgba(239, 68, 68, 0.12);
+    --blue: #3b82f6;
+    --blue-dim: rgba(59, 130, 246, 0.12);
+    --purple: #a855f7;
+    --purple-dim: rgba(168, 85, 247, 0.12);
+    --radius: 8px;
+    --sidebar-w: 200px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* === Layout: sidebar + main === */
+  .layout {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* === Sidebar === */
+  .sidebar {
+    width: var(--sidebar-w);
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar-brand {
+    padding: 0 16px 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+
+  .sidebar-brand h1 {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .sidebar-brand h1 span { color: var(--green); }
+
+  .sidebar-progress {
+    margin-top: 8px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .sidebar-progress .fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  .sidebar-progress-text {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  .sidebar-section {
+    padding: 12px 12px 4px;
+  }
+
+  .sidebar-section-title {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    padding: 0 4px;
+    margin-bottom: 4px;
+  }
+
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.12s;
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 500;
+    user-select: none;
+  }
+
+  .sidebar-item:hover { background: var(--surface-hover); color: var(--text); }
+
+  .sidebar-item.active {
+    background: var(--green-dim);
+    color: var(--green);
+  }
+
+  .sidebar-item .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-right: 8px;
+  }
+
+  .sidebar-item .label {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sidebar-item .count {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 0 7px;
+    min-width: 22px;
+    text-align: center;
+    line-height: 18px;
+  }
+
+  .sidebar-item.active .count {
+    background: rgba(34, 197, 94, 0.2);
+    color: var(--green);
+  }
+
+  .sidebar-spacer { flex: 1; }
+
+  .sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* === Main area === */
+  .main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .toolbar {
+    padding: 14px 24px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,10,0.6);
+    backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+
+  .dropdown select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 32px 7px 12px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23737373' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    min-width: 120px;
+  }
+
+  .dropdown select:hover { border-color: var(--border-light); }
+  .dropdown select:focus { outline: none; border-color: var(--green); }
+  .dropdown select option { background: #1a1a1a; color: var(--text); }
+
+  .search-input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 12px 7px 32px;
+    transition: border-color 0.15s;
+    min-width: 180px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 10px center;
+  }
+
+  .search-input:hover { border-color: var(--border-light); }
+  .search-input:focus { outline: none; border-color: var(--green); }
+  .search-input::placeholder { color: var(--text-dim); }
+
+  .search-highlight { background: rgba(34, 197, 94, 0.25); border-radius: 2px; }
+
+  .toolbar-spacer { flex: 1; }
+
+  .toolbar .view-title {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ticket-count {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+
+  /* === Table === */
+  .content {
+    flex: 1;
+    padding: 0 24px 48px;
+  }
+
+  .table-header {
+    display: grid;
+    grid-template-columns: 70px 1fr 80px 80px;
+    gap: 0;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-light);
+    position: sticky;
+    top: 53px;
+    z-index: 35;
+    background: var(--bg);
+  }
+
+  .col-head {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 0;
+    transition: color 0.15s;
+  }
+
+  .col-head:hover { color: var(--text); }
+  .col-head.active { color: var(--green); }
+
+  .col-head .sort-arrow {
+    font-size: 10px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .col-head.active .sort-arrow { opacity: 1; }
+  .col-head:hover .sort-arrow { opacity: 0.5; }
+  .col-head.active:hover .sort-arrow { opacity: 1; }
+
+  /* === Ticket rows === */
+  .ticket-row {
+    display: grid;
+    grid-template-columns: 70px 1fr 80px 80px;
+    gap: 0;
+    align-items: center;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s;
+    border-left: 3px solid transparent;
+  }
+
+  .ticket-row:hover { background: var(--surface-hover); }
+
+  .ticket-row[data-priority="P0"] { border-left-color: var(--red); }
+  .ticket-row[data-priority="P1"] { border-left-color: var(--orange); }
+  .ticket-row[data-priority="P2"] { border-left-color: var(--amber); }
+  .ticket-row[data-priority="P3"] { border-left-color: var(--green); }
+
+  .ticket-row .ticket-id {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  .ticket-row .ticket-title {
+    font-size: 13px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 12px;
+  }
+
+  .ticket-row .ticket-title .caret {
+    display: inline-block;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-right: 6px;
+    transition: transform 0.15s;
+    width: 10px;
+  }
+
+  .ticket-row.expanded .ticket-title .caret { transform: rotate(90deg); }
+
+  .badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    display: inline-block;
+    text-align: center;
+    width: fit-content;
+  }
+
+  /* Green-to-red for priority */
+  .badge-p0 { background: var(--red-dim); color: var(--red); }
+  .badge-p1 { background: var(--orange-dim); color: var(--orange); }
+  .badge-p2 { background: var(--amber-dim); color: var(--amber); }
+  .badge-p3 { background: var(--green-dim); color: var(--green); }
+
+  /* Green-to-red for size */
+  .badge-xs { background: var(--green-dim); color: var(--green); }
+  .badge-s { background: var(--lime-dim); color: var(--lime); }
+  .badge-m { background: var(--amber-dim); color: var(--amber); }
+  .badge-l { background: var(--orange-dim); color: var(--orange); }
+  .badge-xl { background: var(--red-dim); color: var(--red); }
+
+  /* === Detail panel === */
+  .ticket-detail-row {
+    display: none;
+    padding: 4px 16px 14px 89px;
+    margin-bottom: 2px;
+  }
+
+  .ticket-detail-row.visible { display: block; }
+
+  .ticket-description {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 10px;
+  }
+
+  .ticket-description h1,
+  .ticket-description h2,
+  .ticket-description h3,
+  .ticket-description h4 {
+    color: var(--text);
+    margin: 12px 0 4px;
+    line-height: 1.3;
+  }
+
+  .ticket-description h1 { font-size: 16px; }
+  .ticket-description h2 { font-size: 15px; }
+  .ticket-description h3 { font-size: 14px; }
+  .ticket-description h4 { font-size: 13px; font-weight: 600; }
+
+  .ticket-description p { margin: 6px 0; }
+
+  .ticket-description ul,
+  .ticket-description ol {
+    margin: 6px 0;
+    padding-left: 20px;
+  }
+
+  .ticket-description li { margin: 2px 0; }
+
+  .ticket-description code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--text);
+  }
+
+  .ticket-description pre {
+    margin: 8px 0;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    overflow-x: auto;
+  }
+
+  .ticket-description pre code {
+    background: none;
+    padding: 0;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .ticket-description strong { color: var(--text); font-weight: 600; }
+
+  .ticket-description hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 10px 0;
+  }
+
+  .ticket-tags {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .tag {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-dim);
+  }
+
+  .ticket-links {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+  }
+
+  .ticket-links a {
+    color: var(--green);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .ticket-links a:hover { text-decoration: underline; }
+
+  .ticket-notes {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    border-left: 2px solid var(--amber);
+  }
+
+  .ticket-notes p {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .ticket-date {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 8px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  /* === Mobile: sidebar becomes top tabs === */
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; }
+
+    .sidebar {
+      width: 100%;
+      height: auto;
+      position: static;
+      flex-direction: row;
+      flex-wrap: wrap;
+      padding: 12px;
+      gap: 0;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-brand { display: none; }
+    .sidebar-section { padding: 0; width: 100%; }
+    .sidebar-section-title { display: none; }
+    .sidebar-spacer { display: none; }
+    .sidebar-footer { display: none; }
+
+    .sidebar-section.status-section {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .sidebar-item {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .toolbar { padding: 10px 16px; }
+    .content { padding: 0 16px 48px; }
+    .dropdown select { min-width: 100px; font-size: 12px; }
+
+    .table-header {
+      grid-template-columns: 60px 1fr 60px 60px;
+      top: 49px;
+    }
+
+    .ticket-row {
+      grid-template-columns: 60px 1fr 60px 60px;
+    }
+
+    .ticket-detail-row { padding-left: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <h1><span>Alterna</span>Pick</h1>
+      <div class="sidebar-progress">
+        <div class="fill" id="progressFill"></div>
+      </div>
+      <div class="sidebar-progress-text" id="progressText"></div>
+    </div>
+
+    <div class="sidebar-section status-section" id="statusNav"></div>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="sidebar-footer" id="sidebarFooter"></div>
+  </aside>
+
+  <!-- Main content -->
+  <div class="main">
+    <div class="toolbar">
+      <span class="view-title" id="viewTitle">Backlog</span>
+      <input type="text" class="search-input" id="searchInput" placeholder="Search tickets..." oninput="applyFilters()">
+      <div class="toolbar-spacer"></div>
+      <div class="dropdown">
+        <select id="filterPriority" onchange="applyFilters()">
+          <option value="all">All priorities</option>
+          <option value="P0">P0 Critical</option>
+          <option value="P1">P1 High</option>
+          <option value="P2">P2 Medium</option>
+          <option value="P3">P3 Low</option>
+        </select>
+      </div>
+      <div class="dropdown">
+        <select id="filterTag" onchange="applyFilters()">
+          <option value="all">All tags</option>
+        </select>
+      </div>
+      <span class="ticket-count" id="ticketCount"></span>
+    </div>
+
+    <div class="content">
+      <div class="table-header">
+        <div class="col-head" data-col="id" onclick="toggleSort('id')">
+          ID <span class="sort-arrow"></span>
+        </div>
+        <div class="col-head" data-col="title" onclick="toggleSort('title')">
+          Title <span class="sort-arrow"></span>
+        </div>
+        <div class="col-head active" data-col="priority" onclick="toggleSort('priority')">
+          Priority <span class="sort-arrow">&#9650;</span>
+        </div>
+        <div class="col-head" data-col="size" onclick="toggleSort('size')">
+          Size <span class="sort-arrow"></span>
+        </div>
+      </div>
+      <div id="ticketList"></div>
+    </div>
+  </div>
+</div>
+
+<script src="tickets.js"></script>
+<script>
+const REPO = 'https://github.com/aafarian/AlternaPick';
+
+const STATUS_CONFIG = [
+  { key: 'all',         label: 'All Tickets',  dot: '#737373' },
+  { key: 'backlog',     label: 'Backlog',       dot: '#737373' },
+  { key: 'in_progress', label: 'In Progress',   dot: '#3b82f6' },
+  { key: 'in_review',   label: 'In Review',     dot: '#a855f7' },
+  { key: 'done',        label: 'Done',          dot: '#22c55e' },
+  { key: 'wont_fix',    label: "Won't Fix",     dot: '#525252' },
+];
+
+const STATUS_LABELS = {};
+STATUS_CONFIG.forEach(s => { STATUS_LABELS[s.key] = s.label; });
+
+const PRIORITY_ORDER = { P0: 0, P1: 1, P2: 2, P3: 3 };
+const SIZE_ORDER = { XS: 0, S: 1, M: 2, L: 3, XL: 4 };
+
+// Data loaded from tickets.js via <script> tag (works with file://)
+let data = window.__TICKETS__ || null;
+
+let activeStatus = 'all';
+let sortCol = 'priority';
+let sortAsc = true;
+let expandedTickets = new Set();
+
+function initTagDropdown() {
+  const allTags = [...new Set(data.tickets.flatMap(t => t.tags))].sort();
+  const sel = document.getElementById('filterTag');
+  // Clear existing options beyond the "All tags" default
+  while (sel.options.length > 1) sel.remove(1);
+  for (const tag of allTags) {
+    const opt = document.createElement('option');
+    opt.value = tag;
+    opt.textContent = tag;
+    sel.appendChild(opt);
+  }
+}
+
+function getFilteredTickets() {
+  if (!data) return [];
+  let tickets = [...data.tickets];
+  if (activeStatus !== 'all') tickets = tickets.filter(t => t.status === activeStatus);
+  const pri = document.getElementById('filterPriority').value;
+  const tag = document.getElementById('filterTag').value;
+  const query = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+  if (pri !== 'all') tickets = tickets.filter(t => t.priority === pri);
+  if (tag !== 'all') tickets = tickets.filter(t => t.tags.includes(tag));
+  if (query) {
+    tickets = tickets.filter(t =>
+      t.id.toLowerCase().includes(query) ||
+      t.title.toLowerCase().includes(query) ||
+      t.description.toLowerCase().includes(query) ||
+      t.tags.some(tag => tag.toLowerCase().includes(query)) ||
+      (t.branch && t.branch.toLowerCase().includes(query)) ||
+      (t.pr && t.pr.toLowerCase().includes(query))
+    );
+  }
+  return tickets;
+}
+
+function compareTickets(a, b) {
+  let cmp = 0;
+  switch (sortCol) {
+    case 'id':
+      cmp = parseInt(a.id.replace('AP-','')) - parseInt(b.id.replace('AP-',''));
+      break;
+    case 'title':
+      cmp = a.title.localeCompare(b.title);
+      break;
+    case 'priority':
+      cmp = (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9);
+      if (cmp === 0) cmp = (SIZE_ORDER[b.size] ?? 9) - (SIZE_ORDER[a.size] ?? 9);
+      break;
+    case 'size':
+      cmp = (SIZE_ORDER[a.size] ?? 9) - (SIZE_ORDER[b.size] ?? 9);
+      if (cmp === 0) cmp = (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9);
+      break;
+  }
+  return sortAsc ? cmp : -cmp;
+}
+
+function renderSidebar() {
+  const tickets = data.tickets;
+  const counts = { all: tickets.length };
+  for (const t of tickets) {
+    counts[t.status] = (counts[t.status] || 0) + 1;
+  }
+
+  const done = counts.done || 0;
+  const total = tickets.length;
+  const pct = total > 0 ? (done / total * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressText').textContent = done + ' of ' + total + ' done';
+
+  let html = `<div class="sidebar-section-title">Views</div>`;
+  for (const s of STATUS_CONFIG) {
+    const count = counts[s.key] || 0;
+    if (s.key !== 'all' && count === 0) continue;
+    html += `<div class="sidebar-item ${activeStatus === s.key ? 'active' : ''}" onclick="setStatus('${s.key}')">
+      <span class="label"><span class="dot" style="background:${s.dot}"></span>${s.label}</span>
+      <span class="count">${count}</span>
+    </div>`;
+  }
+
+  document.getElementById('statusNav').innerHTML = html;
+
+  // Footer stats
+  const p0 = tickets.filter(t => t.priority === 'P0' && t.status !== 'done').length;
+  const open = tickets.filter(t => !['done','wont_fix'].includes(t.status)).length;
+  document.getElementById('sidebarFooter').innerHTML = `
+    ${p0 > 0 ? `<div style="color:var(--red); margin-bottom: 2px;">${p0} critical</div>` : ''}
+    <div>${open} open tickets</div>
+  `;
+}
+
+function highlightMatch(html, query) {
+  if (!query) return html;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return html.replace(new RegExp(`(${escaped})`, 'gi'), '<span class="search-highlight">$1</span>');
+}
+
+function render() {
+  if (!data) return;
+
+  renderSidebar();
+
+  // View title
+  const viewLabel = STATUS_CONFIG.find(s => s.key === activeStatus)?.label || 'All Tickets';
+  document.getElementById('viewTitle').textContent = viewLabel;
+
+  // Column headers
+  document.querySelectorAll('.col-head').forEach(el => {
+    const col = el.dataset.col;
+    el.classList.toggle('active', col === sortCol);
+    const arrow = el.querySelector('.sort-arrow');
+    arrow.innerHTML = (col === sortCol) ? (sortAsc ? '&#9650;' : '&#9660;') : '&#9650;';
+  });
+
+  const filtered = getFilteredTickets();
+  filtered.sort(compareTickets);
+  document.getElementById('ticketCount').textContent = filtered.length + ' tickets';
+
+  const listEl = document.getElementById('ticketList');
+  let html = '';
+
+  const query = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+
+  for (const t of filtered) {
+    const prClass = 'badge-' + t.priority.toLowerCase();
+    const sizeClass = 'badge-' + t.size.toLowerCase();
+    const expanded = expandedTickets.has(t.id);
+    const prLink = t.pr ? `<a href="${REPO}/pull/${t.pr.replace('#','')}" target="_blank">${t.pr}</a>` : '';
+    const branchText = t.branch ? `<span style="color:var(--text-dim); font-family:monospace;">${t.branch}</span>` : '';
+
+    const titleHtml = query ? highlightMatch(esc(t.title), query) : esc(t.title);
+
+    html += `<div class="ticket-row ${expanded ? 'expanded' : ''}" data-priority="${t.priority}" onclick="toggleTicket('${t.id}')">
+      <span class="ticket-id">${t.id}</span>
+      <span class="ticket-title"><span class="caret">&#9656;</span>${titleHtml}</span>
+      <span><span class="badge ${prClass}">${t.priority}</span></span>
+      <span><span class="badge ${sizeClass}">${t.size}</span></span>
+    </div>
+    <div class="ticket-detail-row ${expanded ? 'visible' : ''}" id="detail-${t.id}">
+      <div class="ticket-description">${md(t.description)}</div>
+      <div class="ticket-tags">
+        ${t.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+      </div>
+      ${(prLink || branchText) ? `<div class="ticket-links">${prLink} ${branchText}</div>` : ''}
+      ${t.notes && t.notes.length > 0 ? `<div class="ticket-notes">${t.notes.map(n => `<p>${esc(n)}</p>`).join('')}</div>` : ''}
+      <div class="ticket-date">Created ${t.created} &middot; Updated ${t.updated}</div>
+    </div>`;
+  }
+
+  if (filtered.length === 0) {
+    html = '<div class="empty-state">No tickets match these filters</div>';
+  }
+
+  listEl.innerHTML = html;
+}
+
+function setStatus(key) {
+  activeStatus = key;
+  render();
+}
+
+function toggleSort(col) {
+  if (sortCol === col) {
+    sortAsc = !sortAsc;
+  } else {
+    sortCol = col;
+    sortAsc = true;
+  }
+  render();
+}
+
+function applyFilters() { render(); }
+
+function toggleTicket(id) {
+  if (expandedTickets.has(id)) {
+    expandedTickets.delete(id);
+  } else {
+    expandedTickets.add(id);
+  }
+  const row = document.querySelector(`.ticket-row[onclick="toggleTicket('${id}')"]`);
+  const detail = document.getElementById('detail-' + id);
+  if (row && detail) {
+    row.classList.toggle('expanded');
+    detail.classList.toggle('visible');
+  }
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function md(raw) {
+  // HTML-escape first, then apply markdown transforms
+  let s = esc(raw);
+
+  // Code blocks: ```...```
+  s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
+    `<pre><code>${code.replace(/\n$/, '')}</code></pre>`
+  );
+
+  // Inline code: `...`
+  s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Headers: **must be at start of line**
+  s = s.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+  s = s.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  s = s.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  s = s.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // Bold: **text**
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+  // Italic: *text* (but not inside words)
+  s = s.replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, '<em>$1</em>');
+
+  // Horizontal rule
+  s = s.replace(/^---$/gm, '<hr>');
+
+  // Unordered lists: lines starting with - (group consecutive)
+  s = s.replace(/(^- .+$(\n|$))+/gm, (block) => {
+    const items = block.trim().split('\n')
+      .map(line => `<li>${line.replace(/^- /, '')}</li>`)
+      .join('');
+    return `<ul>${items}</ul>`;
+  });
+
+  // Ordered lists: lines starting with 1. 2. etc (group consecutive)
+  s = s.replace(/(^\d+\. .+$(\n|$))+/gm, (block) => {
+    const items = block.trim().split('\n')
+      .map(line => `<li>${line.replace(/^\d+\. /, '')}</li>`)
+      .join('');
+    return `<ol>${items}</ol>`;
+  });
+
+  // Paragraphs: wrap remaining text blocks separated by blank lines
+  // Split on double newlines, wrap non-tag content in <p>
+  s = s.split(/\n{2,}/).map(block => {
+    block = block.trim();
+    if (!block) return '';
+    // Don't wrap blocks that already start with an HTML block element
+    if (/^<(h[1-4]|ul|ol|pre|hr|p|div|blockquote)/i.test(block)) return block;
+    return `<p>${block}</p>`;
+  }).join('\n');
+
+  // Single newlines within paragraphs → <br>
+  s = s.replace(/<p>([\s\S]*?)<\/p>/g, (_, inner) =>
+    `<p>${inner.replace(/\n/g, '<br>')}</p>`
+  );
+
+  return s;
+}
+
+if (!data) {
+  document.getElementById('ticketList').innerHTML =
+    '<div class="empty-state">Failed to load tickets. Make sure tickets.js exists.</div>';
+} else {
+  initTagDropdown();
+  render();
+}
+
+// Cmd/Ctrl+K → focus search
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    document.getElementById('searchInput').focus();
+  }
+  // Escape → clear search
+  if (e.key === 'Escape' && document.activeElement === document.getElementById('searchInput')) {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchInput').blur();
+    applyFilters();
+  }
+});
+</script>
+</body>
+</html>

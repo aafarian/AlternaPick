@@ -81,7 +81,7 @@ export async function notifyChallengeOpponent(
 
     // Send email to opponent if preferences allow
     if (!opponent) {
-      logError("challenges", `Challenge email skipped: opponent profile null for ${opponentId}`);
+      logWarn("challenges", `Challenge email skipped: opponent profile null for ${opponentId}`);
     } else if (!opponent.email) {
       logWarn("challenges", `Challenge email skipped: no email on profile for ${opponentId}`);
     } else if (!shouldSendEmail("challenge_received", opponent.notification_preferences)) {
