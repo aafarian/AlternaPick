@@ -102,12 +102,14 @@ function RosterTile({
   isResolved,
   onKick,
   kickLoading,
+  prefersReducedMotion,
 }: {
   participant: ChallengeParticipantProfile;
   isCurrentUser: boolean;
   isResolved: boolean;
   onKick?: () => void;
   kickLoading?: boolean;
+  prefersReducedMotion: boolean;
 }) {
   const name = getParticipantDisplayName(participant);
   const card = participant.card;
@@ -115,17 +117,27 @@ function RosterTile({
 
   function handleTileClick() {
     const el = document.getElementById(`picks-${participant.id}`);
-    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    el?.scrollIntoView({ behavior: prefersReducedMotion ? "instant" : "smooth", block: "start" });
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleTileClick();
+    }
   }
 
   return (
     <Card
+      role="button"
+      tabIndex={0}
       className={cn(
         "overflow-hidden border-border bg-card cursor-pointer transition-colors hover:bg-accent/50",
         isCurrentUser && "ring-1 ring-primary/30",
         isResolved && participant.placement === 1 && "ring-1 ring-neon-green/30",
       )}
       onClick={handleTileClick}
+      onKeyDown={handleKeyDown}
     >
       <CardContent className="flex items-center gap-3 p-3">
         {/* Avatar */}
@@ -767,6 +779,7 @@ export default function GroupLobbyView({
                   isResolved={isResolved}
                   onKick={canKick && participant.user_id ? () => handleKick(participant.user_id!) : undefined}
                   kickLoading={kickingUserId === participant.user_id}
+                  prefersReducedMotion={!!prefersReduced}
                 />
               </motion.div>
             );
