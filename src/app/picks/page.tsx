@@ -87,13 +87,13 @@ export default async function CardsPage() {
 
   // Error handling
   if (hitRateResult.error) {
-    logError("picks-page", `Hit rate query failed: ${hitRateResult.error.message}`);
+    logError("picks-page", "Hit rate query failed", undefined, hitRateResult.error);
   }
   if (bestCardResult.error) {
-    logError("picks-page", `Best card query failed: ${bestCardResult.error.message}`);
+    logError("picks-page", "Best card query failed", undefined, bestCardResult.error);
   }
   if (totalResolvedResult.error) {
-    logError("picks-page", `Total resolved query failed: ${totalResolvedResult.error.message}`);
+    logError("picks-page", "Total resolved query failed", undefined, totalResolvedResult.error);
   }
 
   const totalResolvedCount = totalResolvedResult.count ?? 0;

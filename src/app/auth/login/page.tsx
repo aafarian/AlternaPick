@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StaggerChildren, StaggerItem } from "@/components/motion";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 import { AlertCircle } from "lucide-react";
+import { logWarn } from "@/lib/logger";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -72,7 +73,7 @@ function LoginForm() {
 
     // Step 3: Claim anonymous cards (server action reads cookies)
     if (localStorage.getItem("ap_anon_id")) {
-      await claimCardsAfterLogin().catch(() => {});
+      await claimCardsAfterLogin().catch((err) => { logWarn("auth", "Failed to claim anonymous cards after login", err); });
     }
     clearAnonymousId();
 

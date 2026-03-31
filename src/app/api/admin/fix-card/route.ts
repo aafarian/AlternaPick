@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
             }
           } catch (err) {
             gameDebug[`fetchError_${date}`] = String(err);
-            logError("fix-card", `Failed to fetch ${sport} games for date ${date}: ${err}`);
+            logError("fix-card", `Failed to fetch ${sport} games for date ${date}`, undefined, err);
           }
         }
       }
@@ -224,7 +224,7 @@ export async function POST(request: NextRequest) {
 
       if (updateErr) {
         gameDebug.updateError = updateErr.message;
-        logError("fix-card", `Failed to update game ${dbGameId}: ${updateErr.message}`);
+        logError("fix-card", `Failed to update game ${dbGameId}`, undefined, updateErr);
       } else {
         gameDebug.result = "updated";
         gamesUpdated++;
@@ -274,7 +274,7 @@ export async function POST(request: NextRequest) {
     try {
       await resolveEligibleChallenges();
     } catch (err) {
-      logError("fix-card", `Failed to resolve challenges: ${err}`);
+      logError("fix-card", "Failed to resolve challenges", undefined, err);
     }
 
     return NextResponse.json({

@@ -17,6 +17,7 @@ import { formatTimeAgo } from "@/lib/format";
 import { getNotificationIcon, getNotificationTitle } from "@/lib/constants";
 import { getNavigationPath } from "@/lib/notifications/utils";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
+import { logWarn } from "@/lib/logger";
 
 interface NotificationBellProps {
   count: number;
@@ -89,7 +90,7 @@ export default function NotificationBell({
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "mark_all_read" }),
-        }).catch(() => {});
+        }).catch((err) => { logWarn("notifications", "Failed to mark notifications as read", err); });
       }
     },
     [count, onCountReset]

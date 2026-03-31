@@ -546,7 +546,7 @@ async function _cachePropsInternal(
   };
 
   if (gamesError) {
-    logError(`${sport} cache`, `Games upsert failed: ${gamesError.message}`);
+    logError(`${sport} cache`, "Games upsert failed", undefined, gamesError);
   }
   logInfo(`${sport} cache`, `Upserted ${upsertedGames?.length ?? 0} games from ${gameRows.length} rows`);
   if (!upsertedGames) return { propsInserted: 0, propsEnriched: 0, playerMapSize: playerIdMap.size };
@@ -741,7 +741,7 @@ async function _cachePropsInternal(
         ignoreDuplicates: false,
       });
       if (insertError) {
-        logError(`${sport} cache`, `Props upsert failed (batch ${i / 500 + 1}): ${insertError.message}`);
+        logError(`${sport} cache`, `Props upsert failed (batch ${i / 500 + 1})`, undefined, insertError);
       }
     }
   }

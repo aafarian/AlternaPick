@@ -14,7 +14,7 @@ export async function claimAnonymousCards(
     .select("id");
 
   if (error) {
-    logError("claim-cards", `Failed to claim anonymous cards: ${error.message}`);
+    logError("claim-cards", "Failed to claim anonymous cards", undefined, error);
     return 0;
   }
 

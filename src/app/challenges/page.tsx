@@ -21,6 +21,7 @@ import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 import { SlideUp, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { AnimatedSkeleton } from "@/components/ui/animated-skeleton";
+import { logWarn } from "@/lib/logger";
 
 type Tab = "active" | "history";
 
@@ -130,14 +131,14 @@ export default function ChallengesPage() {
   const debouncedFetchCore = useCallback(() => {
     if (debounceCoreRef.current) clearTimeout(debounceCoreRef.current);
     debounceCoreRef.current = setTimeout(() => {
-      fetchCore().catch(() => {});
+      fetchCore().catch((err) => { logWarn("challenges", "Debounced fetchCore failed", err); });
     }, DEBOUNCE_MS);
   }, [fetchCore]);
 
   const debouncedFetchCompleted = useCallback(() => {
     if (debounceCompletedRef.current) clearTimeout(debounceCompletedRef.current);
     debounceCompletedRef.current = setTimeout(() => {
-      fetchCompleted(0, false).catch(() => {});
+      fetchCompleted(0, false).catch((err) => { logWarn("challenges", "Debounced fetchCompleted failed", err); });
     }, DEBOUNCE_MS);
   }, [fetchCompleted]);
 
@@ -222,8 +223,8 @@ export default function ChallengesPage() {
   // On reconnection, refetch both core and completed to catch up on events
   // that arrived while the channel was down.
   const handleReconnect = useCallback(() => {
-    fetchCore().catch(() => {});
-    fetchCompleted(0, false).catch(() => {});
+    fetchCore().catch((err) => { logWarn("challenges", "Reconnect fetchCore failed", err); });
+    fetchCompleted(0, false).catch((err) => { logWarn("challenges", "Reconnect fetchCompleted failed", err); });
   }, [fetchCore, fetchCompleted]);
 
   const { isConnected, hasEverConnected } = useChallengesRealtime({

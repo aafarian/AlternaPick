@@ -108,7 +108,7 @@ export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
           title: "No Contest",
           body: "Your card resolved with no scoreable picks.",
           metadata: { card_id: result.card_id },
-        }, null).catch(() => {});
+        }, null).catch((err) => { logWarn("resolution", "Failed to send no-contest notification", err); });
       }
       results.push(result);
     }
@@ -119,7 +119,7 @@ export async function resolveEligibleCards(): Promise<ResolutionResult[]> {
     try {
       await resolveEligibleChallenges();
     } catch (err) {
-      logError("resolution", `Failed to resolve challenges: ${err}`);
+      logError("resolution", "Failed to resolve challenges", undefined, err);
     }
   }
 
@@ -177,11 +177,11 @@ export async function reResolveStaleCards(): Promise<{
   ]);
 
   if (nullValueResult.error) {
-    logError("resolution", `Failed to fetch stale picks: ${nullValueResult.error.message}`);
+    logError("resolution", "Failed to fetch stale picks", undefined, nullValueResult.error);
     return { picksUpdated: 0, cardsRescored: 0, totalStale: 0, logs: [], skipped: [] };
   }
   if (pendingOnResolvedResult.error) {
-    logError("resolution", `Failed to fetch pending-on-resolved picks: ${pendingOnResolvedResult.error.message}`);
+    logError("resolution", "Failed to fetch pending-on-resolved picks", undefined, pendingOnResolvedResult.error);
   }
 
   // Merge and dedupe by pick ID
@@ -290,7 +290,7 @@ export async function reResolveStaleCards(): Promise<{
       .update({ result: "push", actual_value: null })
       .eq("id", pick.id);
     if (updateErr) {
-      logError("resolution", `Failed to void pick ${pick.id} as push: ${updateErr.message}`);
+      logError("resolution", `Failed to void pick ${pick.id} as push`, undefined, updateErr);
       return false;
     }
     picksUpdated++;
@@ -486,7 +486,7 @@ export async function reResolveStaleCards(): Promise<{
         .update({ actual_value: null, result: "dnp" })
         .eq("id", pick.id);
       if (updateErr) {
-        logError("resolution", `Failed to update pick ${pick.id} to dnp: ${updateErr.message}`);
+        logError("resolution", `Failed to update pick ${pick.id} to dnp`, undefined, updateErr);
         continue;
       }
       logs.push({
@@ -512,7 +512,7 @@ export async function reResolveStaleCards(): Promise<{
         .update({ actual_value: null, result: "dnp" })
         .eq("id", pick.id);
       if (updateErr) {
-        logError("resolution", `Failed to update pick ${pick.id} to dnp: ${updateErr.message}`);
+        logError("resolution", `Failed to update pick ${pick.id} to dnp`, undefined, updateErr);
       }
       logs.push({
         ...pickMeta(pick),
@@ -550,7 +550,7 @@ export async function reResolveStaleCards(): Promise<{
       .update({ actual_value: actualValue, result: correctResult })
       .eq("id", pick.id);
     if (updateErr) {
-      logError("resolution", `Failed to update pick ${pick.id}: ${updateErr.message}`);
+      logError("resolution", `Failed to update pick ${pick.id}`, undefined, updateErr);
     }
 
     logs.push({
@@ -573,7 +573,7 @@ export async function reResolveStaleCards(): Promise<{
       .eq("card_id", cardId);
 
     if (fetchErr) {
-      logError("resolution", `Failed to fetch picks for card ${cardId}: ${fetchErr.message}`);
+      logError("resolution", `Failed to fetch picks for card ${cardId}`, undefined, fetchErr);
       continue;
     }
     if (!cardPicks) continue;
@@ -586,7 +586,7 @@ export async function reResolveStaleCards(): Promise<{
       .update({ score: newScore, total_picks: newTotal })
       .eq("id", cardId);
     if (cardErr) {
-      logError("resolution", `Failed to rescore card ${cardId}: ${cardErr.message}`);
+      logError("resolution", `Failed to rescore card ${cardId}`, undefined, cardErr);
     }
 
     // Track affected users for leaderboard recalculation
@@ -601,7 +601,7 @@ export async function reResolveStaleCards(): Promise<{
     try {
       await recalculateLeaderboard(supabase, userId);
     } catch (err) {
-      logError("resolution", `Failed to recalculate leaderboard for user ${userId}: ${err}`);
+      logError("resolution", `Failed to recalculate leaderboard for user ${userId}`, undefined, err);
     }
   }
 
@@ -649,7 +649,7 @@ export async function resolveCard(
           : null;
 
         if (hrsAgo !== null && hrsAgo > 48) {
-          logError("resolution", `Boxscore fetch failed after ${Math.round(hrsAgo)}h for event ${eventId}, voiding remaining picks on card ${card.id}`);
+          logWarn("resolution", `Boxscore fetch failed after ${Math.round(hrsAgo)}h for event ${eventId}, voiding remaining picks on card ${card.id}`);
           for (const remainingPick of card.picks.slice(card.picks.indexOf(pick))) {
             pickResolutions.push({
               pick_id: remainingPick.id,
@@ -665,7 +665,7 @@ export async function resolveCard(
           break; // exit pick loop, resolve the card with what we have
         }
 
-        logError("resolution", `Boxscore fetch failed for event ${eventId}, retrying card ${card.id}`);
+        logWarn("resolution", `Boxscore fetch failed for event ${eventId}, retrying card ${card.id}`);
         return null;
       }
     }
@@ -682,7 +682,7 @@ export async function resolveCard(
       const maxWaitHrs = isSoccer(sport) ? 6 : 48;
 
       if (hrsAgo !== null && hrsAgo > maxWaitHrs) {
-        logError("resolution", `Empty boxscore after ${Math.round(hrsAgo)}h for event ${eventId} (${sport}), voiding picks for this event on card ${card.id}`);
+        logWarn("resolution", `Empty boxscore after ${Math.round(hrsAgo)}h for event ${eventId} (${sport}), voiding picks for this event on card ${card.id}`);
         for (const remainingPick of card.picks) {
           const rEventId = remainingPick.props?.games?.external_event_id;
           if (rEventId !== eventId) continue;
@@ -700,7 +700,7 @@ export async function resolveCard(
         continue;
       }
 
-      logError("resolution", `Empty boxscore for event ${eventId} (${sport}, ${Math.round(hrsAgo ?? 0)}h ago), retrying card ${card.id}`);
+      logWarn("resolution", `Empty boxscore for event ${eventId} (${sport}, ${Math.round(hrsAgo ?? 0)}h ago), retrying card ${card.id}`);
       return null;
     }
 
@@ -822,7 +822,7 @@ export async function persistResolution(
   }
 
   // RPC failed for another reason — fall back to direct writes
-  logError("resolution", `resolve_card RPC failed, falling back to direct writes: ${error?.message}`);
+  logError("resolution", "resolve_card RPC failed, falling back to direct writes", undefined, error);
 
   // Verify card is still locked
   const { data: check } = await (supabase.from("cards") as any)
@@ -837,7 +837,7 @@ export async function persistResolution(
       .update({ result: p.result, actual_value: p.actual_value })
       .eq("id", p.pick_id);
     if (pickError) {
-      logError("resolution", `Failed to write pick ${p.pick_id}: ${pickError.message}`);
+      logError("resolution", `Failed to write pick ${p.pick_id}`, undefined, pickError);
     }
   }
 
@@ -877,7 +877,7 @@ export async function handlePostResolution(
       .single();
     profile = data;
   } catch (profileError) {
-    logError("card-resolution", `Failed to fetch profile for notification/email: ${profileError}`);
+    logError("card-resolution", "Failed to fetch profile for notification/email", undefined, profileError);
   }
 
   try {
@@ -890,7 +890,7 @@ export async function handlePostResolution(
       metadata: { card_id: result.card_id },
     }, profile?.notification_preferences);
   } catch (notifError) {
-    logError("card-resolution", `Failed to create card_resolved notification: ${notifError}`);
+    logError("card-resolution", "Failed to create card_resolved notification", undefined, notifError);
   }
 
   // Send card-resolved email (fire-and-forget, never blocks resolution).
@@ -940,7 +940,7 @@ export async function handlePostResolution(
       leaderboardStats: lb,
     });
   } catch (achievementError) {
-    logError("card-resolution", `Failed to check achievements after card resolution: ${achievementError}`);
+    logError("card-resolution", "Failed to check achievements after card resolution", undefined, achievementError);
   }
 }
 
@@ -976,7 +976,7 @@ async function recalculateLeaderboard(
     .limit(10000);
 
   if (error) {
-    logError("resolution", `recalculateLeaderboard: failed to fetch cards for user ${userId}: ${error.message}`);
+    logError("resolution", `recalculateLeaderboard: failed to fetch cards for user ${userId}`, undefined, error);
     return;
   }
   if (!cards) return;
@@ -984,7 +984,7 @@ async function recalculateLeaderboard(
   const typedCards = cards as { score: number; total_picks: number }[];
 
   if (typedCards.length >= 10000) {
-    logError("resolution", `recalculateLeaderboard: hit 10000-row cap for user ${userId} — stats may be truncated`);
+    logWarn("resolution", `recalculateLeaderboard: hit 10000-row cap for user ${userId} — stats may be truncated`);
   }
 
   const totalCards = typedCards.length;
@@ -1009,7 +1009,7 @@ async function recalculateLeaderboard(
     .select("user_id");
 
   if (updateErr) {
-    logError("resolution", `recalculateLeaderboard: update failed for user ${userId}: ${updateErr.message}`);
+    logError("resolution", `recalculateLeaderboard: update failed for user ${userId}`, undefined, updateErr);
     return;
   }
 
@@ -1027,7 +1027,7 @@ async function recalculateLeaderboard(
       h2h_losses: 0,
     });
     if (insertErr) {
-      logError("resolution", `recalculateLeaderboard: insert failed for user ${userId}: ${insertErr.message}`);
+      logError("resolution", `recalculateLeaderboard: insert failed for user ${userId}`, undefined, insertErr);
     }
   }
 }
@@ -1063,7 +1063,7 @@ async function updateLeaderboardStats(
     if (existingResult.error.code === "PGRST116") {
       // No existing leaderboard row — new user, will be created below
     } else {
-      logError("resolution", `updateLeaderboardStats: failed to fetch entry for user ${userId}: ${existingResult.error.message}`);
+      logError("resolution", `updateLeaderboardStats: failed to fetch entry for user ${userId}`, undefined, existingResult.error);
     }
   }
 
@@ -1104,7 +1104,7 @@ async function updateLeaderboardStats(
       })
       .eq("user_id", userId);
     if (updateErr) {
-      logError("resolution", `updateLeaderboardStats: update failed for user ${userId}: ${updateErr.message}`);
+      logError("resolution", `updateLeaderboardStats: update failed for user ${userId}`, undefined, updateErr);
     }
   } else {
     // Create new entry via insert (preserves default h2h values)
@@ -1120,7 +1120,7 @@ async function updateLeaderboardStats(
       h2h_losses: 0,
     });
     if (insertErr) {
-      logError("resolution", `updateLeaderboardStats: insert failed for user ${userId}: ${insertErr.message}`);
+      logError("resolution", `updateLeaderboardStats: insert failed for user ${userId}`, undefined, insertErr);
     }
   }
 }
@@ -1185,7 +1185,7 @@ export async function tryResolveFromLiveData(
       })
       .eq("id", dbGameId);
     if (gameErr) {
-      logError("resolution", `Failed to update game ${dbGameId}: ${gameErr.message}`);
+      logError("resolution", `Failed to update game ${dbGameId}`, undefined, gameErr);
     }
   }
 
@@ -1217,7 +1217,7 @@ export async function tryResolveFromLiveData(
         title: "No Contest",
         body: "Your card resolved with no scoreable picks.",
         metadata: { card_id: result.card_id },
-      }, null).catch(() => {});
+      }, null).catch((err) => { logWarn("resolution", "Failed to send no-contest notification", err); });
     }
     results.push(result);
   }
@@ -1227,7 +1227,7 @@ export async function tryResolveFromLiveData(
     try {
       await resolveEligibleChallenges();
     } catch (err) {
-      logError("resolution", `Failed to resolve challenges: ${err}`);
+      logError("resolution", "Failed to resolve challenges", undefined, err);
     }
   }
 
@@ -1236,7 +1236,7 @@ export async function tryResolveFromLiveData(
     try {
       await reResolveStaleCards();
     } catch (err) {
-      logError("resolution", `Failed to re-resolve stale cards: ${err}`);
+      logError("resolution", "Failed to re-resolve stale cards", undefined, err);
     }
   }
 

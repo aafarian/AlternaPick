@@ -266,7 +266,7 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (nbaLookbackError) {
-      logError("game-sync", `Failed NBA lookback: ${nbaLookbackError instanceof Error ? nbaLookbackError.message : nbaLookbackError}`, "/api/games/sync-status");
+      logError("game-sync", "Failed NBA lookback", "/api/games/sync-status", nbaLookbackError);
     }
 
     // --- Soccer (EPL) game sync ---
@@ -320,7 +320,7 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (soccerError) {
-      logError("game-sync", `Failed to sync EPL games: ${soccerError instanceof Error ? soccerError.message : soccerError}`, "/api/games/sync-status");
+      logError("game-sync", "Failed to sync EPL games", "/api/games/sync-status", soccerError);
     }
 
     // --- La Liga game sync ---
@@ -374,7 +374,7 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (laLigaError) {
-      logError("game-sync", `Failed to sync La Liga games: ${laLigaError instanceof Error ? laLigaError.message : laLigaError}`, "/api/games/sync-status");
+      logError("game-sync", "Failed to sync La Liga games", "/api/games/sync-status", laLigaError);
     }
 
     // --- Soccer (EPL + La Liga) lookback: fix games that were never synced ---
@@ -462,7 +462,7 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (soccerLookbackError) {
-      logError("game-sync", `Failed soccer lookback: ${soccerLookbackError instanceof Error ? soccerLookbackError.message : soccerLookbackError}`, "/api/games/sync-status");
+      logError("game-sync", "Failed soccer lookback", "/api/games/sync-status", soccerLookbackError);
     }
 
     // --- NCAAB game sync ---
@@ -663,7 +663,7 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (ncaabError) {
-      logError("game-sync", `Failed to sync NCAAB games: ${ncaabError instanceof Error ? ncaabError.message : ncaabError}`, "/api/games/sync-status");
+      logError("game-sync", "Failed to sync NCAAB games", "/api/games/sync-status", ncaabError);
     }
 
     // Auto-cancel accepted challenges where only one side locked a card
@@ -706,7 +706,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (cancelError) {
-        logError("resolution", `Failed to cancel stale challenges: ${cancelError instanceof Error ? cancelError.message : cancelError}`, "/api/games/sync-status");
+        logError("resolution", "Failed to cancel stale challenges", "/api/games/sync-status", cancelError);
       }
     }
 
@@ -724,7 +724,7 @@ export async function POST(request: NextRequest) {
       const challengeResults = await resolveEligibleChallenges();
       challengesResolved = challengeResults.length;
     } catch (resolveError) {
-      logError("resolution", `Auto-resolution error: ${resolveError instanceof Error ? resolveError.message : resolveError}`, "/api/games/sync-status");
+      logError("resolution", "Auto-resolution error", "/api/games/sync-status", resolveError);
     }
 
     // Re-resolve stale picks (null actual_value on already-resolved cards).
@@ -732,7 +732,7 @@ export async function POST(request: NextRequest) {
     try {
       reResolved = await reResolveStaleCards();
     } catch (reResolveError) {
-      logError("resolution", `Re-resolution of stale picks failed: ${reResolveError instanceof Error ? reResolveError.message : reResolveError}`, "/api/games/sync-status");
+      logError("resolution", "Re-resolution of stale picks failed", "/api/games/sync-status", reResolveError);
     }
 
     return NextResponse.json({

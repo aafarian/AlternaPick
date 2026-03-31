@@ -369,7 +369,7 @@ export async function fetchLiveMaps(
   const gamesPerSport = await Promise.all(
     sportEntries.map(([sport]) =>
       SPORT_FETCHERS[sport].fetchGames().catch((err) => {
-        logError("stats-service", `Failed to fetch live games for ${sport}: ${err instanceof Error ? err.message : err}`);
+        logError("stats-service", `Failed to fetch live games for ${sport}`, undefined, err);
         return [] as StatsGame[];
       }),
     ),
@@ -427,7 +427,7 @@ export async function fetchLiveMaps(
               fetcher.onGames?.(games);
             }
           }).catch((err) => {
-            logError("stats-service", `Failed to fetch lookback games for ${sport} ${dateStr}: ${err instanceof Error ? err.message : err}`);
+            logError("stats-service", `Failed to fetch lookback games for ${sport} ${dateStr}`, undefined, err);
           }),
         );
       }
@@ -493,7 +493,7 @@ export async function fetchLiveMaps(
         pMap(
           liveIds,
           (gid) => fetcher.fetchBoxscoreLive(gid).catch((err) => {
-            logError("stats-service", `Failed to fetch live boxscore for game ${gid}: ${err instanceof Error ? err.message : err}`);
+            logError("stats-service", `Failed to fetch live boxscore for game ${gid}`, undefined, err);
             return [] as PlayerBoxScore[];
           }),
           BOXSCORE_CONCURRENCY,
@@ -512,7 +512,7 @@ export async function fetchLiveMaps(
         pMap(
           staticIds,
           (gid) => fetcher.fetchBoxscore(gid).catch((err) => {
-            logError("stats-service", `Failed to fetch boxscore for game ${gid}: ${err instanceof Error ? err.message : err}`);
+            logError("stats-service", `Failed to fetch boxscore for game ${gid}`, undefined, err);
             return [] as PlayerBoxScore[];
           }),
           BOXSCORE_CONCURRENCY,
@@ -600,7 +600,7 @@ export async function syncGameStatusToDb(
         .eq("id", gameId)
         .then(({ error }: { error: any }) => {
           if (error) {
-            logError("live-sync", `Failed to sync game ${gameId}: ${error.message}`);
+            logError("live-sync", `Failed to sync game ${gameId}`, undefined, error);
           }
         }),
     ),
