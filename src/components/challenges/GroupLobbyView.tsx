@@ -26,6 +26,7 @@ import ShareButton from "@/components/ui/ShareButton";
 import ReactionBar from "@/components/challenges/ReactionBar";
 import { parseIconConfig } from "@/lib/icons/parse";
 import { formatPlacement } from "@/lib/challenges/display";
+import UserProfilePopover from "@/components/user/UserProfilePopover";
 import { MAX_LOBBY_SIZE } from "@/lib/challenges/constants";
 import type { GameMode } from "@/lib/modes/types";
 import { maskEmail } from "@/lib/format";
@@ -142,14 +143,20 @@ function RosterTile({
       <CardContent className="flex items-center gap-3 p-3">
         {/* Avatar */}
         {participant.user_id ? (
-          <UserAvatar
-            avatarUrl={participant.avatar_url}
-            iconConfig={parseIconConfig(participant.icon_config)}
+          <UserProfilePopover
             userId={participant.user_id}
-            username={participant.username ?? undefined}
-            size={36}
-            className={isResolved && participant.placement === 1 ? "animate-winner-ring" : undefined}
-          />
+            username={participant.username ?? ""}
+            align="start"
+          >
+            <UserAvatar
+              avatarUrl={participant.avatar_url}
+              iconConfig={parseIconConfig(participant.icon_config)}
+              userId={participant.user_id}
+              username={participant.username ?? undefined}
+              size={36}
+              className={isResolved && participant.placement === 1 ? "animate-winner-ring" : undefined}
+            />
+          </UserProfilePopover>
         ) : (
           <OpponentAvatar
             opponent={null}
@@ -244,14 +251,20 @@ function ParticipantPickSection({
   const sectionLabel = (
     <div className="flex items-center gap-2">
       {participant.user_id ? (
-        <UserAvatar
-          avatarUrl={participant.avatar_url}
-          iconConfig={parseIconConfig(participant.icon_config)}
+        <UserProfilePopover
           userId={participant.user_id}
-          username={participant.username ?? undefined}
-          size={24}
-          className={isResolved && participant.placement === 1 ? "animate-winner-ring" : undefined}
-        />
+          username={participant.username ?? ""}
+          align="start"
+        >
+          <UserAvatar
+            avatarUrl={participant.avatar_url}
+            iconConfig={parseIconConfig(participant.icon_config)}
+            userId={participant.user_id}
+            username={participant.username ?? undefined}
+            size={24}
+            className={isResolved && participant.placement === 1 ? "animate-winner-ring" : undefined}
+          />
+        </UserProfilePopover>
       ) : (
         <OpponentAvatar
           opponent={null}

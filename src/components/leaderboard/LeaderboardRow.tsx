@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Link from "next/link";
 import RankBadge from "./RankBadge";
 import type { LeaderboardEntryWithProfile } from "@/app/api/leaderboard/route";
 import { parseIconConfig } from "@/lib/icons/parse";
@@ -10,6 +9,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useReducedMotion } from "@/lib/motion";
+import UserProfilePopover from "@/components/user/UserProfilePopover";
 
 /** Glow colors for top-3 ranks */
 const TOP3_GLOW: Record<number, string> = {
@@ -71,40 +71,43 @@ export default function LeaderboardRow({
               <RankBadge rank={rank} />
             </div>
 
-            <Link
-              href={isCurrentUser ? "/profile" : `/users/${user.username}`}
-              className="flex min-w-0 flex-1 items-center gap-3"
+            <UserProfilePopover
+              userId={user.id}
+              username={user.username}
+              align="start"
             >
-              <UserAvatar
-                avatarUrl={user.avatar_url}
-                iconConfig={parseIconConfig(user.icon_config)}
-                userId={user.id}
-                username={user.username}
-                size={40}
-                className="shrink-0"
-              />
+              <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                <UserAvatar
+                  avatarUrl={user.avatar_url}
+                  iconConfig={parseIconConfig(user.icon_config)}
+                  userId={user.id}
+                  username={user.username}
+                  size={40}
+                  className="shrink-0"
+                />
 
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold">
-                  {user.username}
-                  {isCurrentUser && (
-                    <span className="ml-1.5 text-xs text-primary">(you)</span>
-                  )}
-                </p>
-                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                  <span className={cn(sort === "hit_rate" ? "font-bold text-foreground" : "")}>
-                    {stats.win_rate.toFixed(1)}%
-                  </span>
-                  <span>
-                    {stats.current_streak}/{stats.best_streak} streak
-                  </span>
-                  <span className={cn(sort === "h2h" ? "font-bold text-foreground" : "")}>
-                    {stats.h2h_wins}W-{stats.h2h_losses}L
-                  </span>
-                  <span>{stats.total_cards} cards</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold">
+                    {user.username}
+                    {isCurrentUser && (
+                      <span className="ml-1.5 text-xs text-primary">(you)</span>
+                    )}
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                    <span className={cn(sort === "hit_rate" ? "font-bold text-foreground" : "")}>
+                      {stats.win_rate.toFixed(1)}%
+                    </span>
+                    <span>
+                      {stats.current_streak}/{stats.best_streak} streak
+                    </span>
+                    <span className={cn(sort === "h2h" ? "font-bold text-foreground" : "")}>
+                      {stats.h2h_wins}W-{stats.h2h_losses}L
+                    </span>
+                    <span>{stats.total_cards} cards</span>
+                  </div>
                 </div>
               </div>
-            </Link>
+            </UserProfilePopover>
           </CardContent>
         </Card>
       </div>
@@ -125,28 +128,31 @@ export default function LeaderboardRow({
       </TableCell>
 
       <TableCell>
-        <Link
-          href={isCurrentUser ? "/profile" : `/users/${user.username}`}
-          className="flex items-center gap-3"
+        <UserProfilePopover
+          userId={user.id}
+          username={user.username}
+          align="start"
         >
-          <UserAvatar
-            avatarUrl={user.avatar_url}
-            iconConfig={parseIconConfig(user.icon_config)}
-            userId={user.id}
-            username={user.username}
-            size={36}
-            className="shrink-0"
-          />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold">
-              {user.username}
-              {isCurrentUser && (
-                <span className="ml-1.5 text-xs text-primary">(you)</span>
-              )}
-            </p>
-            <p className="truncate text-xs text-muted-foreground">@{user.username}</p>
+          <div className="flex items-center gap-3 text-left">
+            <UserAvatar
+              avatarUrl={user.avatar_url}
+              iconConfig={parseIconConfig(user.icon_config)}
+              userId={user.id}
+              username={user.username}
+              size={36}
+              className="shrink-0"
+            />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold">
+                {user.username}
+                {isCurrentUser && (
+                  <span className="ml-1.5 text-xs text-primary">(you)</span>
+                )}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">@{user.username}</p>
+            </div>
           </div>
-        </Link>
+        </UserProfilePopover>
       </TableCell>
 
       <TableCell className={cn("text-sm", sort === "hit_rate" ? "font-bold" : "text-muted-foreground")}>
