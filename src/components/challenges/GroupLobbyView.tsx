@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useParticipantsRealtime } from "@/hooks/useParticipantsRealtime";
 import type { ChallengeDetail, ChallengeParticipantProfile } from "@/lib/challenges/queries";
 import { useLiveChallenge } from "@/lib/challenges/use-live-challenge";
 import type { LivePickData } from "@/lib/cards/live-types";
@@ -386,6 +387,18 @@ export default function GroupLobbyView({
       router.refresh();
     }
   }, [challengeResolved, router]);
+
+  // Subscribe to realtime participant changes so the lobby updates when
+  // other users accept, lock in picks, or get kicked — without manual refresh.
+  const handleParticipantChange = useCallback(() => {
+    router.refresh();
+  }, [router]);
+
+  useParticipantsRealtime({
+    challengeId: challenge.id,
+    currentUserId,
+    onParticipantChange: handleParticipantChange,
+  });
 
   // Build live pick maps per card from the participants array
   const livePickMapByCardId = new Map<string, Map<string, LivePickData>>();
