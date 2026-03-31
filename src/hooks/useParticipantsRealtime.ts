@@ -93,6 +93,10 @@ export function useParticipantsRealtime({
           if (cancelled) return;
 
           if (status === "SUBSCRIBED") {
+            if (retryCount > 0) {
+              // Reconnected after an outage — catch up on any missed participant events.
+              debouncedChange();
+            }
             retryCount = 0;
           }
 
