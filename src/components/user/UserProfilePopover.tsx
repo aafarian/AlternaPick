@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Swords, UserMinus, User } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
+import { cn } from "@/lib/utils";
 
 interface UserProfilePopoverProps {
   /** Target user's ID */
@@ -25,6 +26,8 @@ interface UserProfilePopoverProps {
   align?: "start" | "center" | "end";
   /** The trigger element (avatar, name, or both) */
   children: React.ReactNode;
+  /** Extra classes for the trigger button (e.g. layout/sizing) */
+  className?: string;
   /** Disable the popover entirely (renders children as-is) */
   disabled?: boolean;
 }
@@ -36,6 +39,7 @@ export default function UserProfilePopover({
   onUnfriend,
   align = "center",
   children,
+  className,
   disabled,
 }: UserProfilePopoverProps) {
   const { user } = useAuth();
@@ -63,7 +67,11 @@ export default function UserProfilePopover({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="outline-none"
+          type="button"
+          className={cn(
+            "outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm",
+            className,
+          )}
           onClick={(e) => e.stopPropagation()}
         >
           {children}

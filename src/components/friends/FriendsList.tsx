@@ -54,8 +54,7 @@ export default function FriendsList({ friends, onUnfriend }: FriendsListProps) {
               <UserProfilePopover
                 userId={profile.id}
                 username={profile.username}
-                friendshipId={friend.id}
-                onUnfriend={onUnfriend}
+                className="flex min-w-0 flex-1"
                 align="start"
               >
                 <div className="flex items-center gap-4 min-w-0 flex-1">

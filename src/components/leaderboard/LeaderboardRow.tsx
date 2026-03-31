@@ -74,6 +74,7 @@ export default function LeaderboardRow({
             <UserProfilePopover
               userId={user.id}
               username={user.username}
+              className="flex min-w-0 flex-1"
               align="start"
             >
               <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
