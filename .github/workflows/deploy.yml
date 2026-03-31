@@ -76,23 +76,27 @@ jobs:
             # Zero-downtime restart: recreate containers one at a time.
             # Old containers keep serving until the new ones pass health checks.
             # --no-deps prevents cascading restarts of dependent services.
-            docker compose up -d --no-deps --wait stats-service
-            docker compose up -d --no-deps --wait nextjs
+            # Failures are caught here (not via set -e) so rollback can run.
+            healthy=true
+            docker compose up -d --no-deps --wait stats-service || { echo "stats-service failed healthcheck"; healthy=false; }
+            docker compose up -d --no-deps --wait nextjs       || { echo "nextjs failed healthcheck";       healthy=false; }
             docker compose up -d --remove-orphans
 
             # Verify the deploy via the health endpoint
-            echo "Verifying deploy via /api/health..."
-            sleep 3
-            healthy=false
-            for i in 1 2 3 4 5; do
-              if curl -sf --max-time 5 http://localhost/api/health > /dev/null 2>&1; then
-                echo "Health check passed!"
-                healthy=true
-                break
-              fi
-              echo "Health check attempt $i failed, retrying in 5s..."
-              sleep 5
-            done
+            if [ "$healthy" != "false" ]; then
+              echo "Verifying deploy via /api/health..."
+              sleep 3
+              healthy=false
+              for i in 1 2 3 4 5; do
+                if curl -sf --max-time 5 http://localhost/api/health > /dev/null 2>&1; then
+                  echo "Health check passed!"
+                  healthy=true
+                  break
+                fi
+                echo "Health check attempt $i failed, retrying in 5s..."
+                sleep 5
+              done
+            fi
 
             if [ "$healthy" = false ]; then
               echo "ROLLBACK: Health check failed, restoring previous images..."

@@ -14,9 +14,14 @@ import { logWarn } from "@/lib/logger";
 export async function GET() {
   const checks: Record<string, "ok" | "fail"> = { app: "ok" };
 
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 4000);
   try {
     const supabase = createAdminClient();
-    const { error } = await supabase.from("profiles").select("id", { count: "exact", head: true }).limit(0);
+    const { error } = await supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .abortSignal(ac.signal);
     checks.db = error ? "fail" : "ok";
     if (error) {
       logWarn("health", "DB health check failed", error);
@@ -24,6 +29,8 @@ export async function GET() {
   } catch (error) {
     checks.db = "fail";
     logWarn("health", "DB health check threw", error);
+  } finally {
+    clearTimeout(timer);
   }
 
   const healthy = Object.values(checks).every((v) => v === "ok");
