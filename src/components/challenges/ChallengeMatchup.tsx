@@ -43,6 +43,7 @@ interface ChallengeMatchupProps {
 function PlayerSide({
   label,
   name,
+  username,
   avatarUrl,
   iconConfig,
   userId,
@@ -57,6 +58,8 @@ function PlayerSide({
 }: {
   label: string;
   name: string;
+  /** URL-safe username for the profile popover (may differ from display name) */
+  username?: string;
   avatarUrl: string | null;
   iconConfig: IconConfig | null;
   userId: string;
@@ -120,7 +123,7 @@ function PlayerSide({
         {avatarSlot ?? (
           <UserProfilePopover
             userId={userId}
-            username={name}
+            username={username}
           >
             <UserAvatar
               avatarUrl={avatarUrl}
@@ -544,6 +547,7 @@ export default function ChallengeMatchup({
         <PlayerSide
           label={isChallenger ? "You" : "Opponent"}
           name={challengerName}
+          username={challenge.challenger.username}
           avatarUrl={challenge.challenger.avatar_url}
           iconConfig={parseIconConfig(challenge.challenger.icon_config)}
           userId={challenge.challenger.id}
@@ -579,6 +583,7 @@ export default function ChallengeMatchup({
         <PlayerSide
           label={isChallenger ? "Opponent" : "You"}
           name={opponentName}
+          username={challenge.opponent?.username}
           avatarUrl={challenge.opponent?.avatar_url ?? null}
           iconConfig={parseIconConfig(challenge.opponent?.icon_config ?? null)}
           userId={challenge.opponent?.id ?? ""}
