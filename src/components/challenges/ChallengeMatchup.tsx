@@ -211,7 +211,7 @@ export default function ChallengeMatchup({
     challenge.opponent_card?.status === "locked" ||
     challenge.status === "resolved";
 
-  const { data: liveData, isLoading: liveLoading, challengeResolved } = useLiveChallenge(
+  const { data: liveData, isLoading: liveLoading, error: liveError, challengeResolved } = useLiveChallenge(
     challenge.id,
     shouldFetchLive
   );
@@ -546,7 +546,7 @@ export default function ChallengeMatchup({
           showPicks={isChallenger ? showMyPicks : showTheirPicks}
           livePickMap={challengerLivePickMap}
           hasLiveGames={liveData?.challenger_card?.has_live_games ?? false}
-          liveLoading={shouldFetchLive && !liveData}
+          liveLoading={shouldFetchLive && !liveData && !liveError}
           side="left"
         />
 
@@ -581,7 +581,7 @@ export default function ChallengeMatchup({
           showPicks={isChallenger ? showTheirPicks : showMyPicks}
           livePickMap={opponentLivePickMap}
           hasLiveGames={liveData?.opponent_card?.has_live_games ?? false}
-          liveLoading={shouldFetchLive && !liveData}
+          liveLoading={shouldFetchLive && !liveData && !liveError}
           side="right"
           avatarSlot={isEmailInviteOpponent ? (
             <OpponentAvatar
