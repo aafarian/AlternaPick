@@ -59,6 +59,16 @@ export interface ScoreDistributionEntry {
   count: number;
 }
 
+/** A single resolved card for the card history list */
+export interface CardHistoryItem {
+  id: string;
+  score: number;
+  totalPicks: number;
+  cardSize: number;
+  gameMode: GameMode;
+  resolvedAt: string | null;
+}
+
 /** Win-rate stats grouped by game mode */
 export interface GameModeStats {
   mode: GameMode;

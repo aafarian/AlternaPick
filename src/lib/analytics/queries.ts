@@ -26,6 +26,7 @@ import type {
   TeamStats,
   ScoreDistributionEntry,
   GameModeStats,
+  CardHistoryItem,
 } from "./types";
 
 // ---------- Internal helpers ----------
@@ -551,4 +552,35 @@ export async function getGameModeStats(
   // Sort by total cards descending
   results.sort((a, b) => b.cards - a.cards);
   return results;
+}
+
+/**
+ * Get the most recent resolved cards for the card history modal.
+ * Returns up to 50 cards sorted by resolved_at descending.
+ */
+export async function getCardHistory(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  mode?: ModeFilter,
+  sport?: SportFilter
+): Promise<CardHistoryItem[]> {
+  const cards = await fetchResolvedCards(supabase, userId, mode, sport);
+
+  const items: CardHistoryItem[] = cards.map((c) => ({
+    id: c.id,
+    score: c.score,
+    totalPicks: c.total_picks,
+    cardSize: c.card_size,
+    gameMode: c.game_mode,
+    resolvedAt: c.resolved_at,
+  }));
+
+  // Sort by most recent first, then limit to 50
+  items.sort((a, b) => {
+    const aDate = a.resolvedAt ?? "";
+    const bDate = b.resolvedAt ?? "";
+    return bDate.localeCompare(aDate);
+  });
+
+  return items.slice(0, 50);
 }

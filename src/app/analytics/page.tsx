@@ -8,6 +8,7 @@ import {
   getTeamStats,
   getScoreDistribution,
   getGameModeStats,
+  getCardHistory,
 } from "@/lib/analytics/queries";
 import CategoryChart from "@/components/analytics/CategoryChart";
 import PlayerHitRate from "@/components/analytics/PlayerHitRate";
@@ -17,6 +18,7 @@ import CardSizeChart from "@/components/analytics/CardSizeChart";
 import TeamHitRate from "@/components/analytics/TeamHitRate";
 import ScoreDistribution from "@/components/analytics/ScoreDistribution";
 import GameModeStats from "@/components/analytics/GameModeStats";
+import CardHistoryModal from "@/components/analytics/CardHistoryModal";
 import ModeFilter from "@/components/analytics/ModeFilter";
 import SportFilter from "@/components/analytics/SportFilter";
 import { Card, CardContent } from "@/components/ui/card";
@@ -74,6 +76,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     teams,
     scoreDistributionData,
     gameModes,
+    cardHistory,
   ] = await Promise.all([
     getCategoryStats(supabase, user.id, mode, sport),
     getPlayerStats(supabase, user.id, 10, mode, sport),
@@ -83,6 +86,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     getTeamStats(supabase, user.id, 10, mode, sport),
     getScoreDistribution(supabase, user.id, mode, sport),
     getGameModeStats(supabase, user.id, sport),
+    getCardHistory(supabase, user.id, mode, sport),
   ]);
 
   // Determine which modes the user actually has data for
@@ -180,16 +184,11 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       {/* Overview Cards */}
       <StaggerChildren staggerDelay={0.08} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StaggerItem>
-          <Card className="border-primary/20 bg-primary/5">
-            <CardContent className="p-4">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Total Cards
-              </p>
-              <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-                {totalCards}
-              </p>
-            </CardContent>
-          </Card>
+          <CardHistoryModal
+            cards={cardHistory}
+            totalCards={totalCards}
+            isAllMode={isAllMode}
+          />
         </StaggerItem>
         <StaggerItem>
           <Card className="border-primary/20 bg-primary/5">
