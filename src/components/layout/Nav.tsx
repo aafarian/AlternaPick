@@ -81,7 +81,7 @@ function NavDot({ visible }: { visible: boolean }) {
           transition={{ type: "spring", stiffness: 500, damping: 25 }}
           className="ml-1 inline-flex"
         >
-          <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+          <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
         </motion.span>
       )}
     </AnimatePresence>

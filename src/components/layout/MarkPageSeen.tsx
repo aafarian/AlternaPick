@@ -12,8 +12,11 @@ export function MarkPageSeen({ type }: { type: "analytics" | "wrapped" }) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type }),
-    }).catch(() => {
-      // Best-effort — don't block the page if this fails
+    }).catch((err: unknown) => {
+      // Best-effort — log but don't block the page
+      import("@/lib/logger").then(({ logWarn }) =>
+        logWarn("notifications", "Failed to mark page as seen", err)
+      );
     });
   }, [type]);
 

@@ -96,10 +96,14 @@ export async function getUnreadCounts(
   }
 
   // Check for unseen analytics/wrapped data
-  const { data: profile } = await typedFrom(supabase, "profiles")
+  const { data: profile, error: profileError } = await typedFrom(supabase, "profiles")
     .select("analytics_last_seen_at, wrapped_last_seen_at")
     .eq("id", userId)
     .single();
+
+  if (profileError) {
+    throw new Error(`Failed to fetch profile last-seen timestamps: ${profileError.message}`);
+  }
 
   const analyticsLastSeen = profile?.analytics_last_seen_at as string | null;
   const wrappedLastSeen = profile?.wrapped_last_seen_at as string | null;
