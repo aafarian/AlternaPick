@@ -93,17 +93,12 @@ const authenticatedItems: NavItem[] = [
   { href: "/props", label: "Props", icon: LayoutGrid },
   { href: "/picks", label: "My Picks", icon: ClipboardList },
   { href: "/challenges", label: "Challenges", icon: Swords, badgeKey: "challenges" },
+  { href: "/analytics", label: "Analytics", icon: TrendingUp },
   {
     label: "Social",
     children: [
       { href: "/friends", label: "Friends", icon: UserPlus, badgeKey: "friends" },
       { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
-    ],
-  },
-  {
-    label: "Insights",
-    children: [
-      { href: "/analytics", label: "Analytics", icon: TrendingUp },
       { href: "/recap", label: "Wrapped", icon: Newspaper },
     ],
   },
