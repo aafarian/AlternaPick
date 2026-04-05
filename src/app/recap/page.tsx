@@ -24,6 +24,7 @@ import { RecapTileGrid } from "@/components/recap/RecapTileGrid";
 import { ConsensusCard } from "@/components/recap/ConsensusCard";
 import { Newspaper } from "lucide-react";
 import type { Metadata } from "next";
+import { MarkPageSeen } from "@/components/layout/MarkPageSeen";
 
 export const metadata: Metadata = {
   title: "Wrapped | AlternaPick",
@@ -315,6 +316,7 @@ export default async function RecapPage({
     if (!weeklyData) {
       return (
         <div className="flex flex-col gap-6 py-8">
+          <MarkPageSeen type="wrapped" />
           <SlideUp>
             <RecapHeader title="Weekly Wrapped" subtitle={weekLabel} mode="weekly" />
           </SlideUp>
@@ -352,6 +354,7 @@ export default async function RecapPage({
 
     return (
       <div key={monday} className="flex flex-col gap-6 py-8">
+        <MarkPageSeen type="wrapped" />
         {/* Header + Mode Toggle */}
         <SlideUp>
           <RecapHeader
@@ -428,6 +431,7 @@ export default async function RecapPage({
   if (!typedRecap || !typedRecap.recap_data?.totalPicks) {
     return (
       <div className="flex flex-col gap-6 py-8">
+        <MarkPageSeen type="wrapped" />
         <SlideUp>
           <RecapHeader
             title="Daily Wrapped"
@@ -477,6 +481,7 @@ export default async function RecapPage({
 
   return (
     <div key={currentDate} className="flex flex-col gap-6 py-8">
+      <MarkPageSeen type="wrapped" />
       {/* 1. Header + Mode Toggle + Date Navigator */}
       <SlideUp>
         <RecapHeader

@@ -12,6 +12,8 @@ export interface UnreadCounts {
   pendingFriendRequests: number;
   pendingChallenges: number;
   unreadNotifications: number;
+  analyticsUnseen: boolean;
+  wrappedUnseen: boolean;
 }
 
 /**
@@ -93,10 +95,44 @@ export async function getUnreadCounts(
     );
   }
 
+  // Check for unseen analytics/wrapped data
+  const { data: profile, error: profileError } = await typedFrom(supabase, "profiles")
+    .select("analytics_last_seen_at, wrapped_last_seen_at")
+    .eq("id", userId)
+    .single();
+
+  if (profileError) {
+    throw new Error(`Failed to fetch profile last-seen timestamps: ${profileError.message}`);
+  }
+
+  const analyticsLastSeen = profile?.analytics_last_seen_at as string | null;
+  const wrappedLastSeen = profile?.wrapped_last_seen_at as string | null;
+
+  // Analytics: any cards resolved after last seen?
+  let analyticsQuery = typedFrom(supabase, "cards")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("status", "resolved");
+  if (analyticsLastSeen) {
+    analyticsQuery = analyticsQuery.gt("resolved_at", analyticsLastSeen);
+  }
+  const { count: newCardsCount } = await analyticsQuery;
+
+  // Wrapped: any weekly recap created after last seen?
+  let wrappedQuery = typedFrom(supabase, "recaps")
+    .select("id", { count: "exact", head: true })
+    .not("weekly_data", "is", null);
+  if (wrappedLastSeen) {
+    wrappedQuery = wrappedQuery.gt("computed_at", wrappedLastSeen);
+  }
+  const { count: newWrappedCount } = await wrappedQuery;
+
   return {
     pendingFriendRequests: friendCount ?? 0,
     pendingChallenges: challengeCount ?? 0,
     unreadNotifications: notifCount ?? 0,
+    analyticsUnseen: (newCardsCount ?? 0) > 0,
+    wrappedUnseen: (newWrappedCount ?? 0) > 0,
   };
 }
 

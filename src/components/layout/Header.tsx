@@ -27,7 +27,7 @@ export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const [notificationCounts, setNotificationCounts] =
-    useState<NotificationCounts>({ friends: 0, challenges: 0, notifications: 0 });
+    useState<NotificationCounts>({ friends: 0, challenges: 0, notifications: 0, analyticsUnseen: false, wrappedUnseen: false });
   const [isAdminUser, setIsAdminUser] = useState(false);
 
   // Callback registered by NotificationBell to prepend a new notification
@@ -78,6 +78,8 @@ export default function Header() {
         friends: data.pendingFriendRequests ?? 0,
         challenges: data.pendingChallenges ?? 0,
         notifications: data.unreadNotifications ?? 0,
+        analyticsUnseen: data.analyticsUnseen ?? false,
+        wrappedUnseen: data.wrappedUnseen ?? false,
       });
     } catch {
       // Silently ignore fetch errors for notification counts
@@ -86,7 +88,7 @@ export default function Header() {
 
   useEffect(() => {
     if (!user) {
-      setNotificationCounts({ friends: 0, challenges: 0, notifications: 0 });
+      setNotificationCounts({ friends: 0, challenges: 0, notifications: 0, analyticsUnseen: false, wrappedUnseen: false });
       toastedIdsRef.current.clear();
       setIsAdminUser(false);
       return;

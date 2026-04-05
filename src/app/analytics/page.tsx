@@ -28,6 +28,7 @@ import type { GameMode } from "@/lib/supabase/types";
 import { SlideUp, FadeIn, StaggerChildren, StaggerItem, ScrollReveal } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { BarChart3 } from "lucide-react";
+import { MarkPageSeen } from "@/components/layout/MarkPageSeen";
 
 export const metadata = {
   title: "Analytics | AlternaPick",
@@ -120,6 +121,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   if (isEmpty) {
     return (
       <div className="flex flex-col gap-6 py-8">
+        <MarkPageSeen type="analytics" />
         <SlideUp>
           <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
           <p className="text-sm text-muted-foreground">
@@ -156,6 +158,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
   return (
     <div className="flex flex-col gap-6 py-8">
+      <MarkPageSeen type="analytics" />
       {/* Header */}
       <SlideUp>
         <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
