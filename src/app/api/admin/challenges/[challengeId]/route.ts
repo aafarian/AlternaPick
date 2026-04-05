@@ -29,7 +29,7 @@ type ChallengeRow = {
   created_at: string;
   resolved_at: string | null;
   challenger_id: string;
-  opponent_id: string;
+  opponent_id: string | null;
   challenger: {
     id: string;
     username: string;
@@ -41,7 +41,14 @@ type ChallengeRow = {
     username: string;
     display_name: string | null;
     avatar_url: string | null;
-  };
+  } | null;
+};
+
+type ParticipantRow = {
+  id: string;
+  user_id: string | null;
+  email: string | null;
+  card_id: string | null;
 };
 
 type CardRow = {
@@ -156,18 +163,34 @@ export async function GET(
 
     const cards = (cardsData as CardRow[] | null) ?? [];
 
+    // For 1v1 with NULL opponent_id, look for a guest participant row
+    let guestParticipant: ParticipantRow | null = null;
+    if (!challenge.opponent_id) {
+
+      const { data: participantRows } = await (supabase.from("challenge_participants") as any)
+        .select("id, user_id, email, card_id")
+        .eq("challenge_id", challengeId)
+        .is("user_id", null)
+        .limit(1);
+
+      guestParticipant = ((participantRows as ParticipantRow[] | null) ?? [])[0] ?? null;
+    }
+
     // Find each player's card
     const challengerCard =
       cards.find((c) => c.user_id === challenge.challenger_id) ?? null;
-    const opponentCard =
-      cards.find((c) => c.user_id === challenge.opponent_id) ?? null;
+    const opponentCard = challenge.opponent_id
+      ? cards.find((c) => c.user_id === challenge.opponent_id) ?? null
+      : guestParticipant?.card_id
+        ? cards.find((c) => c.id === guestParticipant!.card_id) ?? null
+        : null;
 
     // Fetch picks for all cards in parallel (with prop + game details)
     const cardIds = cards.map((c) => c.id);
     let allPicks: PickRow[] = [];
 
     if (cardIds.length > 0) {
-       
+
       const { data: picksData } = await (supabase.from("picks") as any)
         .select(
           "id, card_id, prop_id, selection, result, actual_value, prop:props!inner(id, player_name, player_team, stat_category, line, game:games!inner(home_team, away_team, commence_time))"
@@ -179,18 +202,23 @@ export async function GET(
 
     // Build player side helper
     function buildPlayerSide(
-      profile: ChallengeRow["challenger"],
-      card: CardRow | null
+      profile: ChallengeRow["challenger"] | null,
+      card: CardRow | null,
+      guest: ParticipantRow | null,
     ): AdminChallengePlayerSide {
       const cardPicks = card
         ? allPicks.filter((p) => p.card_id === card.id)
         : [];
 
+      const isGuest = !profile;
+
       return {
-        userId: profile.id,
-        username: profile.username,
-        displayName: profile.display_name,
-        avatarUrl: profile.avatar_url,
+        userId: profile?.id ?? null,
+        username: profile?.username ?? "Guest",
+        displayName: profile?.display_name ?? null,
+        avatarUrl: profile?.avatar_url ?? null,
+        email: guest?.email ?? null,
+        isGuest,
         card: card
           ? {
               id: card.id,
@@ -221,8 +249,10 @@ export async function GET(
       winnerId: challenge.winner_id,
       createdAt: challenge.created_at,
       resolvedAt: challenge.resolved_at,
-      challenger: buildPlayerSide(challenge.challenger, challengerCard),
-      opponent: buildPlayerSide(challenge.opponent, opponentCard),
+      challenger: buildPlayerSide(challenge.challenger, challengerCard, null),
+      opponent: challenge.opponent
+        ? buildPlayerSide(challenge.opponent, opponentCard, null)
+        : buildPlayerSide(null, opponentCard, guestParticipant),
     };
 
     return NextResponse.json(result, {

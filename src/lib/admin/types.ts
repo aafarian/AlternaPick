@@ -224,10 +224,12 @@ export interface AdminCardDetail {
 // ---------------------------------------------------------------------------
 
 export interface AdminChallengePlayerSide {
-  userId: string;
+  userId: string | null;
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  email: string | null;
+  isGuest: boolean;
   card: AdminCardDetail | null;
 }
 
