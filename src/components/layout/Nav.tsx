@@ -68,11 +68,32 @@ function NavBadge({
   );
 }
 
+function NavDot({ visible }: { visible: boolean }) {
+  const prefersReducedMotion = useReducedMotion();
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.span
+          initial={prefersReducedMotion ? false : { scale: 0, opacity: 0 }}
+          animate={prefersReducedMotion ? {} : { scale: 1, opacity: 1 }}
+          exit={prefersReducedMotion ? {} : { scale: 0, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 500, damping: 25 }}
+          className="ml-1 inline-flex"
+        >
+          <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+        </motion.span>
+      )}
+    </AnimatePresence>
+  );
+}
+
 interface NavLink {
   href: string;
   label: string;
   icon: React.ElementType;
   badgeKey?: "friends" | "challenges";
+  dotKey?: "analytics" | "wrapped";
 }
 
 interface NavDropdownGroup {
@@ -93,8 +114,8 @@ const authenticatedItems: NavItem[] = [
   { href: "/props", label: "Props", icon: LayoutGrid },
   { href: "/picks", label: "My Picks", icon: ClipboardList },
   { href: "/challenges", label: "Challenges", icon: Swords, badgeKey: "challenges" },
-  { href: "/analytics", label: "Analytics", icon: TrendingUp },
-  { href: "/recap", label: "Wrapped", icon: Newspaper },
+  { href: "/analytics", label: "Analytics", icon: TrendingUp, dotKey: "analytics" },
+  { href: "/recap", label: "Wrapped", icon: Newspaper, dotKey: "wrapped" },
   {
     label: "Social",
     children: [
@@ -118,6 +139,8 @@ export interface NotificationCounts {
   friends: number;
   challenges: number;
   notifications: number;
+  analyticsUnseen: boolean;
+  wrappedUnseen: boolean;
 }
 
 /** Paths that are handled by the mobile BottomTabBar */
@@ -154,6 +177,10 @@ export default function Nav({
       link.badgeKey && notificationCounts
         ? notificationCounts[link.badgeKey]
         : 0;
+    const showDot = !isActive && !!link.dotKey && !!notificationCounts && (
+      (link.dotKey === "analytics" && notificationCounts.analyticsUnseen) ||
+      (link.dotKey === "wrapped" && notificationCounts.wrappedUnseen)
+    );
     const Icon = link.icon;
 
     return (
@@ -184,6 +211,7 @@ export default function Nav({
             <Icon className="h-4 w-4 md:hidden" />
             {link.label}
             <NavBadge count={badgeCount} animationKey={`badge-${link.badgeKey ?? link.href}`} />
+            <NavDot visible={showDot} />
           </span>
         </Button>
       </Link>
