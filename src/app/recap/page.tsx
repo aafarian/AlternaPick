@@ -229,7 +229,7 @@ export default async function RecapPage({
   searchParams: Promise<{ date?: string; mode?: string }>;
 }) {
   const { date: dateParam, mode: modeParam } = await searchParams;
-  const mode = modeParam === "weekly" ? "weekly" : "daily";
+  const mode = modeParam === "daily" ? "daily" : "weekly";
   const supabase = await createClient();
 
   const {
