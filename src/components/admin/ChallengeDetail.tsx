@@ -39,6 +39,7 @@ import {
   CalendarDays,
   CheckCircle,
   UserPlus,
+  Wrench,
 } from "lucide-react";
 import type {
   AdminChallengeDetail,
@@ -120,26 +121,42 @@ function LoadingSkeleton() {
 
 function ChallengeHeader({
   challenge,
+  onResolved,
 }: {
   challenge: AdminChallengeDetail;
+  onResolved: () => void;
 }) {
+  // Force Resolve only makes sense for group challenges that aren't already
+  // in the resolved terminal state. (Cancelled is fine — that's the most
+  // common recovery case.)
+  const showForceResolve =
+    challenge.lobbyType === "group" && challenge.status !== "resolved";
+
   return (
     <Card className="py-5">
       <CardContent className="px-6 pb-0 pt-0">
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <Swords className="h-5 w-5 text-muted-foreground" />
-            <h2 className="text-lg font-bold tracking-tight">
-              Challenge Detail
-            </h2>
-            <Badge variant={challengeStatusVariant(challenge.status)}>
-              {challenge.status}
-            </Badge>
-            <Badge variant="outline">
-              {challenge.lobbyType === "group"
-                ? `Group (${challenge.participants.length})`
-                : "1v1"}
-            </Badge>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Swords className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-lg font-bold tracking-tight">
+                Challenge Detail
+              </h2>
+              <Badge variant={challengeStatusVariant(challenge.status)}>
+                {challenge.status}
+              </Badge>
+              <Badge variant="outline">
+                {challenge.lobbyType === "group"
+                  ? `Group (${challenge.participants.length})`
+                  : "1v1"}
+              </Badge>
+            </div>
+            {showForceResolve && (
+              <ForceResolveAction
+                challengeId={challenge.id}
+                onResolved={onResolved}
+              />
+            )}
           </div>
 
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
@@ -225,6 +242,98 @@ function PicksTable({ picks }: { picks: AdminCardPickDetail[] }) {
         ))}
       </TableBody>
     </Table>
+  );
+}
+
+function ForceResolveAction({
+  challengeId,
+  onResolved,
+}: {
+  challengeId: string;
+  onResolved: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleResolve() {
+    setSubmitting(true);
+    try {
+      const res = await fetch(
+        `/api/admin/challenges/${challengeId}/force-resolve`,
+        { method: "POST" },
+      );
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? `Request failed (${res.status})`);
+      }
+
+      const parts: string[] = [];
+      if (data.orphansRelinked > 0)
+        parts.push(`${data.orphansRelinked} orphan card(s) re-linked`);
+      if (data.participantsReactivated > 0)
+        parts.push(`${data.participantsReactivated} participant(s) re-activated`);
+      if (data.participantsDeclined > 0)
+        parts.push(`${data.participantsDeclined} no-show(s) declined`);
+      const summary = parts.length ? parts.join(", ") : "no changes needed";
+
+      toast.success(
+        data.winnerId
+          ? `Resolved with winner. ${summary}.`
+          : `Resolved as a tie. ${summary}.`,
+      );
+      setOpen(false);
+      onResolved();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "An unexpected error occurred",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1.5">
+          <Wrench className="h-3.5 w-3.5" />
+          Force Resolve
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Force Resolve Challenge</DialogTitle>
+          <DialogDescription>
+            Manually resolves this group challenge using whatever cards are
+            available. This will:
+          </DialogDescription>
+        </DialogHeader>
+        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+          <li>Re-link any orphaned cards belonging to participants</li>
+          <li>Re-activate participants whose linked card is locked or resolved</li>
+          <li>Decline participants with no card (true no-shows)</li>
+          <li>Compute the winner from the highest-scoring resolved card</li>
+          <li>Set the challenge status to <code>resolved</code></li>
+        </ul>
+        <p className="text-xs text-muted-foreground">
+          Use this for stuck or incorrectly cancelled group challenges. It
+          requires at least one resolved card to compute a winner.
+        </p>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={submitting}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleResolve} disabled={submitting}>
+            {submitting ? "Resolving…" : "Force Resolve"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -511,7 +620,7 @@ export default function ChallengeDetail({
       {backLink}
 
       {/* Challenge metadata header */}
-      <ChallengeHeader challenge={detail} />
+      <ChallengeHeader challenge={detail} onResolved={fetchDetail} />
 
       {/* Player tiles — N participants for group, side-by-side for 1v1 */}
       {detail.lobbyType === "group" ? (
