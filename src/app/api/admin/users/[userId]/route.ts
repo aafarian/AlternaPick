@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound, badRequest, handleApiError } from "@/lib/api/errors";
+import { logError } from "@/lib/logger";
 import type { AdminUserDetail } from "@/lib/admin/types";
 
 import { isValidUuid } from "@/lib/admin/helpers";
@@ -56,14 +57,15 @@ type CardRow = {
 type ChallengeRow = {
   id: string;
   challenger_id: string;
-  opponent_id: string;
+  opponent_id: string | null;
   status: string;
   game_mode: GameMode;
   winner_id: string | null;
   resolved_at: string | null;
   created_at: string;
-  challenger: { id: string; username: string; display_name: string | null };
-  opponent: { id: string; username: string; display_name: string | null };
+  lobby_type: "1v1" | "group" | null;
+  challenger: { id: string; username: string; display_name: string | null } | null;
+  opponent: { id: string; username: string; display_name: string | null } | null;
 };
 
 type AchievementRow = {
@@ -148,11 +150,13 @@ export async function GET(
         .order("created_at", { ascending: false })
         .limit(20),
 
-      // Recent challenges (last 20) with profile joins for opponent info
-       
+      // Recent challenges (last 20) — fetches by challenger_id/opponent_id
+      // (catches 1v1s and group challenges where the user is the creator).
+      // We supplement this with group-participant rows below.
+
       (supabase.from("challenges") as any)
         .select(
-          "id, challenger_id, opponent_id, status, game_mode, winner_id, resolved_at, created_at, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name)"
+          "id, challenger_id, opponent_id, status, game_mode, winner_id, resolved_at, created_at, lobby_type, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name)"
         )
         .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
         .order("created_at", { ascending: false })
@@ -204,26 +208,162 @@ export async function GET(
       createdAt: card.created_at,
     }));
 
-    // Map recent challenges — determine opponent based on userId
-    const challenges =
+    // Recent challenges — pulled from two sources:
+    //   (a) the OR query above (1v1s + groups created by this user)
+    //   (b) challenge_participants rows where the user is a non-creator member
+    // We merge by id, dedupe, and supplement group challenges with participant
+    // counts and (if resolved) the winner's username.
+    const challengesFromFkey =
       (challengesResult.data as ChallengeRow[] | null) ?? [];
-    const recentChallenges: AdminUserDetail["recentChallenges"] =
-      challenges.map((ch) => {
+
+    // (b) Group-participation challenges the user is in but didn't create.
+    // The OR query above misses these because challenger_id != userId.
+    //
+    // Note: .order() and .limit() on this query target the outer
+    // challenge_participants rows, not the joined challenges. We pull a
+    // generous 100 here (the dedupe + sort + slice below caps to 20) so a
+    // user with many group memberships doesn't lose challenges off the end.
+    const { data: participantChallengeRows, error: participantChallengeError } = await (
+      supabase.from("challenge_participants") as any
+    )
+      .select(
+        "challenge:challenges!inner(id, challenger_id, opponent_id, status, game_mode, winner_id, resolved_at, created_at, lobby_type, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name))"
+      )
+      .eq("user_id", userId)
+      .eq("is_creator", false)
+      .limit(100);
+
+    if (participantChallengeError) {
+      logError(
+        "admin-user-detail",
+        "Failed to fetch group-participation challenges",
+        `/api/admin/users/${userId}`,
+        participantChallengeError,
+      );
+      throw new Error(
+        `Failed to fetch group-participation challenges: ${participantChallengeError.message}`,
+      );
+    }
+
+    const challengesFromParticipant =
+      ((participantChallengeRows as Array<{ challenge: ChallengeRow | null }> | null) ?? [])
+        .map((r) => r.challenge)
+        .filter((c): c is ChallengeRow => c !== null);
+
+    // Dedupe by id, sort by created_at desc, take 20
+    const challengeMap = new Map<string, ChallengeRow>();
+    for (const ch of [...challengesFromFkey, ...challengesFromParticipant]) {
+      challengeMap.set(ch.id, ch);
+    }
+    const challenges = Array.from(challengeMap.values())
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, 20);
+
+    // Look up participant counts + winner usernames for any group challenges
+    const groupChallengeIds = challenges
+      .filter((c) => c.lobby_type === "group")
+      .map((c) => c.id);
+
+    const participantCountMap = new Map<string, number>();
+    const winnerUsernameMap = new Map<string, string>();
+
+    if (groupChallengeIds.length > 0) {
+
+      const { data: groupParticipantRows, error: groupParticipantError } = await (
+        supabase.from("challenge_participants") as any
+      )
+        .select(
+          "challenge_id, user_id, user:profiles!challenge_participants_user_id_fkey(id, username)"
+        )
+        .in("challenge_id", groupChallengeIds);
+
+      if (groupParticipantError) {
+        logError(
+          "admin-user-detail",
+          "Failed to fetch group participants for counts/winners",
+          `/api/admin/users/${userId}`,
+          groupParticipantError,
+        );
+        throw new Error(
+          `Failed to fetch group participants: ${groupParticipantError.message}`,
+        );
+      }
+
+      type GroupParticipantRow = {
+        challenge_id: string;
+        user_id: string | null;
+        user: { id: string; username: string } | null;
+      };
+
+      for (const row of (groupParticipantRows as GroupParticipantRow[] | null) ?? []) {
+        participantCountMap.set(
+          row.challenge_id,
+          (participantCountMap.get(row.challenge_id) ?? 0) + 1,
+        );
+      }
+
+      // For winner usernames, look up by winner_id
+      for (const ch of challenges) {
+        if (ch.lobby_type !== "group" || !ch.winner_id) continue;
+        const winnerRow = (
+          (groupParticipantRows as GroupParticipantRow[] | null) ?? []
+        ).find((r) => r.user_id === ch.winner_id);
+        if (winnerRow?.user?.username) {
+          winnerUsernameMap.set(ch.id, winnerRow.user.username);
+        }
+      }
+    }
+
+    const recentChallenges: AdminUserDetail["recentChallenges"] = challenges.map(
+      (ch) => {
+        const lobbyType: "1v1" | "group" =
+          ch.lobby_type === "group" ? "group" : "1v1";
+
+        if (lobbyType === "group") {
+          return {
+            id: ch.id,
+            lobbyType,
+            opponentId: null,
+            opponentUsername: null,
+            opponentDisplayName: null,
+            participantCount: participantCountMap.get(ch.id) ?? null,
+            winnerUsername: winnerUsernameMap.get(ch.id) ?? null,
+            status: ch.status,
+            gameMode: ch.game_mode,
+            winnerId: ch.winner_id,
+            createdAt: ch.created_at,
+            resolvedAt: ch.resolved_at ?? null,
+          };
+        }
+
+        // 1v1
         const isChallenger = ch.challenger_id === userId;
         const opponentProfile = isChallenger ? ch.opponent : ch.challenger;
         const opponentId = isChallenger ? ch.opponent_id : ch.challenger_id;
+
+        // Winner username for 1v1: pick from challenger/opponent
+        let winnerUsername: string | null = null;
+        if (ch.winner_id) {
+          if (ch.winner_id === ch.challenger?.id) winnerUsername = ch.challenger.username;
+          else if (ch.winner_id === ch.opponent?.id) winnerUsername = ch.opponent.username;
+        }
+
         return {
           id: ch.id,
+          lobbyType,
           opponentId,
           opponentUsername: opponentProfile?.username ?? "Unknown",
           opponentDisplayName: opponentProfile?.display_name ?? null,
+          participantCount: null,
+          winnerUsername,
           status: ch.status,
           gameMode: ch.game_mode,
           winnerId: ch.winner_id,
           createdAt: ch.created_at,
           resolvedAt: ch.resolved_at ?? null,
         };
-      });
+      }
+    );
 
     // Map achievements
     const userAchievements =

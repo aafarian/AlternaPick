@@ -112,9 +112,18 @@ export interface AdminUserDetail {
   }>;
   recentChallenges: Array<{
     id: string;
-    opponentId: string;
-    opponentUsername: string;
+    /** "1v1" or "group" — determines how to render this row. */
+    lobbyType: "1v1" | "group";
+    /** Populated for 1v1 only. Null for group challenges. */
+    opponentId: string | null;
+    /** Populated for 1v1 only. Null for group challenges. */
+    opponentUsername: string | null;
+    /** Populated for 1v1 only. Null for group challenges. */
     opponentDisplayName: string | null;
+    /** Populated for group challenges only — total participants including the user. */
+    participantCount: number | null;
+    /** Username of the winner if known (1v1 or group). Null if no winner / unresolved. */
+    winnerUsername: string | null;
     status: string;
     gameMode: GameMode;
     winnerId: string | null;
@@ -242,8 +251,16 @@ export interface AdminChallengeDetail {
   winnerId: string | null;
   createdAt: string;
   resolvedAt: string | null;
+  /** "1v1" or "group" — UI uses this to choose layout. */
+  lobbyType: "1v1" | "group";
+  /**
+   * For 1v1 challenges: challenger + opponent are populated, participants is empty.
+   * For group challenges: participants[] holds all sides (including the challenger),
+   * challenger is still populated for the "created by" header, opponent is null.
+   */
   challenger: AdminChallengePlayerSide;
-  opponent: AdminChallengePlayerSide;
+  opponent: AdminChallengePlayerSide | null;
+  participants: AdminChallengePlayerSide[];
 }
 
 // ---------------------------------------------------------------------------

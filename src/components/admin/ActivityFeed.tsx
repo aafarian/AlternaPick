@@ -108,9 +108,12 @@ function ActivityRow({ item }: { item: AdminActivityItem }) {
           {challengeId && (
             <>
               {" "}
-              <span className="font-mono text-xs text-muted-foreground/70">
+              <Link
+                href={`/admin/lookup/challenge/${challengeId}`}
+                className="font-mono text-xs text-primary hover:underline"
+              >
                 {challengeId.slice(0, 8)}
-              </span>
+              </Link>
             </>
           )}
         </p>

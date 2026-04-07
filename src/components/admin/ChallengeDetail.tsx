@@ -135,6 +135,11 @@ function ChallengeHeader({
             <Badge variant={challengeStatusVariant(challenge.status)}>
               {challenge.status}
             </Badge>
+            <Badge variant="outline">
+              {challenge.lobbyType === "group"
+                ? `Group (${challenge.participants.length})`
+                : "1v1"}
+            </Badge>
           </div>
 
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
@@ -508,23 +513,51 @@ export default function ChallengeDetail({
       {/* Challenge metadata header */}
       <ChallengeHeader challenge={detail} />
 
-      {/* Side-by-side player comparison */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PlayerSide
-          side={detail.challenger}
-          isWinner={!!detail.winnerId && detail.winnerId === detail.challenger.userId}
-          label="Challenger"
-          challengeId={detail.id}
-          onClaimed={fetchDetail}
-        />
-        <PlayerSide
-          side={detail.opponent}
-          isWinner={!!detail.winnerId && detail.winnerId === detail.opponent.userId}
-          label="Opponent"
-          challengeId={detail.id}
-          onClaimed={fetchDetail}
-        />
-      </div>
+      {/* Player tiles — N participants for group, side-by-side for 1v1 */}
+      {detail.lobbyType === "group" ? (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {detail.participants.map((side, idx) => {
+            const isCreator = side.userId === detail.challenger.userId;
+            return (
+              <PlayerSide
+                key={side.userId ?? side.email ?? `guest-${idx}`}
+                side={side}
+                isWinner={
+                  !!detail.winnerId && detail.winnerId === side.userId
+                }
+                label={isCreator ? "Creator" : "Participant"}
+                challengeId={detail.id}
+                onClaimed={fetchDetail}
+              />
+            );
+          })}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <PlayerSide
+            side={detail.challenger}
+            isWinner={
+              !!detail.winnerId &&
+              detail.winnerId === detail.challenger.userId
+            }
+            label="Challenger"
+            challengeId={detail.id}
+            onClaimed={fetchDetail}
+          />
+          {detail.opponent && (
+            <PlayerSide
+              side={detail.opponent}
+              isWinner={
+                !!detail.winnerId &&
+                detail.winnerId === detail.opponent.userId
+              }
+              label="Opponent"
+              challengeId={detail.id}
+              onClaimed={fetchDetail}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

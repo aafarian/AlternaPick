@@ -425,14 +425,16 @@ function RecentChallengesTable({
   }
 
   function winnerLabel(
-    winnerId: string | null,
+    ch: AdminUserDetail["recentChallenges"][number],
     currentUserId: string,
     currentUsername: string,
-    opponentUsername: string
   ): string {
-    if (!winnerId) return "\u2014";
-    if (winnerId === currentUserId) return currentUsername;
-    return opponentUsername;
+    if (!ch.winnerId) return "\u2014";
+    if (ch.winnerId === currentUserId) return currentUsername;
+    // 1v1: fall back to the opponent username if it matches
+    if (ch.lobbyType === "1v1") return ch.opponentUsername ?? "\u2014";
+    // Group: use the resolved winner username from the API
+    return ch.winnerUsername ?? "\u2014";
   }
 
   return (
@@ -452,12 +454,27 @@ function RecentChallengesTable({
         {challenges.map((ch) => (
           <TableRow key={ch.id}>
             <TableCell>
-              <Link
-                href={`/admin/users/${ch.opponentId}`}
-                className="text-primary hover:underline"
-              >
-                {ch.opponentDisplayName ?? ch.opponentUsername}
-              </Link>
+              {ch.lobbyType === "group" ? (
+                <Link
+                  href={`/admin/lookup/challenge/${ch.id}`}
+                  className="text-primary hover:underline"
+                >
+                  {ch.participantCount
+                    ? `${ch.participantCount}-player group`
+                    : "Group"}
+                </Link>
+              ) : ch.opponentId ? (
+                <Link
+                  href={`/admin/users/${ch.opponentId}`}
+                  className="text-primary hover:underline"
+                >
+                  {ch.opponentDisplayName ?? ch.opponentUsername ?? "Unknown"}
+                </Link>
+              ) : (
+                <span className="text-muted-foreground">
+                  {ch.opponentDisplayName ?? ch.opponentUsername ?? "Unknown"}
+                </span>
+              )}
             </TableCell>
             <TableCell>
               <Badge variant={challengeStatusVariant(ch.status)}>
@@ -466,7 +483,7 @@ function RecentChallengesTable({
             </TableCell>
             <TableCell>{gameModeLabel(ch.gameMode)}</TableCell>
             <TableCell className="font-medium">
-              {winnerLabel(ch.winnerId, userId, username, ch.opponentUsername)}
+              {winnerLabel(ch, userId, username)}
             </TableCell>
             <TableCell className="text-muted-foreground text-xs">
               {formatDateTime(ch.createdAt)}
