@@ -15,8 +15,6 @@ import { cn } from "@/lib/utils";
 import { logError } from "@/lib/logger";
 
 const PAGE_SIZE = 20;
-/** Hard cap on completed-cards prefetch via the ?cards URL param. */
-const MAX_COMPLETED_PREFETCH = 200;
 
 function StatCard({ icon, value, label, valueClassName }: { icon: ReactNode; value: ReactNode; label: string; valueClassName?: string }) {
   return (
@@ -55,11 +53,7 @@ async function getCardsByStatus(
   return (result.data ?? []) as CardWithPicks[];
 }
 
-export default async function CardsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ cards?: string }>;
-}) {
+export default async function CardsPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -69,24 +63,13 @@ export default async function CardsPage({
     redirect("/auth/login?redirectTo=/picks");
   }
 
-  // The ?cards=N query param captures pagination state in the URL so that
-  // pressing browser back from a card detail returns the user to a list
-  // with the same number of items they had loaded — no client state to
-  // restore. CardListWithLoadMore updates this param via router.replace
-  // when the user clicks "Load More".
-  const { cards: cardsParam } = await searchParams;
-  const requestedCount = Math.max(
-    PAGE_SIZE,
-    Math.min(parseInt(cardsParam ?? "", 10) || PAGE_SIZE, MAX_COMPLETED_PREFETCH),
-  );
-
   // Tab state is now driven by useSearchParams in PicksTabs (client-side).
   // The server page no longer needs to compute a default tab.
 
   // Fetch cards and stats in parallel
   const [activeCards, completedCards, hitRateResult, bestCardResult, totalResolvedResult] = await Promise.all([
     getCardsByStatus(user.id, "locked"),
-    getCardsByStatus(user.id, "resolved", requestedCount),
+    getCardsByStatus(user.id, "resolved", PAGE_SIZE),
     (supabase.rpc as any)("get_hit_rate", { p_user_id: user.id }),
     (supabase.from("cards") as any)
       .select("score, total_picks")
@@ -186,8 +169,8 @@ export default async function CardsPage({
                   initialCards={completedCards}
                   statusFilter="resolved"
                   pageSize={PAGE_SIZE}
-                  hasMoreInitially={completedCards.length >= requestedCount}
-                  urlParam="cards"
+                  hasMoreInitially={completedCards.length >= PAGE_SIZE}
+                  restorationKey="picks-completed"
                 />
               )
             }

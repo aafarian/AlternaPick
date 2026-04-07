@@ -32,8 +32,29 @@ const TABS: { key: Tab; label: string }[] = [
 
 const COMPLETED_PAGE_SIZE = 15;
 const INCOMING_COLLAPSED_LIMIT = 3;
-/** Hard cap on the URL-driven prefetch to avoid pathological re-fetches. */
-const MAX_COMPLETED_PREFETCH = 200;
+const RESTORATION_KEY = "challenges-history";
+const MAX_RESTORE_ITEMS = 200;
+
+interface SavedHistoryState {
+  scrollY: number;
+  count: number;
+}
+
+function readSavedHistoryState(): SavedHistoryState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(RESTORATION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SavedHistoryState;
+    if (typeof parsed?.scrollY !== "number" || typeof parsed?.count !== "number") {
+      return null;
+    }
+    if (parsed.count > MAX_RESTORE_ITEMS) parsed.count = MAX_RESTORE_ITEMS;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 export default function ChallengesPage() {
   const { user, loading: authLoading, supabase } = useAuth();
@@ -61,15 +82,13 @@ export default function ChallengesPage() {
   const prefersReduced = useReducedMotion();
   const { showChallengeToast, markReady } = useChallengeToast();
 
-  // Read the desired count of completed challenges from the URL.
-  // ?completed=N is updated whenever the user clicks "Load More" so that
-  // pressing browser back from a challenge detail returns the user to a
-  // list with the same number of items they had loaded.
-  const completedParam = searchParams.get("completed");
-  const requestedCompletedCount = Math.max(
-    COMPLETED_PAGE_SIZE,
-    Math.min(parseInt(completedParam ?? "", 10) || COMPLETED_PAGE_SIZE, MAX_COMPLETED_PREFETCH),
-  );
+  // Restoration: read sessionStorage on mount so back navigation can
+  // rehydrate the loaded count and scroll position. Stored on unmount.
+  const savedHistoryRef = useRef<SavedHistoryState | null>(null);
+  if (savedHistoryRef.current === null && typeof window !== "undefined") {
+    savedHistoryRef.current = readSavedHistoryState();
+  }
+  const requestedCompletedCount = savedHistoryRef.current?.count ?? COMPLETED_PAGE_SIZE;
 
   // Infinite scroll: callback ref connects the observer when the sentinel
   // mounts (works even when AnimatePresence delays rendering).
@@ -290,21 +309,95 @@ export default function ChallengesPage() {
     loadingMoreRef.current = true;
     try {
       await fetchCompleted(completedChallenges.length, true);
-      // Reflect the new loaded count in the URL so back-navigation can
-      // restore it. Use router.replace + scroll: false to avoid a jump.
-      const newTotal = completedChallenges.length + COMPLETED_PAGE_SIZE;
-      if (newTotal > COMPLETED_PAGE_SIZE) {
-        const next = new URLSearchParams(searchParams.toString());
-        next.set("completed", String(newTotal));
-        router.replace(`/challenges?${next.toString()}`, { scroll: false });
-      }
     } catch {
       // Stop retrying on error — prevents infinite spinner
       setHasMoreCompleted(false);
     } finally {
       loadingMoreRef.current = false;
     }
-  }, [hasMoreCompleted, completedChallenges.length, fetchCompleted, searchParams, router]);
+  }, [hasMoreCompleted, completedChallenges.length, fetchCompleted]);
+
+  // ---------------------------------------------------------------------
+  // Scroll/pagination restoration on back navigation
+  // ---------------------------------------------------------------------
+  // Save state to sessionStorage on every scroll, but flip an isNavigating
+  // flag the moment any anchor link is clicked (capture phase) so we don't
+  // overwrite the saved Y with Next.js's auto-scroll-to-top during the
+  // navigation transition.
+  const isNavigatingRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onClickCapture = (e: MouseEvent) => {
+      if (e.defaultPrevented) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("a[href]")) {
+        isNavigatingRef.current = true;
+      }
+    };
+    document.addEventListener("click", onClickCapture, { capture: true });
+    return () => {
+      document.removeEventListener("click", onClickCapture, { capture: true } as EventListenerOptions);
+    };
+  }, []);
+
+  const completedCountRef = useRef(completedChallenges.length);
+  useEffect(() => { completedCountRef.current = completedChallenges.length; }, [completedChallenges.length]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const save = () => {
+      if (isNavigatingRef.current) return;
+      if (activeTab !== "history") return;
+      if (completedCountRef.current <= COMPLETED_PAGE_SIZE) return;
+      try {
+        sessionStorage.setItem(
+          RESTORATION_KEY,
+          JSON.stringify({ scrollY: window.scrollY, count: completedCountRef.current }),
+        );
+      } catch {
+        // best-effort
+      }
+    };
+    window.addEventListener("scroll", save, { passive: true });
+    save(); // also save once on mount
+    return () => window.removeEventListener("scroll", save);
+  }, [activeTab]);
+
+  // Save when the loaded count changes (Load More click)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isNavigatingRef.current) return;
+    if (activeTab !== "history") return;
+    if (completedChallenges.length <= COMPLETED_PAGE_SIZE) return;
+    try {
+      sessionStorage.setItem(
+        RESTORATION_KEY,
+        JSON.stringify({ scrollY: window.scrollY, count: completedChallenges.length }),
+      );
+    } catch {
+      // best-effort
+    }
+  }, [completedChallenges.length, activeTab]);
+
+  // Restore scroll once enough rows have loaded after a back-navigation.
+  // Runs after the initial fetch (driven by requestedCompletedCount) lands.
+  const restoredScrollRef = useRef(false);
+  useEffect(() => {
+    if (restoredScrollRef.current) return;
+    const saved = savedHistoryRef.current;
+    if (!saved) return;
+    if (completedChallenges.length < saved.count) return;
+    restoredScrollRef.current = true;
+    if (typeof window === "undefined") return;
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: saved.scrollY, behavior: "instant" as ScrollBehavior });
+    });
+    // Clear so we don't reapply on subsequent renders / forward navigation.
+    try { sessionStorage.removeItem(RESTORATION_KEY); } catch {
+      // best-effort
+    }
+  }, [completedChallenges.length]);
 
   // Callback ref for infinite scroll sentinel. Connects the observer exactly
   // when the sentinel mounts (immune to AnimatePresence delaying the DOM).
