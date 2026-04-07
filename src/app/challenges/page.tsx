@@ -12,6 +12,7 @@ import type { ChallengeWithProfiles } from "@/lib/challenges/queries";
 import type { Challenge } from "@/lib/supabase/types";
 import { useChallengesRealtime } from "@/hooks/useChallengesRealtime";
 import { useChallengeToast } from "@/hooks/useChallengeToast";
+import { useScrollPaginationRestoration } from "@/hooks/useScrollPaginationRestoration";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -58,6 +59,13 @@ export default function ChallengesPage() {
 
   const prefersReduced = useReducedMotion();
   const { showChallengeToast, markReady } = useChallengeToast();
+
+  // Scroll/pagination restoration on back-navigation. Only active for the
+  // history tab — the active tab is short and doesn't need it.
+  const { savedOffset, recordOffset, restoreScroll } =
+    useScrollPaginationRestoration(
+      activeTab === "history" ? "challenges-history" : "",
+    );
 
   // Infinite scroll: callback ref connects the observer when the sentinel
   // mounts (works even when AnimatePresence delays rendering).
@@ -272,6 +280,60 @@ export default function ChallengesPage() {
       loadingMoreRef.current = false;
     }
   }, [hasMoreCompleted, completedChallenges.length, fetchCompleted]);
+
+  // Track loaded count for the unmount-time save
+  useEffect(() => {
+    recordOffset(completedChallenges.length);
+  }, [completedChallenges.length, recordOffset]);
+
+  // On mount with a saved offset, fast-forward pagination by repeatedly
+  // calling loadMore until we have enough rows. Refs prevent re-running.
+  const restoringRef = useRef(false);
+  useEffect(() => {
+    if (!savedOffset || restoringRef.current) return;
+    if (completedChallenges.length >= savedOffset) return;
+    if (!hasMoreCompleted) return;
+    restoringRef.current = true;
+
+    let cancelled = false;
+    (async () => {
+      // Sequential fetches until we reach the saved offset (or run out)
+      while (
+        !cancelled &&
+        completedChallengesLengthRef.current < savedOffset &&
+        hasMoreCompletedRef.current
+      ) {
+        try {
+          await fetchCompleted(completedChallengesLengthRef.current, true);
+        } catch {
+          break;
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Run once per mount when savedOffset is known
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedOffset]);
+
+  // Refs so the restoration loop above sees the latest state
+  const completedChallengesLengthRef = useRef(completedChallenges.length);
+  useEffect(() => {
+    completedChallengesLengthRef.current = completedChallenges.length;
+  }, [completedChallenges.length]);
+  const hasMoreCompletedRef = useRef(hasMoreCompleted);
+  useEffect(() => {
+    hasMoreCompletedRef.current = hasMoreCompleted;
+  }, [hasMoreCompleted]);
+
+  // Restore scroll once enough rows are rendered
+  useEffect(() => {
+    if (savedOffset && completedChallenges.length >= savedOffset) {
+      restoreScroll();
+    }
+  }, [completedChallenges.length, savedOffset, restoreScroll]);
 
   // Callback ref for infinite scroll sentinel. Connects the observer exactly
   // when the sentinel mounts (immune to AnimatePresence delaying the DOM).

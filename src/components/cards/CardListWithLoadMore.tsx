@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import CardDetail from "@/components/cards/CardDetail";
 import { Button } from "@/components/ui/button";
 import { AnimatedList } from "@/components/motion";
 import type { CardWithPicks } from "@/lib/cards/api";
+import { useScrollPaginationRestoration } from "@/hooks/useScrollPaginationRestoration";
 
 interface CardListWithLoadMoreProps {
   initialCards: CardWithPicks[];
@@ -14,6 +15,8 @@ interface CardListWithLoadMoreProps {
   pageSize?: number;
   /** Whether the initial batch might be a full page (and thus there may be more) */
   hasMoreInitially?: boolean;
+  /** Optional sessionStorage key for back-navigation scroll/pagination restoration */
+  restorationKey?: string;
 }
 
 export default function CardListWithLoadMore({
@@ -21,6 +24,7 @@ export default function CardListWithLoadMore({
   statusFilter,
   pageSize = 20,
   hasMoreInitially = true,
+  restorationKey,
 }: CardListWithLoadMoreProps) {
   const [cards, setCards] = useState<CardWithPicks[]>(initialCards);
   const [loading, setLoading] = useState(false);
@@ -30,8 +34,11 @@ export default function CardListWithLoadMore({
       : null
   );
 
+  const { savedOffset, recordOffset, restoreScroll } =
+    useScrollPaginationRestoration(restorationKey ?? "");
+
   const loadMore = useCallback(async () => {
-    if (!nextCursor) return;
+    if (!nextCursor) return null;
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -41,19 +48,80 @@ export default function CardListWithLoadMore({
       if (statusFilter) params.set("status", statusFilter);
 
       const res = await fetch(`/api/cards?${params}`);
-      if (!res.ok) return;
+      if (!res.ok) return null;
 
       const data = await res.json();
       const newCards: CardWithPicks[] = data.cards ?? [];
 
       setCards((prev) => [...prev, ...newCards]);
       setNextCursor(data.next_cursor ?? null);
+      return data.next_cursor ?? null;
     } catch {
-      // Silently ignore
+      return null;
     } finally {
       setLoading(false);
     }
   }, [nextCursor, pageSize, statusFilter]);
+
+  // Track loaded count for the unmount-time save
+  useEffect(() => {
+    recordOffset(cards.length);
+  }, [cards.length, recordOffset]);
+
+  // On mount, if a saved offset exists, fast-forward pagination by sequentially
+  // calling loadMore until we reach it. Refs prevent the effect from re-running.
+  const restoringRef = useRef(false);
+  useEffect(() => {
+    if (!restorationKey || !savedOffset || restoringRef.current) return;
+    if (cards.length >= savedOffset) return;
+    restoringRef.current = true;
+
+    let cancelled = false;
+    (async () => {
+      // Use a local cursor since state updates are batched
+      let cursor = nextCursor;
+      while (!cancelled && cursor && cardsLengthRef.current < savedOffset) {
+        const params = new URLSearchParams({
+          limit: String(pageSize),
+          cursor,
+        });
+        if (statusFilter) params.set("status", statusFilter);
+        try {
+          const res = await fetch(`/api/cards?${params}`);
+          if (!res.ok) break;
+          const data = await res.json();
+          const newCards: CardWithPicks[] = data.cards ?? [];
+          if (newCards.length === 0) break;
+          setCards((prev) => [...prev, ...newCards]);
+          cursor = data.next_cursor ?? null;
+          setNextCursor(cursor);
+        } catch {
+          break;
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally only depends on the saved offset / restoration key — we
+    // want this to fire exactly once per mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedOffset, restorationKey]);
+
+  // Track the latest cards length in a ref so the restoration loop above
+  // doesn't capture a stale value
+  const cardsLengthRef = useRef(cards.length);
+  useEffect(() => {
+    cardsLengthRef.current = cards.length;
+  }, [cards.length]);
+
+  // Restore scroll once enough cards are rendered to reach the saved Y
+  useEffect(() => {
+    if (savedOffset && cards.length >= savedOffset) {
+      restoreScroll();
+    }
+  }, [cards.length, savedOffset, restoreScroll]);
 
   if (cards.length === 0) return null;
 
