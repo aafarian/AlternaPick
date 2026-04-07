@@ -150,6 +150,22 @@ describe("getUnreadCounts", () => {
         getUnreadCounts(mockSupabase as never, "user-1")
       ).rejects.toThrow("Failed to fetch profile last-seen timestamps");
     });
+
+    it("throws if cards query fails", async () => {
+      setResult("cards", { count: null, error: { message: "DB down" } });
+
+      await expect(
+        getUnreadCounts(mockSupabase as never, "user-1")
+      ).rejects.toThrow("Failed to count new resolved cards");
+    });
+
+    it("throws if recaps query fails", async () => {
+      setResult("recaps", { count: null, error: { message: "DB down" } });
+
+      await expect(
+        getUnreadCounts(mockSupabase as never, "user-1")
+      ).rejects.toThrow("Failed to count new weekly recaps");
+    });
   });
 
   describe("analyticsUnseen", () => {
