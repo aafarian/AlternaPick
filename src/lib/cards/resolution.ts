@@ -20,6 +20,7 @@ import { teamsMatch } from "@/lib/team-matching";
 import { isSoccer } from "@/lib/sports/config";
 import type { PickWithPropAndGame } from "@/lib/cards/live-computation";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
+import { bootNonActiveParticipantsAfterResolution } from "@/lib/challenges/queries";
 import type {
   Card,
   Pick,
@@ -941,6 +942,22 @@ export async function handlePostResolution(
     });
   } catch (achievementError) {
     logError("card-resolution", "Failed to check achievements after card resolution", undefined, achievementError);
+  }
+
+  // For group-challenge cards: once any card resolves, late joiners would
+  // have unfair information. Boot anyone who hasn't locked in yet.
+  // This is fire-and-forget — failure to boot doesn't undo the resolution.
+  if (result.challenge_id) {
+    try {
+      await bootNonActiveParticipantsAfterResolution(supabase, result.challenge_id);
+    } catch (bootError) {
+      logError(
+        "card-resolution",
+        "Failed to boot non-active participants after challenge card resolution",
+        undefined,
+        bootError,
+      );
+    }
   }
 }
 

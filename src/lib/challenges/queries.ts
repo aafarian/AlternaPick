@@ -742,8 +742,18 @@ export async function expireStaleGroupParticipants(
 }
 
 /**
- * Mark all non-declined participants as "declined" for a group challenge.
- * Used when the entire group challenge is being cancelled.
+ * Mark non-active participants as "declined" for a group challenge.
+ *
+ * **Important**: this function never touches participants whose status is
+ * "active" (i.e., they've already locked in a card). Cards that have been
+ * locked in are sacrosanct — declining them on a cancel would hide them
+ * from the lobby view. The original 2026-04-06 incident was caused by
+ * this function declining locked-in players as part of the bulk expire
+ * sweep, leaving the user-facing lobby view empty.
+ *
+ * If you need to "boot the no-shows", use this. If you need to truly cancel
+ * a challenge with locked-in players, that's a contradiction — resolve it
+ * with the available cards instead.
  */
 async function declineAllGroupParticipants(
   admin: SupabaseClient<Database>,
@@ -752,14 +762,23 @@ async function declineAllGroupParticipants(
   const { error } = await (admin.from("challenge_participants") as any)
     .update({ status: "declined" })
     .eq("challenge_id", challengeId)
-    .in("status", ["invited", "accepted", "active"]);
+    .in("status", ["invited", "accepted"]);
 
   if (error) {
-    logError("challenges", "Failed to decline all group participants", "declineAllGroupParticipants", error);
+    logError("challenges", "Failed to decline non-active group participants", "declineAllGroupParticipants", error);
   }
 }
 
-/** Detach the challenger's card from the challenge (convert to solo). Returns 1 if converted, 0 otherwise. */
+/**
+ * Detach the challenger's card from the challenge (convert to solo).
+ * Returns 1 if converted, 0 otherwise.
+ *
+ * For 1v1 challenges, this is the intended behavior when the opponent never
+ * responds — the challenger's card becomes a solo card and they keep the
+ * credit. For group challenges, callers must guard with
+ * `groupHasActiveParticipants` first; detaching a card from a group with
+ * other locked-in players would orphan it from the lobby view.
+ */
 async function convertChallengerCardToSolo(
   admin: SupabaseClient<Database>,
   ch: { id: string; challenger_id: string; game_mode: string },
@@ -1162,7 +1181,27 @@ export async function respondToGroupChallenge(
       );
     }
 
-    // Convert creator's card to solo if requested
+    // Refuse to cancel if any OTHER participant has already locked in. Their
+    // cards are sacrosanct — let the challenge resolve naturally with whoever
+    // has played. The creator can only cancel before anyone commits.
+    const { data: otherActive } = await (admin.from("challenge_participants") as any)
+      .select("id")
+      .eq("challenge_id", challengeId)
+      .eq("status", "active")
+      .neq("user_id", userId)
+      .limit(1);
+
+    if (((otherActive ?? []) as Array<{ id: string }>).length > 0) {
+      throw new ChallengeValidationError(
+        "Can't cancel — other players have already locked in. The challenge will resolve normally.",
+        400,
+      );
+    }
+
+    // Convert creator's card to solo if requested.
+    // Safe at this point because the active-participant guard above ensures
+    // no other player has locked in. The creator's own locked card (if any)
+    // becomes a solo card with full credit.
     if (convertToSolo && ch.game_mode !== "sabotage") {
       await (admin.from("cards") as any)
         .update({ challenge_id: null })
@@ -1170,7 +1209,8 @@ export async function respondToGroupChallenge(
         .eq("user_id", ch.challenger_id);
     }
 
-    // Mark all participants as declined
+    // Mark non-active participants as declined.
+    // (declineAllGroupParticipants now skips active participants by design.)
     await declineAllGroupParticipants(admin, challengeId);
 
     // Cancel the entire challenge
@@ -1250,7 +1290,10 @@ async function checkMinimumParticipants(
     .filter((p) => p.status !== "declined");
 
   if (remaining.length < MIN_LOBBY_SIZE) {
-    // Not enough participants — cancel the challenge
+    // Not enough participants — cancel the challenge.
+    // This path runs after a participant declines and we drop below the
+    // minimum, which (per stated policy) only happens before any cards have
+    // resolved. The creator's card converts to solo so they keep credit.
     if (challenge.game_mode !== "sabotage") {
       await (admin.from("cards") as any)
         .update({ challenge_id: null })
@@ -1290,6 +1333,31 @@ export async function linkCardToParticipant(
   if (!participant) {
     logError("challenges", "No participant row found for card linking", "linkCardToParticipant", new Error(`No participant for user in challenge ${challengeId}`));
     return;
+  }
+
+  // Lockout: a participant who has been declined (manually or via the boot
+  // trigger after another card resolved) cannot link a new card. Their slot
+  // is gone — no rejoining once results are in.
+  if (participant.status === "declined") {
+    throw new ChallengeValidationError(
+      "You can no longer join this challenge — your slot has been closed.",
+      400,
+    );
+  }
+
+  // Lockout: once any other card in the challenge has resolved, no new
+  // lock-ins are allowed. The boot trigger should have already declined
+  // this participant, but enforce it directly here too in case of races.
+  const { count: resolvedCount } = await (admin.from("cards") as any)
+    .select("id", { count: "exact", head: true })
+    .eq("challenge_id", challengeId)
+    .eq("status", "resolved");
+
+  if ((resolvedCount ?? 0) > 0) {
+    throw new ChallengeValidationError(
+      "Other players' cards have already resolved — you can no longer join.",
+      400,
+    );
   }
 
   // Update participant: set card_id and status to 'active'
@@ -1355,6 +1423,80 @@ export async function linkCardToParticipant(
  * Check if all non-declined participants in a group challenge have status='active'.
  * If so, transition the challenge to 'active'.
  */
+/**
+ * Boot non-active participants from a group challenge after one of its cards
+ * has resolved. Called from the card resolution path.
+ *
+ * Once any card in the lobby has resolved, late joiners would have unfair
+ * information (they'd see resolved scores before picking). This function
+ * marks anyone still in invited/accepted (no card locked in) as declined,
+ * then re-runs the activation check so the challenge can transition to
+ * `active` and proceed with whoever did lock in.
+ *
+ * Idempotent: subsequent calls after additional cards resolve are no-ops
+ * because there are no non-active participants left to decline.
+ */
+export async function bootNonActiveParticipantsAfterResolution(
+  admin: SupabaseClient<Database>,
+  challengeId: string,
+): Promise<{ booted: number }> {
+  // Verify this is a group challenge in a state where booting still matters.
+  // Resolved/cancelled challenges have nothing to update.
+  const { data: ch, error: chError } = await (admin.from("challenges") as any)
+    .select("id, lobby_type, status")
+    .eq("id", challengeId)
+    .single();
+
+  if (chError || !ch) {
+    logError(
+      "challenges",
+      "Failed to fetch challenge for boot-after-resolution",
+      "bootNonActiveParticipantsAfterResolution",
+      chError,
+    );
+    return { booted: 0 };
+  }
+
+  const challenge = ch as { id: string; lobby_type: string | null; status: string };
+  if (challenge.lobby_type !== "group") return { booted: 0 };
+  if (challenge.status === "resolved" || challenge.status === "cancelled") {
+    return { booted: 0 };
+  }
+
+  // Decline anyone still in invited or accepted (haven't locked in a card).
+  // Active participants are left alone — their cards are still in play.
+  const { data: declined, error: updateError } = await (admin.from("challenge_participants") as any)
+    .update({ status: "declined" })
+    .eq("challenge_id", challengeId)
+    .in("status", ["invited", "accepted"])
+    .select("id");
+
+  if (updateError) {
+    logError(
+      "challenges",
+      "Failed to boot non-active participants after resolution",
+      "bootNonActiveParticipantsAfterResolution",
+      updateError,
+    );
+    return { booted: 0 };
+  }
+
+  const bootedCount = ((declined ?? []) as Array<{ id: string }>).length;
+
+  if (bootedCount > 0) {
+    logInfo(
+      "challenges",
+      `Booted ${bootedCount} non-active participant(s) from group challenge ${challengeId} after card resolution`,
+    );
+    // Re-check activation: with the no-shows out of the way, the remaining
+    // active participants may now satisfy the "all non-declined are active"
+    // condition and the challenge can transition to active.
+    await checkGroupChallengeActivation(admin, challengeId);
+  }
+
+  return { booted: bootedCount };
+}
+
 async function checkGroupChallengeActivation(
   admin: SupabaseClient<Database>,
   challengeId: string
