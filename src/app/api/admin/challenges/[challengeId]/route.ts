@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound, badRequest, handleApiError } from "@/lib/api/errors";
+import { UUID_RE } from "@/lib/api/validation";
 import type {
   AdminChallengeDetail,
   AdminChallengePlayerSide,
@@ -85,9 +86,6 @@ type PickRow = {
     };
   };
 };
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ---------------------------------------------------------------------------
 // Helpers

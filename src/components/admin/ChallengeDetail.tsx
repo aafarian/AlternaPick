@@ -512,14 +512,14 @@ export default function ChallengeDetail({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <PlayerSide
           side={detail.challenger}
-          isWinner={detail.winnerId === detail.challenger.userId}
+          isWinner={!!detail.winnerId && detail.winnerId === detail.challenger.userId}
           label="Challenger"
           challengeId={detail.id}
           onClaimed={fetchDetail}
         />
         <PlayerSide
           side={detail.opponent}
-          isWinner={detail.winnerId === detail.opponent.userId}
+          isWinner={!!detail.winnerId && detail.winnerId === detail.opponent.userId}
           label="Opponent"
           challengeId={detail.id}
           onClaimed={fetchDetail}

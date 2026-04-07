@@ -7,10 +7,8 @@ import {
   conflict,
   handleApiError,
 } from "@/lib/api/errors";
+import { UUID_RE } from "@/lib/api/validation";
 import { logInfo } from "@/lib/logger";
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * PATCH /api/admin/challenges/:challengeId/claim-guest
@@ -136,46 +134,22 @@ export async function PATCH(
 
     const guest = guestParticipants[0];
 
-    // 6. Update challenge_participants.user_id
-    const { error: updateParticipantError } = await (
-      supabase.from("challenge_participants") as any
-    )
-      .update({ user_id: targetUserId })
-      .eq("id", guest.id);
+    // 6. Atomic update via RPC: links the participant, reassigns the card,
+    //    and (for 1v1 challenges) sets the challenge opponent — all in one
+    //    transaction so a partial failure can't leave inconsistent state.
+    const { error: rpcError } = await (supabase.rpc as any)(
+      "admin_claim_guest_participant",
+      {
+        p_participant_id: guest.id,
+        p_target_user_id: targetUserId,
+        p_challenge_id: challengeId,
+        p_card_id: guest.card_id,
+        p_set_opponent: !challengeRow.opponent_id,
+      },
+    );
 
-    if (updateParticipantError) {
-      return handleApiError(
-        updateParticipantError,
-        "Failed to update participant",
-      );
-    }
-
-    // 7. If participant has a card_id, update cards.user_id where user_id IS NULL
-    if (guest.card_id) {
-      const { error: cardError } = await (supabase.from("cards") as any)
-        .update({ user_id: targetUserId })
-        .eq("id", guest.card_id)
-        .is("user_id", null);
-
-      if (cardError) {
-        return handleApiError(cardError, "Failed to update card ownership");
-      }
-    }
-
-    // 8. For 1v1 challenges with NULL opponent_id: also update challenges.opponent_id
-    if (!challengeRow.opponent_id) {
-      const { error: challengeUpdateError } = await (
-        supabase.from("challenges") as any
-      )
-        .update({ opponent_id: targetUserId })
-        .eq("id", challengeId);
-
-      if (challengeUpdateError) {
-        return handleApiError(
-          challengeUpdateError,
-          "Failed to update challenge opponent",
-        );
-      }
+    if (rpcError) {
+      return handleApiError(rpcError, "Failed to claim guest participant");
     }
 
     // Log success without PII — use IDs only
