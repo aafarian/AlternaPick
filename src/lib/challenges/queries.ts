@@ -214,13 +214,23 @@ export async function getChallenges(
 /**
  * Fetch a single challenge by ID with both players' cards, picks, and profiles.
  */
+/**
+ * Fetch full challenge detail. Returns null only if the challenge doesn't
+ * exist — challenges are publicly viewable so non-participants (including
+ * anonymous viewers passing `userId = null`) get the same data.
+ *
+ * The `userId` is still passed through for downstream personalization
+ * (winner highlights, "your card" indicators) and for participant-only UI
+ * controls in the React components, which gate writes themselves.
+ */
 export async function getChallenge(
   challengeId: string,
-  userId: string
+  _userId: string | null
 ): Promise<ChallengeDetail | null> {
   // Use admin client to fetch the challenge — RLS on the challenges table only
-  // allows challenger_id/opponent_id, which excludes group participants.
-  // Authorization is enforced manually below.
+  // allows challenger_id/opponent_id, which excludes group participants and
+  // anonymous viewers. Authorization for write actions is enforced elsewhere
+  // (mutation routes / RLS on cards/picks).
   const admin = createAdminClient();
 
   const { data: challenge, error: challengeError } = await (admin.from("challenges") as any)
@@ -236,24 +246,6 @@ export async function getChallenge(
 
   const ch = challenge as ChallengeWithProfiles;
   const isGroup = ch.lobby_type === "group";
-
-  // Verify user is a participant.
-  // For group challenges, check the challenge_participants table.
-  // For 1v1, check challenger_id / opponent_id directly.
-  if (isGroup) {
-    const { data: participantCheck } = await (admin.from("challenge_participants") as any)
-      .select("id")
-      .eq("challenge_id", challengeId)
-      .eq("user_id", userId)
-      .limit(1);
-
-    if (!participantCheck || (participantCheck as Array<{ id: string }>).length === 0) {
-      return null;
-    }
-  } else if (ch.challenger_id !== userId && ch.opponent_id !== userId) {
-    // Email invite challenges have opponent_id = null — allow the challenger to view them.
-    return null;
-  }
 
   // Note: when opponent_id is null (email invite), ch.opponent will be null
   // from the FK join. Downstream code must handle this.
