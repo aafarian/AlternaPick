@@ -415,6 +415,28 @@ describe("expireStaleChallenges", () => {
 
       expect(result.expired).toBe(0);
     });
+
+    it("fails safe (skips cancel) when the active-participant check errors", async () => {
+      // Bug we're guarding against: if the DB query fails, the previous
+      // implementation returned false and proceeded to cancel — exactly the
+      // opposite of what we want for a defensive guard.
+      queryResults["challenges:time_cutoff"] = {
+        data: [
+          { id: "ch-1", challenger_id: "user-a", game_mode: "classic", lobby_type: "group" },
+        ],
+        error: null,
+      };
+      queryResults["challenges"] = { data: [], error: null };
+      queryResults["challenge_participants:active_only"] = {
+        data: null,
+        error: { message: "DB hiccup" },
+      };
+
+      const result = await expireStaleChallenges(mockAdmin);
+
+      // Skipped — fail-safe means we DON'T cancel on a DB error
+      expect(result.expired).toBe(0);
+    });
   });
 
   describe("Cross-trigger: no double counting", () => {

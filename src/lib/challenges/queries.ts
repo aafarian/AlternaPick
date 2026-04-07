@@ -809,16 +809,33 @@ async function convertChallengerCardToSolo(
  * "active" (i.e., they've already locked in their card). Used by the bulk
  * expiration sweep to avoid cancelling group challenges that already have
  * resolvable cards on them.
+ *
+ * Fail-safe behavior: on a DB error, returns true so the caller treats the
+ * challenge as having active participants and skips the cancel. This is the
+ * exact opposite of the catastrophic-cancel cascade we're trying to prevent —
+ * better to leave a challenge alone than to wipe it out due to a transient
+ * DB hiccup.
  */
 async function groupHasActiveParticipants(
   admin: SupabaseClient<Database>,
   challengeId: string,
 ): Promise<boolean> {
-  const { data } = await (admin.from("challenge_participants") as any)
+  const { data, error } = await (admin.from("challenge_participants") as any)
     .select("id")
     .eq("challenge_id", challengeId)
     .eq("status", "active")
     .limit(1);
+
+  if (error) {
+    logError(
+      "challenges",
+      "Failed to check active participants",
+      "groupHasActiveParticipants",
+      error,
+    );
+    return true; // fail-safe: don't cancel on a DB error
+  }
+
   return ((data ?? []) as Array<{ id: string }>).length > 0;
 }
 
