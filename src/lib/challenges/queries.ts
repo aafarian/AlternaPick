@@ -581,6 +581,15 @@ export async function expireStaleChallenges(
     .lt("created_at", cutoff);
 
   for (const ch of (stale ?? []) as StaleChallengeRow[]) {
+    // For group challenges, skip the unconditional cancel if any participant
+    // has already locked in their card. Those active participants would lose
+    // their resolved cards otherwise. expireStaleGroupParticipants handles
+    // the per-participant timeout + activation re-check.
+    if (ch.lobby_type === "group" && (await groupHasActiveParticipants(admin, ch.id))) {
+      processedIds.add(ch.id);
+      continue;
+    }
+
     converted += await convertChallengerCardToSolo(admin, ch);
     if (ch.lobby_type === "group") {
       await declineAllGroupParticipants(admin, ch.id);
@@ -615,6 +624,12 @@ export async function expireStaleChallenges(
 
     const challengerCard = ((challengerCards ?? []) as Array<{ id: string; status: string }>)[0];
     if (!challengerCard || challengerCard.status !== "resolved") continue;
+
+    // For groups, skip if any participant locked in — see Trigger 1 comment.
+    if (ch.lobby_type === "group" && (await groupHasActiveParticipants(admin, ch.id))) {
+      processedIds.add(ch.id);
+      continue;
+    }
 
     // Challenger's card has resolved but opponent hasn't responded — expire
     converted += await convertChallengerCardToSolo(admin, ch);
@@ -719,7 +734,10 @@ export async function expireStaleGroupParticipants(
       participantsDeclined++;
     }
 
-    // If we declined anyone, check if enough participants remain
+    // If we declined anyone, check if enough participants remain — and if
+    // the remaining participants are all locked in, transition the challenge
+    // to "active" so it can resolve naturally instead of getting stuck waiting
+    // forever for the people we just declined.
     if (staleRows.length > 0) {
       const { data: remaining } = await (admin.from("challenge_participants") as any)
         .select("id")
@@ -734,6 +752,10 @@ export async function expireStaleGroupParticipants(
         await convertChallengerCardToSolo(admin, ch);
         await cancelChallenge(admin, ch.id);
         challengesCancelled++;
+      } else {
+        // Re-check activation. If everyone who's left has locked in their
+        // card, the challenge should transition to "active" and resolve.
+        await checkGroupChallengeActivation(admin, ch.id);
       }
     }
   }
@@ -780,6 +802,24 @@ async function convertChallengerCardToSolo(
     return 1;
   }
   return 0;
+}
+
+/**
+ * Returns true if a group challenge has at least one participant with status
+ * "active" (i.e., they've already locked in their card). Used by the bulk
+ * expiration sweep to avoid cancelling group challenges that already have
+ * resolvable cards on them.
+ */
+async function groupHasActiveParticipants(
+  admin: SupabaseClient<Database>,
+  challengeId: string,
+): Promise<boolean> {
+  const { data } = await (admin.from("challenge_participants") as any)
+    .select("id")
+    .eq("challenge_id", challengeId)
+    .eq("status", "active")
+    .limit(1);
+  return ((data ?? []) as Array<{ id: string }>).length > 0;
 }
 
 /** Cancel a challenge by setting its status to "cancelled". */

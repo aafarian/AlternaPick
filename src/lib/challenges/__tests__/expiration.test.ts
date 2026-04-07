@@ -42,6 +42,9 @@ function createChainableQuery(table: string) {
         if (prop === "in" && args[0] === "id") {
           filterHint = "by_ids";
         }
+        if (prop === "eq" && args[0] === "status" && args[1] === "active") {
+          filterHint = "active_only";
+        }
         return new Proxy({}, handler);
       };
     },
@@ -341,6 +344,76 @@ describe("expireStaleChallenges", () => {
 
       // Counted once from trigger 2, not double-counted by trigger 3
       expect(result.expired).toBe(1);
+    });
+  });
+
+  describe("Group challenge guard", () => {
+    it("does NOT cancel a stale group challenge that has any active participants", async () => {
+      // Group challenge older than 24h, would normally be cancelled by Trigger 1.
+      queryResults["challenges:time_cutoff"] = {
+        data: [
+          { id: "ch-1", challenger_id: "user-a", game_mode: "classic", lobby_type: "group" },
+        ],
+        error: null,
+      };
+      queryResults["challenges"] = { data: [], error: null };
+      // At least one participant has locked in (status = "active")
+      queryResults["challenge_participants:active_only"] = {
+        data: [{ id: "p-1" }],
+        error: null,
+      };
+
+      const result = await expireStaleChallenges(mockAdmin);
+
+      // Skipped — not cancelled
+      expect(result.expired).toBe(0);
+    });
+
+    it("DOES cancel a stale group challenge with no active participants", async () => {
+      queryResults["challenges:time_cutoff"] = {
+        data: [
+          { id: "ch-1", challenger_id: "user-a", game_mode: "classic", lobby_type: "group" },
+        ],
+        error: null,
+      };
+      queryResults["challenges"] = { data: [], error: null };
+      // No active participants
+      queryResults["challenge_participants:active_only"] = { data: [], error: null };
+      queryResults["cards"] = { data: [{ id: "card-1" }], error: null };
+
+      const result = await expireStaleChallenges(mockAdmin);
+
+      expect(result.expired).toBe(1);
+    });
+
+    it("trigger 2 also skips group challenges with active participants", async () => {
+      queryResults["challenges:time_cutoff"] = { data: [], error: null };
+      queryResults["challenges"] = {
+        data: [
+          {
+            id: "ch-1",
+            challenger_id: "user-a",
+            game_mode: "classic",
+            mirror_props: null,
+            lobby_type: "group",
+          },
+        ],
+        error: null,
+      };
+      // Challenger card is resolved (would normally trigger 2)
+      queryResults["cards:user_id=user-a"] = {
+        data: [{ id: "card-1", status: "resolved" }],
+        error: null,
+      };
+      // But there are active group participants — skip
+      queryResults["challenge_participants:active_only"] = {
+        data: [{ id: "p-1" }],
+        error: null,
+      };
+
+      const result = await expireStaleChallenges(mockAdmin);
+
+      expect(result.expired).toBe(0);
     });
   });
 
