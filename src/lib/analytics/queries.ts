@@ -26,6 +26,7 @@ import type {
   TeamStats,
   ScoreDistributionEntry,
   GameModeStats,
+  CardHistoryItem,
 } from "./types";
 
 // ---------- Internal helpers ----------
@@ -551,4 +552,97 @@ export async function getGameModeStats(
   // Sort by total cards descending
   results.sort((a, b) => b.cards - a.cards);
   return results;
+}
+
+const CARD_HISTORY_LIMIT = 50;
+/** Larger pool when sport filter is active, since filtering happens in JS. */
+const CARD_HISTORY_SPORT_POOL = 200;
+
+/**
+ * Get the most recent resolved cards for the card history modal.
+ * Returns up to 50 cards sorted by resolved_at descending.
+ *
+ * Pushes ordering and limit to the DB to avoid transferring unbounded data.
+ * When a sport filter is active, fetches a larger pool (CARD_HISTORY_SPORT_POOL)
+ * since the sport filter is applied client-side via the picks join.
+ */
+export async function getCardHistory(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  mode?: ModeFilter,
+  sport?: SportFilter
+): Promise<CardHistoryItem[]> {
+  const dbLimit =
+    sport && sport !== "all" ? CARD_HISTORY_SPORT_POOL : CARD_HISTORY_LIMIT;
+
+  let query = (supabase.from("cards") as any)
+    .select("id, card_size, game_mode, score, total_picks, resolved_at")
+    .eq("user_id", userId)
+    .eq("status", "resolved")
+    .order("resolved_at", { ascending: false })
+    .limit(dbLimit);
+
+  if (mode && mode !== "all") {
+    query = query.eq("game_mode", mode);
+  }
+
+  const result = await query;
+
+  if (result.error) {
+    logError(
+      "analytics",
+      `getCardHistory: failed to fetch cards: ${result.error.message}`,
+      "getCardHistory",
+      result.error,
+    );
+    throw new Error(`Failed to fetch card history: ${result.error.message}`);
+  }
+  if (!result.data) return [];
+
+  let cards = result.data as ResolvedCardRow[];
+
+  // When a sport filter is active, narrow the pool by checking which cards
+  // contain at least one pick whose game.sport matches.
+  if (sport && sport !== "all") {
+    const cardIds = cards.map((c) => c.id);
+    if (cardIds.length === 0) return [];
+
+    const picksResult = await (supabase.from("picks") as any)
+      .select("card_id, props:prop_id(games:game_id(sport))")
+      .in("card_id", cardIds)
+      .in("result", ["hit", "miss"]);
+
+    if (picksResult.error) {
+      logError(
+        "analytics",
+        `getCardHistory: failed to fetch picks for sport filter: ${picksResult.error.message}`,
+        "getCardHistory",
+        picksResult.error,
+      );
+      throw new Error(
+        `Failed to fetch picks for sport filter: ${picksResult.error.message}`,
+      );
+    }
+
+    const matchingCardIds = new Set<string>();
+    for (const pick of (picksResult.data ?? []) as {
+      card_id: string;
+      props: { games: { sport: string } | null } | null;
+    }[]) {
+      if (pick.props?.games?.sport === sport) {
+        matchingCardIds.add(pick.card_id);
+      }
+    }
+
+    cards = cards.filter((c) => matchingCardIds.has(c.id));
+  }
+
+  return cards.slice(0, CARD_HISTORY_LIMIT).map((c) => ({
+    id: c.id,
+    score: c.score,
+    totalPicks: c.total_picks,
+    cardSize: c.card_size,
+    gameMode: c.game_mode,
+    resolvedAt: c.resolved_at,
+  }));
 }
