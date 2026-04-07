@@ -161,6 +161,21 @@ Before committing, self-review for:
 - [ ] Raw HTML interpolation uses escapeHtml for any potentially user-derived values
 - [ ] If something cannot be validated, say exactly what was not checked
 
+## Testing Guidelines
+
+- **Test framework**: Vitest, runs in node environment. Tests live in `src/**/__tests__/*.test.ts` and run via `npm test`.
+- **Coverage**: `npm run test:coverage` generates an HTML report. Watch mode: `npm run test:watch`.
+- **What to test (by priority)**:
+  1. **Pure business logic**: query builders, computation, validation, formatting. These are fast to test and have high ROI.
+  2. **Error paths**: any function that throws or logs should have a test for the failure case.
+  3. **New API routes**: at minimum, test the auth check, input validation, and the happy path.
+  4. **Skip**: trivial getters, shadcn UI components, and code that just glues together other tested code.
+- **Test structure**: use `describe` blocks per function/scenario, one `it` per behavior. Keep tests focused — one assertion per `it` when possible.
+- **Mocking Supabase**: use the proxy-based chainable mock pattern from `src/lib/notifications/__tests__/queries.test.ts` or `src/lib/challenges/__tests__/guest-conversion.test.ts`. Set per-table results in `beforeEach`.
+- **Mocking the logger**: `vi.mock("@/lib/logger", () => ({ logError: vi.fn(), logWarn: vi.fn(), logInfo: vi.fn() }))`.
+- **Always test**: code you modified. If you change a function, add or update a test for the change. The PR diff is a good guide for what to test.
+- **Test factories**: see `src/lib/cards/__tests__/factories.ts` for the factory pattern. Reuse factories where possible instead of inlining test data.
+
 ## Tech Stack Details
 
 - Logger: Use `logError`, `logWarn`, `logInfo` from `@/lib/logger` — never raw `console.*` (enforced by ESLint `no-console` rule)
