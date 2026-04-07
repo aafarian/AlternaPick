@@ -432,7 +432,7 @@ function RecentChallengesTable({
     if (!ch.winnerId) return "\u2014";
     if (ch.winnerId === currentUserId) return currentUsername;
     // 1v1: fall back to the opponent username if it matches
-    if (ch.lobbyType === "1v1") return ch.opponentUsername;
+    if (ch.lobbyType === "1v1") return ch.opponentUsername ?? "\u2014";
     // Group: use the resolved winner username from the API
     return ch.winnerUsername ?? "\u2014";
   }
@@ -468,11 +468,11 @@ function RecentChallengesTable({
                   href={`/admin/users/${ch.opponentId}`}
                   className="text-primary hover:underline"
                 >
-                  {ch.opponentDisplayName ?? ch.opponentUsername}
+                  {ch.opponentDisplayName ?? ch.opponentUsername ?? "Unknown"}
                 </Link>
               ) : (
                 <span className="text-muted-foreground">
-                  {ch.opponentDisplayName ?? ch.opponentUsername}
+                  {ch.opponentDisplayName ?? ch.opponentUsername ?? "Unknown"}
                 </span>
               )}
             </TableCell>

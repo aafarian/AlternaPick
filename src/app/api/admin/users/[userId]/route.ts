@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound, badRequest, handleApiError } from "@/lib/api/errors";
+import { logError } from "@/lib/logger";
 import type { AdminUserDetail } from "@/lib/admin/types";
 
 import { isValidUuid } from "@/lib/admin/helpers";
@@ -217,8 +218,12 @@ export async function GET(
 
     // (b) Group-participation challenges the user is in but didn't create.
     // The OR query above misses these because challenger_id != userId.
-
-    const { data: participantChallengeRows } = await (
+    //
+    // Note: .order() and .limit() on this query target the outer
+    // challenge_participants rows, not the joined challenges. We pull a
+    // generous 100 here (the dedupe + sort + slice below caps to 20) so a
+    // user with many group memberships doesn't lose challenges off the end.
+    const { data: participantChallengeRows, error: participantChallengeError } = await (
       supabase.from("challenge_participants") as any
     )
       .select(
@@ -226,8 +231,19 @@ export async function GET(
       )
       .eq("user_id", userId)
       .eq("is_creator", false)
-      .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(100);
+
+    if (participantChallengeError) {
+      logError(
+        "admin-user-detail",
+        "Failed to fetch group-participation challenges",
+        `/api/admin/users/${userId}`,
+        participantChallengeError,
+      );
+      throw new Error(
+        `Failed to fetch group-participation challenges: ${participantChallengeError.message}`,
+      );
+    }
 
     const challengesFromParticipant =
       ((participantChallengeRows as Array<{ challenge: ChallengeRow | null }> | null) ?? [])
@@ -253,13 +269,25 @@ export async function GET(
 
     if (groupChallengeIds.length > 0) {
 
-      const { data: groupParticipantRows } = await (
+      const { data: groupParticipantRows, error: groupParticipantError } = await (
         supabase.from("challenge_participants") as any
       )
         .select(
           "challenge_id, user_id, user:profiles!challenge_participants_user_id_fkey(id, username)"
         )
         .in("challenge_id", groupChallengeIds);
+
+      if (groupParticipantError) {
+        logError(
+          "admin-user-detail",
+          "Failed to fetch group participants for counts/winners",
+          `/api/admin/users/${userId}`,
+          groupParticipantError,
+        );
+        throw new Error(
+          `Failed to fetch group participants: ${groupParticipantError.message}`,
+        );
+      }
 
       type GroupParticipantRow = {
         challenge_id: string;
@@ -296,7 +324,7 @@ export async function GET(
             id: ch.id,
             lobbyType,
             opponentId: null,
-            opponentUsername: "Group",
+            opponentUsername: null,
             opponentDisplayName: null,
             participantCount: participantCountMap.get(ch.id) ?? null,
             winnerUsername: winnerUsernameMap.get(ch.id) ?? null,

@@ -114,15 +114,15 @@ export interface AdminUserDetail {
     id: string;
     /** "1v1" or "group" — determines how to render this row. */
     lobbyType: "1v1" | "group";
-    /** For 1v1 only. Null for group challenges. */
+    /** Populated for 1v1 only. Null for group challenges. */
     opponentId: string | null;
-    /** For 1v1 only. "Group" for group challenges (display fallback). */
-    opponentUsername: string;
-    /** For 1v1 only. */
+    /** Populated for 1v1 only. Null for group challenges. */
+    opponentUsername: string | null;
+    /** Populated for 1v1 only. Null for group challenges. */
     opponentDisplayName: string | null;
-    /** For group challenges only — total participants including the user. */
+    /** Populated for group challenges only — total participants including the user. */
     participantCount: number | null;
-    /** Username of the winner if known (1v1 or group). */
+    /** Username of the winner if known (1v1 or group). Null if no winner / unresolved. */
     winnerUsername: string | null;
     status: string;
     gameMode: GameMode;
