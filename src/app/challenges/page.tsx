@@ -286,25 +286,32 @@ export default function ChallengesPage() {
     recordOffset(completedChallenges.length);
   }, [completedChallenges.length, recordOffset]);
 
-  // On mount with a saved offset, fast-forward pagination by repeatedly
-  // calling loadMore until we have enough rows. Refs prevent re-running.
+  // On mount with a saved offset, fast-forward pagination by directly
+  // hitting the API. We can't use fetchCompleted in a loop because it reads
+  // completedChallenges.length from a stale closure each iteration; instead
+  // we drive the offset locally and apply the result via setCompletedChallenges.
   const restoringRef = useRef(false);
   useEffect(() => {
     if (!savedOffset || restoringRef.current) return;
     if (completedChallenges.length >= savedOffset) return;
-    if (!hasMoreCompleted) return;
     restoringRef.current = true;
 
     let cancelled = false;
     (async () => {
-      // Sequential fetches until we reach the saved offset (or run out)
-      while (
-        !cancelled &&
-        completedChallengesLengthRef.current < savedOffset &&
-        hasMoreCompletedRef.current
-      ) {
+      let localCount = completedChallenges.length;
+      while (!cancelled && localCount < savedOffset) {
         try {
-          await fetchCompleted(completedChallengesLengthRef.current, true);
+          const res = await fetch(
+            `/api/challenges?status=resolved,declined,cancelled&limit=${COMPLETED_PAGE_SIZE}&offset=${localCount}`,
+          );
+          if (!res.ok) break;
+          const data = await res.json();
+          const fetched: ChallengeWithProfiles[] = data.challenges ?? [];
+          if (fetched.length === 0) break;
+          setCompletedChallenges((prev) => [...prev, ...fetched]);
+          localCount += fetched.length;
+          setHasMoreCompleted(data.hasMore ?? false);
+          if (!data.hasMore) break;
         } catch {
           break;
         }
@@ -317,16 +324,6 @@ export default function ChallengesPage() {
     // Run once per mount when savedOffset is known
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedOffset]);
-
-  // Refs so the restoration loop above sees the latest state
-  const completedChallengesLengthRef = useRef(completedChallenges.length);
-  useEffect(() => {
-    completedChallengesLengthRef.current = completedChallenges.length;
-  }, [completedChallenges.length]);
-  const hasMoreCompletedRef = useRef(hasMoreCompleted);
-  useEffect(() => {
-    hasMoreCompletedRef.current = hasMoreCompleted;
-  }, [hasMoreCompleted]);
 
   // Restore scroll once enough rows are rendered
   useEffect(() => {

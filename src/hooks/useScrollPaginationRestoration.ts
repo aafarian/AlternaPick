@@ -48,12 +48,12 @@ interface SavedState {
 
 const MAX_RESTORE_ITEMS = 200;
 
-function readAndClear(storageKey: string): SavedState | null {
+function readSaved(storageKey: string): SavedState | null {
   if (typeof window === "undefined") return null;
+  if (!storageKey) return null;
   try {
     const raw = sessionStorage.getItem(storageKey);
     if (!raw) return null;
-    sessionStorage.removeItem(storageKey);
     const parsed = JSON.parse(raw) as SavedState;
     if (
       typeof parsed?.scrollY !== "number" ||
@@ -71,10 +71,23 @@ function readAndClear(storageKey: string): SavedState | null {
   }
 }
 
+function clearSaved(storageKey: string): void {
+  if (typeof window === "undefined" || !storageKey) return;
+  try {
+    sessionStorage.removeItem(storageKey);
+  } catch {
+    // best-effort
+  }
+}
+
 export function useScrollPaginationRestoration(storageKey: string) {
-  // Read saved state once on mount and clear it (one-shot).
-  // Lazy initialiser so it runs after hydration when sessionStorage exists.
-  const [savedState] = useState<SavedState | null>(() => readAndClear(storageKey));
+  // Read the saved state once on mount. We do NOT clear it here because
+  // React Strict Mode (default in Next.js dev) double-mounts components:
+  // a read-and-clear in the lazy initialiser would consume the state on
+  // the first mount and leave the second mount with nothing. Instead we
+  // clear the state after restoreScroll() has fired, signalling that the
+  // consumer has successfully used it.
+  const [savedState] = useState<SavedState | null>(() => readSaved(storageKey));
 
   // Track the latest offset via a ref so unmount cleanup captures the
   // correct value without depending on it (which would re-run the effect).
@@ -103,7 +116,8 @@ export function useScrollPaginationRestoration(storageKey: string) {
 
   // Restore scroll once the caller signals they've rendered enough items.
   // We use requestAnimationFrame to wait for the next paint so layout is
-  // settled before we scroll.
+  // settled before we scroll. Clears the saved state after restoring so a
+  // subsequent navigation cycle reads fresh.
   const restoredRef = useRef(false);
   const restoreScroll = useCallback(() => {
     if (restoredRef.current || !savedState) return;
@@ -112,7 +126,8 @@ export function useScrollPaginationRestoration(storageKey: string) {
     requestAnimationFrame(() => {
       window.scrollTo({ top: savedState.scrollY, behavior: "instant" as ScrollBehavior });
     });
-  }, [savedState]);
+    clearSaved(storageKey);
+  }, [savedState, storageKey]);
 
   return {
     /** The saved offset (item count) from the previous visit, if any. */

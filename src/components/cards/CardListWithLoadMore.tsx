@@ -69,7 +69,9 @@ export default function CardListWithLoadMore({
   }, [cards.length, recordOffset]);
 
   // On mount, if a saved offset exists, fast-forward pagination by sequentially
-  // calling loadMore until we reach it. Refs prevent the effect from re-running.
+  // fetching pages until we reach it. We track loaded count locally inside the
+  // loop because setCards is async — a ref updated via useEffect would still
+  // hold the stale value when the next iteration's `while` check runs.
   const restoringRef = useRef(false);
   useEffect(() => {
     if (!restorationKey || !savedOffset || restoringRef.current) return;
@@ -78,9 +80,9 @@ export default function CardListWithLoadMore({
 
     let cancelled = false;
     (async () => {
-      // Use a local cursor since state updates are batched
       let cursor = nextCursor;
-      while (!cancelled && cursor && cardsLengthRef.current < savedOffset) {
+      let localCount = cards.length;
+      while (!cancelled && cursor && localCount < savedOffset) {
         const params = new URLSearchParams({
           limit: String(pageSize),
           cursor,
@@ -93,6 +95,7 @@ export default function CardListWithLoadMore({
           const newCards: CardWithPicks[] = data.cards ?? [];
           if (newCards.length === 0) break;
           setCards((prev) => [...prev, ...newCards]);
+          localCount += newCards.length;
           cursor = data.next_cursor ?? null;
           setNextCursor(cursor);
         } catch {
@@ -108,13 +111,6 @@ export default function CardListWithLoadMore({
     // want this to fire exactly once per mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedOffset, restorationKey]);
-
-  // Track the latest cards length in a ref so the restoration loop above
-  // doesn't capture a stale value
-  const cardsLengthRef = useRef(cards.length);
-  useEffect(() => {
-    cardsLengthRef.current = cards.length;
-  }, [cards.length]);
 
   // Restore scroll once enough cards are rendered to reach the saved Y
   useEffect(() => {

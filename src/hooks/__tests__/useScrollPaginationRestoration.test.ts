@@ -27,7 +27,11 @@ describe("useScrollPaginationRestoration", () => {
     expect(result.current.savedOffset).toBeNull();
   });
 
-  it("reads and clears saved state on mount (one-shot)", () => {
+  it("reads saved state on mount but does not clear it until restoreScroll fires", () => {
+    // Strict Mode double-mounts components in dev, so a read-and-clear in
+    // the lazy initializer would consume the state on the first mount and
+    // leave the second mount with nothing. Verify the state survives until
+    // the consumer explicitly restores.
     window.sessionStorage.setItem(
       "test-key",
       JSON.stringify({ scrollY: 500, offset: 40 }),
@@ -36,8 +40,32 @@ describe("useScrollPaginationRestoration", () => {
     const { result } = renderHook(() => useScrollPaginationRestoration("test-key"));
 
     expect(result.current.savedOffset).toBe(40);
-    // Should be cleared after read
+    // Still in storage after read
+    expect(window.sessionStorage.getItem("test-key")).not.toBeNull();
+
+    // Now restore — that's when we clear
+    act(() => {
+      result.current.restoreScroll();
+    });
     expect(window.sessionStorage.getItem("test-key")).toBeNull();
+  });
+
+  it("a second hook instance can still read the saved state (Strict Mode safe)", () => {
+    window.sessionStorage.setItem(
+      "test-key",
+      JSON.stringify({ scrollY: 500, offset: 40 }),
+    );
+
+    const { result: first } = renderHook(() =>
+      useScrollPaginationRestoration("test-key"),
+    );
+    expect(first.current.savedOffset).toBe(40);
+
+    // Second mount (simulating Strict Mode's second pass) should also see it
+    const { result: second } = renderHook(() =>
+      useScrollPaginationRestoration("test-key"),
+    );
+    expect(second.current.savedOffset).toBe(40);
   });
 
   it("ignores malformed JSON", () => {
