@@ -114,7 +114,17 @@ export async function POST(
       const userIdsNeedingCard = new Set(
         participants.filter((p) => !p.card_id && p.user_id).map((p) => p.user_id as string),
       );
-      const orphansToRelink = orphans.filter((c) => userIdsNeedingCard.has(c.user_id));
+      // Deduplicate: at most one orphan card per participant. If a user
+      // somehow has multiple orphans (rare data-corruption case), we pick
+      // the first one rather than re-linking all of them, which would
+      // double-link the participant to the challenge.
+      const seenUserIds = new Set<string>();
+      const orphansToRelink = orphans.filter((c) => {
+        if (!userIdsNeedingCard.has(c.user_id)) return false;
+        if (seenUserIds.has(c.user_id)) return false;
+        seenUserIds.add(c.user_id);
+        return true;
+      });
 
       if (orphansToRelink.length > 0) {
         const { error: relinkError } = await (supabase.from("cards") as any)
@@ -217,8 +227,14 @@ export async function POST(
     }
 
     // Step 4: compute winner — highest score wins, tie = no winner.
-    // Only consider resolved cards belonging to participants in this challenge.
-    const eligibleCards = resolvedCards.filter((c) => c.user_id !== null);
+    // Only consider resolved cards belonging to participants in this
+    // challenge. In a corrupt-state recovery, a non-participant's card
+    // could theoretically be linked to the challenge — exclude them so
+    // they can't silently win.
+    const participantUserIdSet = new Set(participantUserIds);
+    const eligibleCards = resolvedCards.filter(
+      (c) => c.user_id !== null && participantUserIdSet.has(c.user_id),
+    );
     eligibleCards.sort((a, b) => b.score - a.score);
 
     let winnerId: string | null = null;
