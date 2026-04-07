@@ -7,6 +7,7 @@ import type { CardHistoryItem } from "@/lib/analytics/types";
 import type { CardDetailResponse, CardDetailPick } from "@/lib/cards/detail-types";
 import { GAME_MODES } from "@/lib/modes/definitions";
 import { logWarn } from "@/lib/logger";
+import { hitRateColor } from "@/components/recap/tiles/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -41,11 +42,9 @@ function formatCardDate(dateStr: string | null): string {
 }
 
 function scoreColorClass(score: number, total: number): string {
+  // Guard zero so we don't return red for an unscored card.
   if (total === 0) return "text-electric-blue";
-  const pct = score / total;
-  if (pct >= 0.6) return "text-neon-green";
-  if (pct < 0.4) return "text-bold-red";
-  return "text-electric-blue";
+  return hitRateColor(score / total);
 }
 
 function pickResultClass(result: string): string {
@@ -114,7 +113,7 @@ function CardRow({
               </Badge>
               {isAllMode && (
                 <Badge variant="outline" className="text-xs">
-                  {GAME_MODES[card.gameMode].displayName}
+                  {GAME_MODES[card.gameMode]?.displayName ?? card.gameMode}
                 </Badge>
               )}
             </div>
@@ -230,7 +229,9 @@ export default function CardHistoryModal({
           <DialogTitle>
             Card History{" "}
             <span className="text-muted-foreground font-normal">
-              ({totalCards})
+              {cards.length < totalCards
+                ? `(${cards.length} of ${totalCards})`
+                : `(${totalCards})`}
             </span>
           </DialogTitle>
         </DialogHeader>
