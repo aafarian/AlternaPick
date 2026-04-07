@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import CardDetail from "@/components/cards/CardDetail";
 import { Button } from "@/components/ui/button";
 import { AnimatedList } from "@/components/motion";
@@ -14,6 +15,13 @@ interface CardListWithLoadMoreProps {
   pageSize?: number;
   /** Whether the initial batch might be a full page (and thus there may be more) */
   hasMoreInitially?: boolean;
+  /**
+   * If set, the URL is updated with `?<urlParam>=<count>` whenever Load More
+   * is clicked. The server page reads this on subsequent renders so that
+   * pressing browser back returns the user to a list with the same number
+   * of items they had loaded.
+   */
+  urlParam?: string;
 }
 
 export default function CardListWithLoadMore({
@@ -21,7 +29,11 @@ export default function CardListWithLoadMore({
   statusFilter,
   pageSize = 20,
   hasMoreInitially = true,
+  urlParam,
 }: CardListWithLoadMoreProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [cards, setCards] = useState<CardWithPicks[]>(initialCards);
   const [loading, setLoading] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(
@@ -46,14 +58,23 @@ export default function CardListWithLoadMore({
       const data = await res.json();
       const newCards: CardWithPicks[] = data.cards ?? [];
 
+      const newTotal = cards.length + newCards.length;
       setCards((prev) => [...prev, ...newCards]);
       setNextCursor(data.next_cursor ?? null);
+
+      // Reflect the loaded count in the URL so back navigation restores
+      // the same amount. Use scroll: false to avoid jumping the user.
+      if (urlParam && newTotal > pageSize) {
+        const next = new URLSearchParams(searchParams.toString());
+        next.set(urlParam, String(newTotal));
+        router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+      }
     } catch {
       // Silently ignore
     } finally {
       setLoading(false);
     }
-  }, [nextCursor, pageSize, statusFilter]);
+  }, [nextCursor, pageSize, statusFilter, cards.length, urlParam, searchParams, router, pathname]);
 
   if (cards.length === 0) return null;
 

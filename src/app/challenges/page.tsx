@@ -32,6 +32,8 @@ const TABS: { key: Tab; label: string }[] = [
 
 const COMPLETED_PAGE_SIZE = 15;
 const INCOMING_COLLAPSED_LIMIT = 3;
+/** Hard cap on the URL-driven prefetch to avoid pathological re-fetches. */
+const MAX_COMPLETED_PREFETCH = 200;
 
 export default function ChallengesPage() {
   const { user, loading: authLoading, supabase } = useAuth();
@@ -58,6 +60,16 @@ export default function ChallengesPage() {
 
   const prefersReduced = useReducedMotion();
   const { showChallengeToast, markReady } = useChallengeToast();
+
+  // Read the desired count of completed challenges from the URL.
+  // ?completed=N is updated whenever the user clicks "Load More" so that
+  // pressing browser back from a challenge detail returns the user to a
+  // list with the same number of items they had loaded.
+  const completedParam = searchParams.get("completed");
+  const requestedCompletedCount = Math.max(
+    COMPLETED_PAGE_SIZE,
+    Math.min(parseInt(completedParam ?? "", 10) || COMPLETED_PAGE_SIZE, MAX_COMPLETED_PREFETCH),
+  );
 
   // Infinite scroll: callback ref connects the observer when the sentinel
   // mounts (works even when AnimatePresence delays rendering).
@@ -93,26 +105,31 @@ export default function ChallengesPage() {
     setUserCardChallengeIds(new Set(cardIds));
   }, []);
 
-  // Fetch completed challenges (paginated)
-  const fetchCompleted = useCallback(async (offset: number, append: boolean) => {
-    const version = ++fetchCompletedVersionRef.current;
-    const res = await fetch(
-      `/api/challenges?status=resolved,declined,cancelled&limit=${COMPLETED_PAGE_SIZE}&offset=${offset}`
-    );
-    if (!res.ok) throw new Error("Failed to load challenges");
-    const data = await res.json();
-    const fetched: ChallengeWithProfiles[] = data.challenges ?? [];
+  // Fetch completed challenges (paginated). When `limit` is omitted, uses
+  // COMPLETED_PAGE_SIZE. Pass a larger limit to bulk-fetch on initial mount
+  // for back-navigation restoration via the ?completed URL param.
+  const fetchCompleted = useCallback(
+    async (offset: number, append: boolean, limit: number = COMPLETED_PAGE_SIZE) => {
+      const version = ++fetchCompletedVersionRef.current;
+      const res = await fetch(
+        `/api/challenges?status=resolved,declined,cancelled&limit=${limit}&offset=${offset}`,
+      );
+      if (!res.ok) throw new Error("Failed to load challenges");
+      const data = await res.json();
+      const fetched: ChallengeWithProfiles[] = data.challenges ?? [];
 
-    // A newer fetch was started while this one was in flight — discard stale result
-    if (fetchCompletedVersionRef.current !== version) return;
+      // A newer fetch was started while this one was in flight — discard stale result
+      if (fetchCompletedVersionRef.current !== version) return;
 
-    if (append) {
-      setCompletedChallenges((prev) => [...prev, ...fetched]);
-    } else {
-      setCompletedChallenges(fetched);
-    }
-    setHasMoreCompleted(data.hasMore ?? false);
-  }, []);
+      if (append) {
+        setCompletedChallenges((prev) => [...prev, ...fetched]);
+      } else {
+        setCompletedChallenges(fetched);
+      }
+      setHasMoreCompleted(data.hasMore ?? false);
+    },
+    [],
+  );
 
   // --- Realtime integration ---
   // Dedup: track processed event keys (challengeId + eventType) to prevent
@@ -248,7 +265,11 @@ export default function ChallengesPage() {
     }
     setError(null);
 
-    Promise.all([fetchCore(), fetchCompleted(0, false)])
+    // Use the URL-driven count on first mount so back-navigation restores
+    // the right amount. Subsequent fetches (debounced refresh, etc) use
+    // the default page size.
+    const initialLimit = isFirstLoad ? requestedCompletedCount : COMPLETED_PAGE_SIZE;
+    Promise.all([fetchCore(), fetchCompleted(0, false, initialLimit)])
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Failed to load challenges");
       })
@@ -257,6 +278,10 @@ export default function ChallengesPage() {
         initialLoadDoneRef.current = true;
         markReady();
       });
+    // requestedCompletedCount intentionally NOT in deps — only the initial
+    // mount should fast-forward; subsequent URL changes (e.g. from loadMore)
+    // shouldn't trigger a refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, fetchCore, fetchCompleted, markReady]);
 
   // Load more completed challenges
@@ -265,13 +290,21 @@ export default function ChallengesPage() {
     loadingMoreRef.current = true;
     try {
       await fetchCompleted(completedChallenges.length, true);
+      // Reflect the new loaded count in the URL so back-navigation can
+      // restore it. Use router.replace + scroll: false to avoid a jump.
+      const newTotal = completedChallenges.length + COMPLETED_PAGE_SIZE;
+      if (newTotal > COMPLETED_PAGE_SIZE) {
+        const next = new URLSearchParams(searchParams.toString());
+        next.set("completed", String(newTotal));
+        router.replace(`/challenges?${next.toString()}`, { scroll: false });
+      }
     } catch {
       // Stop retrying on error — prevents infinite spinner
       setHasMoreCompleted(false);
     } finally {
       loadingMoreRef.current = false;
     }
-  }, [hasMoreCompleted, completedChallenges.length, fetchCompleted]);
+  }, [hasMoreCompleted, completedChallenges.length, fetchCompleted, searchParams, router]);
 
   // Callback ref for infinite scroll sentinel. Connects the observer exactly
   // when the sentinel mounts (immune to AnimatePresence delaying the DOM).
