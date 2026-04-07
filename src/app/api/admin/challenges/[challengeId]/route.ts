@@ -29,6 +29,7 @@ type ChallengeRow = {
   winner_id: string | null;
   created_at: string;
   resolved_at: string | null;
+  lobby_type: "1v1" | "group" | null;
   challenger_id: string;
   opponent_id: string | null;
   challenger: {
@@ -50,6 +51,16 @@ type ParticipantRow = {
   user_id: string | null;
   email: string | null;
   card_id: string | null;
+  is_creator: boolean;
+};
+
+type ParticipantWithProfileRow = ParticipantRow & {
+  user: {
+    id: string;
+    username: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  } | null;
 };
 
 type CardRow = {
@@ -140,7 +151,7 @@ export async function GET(
       supabase.from("challenges") as any
     )
       .select(
-        "id, status, game_mode, card_size, message, winner_id, created_at, resolved_at, challenger_id, opponent_id, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url)"
+        "id, status, game_mode, card_size, message, winner_id, created_at, resolved_at, lobby_type, challenger_id, opponent_id, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url)"
       )
       .eq("id", challengeId)
       .single();
@@ -161,12 +172,28 @@ export async function GET(
 
     const cards = (cardsData as CardRow[] | null) ?? [];
 
-    // For 1v1 with NULL opponent_id, look for a guest participant row
+    const lobbyType: "1v1" | "group" =
+      challenge.lobby_type === "group" ? "group" : "1v1";
+
+    // For group challenges, fetch all participant rows with profiles joined.
+    // For 1v1 with NULL opponent_id, fetch the single guest participant.
+    let groupParticipants: ParticipantWithProfileRow[] = [];
     let guestParticipant: ParticipantRow | null = null;
-    if (!challenge.opponent_id) {
+
+    if (lobbyType === "group") {
 
       const { data: participantRows } = await (supabase.from("challenge_participants") as any)
-        .select("id, user_id, email, card_id")
+        .select(
+          "id, user_id, email, card_id, is_creator, user:profiles!challenge_participants_user_id_fkey(id, username, display_name, avatar_url)",
+        )
+        .eq("challenge_id", challengeId);
+
+      groupParticipants =
+        (participantRows as ParticipantWithProfileRow[] | null) ?? [];
+    } else if (!challenge.opponent_id) {
+
+      const { data: participantRows } = await (supabase.from("challenge_participants") as any)
+        .select("id, user_id, email, card_id, is_creator")
         .eq("challenge_id", challengeId)
         .is("user_id", null)
         .limit(1);
@@ -238,6 +265,20 @@ export async function GET(
       };
     }
 
+    // For group challenges, build a participants[] array. Each participant
+    // gets their card resolved by user_id (or by card_id for guests).
+    const participants: AdminChallengePlayerSide[] =
+      lobbyType === "group"
+        ? groupParticipants.map((p) => {
+            const card = p.user_id
+              ? cards.find((c) => c.user_id === p.user_id) ?? null
+              : p.card_id
+                ? cards.find((c) => c.id === p.card_id) ?? null
+                : null;
+            return buildPlayerSide(p.user, card, p);
+          })
+        : [];
+
     const result: AdminChallengeDetail = {
       id: challenge.id,
       status: challenge.status as AdminChallengeDetail["status"],
@@ -247,10 +288,15 @@ export async function GET(
       winnerId: challenge.winner_id,
       createdAt: challenge.created_at,
       resolvedAt: challenge.resolved_at,
+      lobbyType,
       challenger: buildPlayerSide(challenge.challenger, challengerCard, null),
-      opponent: challenge.opponent
-        ? buildPlayerSide(challenge.opponent, opponentCard, null)
-        : buildPlayerSide(null, opponentCard, guestParticipant),
+      opponent:
+        lobbyType === "group"
+          ? null
+          : challenge.opponent
+            ? buildPlayerSide(challenge.opponent, opponentCard, null)
+            : buildPlayerSide(null, opponentCard, guestParticipant),
+      participants,
     };
 
     return NextResponse.json(result, {

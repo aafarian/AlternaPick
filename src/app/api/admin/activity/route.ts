@@ -170,7 +170,7 @@ async function queryChallengesCreated(
   let q = ctx.supabase
     .from("challenges")
     .select(
-      "id, challenger_id, opponent_id, game_mode, created_at, challenger:profiles!challenges_challenger_id_fkey(username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(username, display_name, avatar_url)"
+      "id, challenger_id, opponent_id, game_mode, lobby_type, max_participants, created_at, challenger:profiles!challenges_challenger_id_fkey(username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(username, display_name, avatar_url)"
     )
     .gte("created_at", ctx.dateFrom)
     .lte("created_at", ctx.dateTo);
@@ -179,13 +179,19 @@ async function queryChallengesCreated(
 
   q = q.order("created_at", { ascending: false }).limit(ctx.rowLimit);
 
-   
+
   const { data, error } = await (q as any);
   if (error) throw new Error(error.message);
 
   return ((data ?? []) as AnyRow[]).map((row) => {
     const challenger = row.challenger ?? {};
     const opponent = row.opponent ?? {};
+    const isGroup = row.lobby_type === "group";
+    const description = isGroup
+      ? `created a ${row.game_mode} group challenge${
+          row.max_participants ? ` (${row.max_participants} players)` : ""
+        }`
+      : `created a ${row.game_mode} challenge against @${opponent.username ?? "unknown"}`;
     return {
       id: activityId("challenges", row.id, "challenge_created"),
       type: "challenge_created" as const,
@@ -193,11 +199,12 @@ async function queryChallengesCreated(
       username: challenger.username ?? "unknown",
       displayName: challenger.display_name ?? null,
       avatarUrl: challenger.avatar_url ?? null,
-      description: `created a ${row.game_mode} challenge against @${opponent.username ?? "unknown"}`,
+      description,
       metadata: {
         challengeId: row.id,
         opponentId: row.opponent_id,
         gameMode: row.game_mode,
+        lobbyType: row.lobby_type ?? "1v1",
       },
       timestamp: row.created_at,
     };
@@ -209,12 +216,15 @@ async function queryChallengesAccepted(
 ): Promise<AdminActivityItem[]> {
   // Challenges that are currently accepted (or beyond) — use created_at as
   // approximate timestamp since there's no explicit accepted_at column.
+  // Note: only fires for 1v1 challenges; group challenges have no single
+  // "accepted" event since acceptance happens per-participant.
   let q = ctx.supabase
     .from("challenges")
     .select(
-      "id, challenger_id, opponent_id, game_mode, status, created_at, challenger:profiles!challenges_challenger_id_fkey(username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(username, display_name, avatar_url)"
+      "id, challenger_id, opponent_id, game_mode, status, lobby_type, created_at, challenger:profiles!challenges_challenger_id_fkey(username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(username, display_name, avatar_url)"
     )
     .in("status", ["accepted", "active", "resolved"])
+    .eq("lobby_type", "1v1")
     .gte("created_at", ctx.dateFrom)
     .lte("created_at", ctx.dateTo);
 
@@ -222,40 +232,46 @@ async function queryChallengesAccepted(
 
   q = q.order("created_at", { ascending: false }).limit(ctx.rowLimit);
 
-   
+
   const { data, error } = await (q as any);
   if (error) throw new Error(error.message);
 
-  return ((data ?? []) as AnyRow[]).map((row) => {
-    const opponent = row.opponent ?? {};
-    const challenger = row.challenger ?? {};
-    return {
-      id: activityId("challenges", row.id, "challenge_accepted"),
-      type: "challenge_accepted" as const,
-      userId: row.opponent_id,
-      username: opponent.username ?? "unknown",
-      displayName: opponent.display_name ?? null,
-      avatarUrl: opponent.avatar_url ?? null,
-      description: `accepted a ${row.game_mode} challenge from @${challenger.username ?? "unknown"}`,
-      metadata: {
-        challengeId: row.id,
-        challengerId: row.challenger_id,
-        gameMode: row.game_mode,
-      },
-      timestamp: row.created_at,
-    };
-  });
+  return ((data ?? []) as AnyRow[])
+    .filter((row) => row.opponent_id !== null)
+    .map((row) => {
+      const opponent = row.opponent ?? {};
+      const challenger = row.challenger ?? {};
+      return {
+        id: activityId("challenges", row.id, "challenge_accepted"),
+        type: "challenge_accepted" as const,
+        userId: row.opponent_id,
+        username: opponent.username ?? "unknown",
+        displayName: opponent.display_name ?? null,
+        avatarUrl: opponent.avatar_url ?? null,
+        description: `accepted a ${row.game_mode} challenge from @${challenger.username ?? "unknown"}`,
+        metadata: {
+          challengeId: row.id,
+          challengerId: row.challenger_id,
+          gameMode: row.game_mode,
+          lobbyType: row.lobby_type ?? "1v1",
+        },
+        timestamp: row.created_at,
+      };
+    });
 }
 
 async function queryChallengesDeclined(
   ctx: QueryCtx
 ): Promise<AdminActivityItem[]> {
+  // Only 1v1 challenges produce a "declined" event. Group challenges decline
+  // per participant via challenge_participants.status; not surfaced here.
   let q = ctx.supabase
     .from("challenges")
     .select(
-      "id, challenger_id, opponent_id, game_mode, created_at, challenger:profiles!challenges_challenger_id_fkey(username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(username, display_name, avatar_url)"
+      "id, challenger_id, opponent_id, game_mode, lobby_type, created_at, challenger:profiles!challenges_challenger_id_fkey(username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(username, display_name, avatar_url)"
     )
     .eq("status", "declined")
+    .eq("lobby_type", "1v1")
     .gte("created_at", ctx.dateFrom)
     .lte("created_at", ctx.dateTo);
 
@@ -263,29 +279,32 @@ async function queryChallengesDeclined(
 
   q = q.order("created_at", { ascending: false }).limit(ctx.rowLimit);
 
-   
+
   const { data, error } = await (q as any);
   if (error) throw new Error(error.message);
 
-  return ((data ?? []) as AnyRow[]).map((row) => {
-    const opponent = row.opponent ?? {};
-    const challenger = row.challenger ?? {};
-    return {
-      id: activityId("challenges", row.id, "challenge_declined"),
-      type: "challenge_declined" as const,
-      userId: row.opponent_id,
-      username: opponent.username ?? "unknown",
-      displayName: opponent.display_name ?? null,
-      avatarUrl: opponent.avatar_url ?? null,
-      description: `declined a ${row.game_mode} challenge from @${challenger.username ?? "unknown"}`,
-      metadata: {
-        challengeId: row.id,
-        challengerId: row.challenger_id,
-        gameMode: row.game_mode,
-      },
-      timestamp: row.created_at,
-    };
-  });
+  return ((data ?? []) as AnyRow[])
+    .filter((row) => row.opponent_id !== null)
+    .map((row) => {
+      const opponent = row.opponent ?? {};
+      const challenger = row.challenger ?? {};
+      return {
+        id: activityId("challenges", row.id, "challenge_declined"),
+        type: "challenge_declined" as const,
+        userId: row.opponent_id,
+        username: opponent.username ?? "unknown",
+        displayName: opponent.display_name ?? null,
+        avatarUrl: opponent.avatar_url ?? null,
+        description: `declined a ${row.game_mode} challenge from @${challenger.username ?? "unknown"}`,
+        metadata: {
+          challengeId: row.id,
+          challengerId: row.challenger_id,
+          gameMode: row.game_mode,
+          lobbyType: row.lobby_type ?? "1v1",
+        },
+        timestamp: row.created_at,
+      };
+    });
 }
 
 async function queryChallengesResolved(
@@ -294,7 +313,7 @@ async function queryChallengesResolved(
   let q = ctx.supabase
     .from("challenges")
     .select(
-      "id, challenger_id, opponent_id, winner_id, game_mode, resolved_at, challenger:profiles!challenges_challenger_id_fkey(username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(username, display_name, avatar_url)"
+      "id, challenger_id, opponent_id, winner_id, game_mode, lobby_type, resolved_at, challenger:profiles!challenges_challenger_id_fkey(username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(username, display_name, avatar_url)"
     )
     .eq("status", "resolved")
     .not("resolved_at", "is", null)
@@ -309,19 +328,57 @@ async function queryChallengesResolved(
 
   q = q.order("resolved_at", { ascending: false }).limit(ctx.rowLimit);
 
-   
+
   const { data, error } = await (q as any);
   if (error) throw new Error(error.message);
 
-  return ((data ?? []) as AnyRow[]).map((row) => {
+  const rows = (data ?? []) as AnyRow[];
+
+  // For group challenges with a winner, look up the winner's username from
+  // challenge_participants → profiles. (For 1v1 we already have it joined.)
+  const groupWinnerLookups = rows.filter(
+    (r) => r.lobby_type === "group" && r.winner_id,
+  );
+
+  const groupWinnerUsernames = new Map<string, string>();
+  if (groupWinnerLookups.length > 0) {
+    const winnerIds = Array.from(
+      new Set(groupWinnerLookups.map((r) => r.winner_id as string)),
+    );
+
+    const { data: winnerProfiles } = await (
+      ctx.supabase.from("profiles") as any
+    )
+      .select("id, username")
+      .in("id", winnerIds);
+
+    for (const p of (winnerProfiles as { id: string; username: string }[] | null) ?? []) {
+      groupWinnerUsernames.set(p.id, p.username);
+    }
+  }
+
+  return rows.map((row) => {
     const challenger = row.challenger ?? {};
     const opponent = row.opponent ?? {};
-    const winnerUsername =
-      row.winner_id === row.challenger_id
-        ? challenger.username
-        : row.winner_id === row.opponent_id
-          ? opponent.username
-          : null;
+    const isGroup = row.lobby_type === "group";
+
+    let winnerUsername: string | null = null;
+    if (row.winner_id) {
+      if (isGroup) {
+        winnerUsername = groupWinnerUsernames.get(row.winner_id) ?? null;
+      } else if (row.winner_id === row.challenger_id) {
+        winnerUsername = challenger.username ?? null;
+      } else if (row.winner_id === row.opponent_id) {
+        winnerUsername = opponent.username ?? null;
+      }
+    }
+
+    const description = winnerUsername
+      ? `${isGroup ? "group " : ""}challenge resolved — winner: @${winnerUsername}`
+      : isGroup
+        ? "group challenge resolved"
+        : "challenge resolved — tie";
+
     return {
       id: activityId("challenges", row.id, "challenge_resolved"),
       type: "challenge_resolved" as const,
@@ -329,12 +386,11 @@ async function queryChallengesResolved(
       username: challenger.username ?? "unknown",
       displayName: challenger.display_name ?? null,
       avatarUrl: challenger.avatar_url ?? null,
-      description: winnerUsername
-        ? `challenge resolved — winner: @${winnerUsername}`
-        : "challenge resolved — tie",
+      description,
       metadata: {
         challengeId: row.id,
         winnerId: row.winner_id,
+        lobbyType: row.lobby_type ?? "1v1",
       },
       timestamp: row.resolved_at,
     };

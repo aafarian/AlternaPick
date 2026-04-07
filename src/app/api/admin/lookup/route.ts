@@ -48,7 +48,7 @@ type CardRow = {
 type ChallengeRow = {
   id: string;
   challenger_id: string;
-  opponent_id: string;
+  opponent_id: string | null;
   status: string;
   game_mode: string;
   card_size: number;
@@ -56,6 +56,7 @@ type ChallengeRow = {
   winner_id: string | null;
   created_at: string;
   resolved_at: string | null;
+  lobby_type: "1v1" | "group" | null;
   challenger: {
     id: string;
     username: string;
@@ -156,6 +157,7 @@ function buildChallengeData(row: ChallengeRow): Record<string, unknown> {
     winnerId: row.winner_id,
     createdAt: row.created_at,
     resolvedAt: row.resolved_at,
+    lobbyType: row.lobby_type ?? "1v1",
     challenger: row.challenger
       ? {
           id: row.challenger.id,
@@ -260,7 +262,7 @@ export async function GET(request: NextRequest) {
          
         (supabase.from("challenges") as any)
           .select(
-            "id, challenger_id, opponent_id, status, game_mode, card_size, message, winner_id, created_at, resolved_at, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url)"
+            "id, challenger_id, opponent_id, status, game_mode, card_size, message, winner_id, created_at, resolved_at, lobby_type, challenger:profiles!challenges_challenger_id_fkey(id, username, display_name, avatar_url), opponent:profiles!challenges_opponent_id_fkey(id, username, display_name, avatar_url)"
           )
           .eq("id", id)
           .single(),

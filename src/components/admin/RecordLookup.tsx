@@ -159,6 +159,7 @@ function ChallengeResult({ data }: { data: Record<string, unknown> }) {
   const gameMode = data.gameMode as string;
   const cardSize = data.cardSize as number;
   const createdAt = data.createdAt as string | null;
+  const lobbyType = (data.lobbyType as "1v1" | "group" | undefined) ?? "1v1";
   const challenger = data.challenger as {
     id: string;
     username: string;
@@ -174,6 +175,7 @@ function ChallengeResult({ data }: { data: Record<string, unknown> }) {
     <div className="space-y-3">
       <div className="flex items-center gap-3">
         <Badge variant="outline">{status}</Badge>
+        <Badge variant="outline">{lobbyType === "group" ? "Group" : "1v1"}</Badge>
         <span className="text-sm text-muted-foreground capitalize">
           {gameMode}
         </span>
@@ -192,16 +194,22 @@ function ChallengeResult({ data }: { data: Record<string, unknown> }) {
         ) : (
           <span className="text-muted-foreground">Unknown</span>
         )}
-        <span className="text-muted-foreground">vs</span>
-        {opponent ? (
-          <Link
-            href={`/admin/users/${opponent.id}`}
-            className="text-primary hover:underline font-medium"
-          >
-            {opponent.displayName ?? opponent.username}
-          </Link>
+        {lobbyType === "group" ? (
+          <span className="text-muted-foreground">created group challenge</span>
         ) : (
-          <span className="text-muted-foreground">Unknown</span>
+          <>
+            <span className="text-muted-foreground">vs</span>
+            {opponent ? (
+              <Link
+                href={`/admin/users/${opponent.id}`}
+                className="text-primary hover:underline font-medium"
+              >
+                {opponent.displayName ?? opponent.username}
+              </Link>
+            ) : (
+              <span className="text-muted-foreground">Unknown</span>
+            )}
+          </>
         )}
       </div>
       <p className="text-xs text-muted-foreground">
