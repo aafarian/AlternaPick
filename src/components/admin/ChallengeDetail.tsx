@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -9,8 +10,18 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -27,6 +38,7 @@ import {
   Swords,
   CalendarDays,
   CheckCircle,
+  UserPlus,
 } from "lucide-react";
 import type {
   AdminChallengeDetail,
@@ -211,14 +223,121 @@ function PicksTable({ picks }: { picks: AdminCardPickDetail[] }) {
   );
 }
 
+function ClaimGuestAction({
+  challengeId,
+  email,
+  onClaimed,
+}: {
+  challengeId: string;
+  email: string;
+  onClaimed: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [username, setUsername] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleClaim() {
+    if (!username.trim()) return;
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(
+        `/api/admin/challenges/${challengeId}/claim-guest`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            participantEmail: email,
+            targetUsername: username.trim(),
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? `Request failed (${res.status})`);
+      }
+
+      toast.success("Guest claimed successfully");
+      setOpen(false);
+      setUsername("");
+      onClaimed();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "An unexpected error occurred",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1.5">
+          <UserPlus className="h-3.5 w-3.5" />
+          Claim for User
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Claim Guest Participant</DialogTitle>
+          <DialogDescription>
+            Assign this guest ({email}) to an existing user account.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <label
+            htmlFor="claim-username"
+            className="text-sm font-medium text-foreground"
+          >
+            Target Username
+          </label>
+          <Input
+            id="claim-username"
+            placeholder="Enter username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && username.trim()) {
+                handleClaim();
+              }
+            }}
+            disabled={submitting}
+          />
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={submitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleClaim}
+            disabled={!username.trim() || submitting}
+          >
+            {submitting ? "Claiming…" : "Confirm"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function PlayerSide({
   side,
   isWinner,
   label,
+  challengeId,
+  onClaimed,
 }: {
   side: AdminChallengePlayerSide;
   isWinner: boolean;
   label: string;
+  challengeId: string;
+  onClaimed: () => void;
 }) {
   return (
     <Card
@@ -237,22 +356,37 @@ function PlayerSide({
             </Avatar>
 
             <div>
-              <Link
-                href={`/admin/users/${side.userId}`}
-                className="text-sm font-semibold text-primary hover:underline"
-              >
-                {side.displayName ?? side.username}
-              </Link>
+              {side.isGuest ? (
+                <span className="text-sm font-semibold text-muted-foreground">
+                  Guest
+                </span>
+              ) : (
+                <Link
+                  href={`/admin/users/${side.userId}`}
+                  className="text-sm font-semibold text-primary hover:underline"
+                >
+                  {side.displayName ?? side.username}
+                </Link>
+              )}
               <p className="text-xs text-muted-foreground">{label}</p>
             </div>
           </div>
 
-          {isWinner && (
-            <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-              <Trophy className="h-4 w-4" />
-              <span className="text-xs font-semibold">Winner</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {side.isGuest && side.email && (
+              <ClaimGuestAction
+                challengeId={challengeId}
+                email={side.email}
+                onClaimed={onClaimed}
+              />
+            )}
+            {isWinner && (
+              <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                <Trophy className="h-4 w-4" />
+                <span className="text-xs font-semibold">Winner</span>
+              </div>
+            )}
+          </div>
         </div>
       </CardHeader>
 
@@ -378,13 +512,17 @@ export default function ChallengeDetail({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <PlayerSide
           side={detail.challenger}
-          isWinner={detail.winnerId === detail.challenger.userId}
+          isWinner={!!detail.winnerId && detail.winnerId === detail.challenger.userId}
           label="Challenger"
+          challengeId={detail.id}
+          onClaimed={fetchDetail}
         />
         <PlayerSide
           side={detail.opponent}
-          isWinner={detail.winnerId === detail.opponent.userId}
+          isWinner={!!detail.winnerId && detail.winnerId === detail.opponent.userId}
           label="Opponent"
+          challengeId={detail.id}
+          onClaimed={fetchDetail}
         />
       </div>
     </div>
