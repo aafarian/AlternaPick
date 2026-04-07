@@ -1443,7 +1443,7 @@ export async function bootNonActiveParticipantsAfterResolution(
   // Verify this is a group challenge in a state where booting still matters.
   // Resolved/cancelled challenges have nothing to update.
   const { data: ch, error: chError } = await (admin.from("challenges") as any)
-    .select("id, lobby_type, status")
+    .select("id, lobby_type, status, challenger_id, game_mode")
     .eq("id", challengeId)
     .single();
 
@@ -1457,7 +1457,13 @@ export async function bootNonActiveParticipantsAfterResolution(
     return { booted: 0 };
   }
 
-  const challenge = ch as { id: string; lobby_type: string | null; status: string };
+  const challenge = ch as {
+    id: string;
+    lobby_type: string | null;
+    status: string;
+    challenger_id: string;
+    game_mode: string;
+  };
   if (challenge.lobby_type !== "group") return { booted: 0 };
   if (challenge.status === "resolved" || challenge.status === "cancelled") {
     return { booted: 0 };
@@ -1483,16 +1489,64 @@ export async function bootNonActiveParticipantsAfterResolution(
 
   const bootedCount = ((declined ?? []) as Array<{ id: string }>).length;
 
-  if (bootedCount > 0) {
+  if (bootedCount === 0) {
+    return { booted: 0 };
+  }
+
+  logInfo(
+    "challenges",
+    `Booted ${bootedCount} non-active participant(s) from group challenge ${challengeId} after card resolution`,
+  );
+
+  // Count non-declined participants. If we're below MIN_LOBBY_SIZE there's
+  // no challenge left to run — fall back to "convert the lone player's card
+  // to solo and cancel the challenge" so it reaches a terminal state.
+  // Without this branch, a 1-person remainder would sit forever in
+  // "accepted" with a resolved card but no path forward.
+  const { data: remaining } = await (admin.from("challenge_participants") as any)
+    .select("id")
+    .eq("challenge_id", challengeId)
+    .in("status", ["invited", "accepted", "active"]);
+
+  const remainingCount = ((remaining ?? []) as Array<{ id: string }>).length;
+
+  if (remainingCount < MIN_LOBBY_SIZE) {
     logInfo(
       "challenges",
-      `Booted ${bootedCount} non-active participant(s) from group challenge ${challengeId} after card resolution`,
+      `Group challenge ${challengeId} has only ${remainingCount} active participant(s) after boot — converting to solo and cancelling`,
     );
-    // Re-check activation: with the no-shows out of the way, the remaining
-    // active participants may now satisfy the "all non-declined are active"
-    // condition and the challenge can transition to active.
-    await checkGroupChallengeActivation(admin, challengeId);
+    // Detach the (lone) creator's card so it lives on as a solo card with
+    // full credit. Safe to call: we just verified there are no other active
+    // participants, so we can't orphan anyone else's card.
+    await convertChallengerCardToSolo(admin, {
+      id: challenge.id,
+      challenger_id: challenge.challenger_id,
+      game_mode: challenge.game_mode,
+    });
+    // Decline ALL remaining participants — including any lone "active" one,
+    // since we're truly cancelling here. The defensive declineAll helper
+    // skips active participants by design (to prevent the original incident
+    // cascade), so do this update inline.
+    const { error: declineError } = await (admin.from("challenge_participants") as any)
+      .update({ status: "declined" })
+      .eq("challenge_id", challengeId)
+      .in("status", ["invited", "accepted", "active"]);
+    if (declineError) {
+      logError(
+        "challenges",
+        "Failed to decline remaining participants on solo fallback cancel",
+        "bootNonActiveParticipantsAfterResolution",
+        declineError,
+      );
+    }
+    await cancelChallenge(admin, challengeId);
+    return { booted: bootedCount };
   }
+
+  // Otherwise re-check activation: with the no-shows out of the way, the
+  // remaining active participants may now satisfy the "all non-declined are
+  // active" condition and the challenge can transition to active.
+  await checkGroupChallengeActivation(admin, challengeId);
 
   return { booted: bootedCount };
 }

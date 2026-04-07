@@ -41,7 +41,10 @@ function createChainableQuery(table: string) {
           filterHint = "count";
         }
         if (prop === "in" && args[0] === "status") {
-          filterHint = "status_in";
+          // Differentiate the boot update (invited+accepted) from the
+          // post-boot remaining check (which also includes "active").
+          const statuses = (args[1] as string[]) ?? [];
+          filterHint = statuses.includes("active") ? "remaining_check" : "status_in";
         }
         if (prop === "eq" && args[0] === "status" && args[1] === "resolved") {
           filterHint = "resolved_count";
@@ -183,6 +186,48 @@ describe("bootNonActiveParticipantsAfterResolution", () => {
     const result = await bootNonActiveParticipantsAfterResolution(mockAdmin, "ch-missing");
 
     expect(result.booted).toBe(0);
+  });
+
+  it("converts to solo and cancels when only one participant remains after boot", async () => {
+    // Regression for the "creator locked in alone" case: previously the
+    // boot would decline the no-shows, fail the activation re-check (because
+    // 1 < MIN_LOBBY_SIZE), and leave the challenge stuck forever in
+    // accepted/pending with a resolved card and no terminal state.
+    queryResults["challenges:single"] = {
+      data: {
+        id: "ch-1",
+        lobby_type: "group",
+        status: "accepted",
+        challenger_id: "creator",
+        game_mode: "classic",
+      },
+      error: null,
+    };
+    // 5 invited participants get booted
+    queryResults["challenge_participants:status_in"] = {
+      data: [
+        { id: "p-1" },
+        { id: "p-2" },
+        { id: "p-3" },
+        { id: "p-4" },
+        { id: "p-5" },
+      ],
+      error: null,
+    };
+    // After boot: only the creator remains (1 < MIN_LOBBY_SIZE = 2)
+    queryResults["challenge_participants:remaining_check"] = {
+      data: [{ id: "creator-row" }],
+      error: null,
+    };
+
+    const result = await bootNonActiveParticipantsAfterResolution(mockAdmin, "ch-1");
+
+    expect(result.booted).toBe(5);
+    // Verify the cancel update was called on the challenges table
+    expect(mockUpdate).toHaveBeenCalledWith(
+      "challenges",
+      expect.objectContaining({ status: "cancelled" }),
+    );
   });
 });
 
