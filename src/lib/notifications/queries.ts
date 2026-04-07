@@ -116,7 +116,11 @@ export async function getUnreadCounts(
   if (analyticsLastSeen) {
     analyticsQuery = analyticsQuery.gt("resolved_at", analyticsLastSeen);
   }
-  const { count: newCardsCount } = await analyticsQuery;
+  const { count: newCardsCount, error: cardsError } = await analyticsQuery;
+
+  if (cardsError) {
+    throw new Error(`Failed to count new resolved cards: ${cardsError.message}`);
+  }
 
   // Wrapped: any weekly recap created after last seen?
   let wrappedQuery = typedFrom(supabase, "recaps")
@@ -125,7 +129,11 @@ export async function getUnreadCounts(
   if (wrappedLastSeen) {
     wrappedQuery = wrappedQuery.gt("computed_at", wrappedLastSeen);
   }
-  const { count: newWrappedCount } = await wrappedQuery;
+  const { count: newWrappedCount, error: recapsError } = await wrappedQuery;
+
+  if (recapsError) {
+    throw new Error(`Failed to count new weekly recaps: ${recapsError.message}`);
+  }
 
   return {
     pendingFriendRequests: friendCount ?? 0,
