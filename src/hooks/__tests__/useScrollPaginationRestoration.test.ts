@@ -89,7 +89,7 @@ describe("useScrollPaginationRestoration", () => {
     expect(result.current.savedOffset).toBe(200);
   });
 
-  it("saves state on unmount with the latest recorded offset", () => {
+  it("saves state on unmount with the latest recorded offset and last-seen scrollY", () => {
     const { result, unmount } = renderHook(() =>
       useScrollPaginationRestoration("test-key"),
     );
@@ -98,8 +98,13 @@ describe("useScrollPaginationRestoration", () => {
     act(() => {
       result.current.recordOffset(60);
     });
-    // Simulate scrolling
+    // Simulate scrolling — fire a scroll event so the hook captures the value
     Object.defineProperty(window, "scrollY", { value: 800, configurable: true });
+    window.dispatchEvent(new Event("scroll"));
+
+    // Simulate Next.js scrolling to top of the new page BEFORE unmount —
+    // the hook should still save the user's last-seen scroll, not 0
+    Object.defineProperty(window, "scrollY", { value: 0, configurable: true });
 
     unmount();
 

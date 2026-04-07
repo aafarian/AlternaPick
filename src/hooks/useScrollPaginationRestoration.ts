@@ -96,21 +96,46 @@ export function useScrollPaginationRestoration(storageKey: string) {
     offsetRef.current = offset;
   }, []);
 
-  // Save state on unmount (= navigation away within the SPA).
+  // Track the latest known scroll position via a ref. We do NOT read
+  // window.scrollY at unmount time because Next.js can scroll to top of
+  // the new page before our cleanup runs — capturing 0 instead of the
+  // user's actual position. Listen to scroll events and remember the
+  // last-seen Y so the cleanup uses the right value.
+  const scrollYRef = useRef(0);
   useEffect(() => {
-    return () => {
+    if (typeof window === "undefined") return;
+    scrollYRef.current = window.scrollY;
+    const handler = () => {
+      scrollYRef.current = window.scrollY;
+    };
+    window.addEventListener("scroll", handler, { passive: true });
+    return () => window.removeEventListener("scroll", handler);
+  }, []);
+
+  // Save state on unmount (= navigation away within the SPA).
+  // Also save in `pagehide` so iOS bfcache + tab close paths capture it.
+  useEffect(() => {
+    if (!storageKey) return;
+
+    const persist = () => {
       if (typeof window === "undefined") return;
       // Don't save if there's nothing to restore yet
       if (offsetRef.current === 0) return;
       try {
         const state: SavedState = {
-          scrollY: window.scrollY,
+          scrollY: scrollYRef.current,
           offset: offsetRef.current,
         };
         sessionStorage.setItem(storageKey, JSON.stringify(state));
       } catch {
         // sessionStorage may be full or unavailable — best-effort
       }
+    };
+
+    window.addEventListener("pagehide", persist);
+    return () => {
+      window.removeEventListener("pagehide", persist);
+      persist();
     };
   }, [storageKey]);
 
