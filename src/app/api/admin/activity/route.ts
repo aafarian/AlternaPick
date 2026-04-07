@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { handleApiError } from "@/lib/api/errors";
+import { logWarn } from "@/lib/logger";
 import type {
   AdminActivityItem,
   AdminActivityEventType,
@@ -346,11 +347,21 @@ async function queryChallengesResolved(
       new Set(groupWinnerLookups.map((r) => r.winner_id as string)),
     );
 
-    const { data: winnerProfiles } = await (
+    const { data: winnerProfiles, error: winnerProfilesError } = await (
       ctx.supabase.from("profiles") as any
     )
       .select("id, username")
       .in("id", winnerIds);
+
+    if (winnerProfilesError) {
+      // Non-fatal: the activity feed will fall back to "group challenge
+      // resolved" without a winner name. Log so we know about it.
+      logWarn(
+        "admin-activity",
+        "Failed to fetch winner profiles for group-resolved challenges",
+        winnerProfilesError,
+      );
+    }
 
     for (const p of (winnerProfiles as { id: string; username: string }[] | null) ?? []) {
       groupWinnerUsernames.set(p.id, p.username);
