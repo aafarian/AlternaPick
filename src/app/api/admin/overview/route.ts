@@ -6,6 +6,54 @@ import { logWarn } from "@/lib/logger";
 import type { AdminOverviewStats } from "@/lib/admin/types";
 
 const DAU_ROW_LIMIT = 10000;
+const ADMIN_TIMEZONE = "America/New_York";
+
+/**
+ * Returns the UTC ISO timestamp for the start of "today" (midnight) in the
+ * admin timezone. This matches how an admin in ET perceives the day boundary,
+ * even though the server itself runs in UTC.
+ *
+ * Implementation: format `now` in the target timezone to extract its
+ * year/month/day components, then build a Date for that date at the timezone's
+ * UTC offset for that moment. Falls back to UTC midnight if Intl is unavailable.
+ */
+function startOfDayInTimezone(now: Date, timeZone: string, dayOffset = 0): string {
+  // Get y/m/d in the target timezone
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = fmt.formatToParts(now);
+  const y = Number(parts.find((p) => p.type === "year")?.value);
+  const m = Number(parts.find((p) => p.type === "month")?.value);
+  const d = Number(parts.find((p) => p.type === "day")?.value);
+
+  // Compute the target timezone's offset from UTC for `now` (in minutes).
+  // We do this by formatting `now` in the timezone with longOffset and parsing.
+  const offsetFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "longOffset",
+  });
+  const offsetPart = offsetFmt.formatToParts(now).find((p) => p.type === "timeZoneName")?.value;
+  // offsetPart looks like "GMT-05:00" or "GMT" for UTC
+  let offsetMinutes = 0;
+  if (offsetPart && offsetPart.startsWith("GMT")) {
+    const sign = offsetPart[3] === "-" ? -1 : 1;
+    const rest = offsetPart.slice(4);
+    if (rest) {
+      const [hh, mm] = rest.split(":").map(Number);
+      offsetMinutes = sign * (hh * 60 + (mm ?? 0));
+    }
+  }
+
+  // Build local midnight as if it were UTC, then subtract the offset to get
+  // the actual UTC instant that corresponds to local midnight.
+  const localMidnightAsUtc = Date.UTC(y, m - 1, d + dayOffset, 0, 0, 0, 0);
+  const utcInstant = localMidnightAsUtc - offsetMinutes * 60 * 1000;
+  return new Date(utcInstant).toISOString();
+}
 
 /**
  * GET /api/admin/overview
@@ -23,11 +71,11 @@ export async function GET() {
 
     const supabase = createAdminClient();
 
-    // Compute date boundaries using US Eastern to match admin's perspective.
-    // new Date(y, m, d) gives local midnight; .toISOString() converts to UTC.
+    // Compute date boundaries in the admin's timezone (ET) so "today" matches
+    // what an East Coast admin sees, regardless of the server's local TZ.
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString();
+    const todayStart = startOfDayInTimezone(now, ADMIN_TIMEZONE);
+    const weekStart = startOfDayInTimezone(now, ADMIN_TIMEZONE, -7);
 
     // Run all queries in parallel
     const [
