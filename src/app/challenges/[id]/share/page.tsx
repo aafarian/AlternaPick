@@ -133,10 +133,12 @@ export async function generateMetadata({
 
   const siteUrl = getSiteUrl();
   const ogImageUrl = `${siteUrl}/api/og/challenge?challengeId=${id}`;
+  const canonicalHref = `${siteUrl}/challenges/${id}/share`;
 
   return {
     title,
     description,
+    alternates: { canonical: canonicalHref },
     openGraph: {
       title,
       description,

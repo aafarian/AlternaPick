@@ -1,12 +1,55 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Profile } from "@/lib/supabase/types";
 import { Button } from "@/components/ui/button";
 import { UserCircle, Trophy, Flame, Target } from "lucide-react";
+import { buildPageMetadata } from "@/lib/seo/page-metadata";
+import { logError } from "@/lib/logger";
 
 interface JoinPageProps {
   params: Promise<{ username: string }>;
+}
+
+export async function generateMetadata({
+  params,
+}: JoinPageProps): Promise<Metadata> {
+  const { username } = await params;
+  const fallback = buildPageMetadata({
+    title: `Join @${username} on AlternaPick`,
+    description: `${username} invited you to play AlternaPick — free player prop predictions across NBA, college basketball, soccer, and more.`,
+    path: `/join/${username}`,
+  });
+
+  try {
+    const admin = createAdminClient();
+    const { data } = await (admin.from("profiles") as any)
+      .select("username, display_name, is_deactivated")
+      .ilike("username", username)
+      .maybeSingle();
+
+    const profile = data as
+      | { username: string; display_name: string | null; is_deactivated: boolean }
+      | null;
+    if (!profile || profile.is_deactivated) return fallback;
+
+    const name = profile.display_name?.trim() || profile.username;
+    return buildPageMetadata({
+      title: `Join @${profile.username} on AlternaPick`,
+      description: `${name} invited you to play AlternaPick — free player prop predictions across NBA, college basketball, soccer, and more. Sign up free.`,
+      path: `/join/${profile.username}`,
+    });
+  } catch (err) {
+    logError(
+      "join-page-metadata",
+      "Failed to build join page metadata",
+      `/join/${username}`,
+      err,
+    );
+    return fallback;
+  }
 }
 
 export default async function JoinPage({ params }: JoinPageProps) {

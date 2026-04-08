@@ -5,6 +5,13 @@ import { GameModesSection } from "@/components/landing/GameModesSection";
 import { AnalyticsSection } from "@/components/landing/AnalyticsSection";
 import { LeaderboardSection } from "@/components/landing/LeaderboardSection";
 import { CTASection } from "@/components/landing/CTASection";
+import { canonicalUrl } from "@/lib/seo/page-metadata";
+
+// Inherit title/description/OG from the root layout (default title);
+// only override the canonical so query-string variants don't compete.
+export const metadata = {
+  alternates: { canonical: canonicalUrl("/") },
+};
 
 export default function Home() {
   return (
