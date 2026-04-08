@@ -120,6 +120,7 @@ export interface Database {
           icon_config: Record<string, unknown> | null;
           is_admin: boolean;
           email: string | null;
+          username_chosen_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -137,6 +138,7 @@ export interface Database {
           icon_config?: Record<string, unknown> | null;
           is_admin?: boolean;
           email?: string | null;
+          username_chosen_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -154,6 +156,7 @@ export interface Database {
           icon_config?: Record<string, unknown> | null;
           is_admin?: boolean;
           email?: string | null;
+          username_chosen_at?: string | null;
           updated_at?: string;
         };
       };

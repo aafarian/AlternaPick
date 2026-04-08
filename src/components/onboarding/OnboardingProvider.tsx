@@ -5,6 +5,9 @@ import { useAuth } from "@/lib/auth/auth-context";
 import OnboardingModal from "./OnboardingModal";
 import UsernameSetupModal from "./UsernameSetupModal";
 
+// Legacy detection: matches the trigger fallback when no username was passed
+// in `raw_user_meta_data`. Kept as a belt-and-suspenders fallback for any
+// row whose `username_chosen_at` was not backfilled correctly.
 const AUTO_USERNAME_RE = /^user_[a-f0-9]{8}$/;
 
 type Phase = "idle" | "username_setup" | "onboarding" | "done";
@@ -30,7 +33,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     async function checkStatus(attempt = 0) {
        
       const { data, error } = await (supabase.from("profiles") as any)
-        .select("username, onboarding_completed")
+        .select("username, username_chosen_at, onboarding_completed")
         .eq("id", userId)
         .single();
 
@@ -47,12 +50,20 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
       const profile = data as {
         username: string;
+        username_chosen_at: string | null;
         onboarding_completed?: boolean;
       };
 
       resolvedForRef.current = userId;
 
-      if (AUTO_USERNAME_RE.test(profile.username)) {
+      // Show the username modal whenever the user has not explicitly picked
+      // their handle yet. The legacy regex check is kept for safety in case
+      // the migration backfill missed any auto-pattern rows.
+      const needsUsername =
+        profile.username_chosen_at == null ||
+        AUTO_USERNAME_RE.test(profile.username);
+
+      if (needsUsername) {
         setPhase("username_setup");
         return;
       }

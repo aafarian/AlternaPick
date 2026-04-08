@@ -9,7 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
-import { updateUsername } from "@/lib/auth/actions";
+import { updateUsername, dismissUsernamePrompt } from "@/lib/auth/actions";
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
@@ -83,7 +83,10 @@ export default function UsernameSetupModal({
     onComplete();
   }
 
-  function handleSkip() {
+  async function handleSkip() {
+    // Persist the dismissal so the modal doesn't re-fire on every visit.
+    // Failure is non-fatal — worst case, user sees the modal again next load.
+    await dismissUsernamePrompt();
     onComplete();
   }
 
