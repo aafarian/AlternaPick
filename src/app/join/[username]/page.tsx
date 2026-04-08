@@ -18,7 +18,9 @@ export async function generateMetadata({
 }: JoinPageProps): Promise<Metadata> {
   const { username } = await params;
   const fallback = buildPageMetadata({
-    title: `Join @${username} on AlternaPick`,
+    // The root layout's title.template appends " | AlternaPick" — don't
+    // include the brand here or it'll be doubled.
+    title: `Join @${username}`,
     description: `${username} invited you to play AlternaPick — free player prop predictions across NBA, college basketball, soccer, and more.`,
     path: `/join/${username}`,
   });
@@ -37,15 +39,17 @@ export async function generateMetadata({
 
     const name = profile.display_name?.trim() || profile.username;
     return buildPageMetadata({
-      title: `Join @${profile.username} on AlternaPick`,
+      title: `Join @${profile.username}`,
       description: `${name} invited you to play AlternaPick — free player prop predictions across NBA, college basketball, soccer, and more. Sign up free.`,
       path: `/join/${profile.username}`,
     });
   } catch (err) {
+    // Don't include the username in the endpoint — CLAUDE.md rule #11
+    // bans usernames in log fields shipped to external logging.
     logError(
       "join-page-metadata",
       "Failed to build join page metadata",
-      `/join/${username}`,
+      "/join/[username]",
       err,
     );
     return fallback;

@@ -49,10 +49,12 @@ export async function generateMetadata({
       path: `/users/${profile.username}`,
     });
   } catch (err) {
+    // Don't include the username in the endpoint — CLAUDE.md rule #11
+    // bans usernames in log fields shipped to external logging.
     logError(
       "user-profile-metadata",
       "Failed to build user profile metadata",
-      `/users/${username}`,
+      "/users/[username]",
       err,
     );
     return fallback;
