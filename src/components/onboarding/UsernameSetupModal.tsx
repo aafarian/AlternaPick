@@ -27,6 +27,7 @@ export default function UsernameSetupModal({
   const [available, setAvailable] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const isValidFormat = USERNAME_RE.test(username);
@@ -84,6 +85,8 @@ export default function UsernameSetupModal({
   }
 
   async function handleSkip() {
+    if (skipping) return;
+    setSkipping(true);
     // Persist the dismissal so the modal doesn't re-fire on every visit.
     // Failure is non-fatal — worst case, user sees the modal again next load.
     await dismissUsernamePrompt();
@@ -151,14 +154,15 @@ export default function UsernameSetupModal({
                 variant="ghost"
                 size="sm"
                 onClick={handleSkip}
+                disabled={skipping || saving}
                 className="flex-1"
               >
-                Skip
+                {skipping ? "Skipping..." : "Skip"}
               </Button>
               <Button
                 type="submit"
                 size="sm"
-                disabled={!isValidFormat || !available || saving}
+                disabled={!isValidFormat || !available || saving || skipping}
                 className="flex-1 bg-neon-green text-black hover:bg-neon-green/90 font-semibold"
               >
                 {saving ? "Setting..." : "Set Username"}
