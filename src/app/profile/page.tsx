@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { noIndexMetadata } from "@/lib/seo/metadata";
+
+export const metadata = noIndexMetadata;
 import type {
   Profile,
   LeaderboardEntry,

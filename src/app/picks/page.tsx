@@ -2,6 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { type ReactNode, Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { noIndexMetadata } from "@/lib/seo/metadata";
+
+export const metadata = noIndexMetadata;
 import CardListWithLoadMore from "@/components/cards/CardListWithLoadMore";
 import LiveTracker from "@/components/live/LiveTracker";
 import PicksTabs from "@/components/picks/PicksTabs";

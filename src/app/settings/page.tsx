@@ -1,5 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { noIndexMetadata } from "@/lib/seo/metadata";
+
+export const metadata = noIndexMetadata;
 import type { Profile, NotificationPreferences } from "@/lib/supabase/types";
 import { parseIconConfig } from "@/lib/icons/parse";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

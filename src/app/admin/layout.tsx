@@ -3,6 +3,9 @@ import { ArrowLeft } from "lucide-react";
 import AdminSidebar, {
   AdminMobileNav,
 } from "@/components/admin/AdminSidebar";
+import { noIndexMetadata } from "@/lib/seo/metadata";
+
+export const metadata = noIndexMetadata;
 
 export default function AdminLayout({
   children,
