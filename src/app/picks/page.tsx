@@ -3,8 +3,6 @@ import { redirect } from "next/navigation";
 import { type ReactNode, Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { noIndexMetadata } from "@/lib/seo/metadata";
-
-export const metadata = noIndexMetadata;
 import CardListWithLoadMore from "@/components/cards/CardListWithLoadMore";
 import LiveTracker from "@/components/live/LiveTracker";
 import PicksTabs from "@/components/picks/PicksTabs";
@@ -16,6 +14,8 @@ import { SlideUp, FadeIn, StaggerChildren, StaggerItem } from "@/components/moti
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { cn } from "@/lib/utils";
 import { logError } from "@/lib/logger";
+
+export const metadata = noIndexMetadata;
 
 const PAGE_SIZE = 20;
 

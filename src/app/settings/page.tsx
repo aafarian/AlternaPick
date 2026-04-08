@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { noIndexMetadata } from "@/lib/seo/metadata";
-
-export const metadata = noIndexMetadata;
 import type { Profile, NotificationPreferences } from "@/lib/supabase/types";
 import { parseIconConfig } from "@/lib/icons/parse";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,6 +9,8 @@ import ProfileSection from "@/components/settings/ProfileSection";
 import NotificationPreferencesSection from "@/components/settings/NotificationPreferencesSection";
 import AccountSection from "@/components/settings/AccountSection";
 import { SlideUp, FadeIn } from "@/components/motion";
+
+export const metadata = noIndexMetadata;
 
 export default async function SettingsPage() {
   const supabase = await createClient();
