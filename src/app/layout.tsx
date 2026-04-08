@@ -15,6 +15,8 @@ import PendingCardHandler from "@/components/cards/PendingCardHandler";
 import PageTransitionShell from "@/components/layout/PageTransitionShell";
 import { Toaster } from "sonner";
 import { MAX_VISIBLE_TOASTS } from "@/lib/constants";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { organizationSchema, websiteSchema } from "@/lib/seo/structured-data";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -80,6 +82,8 @@ export default function RootLayout({
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <JsonLd data={organizationSchema} />
+        <JsonLd data={websiteSchema} />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

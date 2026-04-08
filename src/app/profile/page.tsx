@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { noIndexMetadata } from "@/lib/seo/metadata";
 import type {
   Profile,
   LeaderboardEntry,
@@ -18,6 +19,8 @@ import { Settings } from "lucide-react";
 import { SlideUp, FadeIn } from "@/components/motion";
 import { logWarn } from "@/lib/logger";
 import { getSiteUrl } from "@/lib/constants";
+
+export const metadata = noIndexMetadata;
 
 export default async function ProfilePage() {
   const supabase = await createClient();

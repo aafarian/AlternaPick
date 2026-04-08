@@ -5,6 +5,8 @@ import { GameModesSection } from "@/components/landing/GameModesSection";
 import { AnalyticsSection } from "@/components/landing/AnalyticsSection";
 import { LeaderboardSection } from "@/components/landing/LeaderboardSection";
 import { CTASection } from "@/components/landing/CTASection";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { softwareApplicationSchema } from "@/lib/seo/structured-data";
 import { canonicalUrl } from "@/lib/seo/page-metadata";
 
 // Inherit title/description/OG from the root layout (default title);
@@ -16,6 +18,7 @@ export const metadata = {
 export default function Home() {
   return (
     <div className="-mx-4">
+      <JsonLd data={softwareApplicationSchema} />
       <HeroSection />
       <SportsBar />
       <FeaturesSection />
