@@ -32,6 +32,29 @@ const TABS: { key: Tab; label: string }[] = [
 
 const COMPLETED_PAGE_SIZE = 15;
 const INCOMING_COLLAPSED_LIMIT = 3;
+const RESTORATION_KEY = "challenges-history";
+const MAX_RESTORE_ITEMS = 200;
+
+interface SavedHistoryState {
+  scrollY: number;
+  count: number;
+}
+
+function readSavedHistoryState(): SavedHistoryState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(RESTORATION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SavedHistoryState;
+    if (typeof parsed?.scrollY !== "number" || typeof parsed?.count !== "number") {
+      return null;
+    }
+    if (parsed.count > MAX_RESTORE_ITEMS) parsed.count = MAX_RESTORE_ITEMS;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 export default function ChallengesPage() {
   const { user, loading: authLoading, supabase } = useAuth();
@@ -58,6 +81,14 @@ export default function ChallengesPage() {
 
   const prefersReduced = useReducedMotion();
   const { showChallengeToast, markReady } = useChallengeToast();
+
+  // Restoration: read sessionStorage on mount so back navigation can
+  // rehydrate the loaded count and scroll position. Stored on unmount.
+  const savedHistoryRef = useRef<SavedHistoryState | null>(null);
+  if (savedHistoryRef.current === null && typeof window !== "undefined") {
+    savedHistoryRef.current = readSavedHistoryState();
+  }
+  const requestedCompletedCount = savedHistoryRef.current?.count ?? COMPLETED_PAGE_SIZE;
 
   // Infinite scroll: callback ref connects the observer when the sentinel
   // mounts (works even when AnimatePresence delays rendering).
@@ -93,26 +124,31 @@ export default function ChallengesPage() {
     setUserCardChallengeIds(new Set(cardIds));
   }, []);
 
-  // Fetch completed challenges (paginated)
-  const fetchCompleted = useCallback(async (offset: number, append: boolean) => {
-    const version = ++fetchCompletedVersionRef.current;
-    const res = await fetch(
-      `/api/challenges?status=resolved,declined,cancelled&limit=${COMPLETED_PAGE_SIZE}&offset=${offset}`
-    );
-    if (!res.ok) throw new Error("Failed to load challenges");
-    const data = await res.json();
-    const fetched: ChallengeWithProfiles[] = data.challenges ?? [];
+  // Fetch completed challenges (paginated). When `limit` is omitted, uses
+  // COMPLETED_PAGE_SIZE. Pass a larger limit to bulk-fetch on initial mount
+  // for back-navigation restoration via the ?completed URL param.
+  const fetchCompleted = useCallback(
+    async (offset: number, append: boolean, limit: number = COMPLETED_PAGE_SIZE) => {
+      const version = ++fetchCompletedVersionRef.current;
+      const res = await fetch(
+        `/api/challenges?status=resolved,declined,cancelled&limit=${limit}&offset=${offset}`,
+      );
+      if (!res.ok) throw new Error("Failed to load challenges");
+      const data = await res.json();
+      const fetched: ChallengeWithProfiles[] = data.challenges ?? [];
 
-    // A newer fetch was started while this one was in flight — discard stale result
-    if (fetchCompletedVersionRef.current !== version) return;
+      // A newer fetch was started while this one was in flight — discard stale result
+      if (fetchCompletedVersionRef.current !== version) return;
 
-    if (append) {
-      setCompletedChallenges((prev) => [...prev, ...fetched]);
-    } else {
-      setCompletedChallenges(fetched);
-    }
-    setHasMoreCompleted(data.hasMore ?? false);
-  }, []);
+      if (append) {
+        setCompletedChallenges((prev) => [...prev, ...fetched]);
+      } else {
+        setCompletedChallenges(fetched);
+      }
+      setHasMoreCompleted(data.hasMore ?? false);
+    },
+    [],
+  );
 
   // --- Realtime integration ---
   // Dedup: track processed event keys (challengeId + eventType) to prevent
@@ -248,7 +284,11 @@ export default function ChallengesPage() {
     }
     setError(null);
 
-    Promise.all([fetchCore(), fetchCompleted(0, false)])
+    // Use the URL-driven count on first mount so back-navigation restores
+    // the right amount. Subsequent fetches (debounced refresh, etc) use
+    // the default page size.
+    const initialLimit = isFirstLoad ? requestedCompletedCount : COMPLETED_PAGE_SIZE;
+    Promise.all([fetchCore(), fetchCompleted(0, false, initialLimit)])
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Failed to load challenges");
       })
@@ -257,6 +297,10 @@ export default function ChallengesPage() {
         initialLoadDoneRef.current = true;
         markReady();
       });
+    // requestedCompletedCount intentionally NOT in deps — only the initial
+    // mount should fast-forward; subsequent URL changes (e.g. from loadMore)
+    // shouldn't trigger a refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, fetchCore, fetchCompleted, markReady]);
 
   // Load more completed challenges
@@ -272,6 +316,88 @@ export default function ChallengesPage() {
       loadingMoreRef.current = false;
     }
   }, [hasMoreCompleted, completedChallenges.length, fetchCompleted]);
+
+  // ---------------------------------------------------------------------
+  // Scroll/pagination restoration on back navigation
+  // ---------------------------------------------------------------------
+  // Save state to sessionStorage on every scroll, but flip an isNavigating
+  // flag the moment any anchor link is clicked (capture phase) so we don't
+  // overwrite the saved Y with Next.js's auto-scroll-to-top during the
+  // navigation transition.
+  const isNavigatingRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onClickCapture = (e: MouseEvent) => {
+      if (e.defaultPrevented) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("a[href]")) {
+        isNavigatingRef.current = true;
+      }
+    };
+    document.addEventListener("click", onClickCapture, { capture: true });
+    return () => {
+      document.removeEventListener("click", onClickCapture, { capture: true } as EventListenerOptions);
+    };
+  }, []);
+
+  const completedCountRef = useRef(completedChallenges.length);
+  useEffect(() => { completedCountRef.current = completedChallenges.length; }, [completedChallenges.length]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const save = () => {
+      if (isNavigatingRef.current) return;
+      if (activeTab !== "history") return;
+      if (completedCountRef.current <= COMPLETED_PAGE_SIZE) return;
+      try {
+        sessionStorage.setItem(
+          RESTORATION_KEY,
+          JSON.stringify({ scrollY: window.scrollY, count: completedCountRef.current }),
+        );
+      } catch {
+        // best-effort
+      }
+    };
+    window.addEventListener("scroll", save, { passive: true });
+    save(); // also save once on mount
+    return () => window.removeEventListener("scroll", save);
+  }, [activeTab]);
+
+  // Save when the loaded count changes (Load More click)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isNavigatingRef.current) return;
+    if (activeTab !== "history") return;
+    if (completedChallenges.length <= COMPLETED_PAGE_SIZE) return;
+    try {
+      sessionStorage.setItem(
+        RESTORATION_KEY,
+        JSON.stringify({ scrollY: window.scrollY, count: completedChallenges.length }),
+      );
+    } catch {
+      // best-effort
+    }
+  }, [completedChallenges.length, activeTab]);
+
+  // Restore scroll once enough rows have loaded after a back-navigation.
+  // Runs after the initial fetch (driven by requestedCompletedCount) lands.
+  const restoredScrollRef = useRef(false);
+  useEffect(() => {
+    if (restoredScrollRef.current) return;
+    const saved = savedHistoryRef.current;
+    if (!saved) return;
+    if (completedChallenges.length < saved.count) return;
+    restoredScrollRef.current = true;
+    if (typeof window === "undefined") return;
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: saved.scrollY, behavior: "instant" as ScrollBehavior });
+    });
+    // Clear so we don't reapply on subsequent renders / forward navigation.
+    try { sessionStorage.removeItem(RESTORATION_KEY); } catch {
+      // best-effort
+    }
+  }, [completedChallenges.length]);
 
   // Callback ref for infinite scroll sentinel. Connects the observer exactly
   // when the sentinel mounts (immune to AnimatePresence delaying the DOM).

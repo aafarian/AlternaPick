@@ -170,6 +170,7 @@ export default async function CardsPage() {
                   statusFilter="resolved"
                   pageSize={PAGE_SIZE}
                   hasMoreInitially={completedCards.length >= PAGE_SIZE}
+                  restorationKey="picks-completed"
                 />
               )
             }
