@@ -82,8 +82,9 @@ describe("shouldSendEmail", () => {
 
 describe("sendEmail deliverability defaults", () => {
   beforeEach(() => {
+    // The Resend client is mocked at module level, so RESEND_API_KEY is not
+    // read at runtime — only EMAIL_FROM needs resetting between tests.
     sendMock.mockClear();
-    process.env.RESEND_API_KEY = "test_key";
     delete process.env.EMAIL_FROM;
   });
 
@@ -121,6 +122,17 @@ describe("sendEmail deliverability defaults", () => {
     const headers = args.headers as Record<string, string>;
     expect(headers["List-Unsubscribe"]).toBe("<https://example.com/unsub>");
     expect(headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+  });
+
+  it("always sets a unique X-Entity-Ref-ID header", async () => {
+    const first = await callSend();
+    sendMock.mockClear();
+    const second = await callSend();
+    const firstRef = (first.headers as Record<string, string>)["X-Entity-Ref-ID"];
+    const secondRef = (second.headers as Record<string, string>)["X-Entity-Ref-ID"];
+    expect(firstRef).toBeDefined();
+    expect(secondRef).toBeDefined();
+    expect(firstRef).not.toBe(secondRef);
   });
 });
 
