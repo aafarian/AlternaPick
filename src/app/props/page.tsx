@@ -13,7 +13,15 @@ import PropsGameList from "@/components/props/PropsGameList";
 import NcaabTeamRegistrar from "@/components/props/NcaabTeamRegistrar";
 import { SlideUp, FadeIn } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
+import { buildPageMetadata } from "@/lib/seo/page-metadata";
 import { logWarn } from "@/lib/logger";
+
+export const metadata = buildPageMetadata({
+  title: "Browse Player Props",
+  description:
+    "Browse over/under prop bets on real player stats across NBA, college basketball, EPL, La Liga, and more. Free to play, no signup required.",
+  path: "/props",
+});
 
 interface PropsPageProps {
   searchParams: Promise<{ category?: string; player?: string; sport?: string }>;

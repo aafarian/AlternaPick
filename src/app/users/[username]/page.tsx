@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth/helpers";
 import type {
   Profile,
@@ -10,9 +12,53 @@ import type {
 import { parseIconConfig } from "@/lib/icons/parse";
 import BadgeGrid from "@/components/profile/BadgeGrid";
 import { AnimatedUserProfile } from "./AnimatedUserProfile";
+import { buildPageMetadata } from "@/lib/seo/page-metadata";
+import { logError } from "@/lib/logger";
 
 interface UserProfilePageProps {
   params: Promise<{ username: string }>;
+}
+
+export async function generateMetadata({
+  params,
+}: UserProfilePageProps): Promise<Metadata> {
+  const { username } = await params;
+  // Default fallback so a missing/banned user doesn't break the metadata fetch.
+  const fallback = buildPageMetadata({
+    title: `@${username}`,
+    description: `${username}'s player prop predictions on AlternaPick.`,
+    path: `/users/${username}`,
+  });
+
+  try {
+    const admin = createAdminClient();
+    const { data } = await (admin.from("profiles") as any)
+      .select("username, display_name, is_deactivated")
+      .ilike("username", username)
+      .maybeSingle();
+
+    const profile = data as
+      | { username: string; display_name: string | null; is_deactivated: boolean }
+      | null;
+    if (!profile || profile.is_deactivated) return fallback;
+
+    const name = profile.display_name?.trim() || profile.username;
+    return buildPageMetadata({
+      title: `@${profile.username}`,
+      description: `${name}'s player prop predictions on AlternaPick — see their stats, picks, and achievements.`,
+      path: `/users/${profile.username}`,
+    });
+  } catch (err) {
+    // Don't include the username in the endpoint — CLAUDE.md rule #11
+    // bans usernames in log fields shipped to external logging.
+    logError(
+      "user-profile-metadata",
+      "Failed to build user profile metadata",
+      "/users/[username]",
+      err,
+    );
+    return fallback;
+  }
 }
 
 export default async function UserProfilePage({ params }: UserProfilePageProps) {

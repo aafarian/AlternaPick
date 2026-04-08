@@ -31,7 +31,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "AlternaPick - Predict. Compete. Dominate.",
+  title: {
+    default: "AlternaPick - Predict. Compete. Dominate.",
+    template: "%s | AlternaPick",
+  },
   description:
     "Pick over/unders on real player props across NBA, college basketball, soccer, and more. Challenge friends head-to-head and climb the leaderboard. Free to play.",
   keywords: [

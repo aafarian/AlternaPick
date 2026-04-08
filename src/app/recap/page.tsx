@@ -23,13 +23,15 @@ import { ThisWeek } from "@/components/recap/ThisWeek";
 import { RecapTileGrid } from "@/components/recap/RecapTileGrid";
 import { ConsensusCard } from "@/components/recap/ConsensusCard";
 import { Newspaper } from "lucide-react";
-import type { Metadata } from "next";
 import { MarkPageSeen } from "@/components/layout/MarkPageSeen";
+import { buildPageMetadata } from "@/lib/seo/page-metadata";
 
-export const metadata: Metadata = {
-  title: "Wrapped | AlternaPick",
-  description: "Your weekly and daily Wrapped — prop pick highlights and platform stats.",
-};
+export const metadata = buildPageMetadata({
+  title: "Wrapped",
+  description:
+    "Your weekly and daily Wrapped — prop pick highlights, top performers, and platform stats. See who's hot and who's cold.",
+  path: "/recap",
+});
 
 interface RecapRow {
   id: string;
