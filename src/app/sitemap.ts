@@ -63,7 +63,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Best-effort dynamic sections — failure on any individual query falls
   // back to an empty array so the sitemap is still served, just smaller.
-  const supabase = createAdminClient();
+  // createAdminClient throws if SERVICE_ROLE_KEY is missing (e.g. during
+  // Docker build prerender), so guard it and serve static-only in that case.
+  let supabase: ReturnType<typeof createAdminClient>;
+  try {
+    supabase = createAdminClient();
+  } catch (err) {
+    logError("sitemap", "Admin client unavailable, serving static-only sitemap", undefined, err);
+    return staticRoutes;
+  }
   const [profileEntries, challengeEntries, referralEntries] = await Promise.all([
     fetchProfileEntries(supabase),
     fetchResolvedChallengeEntries(supabase),
