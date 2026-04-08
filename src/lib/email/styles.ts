@@ -44,18 +44,6 @@ export const emailStyles = {
   content: {
     padding: "32px 28px",
   },
-  /** Branded header bar at the top of every email */
-  header: {
-    backgroundColor: colors.zinc950,
-    padding: "16px 28px",
-  },
-  headerText: {
-    fontSize: "15px",
-    fontWeight: 700 as const,
-    color: colors.white,
-    margin: "0",
-    letterSpacing: "0.02em",
-  },
   heading: {
     fontSize: "20px",
     fontWeight: 700 as const,
@@ -89,14 +77,18 @@ export const emailStyles = {
   buttonWrapper: {
     textAlign: "center" as const,
   },
-  /** Primary CTA button */
+  /**
+   * Primary CTA — styled as a subtle inline link rather than a marketing pill.
+   * Big rounded buttons read as newsletter CTAs to Gmail's classifier; a small
+   * link-button is the transactional norm (GitHub, Linear, Stripe all do this).
+   */
   button: {
     backgroundColor: colors.zinc950,
     color: colors.white,
-    fontSize: "15px",
+    fontSize: "14px",
     fontWeight: 600 as const,
-    padding: "12px 28px",
-    borderRadius: "8px",
+    padding: "8px 16px",
+    borderRadius: "6px",
     textDecoration: "none" as const,
     textAlign: "center" as const,
     display: "inline-block" as const,

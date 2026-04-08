@@ -32,10 +32,7 @@ export function CardResolvedEmail({
   const cardUrl = `${baseUrl}/cards/${cardId}`;
 
   return (
-    <EmailLayout
-      preview={`Your card is in: ${score} for ${total}`}
-      unsubscribeUrl={unsubscribeUrl}
-    >
+    <EmailLayout unsubscribeUrl={unsubscribeUrl}>
       <Text style={styles.subheading}>Card Results</Text>
       <Text style={styles.heading}>{headline}</Text>
       <Section style={styles.scoreCard}>

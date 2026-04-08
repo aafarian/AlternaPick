@@ -26,10 +26,7 @@ export function FriendRequestEmail({
   unsubscribeUrl,
 }: FriendRequestEmailProps): ReactElement {
   return (
-    <EmailLayout
-      preview={`${requesterUsername} sent you a friend request`}
-      unsubscribeUrl={unsubscribeUrl}
-    >
+    <EmailLayout unsubscribeUrl={unsubscribeUrl}>
       <Text style={styles.subheading}>Friend Request</Text>
       <Text style={styles.heading}>
         {requesterUsername} wants to be friends

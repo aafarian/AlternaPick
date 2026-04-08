@@ -37,10 +37,7 @@ export function ChallengeReceivedEmail({
   const modeText = getModeSuffix(gameMode);
 
   return (
-    <EmailLayout
-      preview={`${challengerUsername} sent you a challenge${modeText}`}
-      unsubscribeUrl={unsubscribeUrl}
-    >
+    <EmailLayout unsubscribeUrl={unsubscribeUrl}>
       <Text style={styles.subheading}>New Challenge{modeText}</Text>
       <Text style={styles.heading}>
         {challengerUsername} wants to take you on

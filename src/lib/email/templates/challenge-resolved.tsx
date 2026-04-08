@@ -84,10 +84,7 @@ export function ChallengeResolvedEmail({
   const scoreCardBg = getScoreCardBg(isWinner, isTie);
 
   return (
-    <EmailLayout
-      preview={getSubject(isWinner, isTie, myScore, theirScore, opponentName)}
-      unsubscribeUrl={unsubscribeUrl}
-    >
+    <EmailLayout unsubscribeUrl={unsubscribeUrl}>
       <Text style={styles.subheading}>Challenge Complete</Text>
       <Text style={styles.heading}>{getHeading(isWinner, isTie)}</Text>
       <Section style={{ ...styles.scoreCard, ...scoreCardBg }}>
