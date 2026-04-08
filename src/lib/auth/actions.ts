@@ -102,6 +102,7 @@ export async function signUp(formData: FormData) {
       {
         id: data.user.id,
         username,
+        username_chosen_at: new Date().toISOString(),
       },
       { onConflict: "id" }
     );
@@ -153,12 +154,36 @@ export async function updateUsername(username: string) {
 
    
   const { error } = await (admin.from("profiles") as any)
-    .update({ username: trimmed })
+    .update({ username: trimmed, username_chosen_at: new Date().toISOString() })
     .eq("id", user.id);
 
   if (error) {
     logError("auth-actions", "updateUsername error", undefined, error);
     return { error: "Failed to update username" };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Marks the username prompt as dismissed without changing the username.
+ * Called when the user clicks "Skip" on the UsernameSetupModal — they keep
+ * whatever auto-generated handle they have, but we don't re-prompt them.
+ */
+export async function dismissUsernamePrompt() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const admin = createAdminClient();
+
+  const { error } = await (admin.from("profiles") as any)
+    .update({ username_chosen_at: new Date().toISOString() })
+    .eq("id", user.id);
+
+  if (error) {
+    logError("auth-actions", "dismissUsernamePrompt error", undefined, error);
+    return { error: "Failed to dismiss prompt" };
   }
 
   return { success: true };

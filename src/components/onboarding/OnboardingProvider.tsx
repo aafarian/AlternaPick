@@ -5,8 +5,6 @@ import { useAuth } from "@/lib/auth/auth-context";
 import OnboardingModal from "./OnboardingModal";
 import UsernameSetupModal from "./UsernameSetupModal";
 
-const AUTO_USERNAME_RE = /^user_[a-f0-9]{8}$/;
-
 type Phase = "idle" | "username_setup" | "onboarding" | "done";
 
 const MAX_RETRIES = 5;
@@ -30,7 +28,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     async function checkStatus(attempt = 0) {
        
       const { data, error } = await (supabase.from("profiles") as any)
-        .select("username, onboarding_completed")
+        .select("username, username_chosen_at, onboarding_completed")
         .eq("id", userId)
         .single();
 
@@ -47,12 +45,17 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
       const profile = data as {
         username: string;
+        username_chosen_at: string | null;
         onboarding_completed?: boolean;
       };
 
       resolvedForRef.current = userId;
 
-      if (AUTO_USERNAME_RE.test(profile.username)) {
+      // Trust the explicit flag — `username_chosen_at` is set by signUp,
+      // updateUsername, and dismissUsernamePrompt, and is backfilled to
+      // NOW() for non-auto rows by migration 049. NULL means the user has
+      // never been prompted (or has been prompted but not responded).
+      if (profile.username_chosen_at == null) {
         setPhase("username_setup");
         return;
       }
