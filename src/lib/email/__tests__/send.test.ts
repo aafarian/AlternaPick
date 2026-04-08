@@ -1,6 +1,27 @@
-import { describe, it, expect } from "vitest";
-import { shouldSendEmail } from "../send";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { ReactElement } from "react";
 import type { NotificationPreferences } from "@/lib/supabase/types";
+
+const sendMock = vi.fn().mockResolvedValue({ data: { id: "fake" }, error: null });
+
+vi.mock("../client", () => ({
+  getResendClient: () => ({ emails: { send: sendMock } }),
+}));
+
+vi.mock("@/lib/feature-flags", () => ({
+  getFlag: vi.fn().mockResolvedValue(null),
+  getFlagValue: vi.fn().mockResolvedValue("*"),
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logError: vi.fn(),
+  logWarn: vi.fn(),
+  logInfo: vi.fn(),
+}));
+
+import { sendEmail, shouldSendEmail } from "../send";
+
+const fakeReact = null as unknown as ReactElement;
 
 describe("shouldSendEmail", () => {
   it("returns true when preferences is null (default to sending)", () => {
@@ -57,6 +78,53 @@ describe("shouldSendEmail", () => {
     expect(shouldSendEmail("daily_recap", null)).toBe(false);
   });
 
+});
+
+describe("sendEmail deliverability defaults", () => {
+  beforeEach(() => {
+    sendMock.mockClear();
+    process.env.RESEND_API_KEY = "test_key";
+    delete process.env.EMAIL_FROM;
+  });
+
+  async function callSend(extra: Record<string, unknown> = {}) {
+    await sendEmail({
+      to: "user@example.com",
+      subject: "hi",
+      react: fakeReact,
+      ...extra,
+    });
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    return sendMock.mock.calls[0][0] as Record<string, unknown>;
+  }
+
+  it("defaults From to notifications@alternapick.com", async () => {
+    const args = await callSend();
+    expect(args.from).toBe("AlternaPick <notifications@alternapick.com>");
+  });
+
+  it("respects EMAIL_FROM env override", async () => {
+    process.env.EMAIL_FROM = "Test <foo@example.com>";
+    const args = await callSend();
+    expect(args.from).toBe("Test <foo@example.com>");
+  });
+
+  it("does NOT add List-Unsubscribe headers when unsubscribeUrl is omitted", async () => {
+    const args = await callSend();
+    const headers = args.headers as Record<string, string>;
+    expect(headers["List-Unsubscribe"]).toBeUndefined();
+    expect(headers["List-Unsubscribe-Post"]).toBeUndefined();
+  });
+
+  it("adds List-Unsubscribe headers only when unsubscribeUrl is provided", async () => {
+    const args = await callSend({ unsubscribeUrl: "https://example.com/unsub" });
+    const headers = args.headers as Record<string, string>;
+    expect(headers["List-Unsubscribe"]).toBe("<https://example.com/unsub>");
+    expect(headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+  });
+});
+
+describe("shouldSendEmail individual preferences", () => {
   it("respects individual preferences independently", () => {
     const prefs = {
       email_card_resolved: false,

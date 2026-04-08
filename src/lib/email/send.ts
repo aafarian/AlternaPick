@@ -42,7 +42,14 @@ interface SendEmailParams {
   subject: string;
   react: ReactElement;
   text?: string;
-  /** Pre-generated unsubscribe URL for List-Unsubscribe headers. */
+  /**
+   * Pre-generated unsubscribe URL for List-Unsubscribe headers.
+   *
+   * IMPORTANT: Only pass this for marketing/digest emails (e.g. weekly recap).
+   * Transactional emails (challenge invites, friend requests, card results)
+   * MUST NOT pass this — `List-Unsubscribe` is a strong "bulk mail" signal to
+   * Gmail and pulls transactional mail into the Promotions tab.
+   */
   unsubscribeUrl?: string;
   /** Skip the email allowlist check (e.g. challenge invite emails to non-users). */
   bypassAllowlist?: boolean;
@@ -104,7 +111,7 @@ export async function sendEmail({
 
     // Step 4: Send the email
     const from =
-      process.env.EMAIL_FROM || "AlternaPick <picks@alternapick.com>";
+      process.env.EMAIL_FROM || "AlternaPick <notifications@alternapick.com>";
     const replyTo =
       process.env.EMAIL_REPLY_TO || "support@alternapick.com";
 
@@ -129,6 +136,12 @@ export async function sendEmail({
         ...unsubscribeHeaders,
       },
     });
+    // NOTE: Resend's click/open tracking must be disabled in the Resend
+    // dashboard (Domain settings → alternapick.com → toggle off Click Tracking
+    // and Open Tracking). The SDK does not expose per-send tracking options.
+    // Tracking rewrites links through `resend-clicks-a.com`, which Gmail's
+    // classifier treats as a strong "bulk/marketing" signal and pulls
+    // transactional mail into Promotions.
 
     return { success: true };
   } catch (err) {

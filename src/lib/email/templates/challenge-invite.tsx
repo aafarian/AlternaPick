@@ -33,9 +33,7 @@ export function ChallengeInviteEmail({
   const modeText = getModeSuffix(gameMode);
 
   return (
-    <EmailLayout
-      preview={`${challengerUsername} challenged you on AlternaPick${modeText}`}
-    >
+    <EmailLayout>
       <Text style={styles.subheading}>
         You&apos;ve Been Challenged{modeText}
       </Text>
@@ -69,7 +67,7 @@ export function getChallengeInviteEmailProps(
   text: string;
 } {
   const modeText = getModeSuffix(props.gameMode);
-  const subject = `${props.challengerUsername} challenged you on AlternaPick${modeText}`;
+  const subject = `${props.challengerUsername} challenged you${modeText}`;
 
   const lines = [
     `${props.challengerUsername} wants to take you on.`,
