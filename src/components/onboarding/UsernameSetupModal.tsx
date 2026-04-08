@@ -87,9 +87,15 @@ export default function UsernameSetupModal({
   async function handleSkip() {
     if (skipping) return;
     setSkipping(true);
-    // Persist the dismissal so the modal doesn't re-fire on every visit.
-    // Failure is non-fatal — worst case, user sees the modal again next load.
-    await dismissUsernamePrompt();
+    try {
+      // Persist the dismissal so the modal doesn't re-fire on every visit.
+      // Failure is non-fatal — worst case, user sees the modal again next load.
+      await dismissUsernamePrompt();
+    } catch {
+      // Swallow: if the server action throws (network error, serialization
+      // failure), we still want to close the modal so the user isn't stranded
+      // on a permanently disabled "Skipping…" button.
+    }
     onComplete();
   }
 
