@@ -6,7 +6,7 @@ export const size = { width: 1200, height: 630 };
 export const alt =
   "AlternaPick — Predict over/unders on real player props. Challenge friends, climb the leaderboard.";
 
-// Brand palette
+// Brand palette (mirrors globals.css + email styles)
 const BG = "#09090b";
 const FG = "#ffffff";
 const NEON = "#00d26a";
@@ -15,6 +15,13 @@ const ZINC_500 = "#71717a";
 const ZINC_700 = "#3f3f46";
 const ZINC_800 = "#27272a";
 const ZINC_900 = "#18181b";
+
+// Alpha variants — derived from NEON (#00d26a = rgb(0,210,106))
+const NEON_A25 = "rgba(0,210,106,0.25)";
+const NEON_A12 = "rgba(0,210,106,0.12)";
+const NEON_A10 = "rgba(0,210,106,0.1)";
+const NEON_A06 = "rgba(0,210,106,0.06)";
+const SHADOW = "0 20px 50px -20px rgba(0,0,0,0.6)";
 
 const FAKE_PROPS = [
   {
@@ -58,8 +65,8 @@ function PropCard({
     ? `1.5px solid ${NEON}`
     : `1px solid ${ZINC_800}`;
   const glow = highlighted
-    ? "0 0 30px rgba(0,210,106,0.25), 0 20px 50px -20px rgba(0,0,0,0.6)"
-    : "0 20px 50px -20px rgba(0,0,0,0.6)";
+    ? `0 0 30px ${NEON_A25}, ${SHADOW}`
+    : SHADOW;
 
   return (
     <div
@@ -84,7 +91,7 @@ function PropCard({
           alignItems: "flex-end",
           width: "100%",
           height: 120,
-          background: `radial-gradient(circle at 50% 80%, rgba(0,210,106,0.1) 0%, transparent 70%)`,
+          background: `radial-gradient(circle at 50% 80%, ${NEON_A10} 0%, transparent 70%)`,
         }}
       >
         <img
@@ -235,7 +242,7 @@ export default async function HomepageOG() {
             width: 500,
             height: 500,
             background:
-              "radial-gradient(circle, rgba(0,210,106,0.12) 0%, transparent 65%)",
+              `radial-gradient(circle, ${NEON_A12} 0%, transparent 65%)`,
             display: "flex",
           }}
         />
@@ -249,7 +256,7 @@ export default async function HomepageOG() {
             width: 400,
             height: 400,
             background:
-              "radial-gradient(circle, rgba(0,210,106,0.06) 0%, transparent 65%)",
+              `radial-gradient(circle, ${NEON_A06} 0%, transparent 65%)`,
             display: "flex",
           }}
         />
@@ -363,7 +370,7 @@ export default async function HomepageOG() {
             justifyContent: "center",
             alignItems: "center",
             padding: "14px 0",
-            background: `linear-gradient(transparent, rgba(0,210,106,0.1))`,
+            background: `linear-gradient(transparent, ${NEON_A10})`,
             gap: 16,
           }}
         >
