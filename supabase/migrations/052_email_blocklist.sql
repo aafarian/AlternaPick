@@ -27,6 +27,12 @@ UPDATE feature_flags
 SET
   key = 'email_blocklist',
   value = '',
+  -- Force `enabled = true` because the old `email_allowlist` row may have
+  -- been left in any state — the previous sendEmail code never read this
+  -- field, so production environments could have it as `false`. Without
+  -- this, the new `if (blocklistFlag?.enabled)` guard would silently
+  -- bypass every blocklist entry on those environments.
+  enabled = true,
   description = 'Comma-separated list of email addresses that will NEVER receive notifications. Combined with the auto-suppression of bounced/complained addresses from email_events. The flag''s `enabled` field controls whether this list is enforced.'
 WHERE key = 'email_allowlist';
 
