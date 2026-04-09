@@ -73,3 +73,20 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- Same anti-pattern (SECURITY DEFINER without SET search_path) exists in
+-- sync_profile_email from migration 028. It's not currently broken because
+-- the function qualifies `auth.users`, but it runs as part of the same
+-- new-user trigger chain and is the next latent bug waiting to bite. Pin
+-- it the same way for consistency.
+CREATE OR REPLACE FUNCTION sync_profile_email()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  NEW.email := (SELECT email FROM auth.users WHERE id = NEW.id);
+  RETURN NEW;
+END;
+$$;
