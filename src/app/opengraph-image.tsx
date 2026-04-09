@@ -391,17 +391,7 @@ export default async function HomepageOG() {
             <div
               style={{
                 display: "flex",
-                color: NEON,
-                fontSize: 13,
-                fontWeight: 700,
-              }}
-            >
-              {"1,000+ players"}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                color: ZINC_500,
+                color: ZINC_400,
                 fontSize: 13,
                 fontWeight: 500,
               }}
