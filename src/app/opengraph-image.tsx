@@ -260,18 +260,18 @@ export default async function HomepageOG() {
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: 10,
-            paddingTop: 40,
-            paddingBottom: 6,
+            gap: 6,
+            paddingTop: 28,
+            paddingBottom: 4,
             position: "relative",
           }}
         >
-          {/* Wordmark */}
+          {/* Wordmark — big enough to read as a thumbnail */}
           <div
             style={{
               display: "flex",
               alignItems: "baseline",
-              fontSize: 52,
+              fontSize: 58,
               fontWeight: 800,
               letterSpacing: "-0.04em",
               lineHeight: 1,
@@ -281,30 +281,31 @@ export default async function HomepageOG() {
             <span style={{ color: FG }}>Pick</span>
           </div>
 
-          {/* Tagline */}
+          {/* Tagline — punchy and large */}
           <div
             style={{
               display: "flex",
               color: FG,
-              fontSize: 28,
+              fontSize: 32,
               fontWeight: 700,
               letterSpacing: "-0.01em",
+              marginTop: 4,
             }}
           >
             {"Predict. Compete. Dominate."}
           </div>
 
-          {/* Subhead — shorter for visual punch */}
+          {/* Subhead — game modes as curiosity hooks */}
           <div
             style={{
               display: "flex",
               color: ZINC_400,
-              fontSize: 16,
+              fontSize: 17,
               fontWeight: 500,
               marginTop: 2,
             }}
           >
-{"Challenge friends in head-to-head, sabotage, and mirror match modes. Free to play."}
+            {"Challenge friends in head-to-head, sabotage, and mirror match modes."}
           </div>
 
           {/* Sport pills */}
@@ -341,8 +342,8 @@ export default async function HomepageOG() {
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "center",
-            gap: 24,
-            marginTop: 20,
+            gap: 28,
+            marginTop: 16,
             position: "relative",
           }}
         >
@@ -351,7 +352,7 @@ export default async function HomepageOG() {
           <PropCard prop={FAKE_PROPS[2]} rotation={5} offsetY={12} highlighted={false} />
         </div>
 
-        {/* CTA strip at the very bottom — urgency driver */}
+        {/* CTA strip at the bottom — urgency + social proof */}
         <div
           style={{
             display: "flex",
@@ -361,9 +362,9 @@ export default async function HomepageOG() {
             right: 0,
             justifyContent: "center",
             alignItems: "center",
-            padding: "12px 0",
-            background: `linear-gradient(transparent, rgba(0,210,106,0.08))`,
-            gap: 8,
+            padding: "14px 0",
+            background: `linear-gradient(transparent, rgba(0,210,106,0.1))`,
+            gap: 16,
           }}
         >
           <div
@@ -371,24 +372,42 @@ export default async function HomepageOG() {
               display: "flex",
               background: NEON,
               color: BG,
-              padding: "6px 20px",
+              padding: "8px 28px",
               borderRadius: 999,
-              fontSize: 13,
-              fontWeight: 700,
+              fontSize: 15,
+              fontWeight: 800,
               letterSpacing: "0.02em",
             }}
           >
-            {"Start picking now"}
+            {"Start picking — it's free"}
           </div>
           <div
             style={{
               display: "flex",
-              color: ZINC_500,
-              fontSize: 12,
-              fontWeight: 500,
+              alignItems: "center",
+              gap: 6,
             }}
           >
-            {"alternapick.com"}
+            <div
+              style={{
+                display: "flex",
+                color: NEON,
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
+              {"1,000+ players"}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                color: ZINC_500,
+                fontSize: 13,
+                fontWeight: 500,
+              }}
+            >
+              {"alternapick.com"}
+            </div>
           </div>
         </div>
       </div>
