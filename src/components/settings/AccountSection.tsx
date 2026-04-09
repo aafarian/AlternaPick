@@ -310,19 +310,19 @@ function DeleteAccountButton() {
     setDeleting(true);
     setError(null);
 
-    // Soft delete: set is_deactivated = true
-     
-    const { error: updateError } = await (supabase.from("profiles") as any)
-      .update({ is_deactivated: true })
-      .eq("id", user.id);
-
-    if (updateError) {
-      setError(updateError.message);
+    try {
+      const res = await fetch("/api/account/delete", { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to delete account");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete account");
       setDeleting(false);
       return;
     }
 
-    // Sign out the user
+    // Sign out the user (their auth row is gone — this clears the local session)
     await supabase.auth.signOut();
     router.push("/");
   }
@@ -339,9 +339,9 @@ function DeleteAccountButton() {
         <DialogHeader>
           <DialogTitle>Delete Your Account</DialogTitle>
           <DialogDescription>
-            This will deactivate your account. Your data will be retained for 30
-            days before permanent deletion. During this period, you can contact
-            support to restore your account.
+            This permanently deletes your account and all your data. Any active
+            challenges will be converted to solo cards for the other players so
+            they keep their picks. This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
 
