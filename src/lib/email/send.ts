@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { getResendClient } from "./client";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { typedFrom } from "@/lib/supabase/typed-queries";
 import { maskEmail } from "@/lib/format";
 import { logError, logWarn } from "@/lib/logger";
 import { getFlag, getFlagValue } from "@/lib/feature-flags";
@@ -28,7 +29,7 @@ async function isEmailSuppressed(
 ): Promise<boolean> {
   try {
     const admin = createAdminClient();
-    const { data, error } = await (admin.from("email_events") as any)
+    const { data, error } = await typedFrom(admin, "email_events")
       .select("event_type")
       .eq("email_to", recipientLower)
       .in("event_type", ["email.bounced", "email.complained"])

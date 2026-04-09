@@ -45,6 +45,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 import { sendEmail, shouldSendEmail } from "../send";
+import { logError } from "@/lib/logger";
 
 const fakeReact = null as unknown as ReactElement;
 
@@ -223,15 +224,23 @@ describe("sendEmail bounce/complaint suppression", () => {
     expect(emailToCall![1]).toBe("user@example.com");
   });
 
-  it("does NOT block sends when the suppression lookup fails (fail-open)", async () => {
+  it("does NOT block sends when the suppression lookup fails (fail-open) and logs the error", async () => {
     // A transient DB error should not block legitimate sends — the comment
-    // in send.ts spells this out as the intended behavior.
+    // in send.ts spells this out as the intended behavior. The error MUST
+    // still be logged so the failure mode is visible (CLAUDE.md rule #3).
+    vi.mocked(logError).mockClear();
     suppressionResult = { data: null, error: { message: "db down" } };
 
     const result = await trySend();
 
     expect(result).toEqual({ success: true });
     expect(sendMock).toHaveBeenCalledTimes(1);
+    expect(logError).toHaveBeenCalledWith(
+      "email",
+      expect.stringContaining("Suppression lookup failed"),
+      undefined,
+      expect.objectContaining({ message: "db down" }),
+    );
   });
 });
 
