@@ -102,7 +102,7 @@ function PropCard({
             letterSpacing: "0.06em",
           }}
         >
-          {prop.team} · {prop.sport}
+          {`${prop.team} · ${prop.sport}`}
         </div>
       </div>
 
@@ -140,7 +140,7 @@ function PropCard({
             fontWeight: 700,
           }}
         >
-          <span>▲ {prop.direction}</span>
+          <span>{`^ ${prop.direction}`}</span>
           <span style={{ color: FG }}>{prop.line}</span>
         </div>
       </div>
@@ -229,8 +229,7 @@ export default async function HomepageOG() {
               maxWidth: 540,
             }}
           >
-            Pick over/unders on real player props. Challenge friends head-to-head and
-            climb the leaderboard. Free to play.
+            {"Pick over/unders on real player props. Challenge friends head-to-head and climb the leaderboard. Free to play."}
           </div>
 
           {/* Sport row */}
