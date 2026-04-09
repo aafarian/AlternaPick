@@ -543,12 +543,16 @@ async function resolveGroupChallenge(
         const userEmail = profile?.email;
         if (userEmail && shouldSendEmail("challenge_resolved", prefs)) {
           const username = profile?.username ?? "Player";
-          // Use the 1v1 email template with group-adapted data (placement as score comparison)
+          // Use the 1v1 email template with group-adapted data (placement as
+          // score comparison). Pluralize correctly: a 2-person group has 1
+          // "other player", anything bigger has N "others".
+          const otherCount = totalParticipants - 1;
+          const opponentLabel = otherCount === 1 ? "1 other player" : `${otherCount} others`;
           const emailProps = getChallengeResolvedEmailProps({
             username,
             myScore: p.score,
             theirScore: secondScore,
-            opponentName: `${totalParticipants - 1} others`,
+            opponentName: opponentLabel,
             isWinner: p.placement === 1,
             isTie: hasFirstPlaceTie && p.placement === 1,
             challengeId: challenge.id,
