@@ -1,17 +1,13 @@
 import { ImageResponse } from "next/og";
 
-// File-based convention: Next.js auto-wires this as the OG image for the
-// homepage. The static og-image.png in /public stays as the inherited
-// fallback for routes that don't define their own opengraph-image.
-
 export const runtime = "edge";
 export const contentType = "image/png";
 export const size = { width: 1200, height: 630 };
 export const alt =
   "AlternaPick — Predict over/unders on real player props. Challenge friends, climb the leaderboard.";
 
-// Brand palette mirrored from src/app/globals.css and src/lib/email/styles.ts
-const BG = "#09090b"; // zinc-950
+// Brand palette
+const BG = "#09090b";
 const FG = "#ffffff";
 const NEON = "#00d26a";
 const ZINC_400 = "#a1a1aa";
@@ -19,38 +15,30 @@ const ZINC_500 = "#71717a";
 const ZINC_700 = "#3f3f46";
 const ZINC_800 = "#27272a";
 const ZINC_900 = "#18181b";
-const ORANGE = "#fb923c"; // basketball-ish accent for the points pill
 
-// Fake but realistic props that communicate "this is a player props game" at
-// a glance. Static so the OG endpoint never depends on a DB call — crawlers
-// hammer it constantly and any failure mode would silently break previews.
 const FAKE_PROPS = [
   {
     name: "LeBron James",
     team: "LAL",
-    sport: "NBA",
+    position: "F",
     line: "24.5",
     stat: "POINTS",
-    direction: "OVER",
-    // NBA.com headshot CDN — same source the app uses
     headshot: "https://cdn.nba.com/headshots/nba/latest/260x190/2544.png",
   },
   {
     name: "Stephen Curry",
     team: "GSW",
-    sport: "NBA",
+    position: "G",
     line: "4.5",
     stat: "3PM",
-    direction: "OVER",
     headshot: "https://cdn.nba.com/headshots/nba/latest/260x190/201939.png",
   },
   {
     name: "Nikola Jokic",
     team: "DEN",
-    sport: "NBA",
+    position: "C",
     line: "11.5",
     stat: "REB",
-    direction: "OVER",
     headshot: "https://cdn.nba.com/headshots/nba/latest/260x190/203999.png",
   },
 ];
@@ -59,114 +47,162 @@ function PropCard({
   prop,
   rotation,
   offsetY,
+  highlighted,
 }: {
   prop: (typeof FAKE_PROPS)[number];
   rotation: number;
   offsetY: number;
+  highlighted?: boolean;
 }) {
+  const borderColor = highlighted
+    ? `1.5px solid ${NEON}`
+    : `1px solid ${ZINC_800}`;
+  const glow = highlighted
+    ? "0 0 30px rgba(0,210,106,0.25), 0 20px 50px -20px rgba(0,0,0,0.6)"
+    : "0 20px 50px -20px rgba(0,0,0,0.6)";
+
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
+        alignItems: "center",
         background: ZINC_900,
-        border: `1px solid ${ZINC_800}`,
-        borderRadius: 16,
-        padding: "16px 20px",
-        width: 380,
-        boxShadow: "0 20px 50px -20px rgba(0,0,0,0.6)",
+        border: borderColor,
+        borderRadius: 20,
+        width: 210,
+        boxShadow: glow,
         transform: `rotate(${rotation}deg) translateY(${offsetY}px)`,
-        gap: 10,
+        overflow: "hidden",
       }}
     >
-      {/* Player headshot + name/team */}
+      {/* Headshot */}
       <div
         style={{
           display: "flex",
-          alignItems: "center",
-          gap: 14,
+          justifyContent: "center",
+          alignItems: "flex-end",
+          width: "100%",
+          height: 120,
+          background: `radial-gradient(circle at 50% 80%, rgba(0,210,106,0.1) 0%, transparent 70%)`,
         }}
       >
         <img
           src={prop.headshot}
           alt={prop.name}
-          width={56}
-          height={56}
-          style={{
-            borderRadius: 999,
-            objectFit: "cover",
-            background: ZINC_800,
-            border: `2px solid ${ZINC_700}`,
-          }}
+          width={120}
+          height={88}
+          style={{ objectFit: "cover", objectPosition: "top" }}
         />
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 2,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              color: FG,
-              fontSize: 20,
-              fontWeight: 700,
-              letterSpacing: "-0.02em",
-            }}
-          >
-            {prop.name}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              color: ZINC_500,
-              fontSize: 12,
-              fontWeight: 500,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-            }}
-          >
-            {`${prop.team} · ${prop.sport}`}
-          </div>
-        </div>
       </div>
 
-      {/* Stat pill + line */}
+      {/* Name + team */}
       <div
         style={{
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
-          gap: 12,
+          padding: "8px 12px 0 12px",
+          gap: 1,
         }}
       >
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            background: "rgba(251, 146, 60, 0.15)",
-            color: ORANGE,
-            padding: "5px 12px",
-            borderRadius: 999,
-            fontSize: 12,
+            color: FG,
+            fontSize: 15,
             fontWeight: 700,
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
           }}
         >
-          {prop.stat}
+          {prop.name}
         </div>
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: 6,
-            color: NEON,
-            fontSize: 16,
-            fontWeight: 700,
+            color: ZINC_500,
+            fontSize: 10,
+            fontWeight: 500,
           }}
         >
-          <span>{`OVER ${prop.line}`}</span>
+          {`${prop.team} - ${prop.position}`}
+        </div>
+      </div>
+
+      {/* Line number */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "center",
+          padding: "6px 12px",
+          gap: 4,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            color: NEON,
+            fontSize: 32,
+            fontWeight: 800,
+            letterSpacing: "-0.03em",
+            lineHeight: 1,
+          }}
+        >
+          {prop.line}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            color: NEON,
+            fontSize: 11,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+          }}
+        >
+          {prop.stat}
+        </div>
+      </div>
+
+      {/* OVER / UNDER */}
+      <div
+        style={{
+          display: "flex",
+          width: "100%",
+          borderTop: `1px solid ${ZINC_800}`,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            padding: "8px 0",
+            color: highlighted ? BG : NEON,
+            background: highlighted ? NEON : "transparent",
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            borderRight: `1px solid ${ZINC_800}`,
+          }}
+        >
+          OVER
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            padding: "8px 0",
+            color: ZINC_500,
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+          }}
+        >
+          UNDER
         </div>
       </div>
     </div>
@@ -180,36 +216,54 @@ export default async function HomepageOG() {
         style={{
           width: "100%",
           height: "100%",
-          background: `linear-gradient(135deg, ${BG} 0%, ${ZINC_900} 100%)`,
+          background: `linear-gradient(160deg, ${BG} 0%, #0d1117 50%, ${BG} 100%)`,
           display: "flex",
-          flexDirection: "row",
+          flexDirection: "column",
           alignItems: "center",
-          padding: "60px 80px",
+          justifyContent: "center",
           fontFamily:
             '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+          position: "relative",
         }}
       >
-        {/* Subtle radial accent in the corner */}
+        {/* Ambient glow — top right */}
         <div
           style={{
             position: "absolute",
-            top: -200,
-            right: -200,
-            width: 600,
-            height: 600,
+            top: -120,
+            right: -80,
+            width: 500,
+            height: 500,
             background:
-              "radial-gradient(circle, rgba(0,210,106,0.15) 0%, rgba(0,210,106,0) 70%)",
+              "radial-gradient(circle, rgba(0,210,106,0.12) 0%, transparent 65%)",
             display: "flex",
           }}
         />
 
-        {/* Left half: brand + tagline + value props */}
+        {/* Ambient glow — bottom left */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: -120,
+            left: -80,
+            width: 400,
+            height: 400,
+            background:
+              "radial-gradient(circle, rgba(0,210,106,0.06) 0%, transparent 65%)",
+            display: "flex",
+          }}
+        />
+
+        {/* ───── TOP: Brand + Tagline ───── */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            flex: 1,
-            gap: 28,
+            alignItems: "center",
+            gap: 10,
+            paddingTop: 40,
+            paddingBottom: 6,
+            position: "relative",
           }}
         >
           {/* Wordmark */}
@@ -217,8 +271,7 @@ export default async function HomepageOG() {
             style={{
               display: "flex",
               alignItems: "baseline",
-              gap: 0,
-              fontSize: 64,
+              fontSize: 52,
               fontWeight: 800,
               letterSpacing: "-0.04em",
               lineHeight: 1,
@@ -233,48 +286,45 @@ export default async function HomepageOG() {
             style={{
               display: "flex",
               color: FG,
-              fontSize: 38,
+              fontSize: 28,
               fontWeight: 700,
-              lineHeight: 1.15,
-              letterSpacing: "-0.02em",
-              maxWidth: 520,
+              letterSpacing: "-0.01em",
             }}
           >
-            Predict. Compete. Dominate.
+            {"Predict. Compete. Dominate."}
           </div>
 
-          {/* Subhead */}
+          {/* Subhead — shorter for visual punch */}
           <div
             style={{
               display: "flex",
               color: ZINC_400,
-              fontSize: 22,
+              fontSize: 16,
               fontWeight: 500,
-              lineHeight: 1.4,
-              maxWidth: 540,
+              marginTop: 2,
             }}
           >
-            {"Pick over/unders on real player props. Challenge friends head-to-head and climb the leaderboard. Free to play."}
+            {"Pick over/unders on real player props. Free to play."}
           </div>
 
-          {/* Sport row */}
+          {/* Sport pills */}
           <div
             style={{
               display: "flex",
-              gap: 14,
+              gap: 10,
               marginTop: 8,
             }}
           >
-            {["🏀 NBA", "🏈 NFL", "⚽ Soccer", "🎓 NCAAB"].map((s) => (
+            {["NBA", "NFL", "Soccer", "NCAAB"].map((s) => (
               <div
                 key={s}
                 style={{
                   display: "flex",
                   background: ZINC_800,
                   color: ZINC_400,
-                  padding: "8px 16px",
+                  padding: "5px 14px",
                   borderRadius: 999,
-                  fontSize: 16,
+                  fontSize: 13,
                   fontWeight: 600,
                   border: `1px solid ${ZINC_700}`,
                 }}
@@ -285,26 +335,64 @@ export default async function HomepageOG() {
           </div>
         </div>
 
-        {/* Right half: stacked prop cards */}
+        {/* ───── BOTTOM: Three prop cards ───── */}
         <div
           style={{
             display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-end",
+            alignItems: "flex-start",
             justifyContent: "center",
-            gap: -20,
-            width: 420,
+            gap: 24,
+            marginTop: 20,
             position: "relative",
           }}
         >
-          <PropCard prop={FAKE_PROPS[0]} rotation={-4} offsetY={0} />
-          <PropCard prop={FAKE_PROPS[1]} rotation={2} offsetY={-30} />
-          <PropCard prop={FAKE_PROPS[2]} rotation={-2} offsetY={-60} />
+          <PropCard prop={FAKE_PROPS[0]} rotation={-5} offsetY={12} highlighted={false} />
+          <PropCard prop={FAKE_PROPS[1]} rotation={0} offsetY={0} highlighted />
+          <PropCard prop={FAKE_PROPS[2]} rotation={5} offsetY={12} highlighted={false} />
+        </div>
+
+        {/* CTA strip at the very bottom — urgency driver */}
+        <div
+          style={{
+            display: "flex",
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            justifyContent: "center",
+            alignItems: "center",
+            padding: "12px 0",
+            background: `linear-gradient(transparent, rgba(0,210,106,0.08))`,
+            gap: 8,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              background: NEON,
+              color: BG,
+              padding: "6px 20px",
+              borderRadius: 999,
+              fontSize: 13,
+              fontWeight: 700,
+              letterSpacing: "0.02em",
+            }}
+          >
+            {"Start picking now"}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              color: ZINC_500,
+              fontSize: 12,
+              fontWeight: 500,
+            }}
+          >
+            {"alternapick.com"}
+          </div>
         </div>
       </div>
     ),
-    {
-      ...size,
-    },
+    { ...size },
   );
 }
