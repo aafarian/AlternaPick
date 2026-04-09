@@ -48,6 +48,7 @@ import {
   Loader2,
 } from "lucide-react";
 import ModerationActions from "@/components/admin/ModerationActions";
+import NotificationPreferencesPanel from "@/components/admin/NotificationPreferencesPanel";
 import type { AdminUserDetail } from "@/lib/admin/types";
 import {
   formatDate,
@@ -665,6 +666,13 @@ export default function UserDetail({ userId }: { userId: string }) {
           />
         </CardContent>
       </Card>
+
+      {/* Notification Preferences */}
+      <NotificationPreferencesPanel
+        userId={detail.profile.id}
+        username={detail.profile.username}
+        initialPreferences={detail.profile.notificationPreferences}
+      />
 
       {/* Stats grid */}
       <StatsGrid stats={detail.stats} />

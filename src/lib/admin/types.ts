@@ -4,6 +4,7 @@ import type {
   CardStatus,
   ChallengeStatus,
   GameMode,
+  NotificationPreferences,
   PickResult,
   PickSelection,
   StatCategory,
@@ -85,6 +86,7 @@ export interface AdminUserDetail {
     isDeactivated: boolean;
     signupDate: string;
     updatedAt: string;
+    notificationPreferences: NotificationPreferences | null;
   };
   stats: {
     totalCards: number;

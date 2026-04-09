@@ -11,6 +11,7 @@ import type {
   GameMode,
   AchievementTier,
   AchievementCategory,
+  NotificationPreferences,
 } from "@/lib/supabase/types";
 
 // ---------------------------------------------------------------------------
@@ -24,6 +25,7 @@ type ProfileRow = {
   display_name: string | null;
   avatar_url: string | null;
   is_deactivated: boolean;
+  notification_preferences: NotificationPreferences | null;
   created_at: string;
   updated_at: string;
 };
@@ -112,7 +114,7 @@ export async function GET(
       supabase.from("profiles") as any
     )
       .select(
-        "id, username, email, display_name, avatar_url, is_deactivated, created_at, updated_at"
+        "id, username, email, display_name, avatar_url, is_deactivated, notification_preferences, created_at, updated_at"
       )
       .eq("id", userId)
       .single();
@@ -389,6 +391,7 @@ export async function GET(
         isDeactivated: profile.is_deactivated,
         signupDate: profile.created_at,
         updatedAt: profile.updated_at,
+        notificationPreferences: profile.notification_preferences,
       },
       stats,
       recentCards,
