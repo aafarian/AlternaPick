@@ -64,14 +64,24 @@ interface OwnedGroupChallenge {
  * alone — CASCADE will delete the empty group, which is the correct behavior
  * for a one-person group.
  *
- * Best-effort: per-challenge errors are logged and skipped so one bad row
- * doesn't block the whole account delete (CLAUDE.md rule #3 — log + continue,
- * never silently swallow).
+ * Failure semantics: this function distinguishes between a *successful skip*
+ * (no candidates available — empty group, fine) and a *fetch failure* (DB
+ * error — we don't know if there are candidates, so we can't safely skip).
+ * On any DB failure that prevents us from confirming the transfer, return
+ * `failed: true` so `hardDeleteAccount` aborts before calling `deleteUser`.
+ * This is critical: silently treating a fetch error as "no participants"
+ * would let the cascade wipe groups that still have active members.
+ *
+ * Partial-transfer safety: if the loop fails on the Nth challenge after
+ * successfully transferring N-1 of them, the already-transferred challenges
+ * remain owned by their new owners. That's a valid intermediate state — a
+ * retry will skip them (the user no longer owns them) and re-attempt only
+ * the failed ones.
  */
 export async function transferGroupOwnership(
   admin: SupabaseClient<Database>,
   userId: string,
-): Promise<{ transferred: number }> {
+): Promise<{ transferred: number; failed: boolean }> {
   let transferred = 0;
 
   const { data: owned, error: ownedError } = await (admin.from("challenges") as any)
@@ -87,7 +97,7 @@ export async function transferGroupOwnership(
       "transferGroupOwnership",
       ownedError,
     );
-    return { transferred };
+    return { transferred, failed: true };
   }
 
   for (const ch of (owned ?? []) as OwnedGroupChallenge[]) {
@@ -95,7 +105,9 @@ export async function transferGroupOwnership(
       // Find another participant to promote. Prefer existing creator-flagged
       // rows (in case the schema ever supports co-creators), then fall back
       // to the oldest joined participant.
-      const { data: candidates } = await (admin.from("challenge_participants") as any)
+      const { data: candidates, error: candidatesError } = await (
+        admin.from("challenge_participants") as any
+      )
         .select("user_id, is_creator, created_at")
         .eq("challenge_id", ch.id)
         .neq("user_id", userId)
@@ -103,6 +115,19 @@ export async function transferGroupOwnership(
         .order("is_creator", { ascending: false })
         .order("created_at", { ascending: true })
         .limit(1);
+
+      if (candidatesError) {
+        // CRITICAL: a fetch failure is NOT the same as "no participants".
+        // Silently skipping would let the cascade nuke a group that may
+        // still have active members. Abort instead.
+        logError(
+          "account-delete",
+          `Failed to fetch participants for challenge ${ch.id} — aborting delete to avoid cascading data loss`,
+          "transferGroupOwnership",
+          candidatesError,
+        );
+        return { transferred, failed: true };
+      }
 
       const newOwner = (candidates as CandidateParticipant[] | null)?.[0];
       if (!newOwner?.user_id) {
@@ -116,13 +141,16 @@ export async function transferGroupOwnership(
         .eq("id", ch.id);
 
       if (chUpdateError) {
+        // Same reasoning as the candidates fetch error: if we can't confirm
+        // the transfer succeeded, the cascade would still wipe this
+        // challenge along with its other participants.
         logError(
           "account-delete",
-          `Failed to transfer challenger_id for challenge ${ch.id}`,
+          `Failed to transfer challenger_id for challenge ${ch.id} — aborting delete to avoid cascading data loss`,
           "transferGroupOwnership",
           chUpdateError,
         );
-        continue;
+        return { transferred, failed: true };
       }
 
       const { error: pUpdateError } = await (admin.from("challenge_participants") as any)
@@ -136,21 +164,24 @@ export async function transferGroupOwnership(
           `Failed to mark new creator on challenge_participants for ${ch.id}`,
           pUpdateError,
         );
-        // Non-fatal — the challenger_id transfer is what matters.
+        // Non-fatal — the challenger_id transfer (the load-bearing one) succeeded.
       }
 
       transferred++;
     } catch (err) {
+      // Unexpected error inside the per-challenge block. Same fail-safe:
+      // we'd rather error the whole delete than risk silent data loss.
       logError(
         "account-delete",
-        `Unexpected error transferring ownership for challenge ${ch.id}`,
+        `Unexpected error transferring ownership for challenge ${ch.id} — aborting delete`,
         "transferGroupOwnership",
         err,
       );
+      return { transferred, failed: true };
     }
   }
 
-  return { transferred };
+  return { transferred, failed: false };
 }
 
 export async function hardDeleteAccount(
@@ -158,8 +189,17 @@ export async function hardDeleteAccount(
   userId: string,
 ): Promise<HardDeleteResult> {
   // Pre-delete pass: rescue group challenges from CASCADE-induced wipeout
-  // by transferring ownership to a surviving participant.
-  const { transferred } = await transferGroupOwnership(admin, userId);
+  // by transferring ownership to a surviving participant. If this fails for
+  // any reason, ABORT — we'd rather leave the user undeleted than let the
+  // cascade silently wipe a group that still has active members.
+  const { transferred, failed } = await transferGroupOwnership(admin, userId);
+  if (failed) {
+    return {
+      success: false,
+      error:
+        "Couldn't safely transfer ownership of all your group challenges. Please try again — your account was not deleted.",
+    };
+  }
   if (transferred > 0) {
     logInfo(
       "account-delete",

@@ -160,7 +160,7 @@ describe("transferGroupOwnership", () => {
 
     const result = await transferGroupOwnership(fakeAdmin(), "old-owner");
 
-    expect(result.transferred).toBe(1);
+    expect(result).toEqual({ transferred: 1, failed: false });
     // First update sets the new challenger_id on challenges
     const challengeUpdate = mockUpdate.mock.calls.find(
       (c) => c[0] === "challenges",
@@ -184,7 +184,7 @@ describe("transferGroupOwnership", () => {
 
     const result = await transferGroupOwnership(fakeAdmin(), "lonely-user");
 
-    expect(result.transferred).toBe(0);
+    expect(result).toEqual({ transferred: 0, failed: false });
     // No update calls — we let the cascade handle it
     const challengeUpdates = mockUpdate.mock.calls.filter(
       (c) => c[0] === "challenges",
@@ -192,22 +192,58 @@ describe("transferGroupOwnership", () => {
     expect(challengeUpdates).toHaveLength(0);
   });
 
-  it("returns transferred=0 when the user owns no group challenges", async () => {
+  it("returns transferred=0 failed=false when the user owns no group challenges", async () => {
     challengesResult = { data: [], error: null };
 
     const result = await transferGroupOwnership(fakeAdmin(), "user-no-groups");
 
-    expect(result.transferred).toBe(0);
+    expect(result).toEqual({ transferred: 0, failed: false });
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it("logs and returns 0 when the initial fetch fails", async () => {
+  it("returns failed=true when the owned-challenges fetch errors out", async () => {
     challengesResult = { data: null, error: { message: "db fail" } };
 
     const result = await transferGroupOwnership(fakeAdmin(), "user-err");
 
-    expect(result.transferred).toBe(0);
+    expect(result).toEqual({ transferred: 0, failed: true });
     expect(mockLogError).toHaveBeenCalled();
+  });
+
+  it("returns failed=true when the candidate-participants fetch errors out (CRITICAL: prevents silent group wipeout)", async () => {
+    challengesResult = { data: [{ id: "ch-cf" }], error: null };
+    participantsResult = { data: null, error: { message: "candidates fetch fail" } };
+
+    const result = await transferGroupOwnership(fakeAdmin(), "user-cf");
+
+    expect(result).toEqual({ transferred: 0, failed: true });
+    expect(mockLogError).toHaveBeenCalled();
+    const errorCall = mockLogError.mock.calls.find((c) =>
+      typeof c[1] === "string" && (c[1] as string).includes("ch-cf"),
+    );
+    expect(errorCall).toBeDefined();
+    expect(errorCall![1]).toContain("aborting delete");
+    // No update calls should have happened — we bailed before any writes
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns failed=true when the challenger_id update errors out (CRITICAL: prevents silent group wipeout)", async () => {
+    challengesResult = { data: [{ id: "ch-up" }], error: null };
+    participantsResult = {
+      data: [{ user_id: "candidate", is_creator: false, created_at: "2026-01-03" }],
+      error: null,
+    };
+    // The first update (challenger_id) fails
+    updateResults = [{ error: { message: "update fail" } }];
+
+    const result = await transferGroupOwnership(fakeAdmin(), "user-up");
+
+    expect(result).toEqual({ transferred: 0, failed: true });
+    const errorCall = mockLogError.mock.calls.find((c) =>
+      typeof c[1] === "string" && (c[1] as string).includes("ch-up"),
+    );
+    expect(errorCall).toBeDefined();
+    expect(errorCall![1]).toContain("aborting delete");
   });
 
   it("counts a successful transfer even when marking is_creator on participants fails (non-fatal)", async () => {
@@ -221,7 +257,51 @@ describe("transferGroupOwnership", () => {
 
     const result = await transferGroupOwnership(fakeAdmin(), "old-owner-2");
 
-    expect(result.transferred).toBe(1);
+    expect(result).toEqual({ transferred: 1, failed: false });
     expect(mockLogWarn).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hardDeleteAccount integration with the failure-propagation contract
+// ---------------------------------------------------------------------------
+
+describe("hardDeleteAccount aborts on transfer failure", () => {
+  it("does NOT call deleteUser when the candidate-participants fetch fails", async () => {
+    challengesResult = { data: [{ id: "ch-protect" }], error: null };
+    participantsResult = { data: null, error: { message: "candidates fetch fail" } };
+
+    const result = await hardDeleteAccount(fakeAdmin(), "user-protect");
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBeDefined();
+    expect(result.error).toMatch(/transfer ownership/i);
+    // The whole point of this test: deleteUser MUST NOT be called when
+    // we can't confirm the transfer succeeded.
+    expect(mockDeleteUser).not.toHaveBeenCalled();
+  });
+
+  it("does NOT call deleteUser when the challenger_id update fails", async () => {
+    challengesResult = { data: [{ id: "ch-up-protect" }], error: null };
+    participantsResult = {
+      data: [{ user_id: "candidate", is_creator: false, created_at: "2026-01-04" }],
+      error: null,
+    };
+    updateResults = [{ error: { message: "update fail" } }];
+
+    const result = await hardDeleteAccount(fakeAdmin(), "user-up-protect");
+
+    expect(result.success).toBe(false);
+    expect(mockDeleteUser).not.toHaveBeenCalled();
+  });
+
+  it("does call deleteUser when the transfer pass succeeds", async () => {
+    challengesResult = { data: [], error: null };
+    mockDeleteUser.mockResolvedValueOnce({ error: null });
+
+    const result = await hardDeleteAccount(fakeAdmin(), "user-clean");
+
+    expect(result.success).toBe(true);
+    expect(mockDeleteUser).toHaveBeenCalledWith("user-clean");
   });
 });
