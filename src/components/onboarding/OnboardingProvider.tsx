@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import OnboardingModal from "./OnboardingModal";
 import UsernameSetupModal from "./UsernameSetupModal";
@@ -12,6 +13,7 @@ const RETRY_INTERVAL_MS = 1_000;
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
   const { user, loading, supabase } = useAuth();
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
 
   // Derive a stable primitive so the effect doesn't re-run on every
@@ -76,6 +78,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   function handleUsernameComplete() {
     setPhase("onboarding");
+    // Re-fetch server component data so any UI surface that displayed the
+    // old auto-generated username (challenge matchup, profile chips, etc.)
+    // picks up the freshly chosen username without requiring a manual reload.
+    router.refresh();
   }
 
   async function handleOnboardingDismiss() {
