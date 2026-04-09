@@ -19,7 +19,33 @@ vi.mock("@/lib/logger", () => ({
   logInfo: vi.fn(),
 }));
 
+// Mock the admin client used by the suppression lookup. The chainable proxy
+// resolves `.maybeSingle()` to whatever `suppressionResult` is set to in the
+// current test, and records every call so tests can assert filters.
+let suppressionResult: { data: unknown; error: unknown } = { data: null, error: null };
+const suppressionEqMock = vi.fn();
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    from: () => {
+      const handler: ProxyHandler<Record<string, unknown>> = {
+        get(_target, prop) {
+          if (prop === "maybeSingle") {
+            return () => Promise.resolve(suppressionResult);
+          }
+          return (...args: unknown[]) => {
+            if (prop === "eq") suppressionEqMock(...args);
+            return new Proxy({}, handler);
+          };
+        },
+      };
+      return new Proxy({}, handler);
+    },
+  }),
+}));
+
 import { sendEmail, shouldSendEmail } from "../send";
+import { logError } from "@/lib/logger";
 
 const fakeReact = null as unknown as ReactElement;
 
@@ -85,6 +111,8 @@ describe("sendEmail deliverability defaults", () => {
     // The Resend client is mocked at module level, so RESEND_API_KEY is not
     // read at runtime — only EMAIL_FROM needs resetting between tests.
     sendMock.mockClear();
+    suppressionEqMock.mockClear();
+    suppressionResult = { data: null, error: null };
     delete process.env.EMAIL_FROM;
   });
 
@@ -133,6 +161,86 @@ describe("sendEmail deliverability defaults", () => {
     expect(firstRef).toBeDefined();
     expect(secondRef).toBeDefined();
     expect(firstRef).not.toBe(secondRef);
+  });
+});
+
+describe("sendEmail bounce/complaint suppression", () => {
+  beforeEach(() => {
+    sendMock.mockClear();
+    suppressionEqMock.mockClear();
+    suppressionResult = { data: null, error: null };
+    delete process.env.EMAIL_FROM;
+  });
+
+  async function trySend() {
+    return sendEmail({
+      to: "user@example.com",
+      subject: "hi",
+      react: null as unknown as ReactElement,
+    });
+  }
+
+  it("sends normally when the address is NOT in the suppression list", async () => {
+    suppressionResult = { data: null, error: null };
+
+    const result = await trySend();
+
+    expect(result).toEqual({ success: true });
+    expect(sendMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks the send when the address has a prior bounce event", async () => {
+    suppressionResult = { data: { event_type: "email.bounced" }, error: null };
+
+    const result = await trySend();
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Recipient suppressed");
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks the send when the address has a prior complaint event", async () => {
+    suppressionResult = { data: { event_type: "email.complained" }, error: null };
+
+    const result = await trySend();
+
+    expect(result.success).toBe(false);
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("queries with the lowercased recipient address", async () => {
+    suppressionResult = { data: null, error: null };
+
+    await sendEmail({
+      to: "User@Example.COM",
+      subject: "hi",
+      react: null as unknown as ReactElement,
+    });
+
+    // The .eq("email_to", ...) call should have received the lowercased form
+    const eqCalls = suppressionEqMock.mock.calls;
+    const emailToCall = eqCalls.find((c) => c[0] === "email_to");
+    expect(emailToCall).toBeDefined();
+    expect(emailToCall![1]).toBe("user@example.com");
+  });
+
+  it("does NOT block sends when the suppression lookup fails (fail-open) and logs the error", async () => {
+    // A transient DB error should not block legitimate sends — the comment
+    // in send.ts spells this out as the intended behavior. The error MUST
+    // still be logged so the failure mode is visible (CLAUDE.md rule #3).
+    vi.mocked(logError).mockClear();
+    suppressionResult = { data: null, error: { message: "db down" } };
+
+    const result = await trySend();
+
+    expect(result).toEqual({ success: true });
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    expect(logError).toHaveBeenCalledWith(
+      "email",
+      expect.stringContaining("Suppression lookup failed"),
+      undefined,
+      expect.objectContaining({ message: "db down" }),
+    );
   });
 });
 
