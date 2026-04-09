@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { maskEmail } from "@/lib/format";
 import { logError, logWarn } from "@/lib/logger";
-import { getFlag, getFlagValue } from "@/lib/feature-flags";
+import { getFlag } from "@/lib/feature-flags";
 import type {
   NotificationType,
   NotificationPreferences,
@@ -101,8 +101,6 @@ interface SendEmailParams {
    * Gmail and pulls transactional mail into the Promotions tab.
    */
   unsubscribeUrl?: string;
-  /** Skip the email allowlist check (e.g. challenge invite emails to non-users). */
-  bypassAllowlist?: boolean;
 }
 
 interface SendEmailResult {
@@ -111,12 +109,19 @@ interface SendEmailResult {
 }
 
 /**
- * Send an email via Resend with allowlist filtering.
+ * Send an email via Resend with blocklist + suppression filtering.
+ *
+ * Filtering layers, in order:
+ *   1. Global kill switch — `email_enabled` feature flag
+ *   2. Manual blocklist — `email_blocklist` feature flag (admin-managed list of
+ *      addresses that should NEVER receive notifications). Enforced only when
+ *      `email_blocklist.enabled` is true, so admins can temporarily disable
+ *      enforcement without losing the list.
+ *   3. Auto-suppression — addresses with prior bounce/complaint events from the
+ *      Resend webhook (`email_events` table). Permanent: once an address has
+ *      bounced or complained, we never send to it again.
  *
  * - Returns early (no error) if RESEND_API_KEY is missing.
- * - Checks EMAIL_ALLOWLIST env var: comma-separated list of allowed emails,
- *   or `*` to allow all recipients. If recipient is not on the list, the
- *   email is silently skipped.
  * - Never throws — all errors are caught and returned in the result.
  */
 export async function sendEmail({
@@ -125,7 +130,6 @@ export async function sendEmail({
   react,
   text,
   unsubscribeUrl,
-  bypassAllowlist = false,
 }: SendEmailParams): Promise<SendEmailResult> {
   try {
     // Step 0: Check global email toggle
@@ -142,26 +146,28 @@ export async function sendEmail({
       return { success: false, error: "No API key" };
     }
 
-    // Step 2: Parse EMAIL_ALLOWLIST
-    const allowlistRaw = (await getFlagValue("email_allowlist")) ?? "";
     const recipientLower = to.toLowerCase().trim();
 
-    if (!bypassAllowlist && allowlistRaw.trim() !== "*") {
-      const allowedEmails = allowlistRaw
+    // Step 2: Manual blocklist. Enforced only when the flag is enabled, so
+    // admins can temporarily disable enforcement (emergency override) without
+    // erasing the curated list.
+    const blocklistFlag = await getFlag("email_blocklist");
+    if (blocklistFlag?.enabled) {
+      const blockedEmails = (blocklistFlag.value ?? "")
         .split(",")
         .map((e) => e.trim().toLowerCase())
         .filter(Boolean);
 
-      // Step 3: Check if recipient is allowed
-      if (!allowedEmails.includes(recipientLower)) {
-        logWarn("email", "sendEmail skipped: recipient not in allowlist");
-        return { success: true };
+      if (blockedEmails.includes(recipientLower)) {
+        logWarn("email", "sendEmail skipped: recipient is on the blocklist");
+        return { success: false, error: "Recipient on blocklist" };
       }
     }
 
-    // Step 3.5: Suppression list — never re-send to an address that has
+    // Step 3: Auto-suppression list — never re-send to an address that has
     // previously hard-bounced or filed a spam complaint. Repeated sends to
-    // dead addresses are the #1 reputation killer.
+    // dead addresses are the #1 reputation killer. This is the automatic
+    // counterpart to the manual blocklist above.
     if (await isEmailSuppressed(recipientLower)) {
       logWarn(
         "email",

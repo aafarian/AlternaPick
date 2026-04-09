@@ -75,7 +75,7 @@ function joinStringList(items: string[]): string {
 /** Friendly label for known flag keys */
 function flagDisplayLabel(key: string): string | null {
   const labels: Record<string, string> = {
-    email_allowlist: "Email Recipients",
+    email_blocklist: "Email Blocklist",
     admin_emails: "Admin Emails",
   };
   return labels[key] ?? null;
