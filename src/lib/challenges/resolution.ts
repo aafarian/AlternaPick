@@ -5,7 +5,6 @@ import { createNotification } from "@/lib/notifications/queries";
 import { checkAndUnlockAchievements } from "@/lib/achievements/engine";
 import { sendEmail, shouldSendEmail } from "@/lib/email/send";
 import { getChallengeResolvedEmailProps } from "@/lib/email/templates/challenge-resolved";
-import { tryGetUnsubscribeUrl } from "@/lib/email/unsubscribe-token";
 import type {
   Card,
   Challenge,
@@ -217,11 +216,11 @@ export async function resolveEligibleChallenges(): Promise<
 
       // Send challenge-resolved emails to both participants (fire-and-forget)
       try {
+        // Transactional sends do NOT pass unsubscribeUrl — see friend route for rationale.
         if (
           challengerEmail &&
           shouldSendEmail("challenge_resolved", challengerPrefs)
         ) {
-          const challengerUnsubUrl = tryGetUnsubscribeUrl(challengerEmail);
           const challengerEmailProps = getChallengeResolvedEmailProps({
             username: challengerName,
             myScore: challengerScore,
@@ -230,14 +229,12 @@ export async function resolveEligibleChallenges(): Promise<
             isWinner: winnerId === challenge.challenger_id,
             isTie,
             challengeId: challenge.id,
-            unsubscribeUrl: challengerUnsubUrl,
           });
           void sendEmail({
             to: challengerEmail,
             subject: challengerEmailProps.subject,
             react: challengerEmailProps.react,
             text: challengerEmailProps.text,
-            unsubscribeUrl: challengerUnsubUrl,
           });
         }
 
@@ -245,7 +242,6 @@ export async function resolveEligibleChallenges(): Promise<
           opponentEmail &&
           shouldSendEmail("challenge_resolved", opponentPrefs)
         ) {
-          const opponentUnsubUrl = tryGetUnsubscribeUrl(opponentEmail);
           const opponentEmailProps = getChallengeResolvedEmailProps({
             username: opponentName,
             myScore: opponentScore,
@@ -254,14 +250,12 @@ export async function resolveEligibleChallenges(): Promise<
             isWinner: winnerId === challenge.opponent_id,
             isTie,
             challengeId: challenge.id,
-            unsubscribeUrl: opponentUnsubUrl,
           });
           void sendEmail({
             to: opponentEmail,
             subject: opponentEmailProps.subject,
             react: opponentEmailProps.react,
             text: opponentEmailProps.text,
-            unsubscribeUrl: opponentUnsubUrl,
           });
         }
       } catch (emailError) {
@@ -543,12 +537,12 @@ async function resolveGroupChallenge(
         prefs
       );
 
-      // Send email if the user has an email and hasn't opted out
+      // Send email if the user has an email and hasn't opted out.
+      // Transactional sends do NOT pass unsubscribeUrl — see friend route for rationale.
       try {
         const userEmail = profile?.email;
         if (userEmail && shouldSendEmail("challenge_resolved", prefs)) {
           const username = profile?.username ?? "Player";
-          const unsubUrl = tryGetUnsubscribeUrl(userEmail);
           // Use the 1v1 email template with group-adapted data (placement as score comparison)
           const emailProps = getChallengeResolvedEmailProps({
             username,
@@ -558,14 +552,12 @@ async function resolveGroupChallenge(
             isWinner: p.placement === 1,
             isTie: hasFirstPlaceTie && p.placement === 1,
             challengeId: challenge.id,
-            unsubscribeUrl: unsubUrl,
           });
           void sendEmail({
             to: userEmail,
             subject: emailProps.subject,
             react: emailProps.react,
             text: emailProps.text,
-            unsubscribeUrl: unsubUrl,
           });
         }
       } catch (emailError) {

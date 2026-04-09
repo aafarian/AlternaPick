@@ -4,7 +4,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications/queries";
 import { sendEmail, shouldSendEmail } from "@/lib/email/send";
 import { getFriendRequestEmailProps } from "@/lib/email/templates/friend-request";
-import { tryGetUnsubscribeUrl } from "@/lib/email/unsubscribe-token";
 import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
 import { logError, logWarn } from "@/lib/logger";
 import type { NotificationPreferences } from "@/lib/supabase/types";
@@ -113,15 +112,18 @@ export async function POST(request: NextRequest) {
         metadata: { friendship_id: friendship.id },
       }, addresseePrefs);
 
-      // Send email notification (fire-and-forget, never blocks)
+      // Send email notification (fire-and-forget, never blocks).
+      // Transactional sends do NOT pass unsubscribeUrl — the List-Unsubscribe
+      // header it generates is a strong "bulk mail" signal that pulls these
+      // emails into Gmail's Promotions tab. Per-type opt-out is still
+      // available via in-app notification preferences (the shouldSendEmail
+      // check above).
       if (addresseeProfile?.email && shouldSendEmail("friend_request", addresseePrefs)) {
-        const unsubscribeUrl = tryGetUnsubscribeUrl(addresseeProfile.email);
         const { subject, react, text } = getFriendRequestEmailProps({
           requesterUsername: requesterName,
           addresseeUsername: addresseeName,
-          unsubscribeUrl,
         });
-        void sendEmail({ to: addresseeProfile.email, subject, react, text, unsubscribeUrl });
+        void sendEmail({ to: addresseeProfile.email, subject, react, text });
       }
     } catch (notifError) {
       logError("friends", "Failed to create friend_request notification", undefined, notifError);
