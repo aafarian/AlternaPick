@@ -208,12 +208,17 @@ export default function NotificationPreferencesPanel({
                   label={`${item.label} in-app`}
                 />
                 {item.emailKey ? (
-                  <ToggleSwitch
-                    checked={preferences[item.emailKey] ?? true}
-                    onClick={() => handleToggle(item.emailKey!)}
-                    disabled={savingKey !== null}
-                    label={`${item.label} email`}
-                  />
+                  (() => {
+                    const ek = item.emailKey;
+                    return (
+                      <ToggleSwitch
+                        checked={preferences[ek] ?? true}
+                        onClick={() => handleToggle(ek)}
+                        disabled={savingKey !== null}
+                        label={`${item.label} email`}
+                      />
+                    );
+                  })()
                 ) : (
                   <div className="w-11" />
                 )}

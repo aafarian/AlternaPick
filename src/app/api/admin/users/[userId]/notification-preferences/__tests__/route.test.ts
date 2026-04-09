@@ -216,15 +216,28 @@ describe("PATCH /api/admin/users/[userId]/notification-preferences", () => {
     });
   });
 
-  it("returns 404 when the target user does not exist", async () => {
+  it("returns 404 when the target user does not exist (PGRST116)", async () => {
     asAdmin();
-    fetchProfileResult = { data: null, error: { message: "no rows" } };
+    fetchProfileResult = { data: null, error: { code: "PGRST116", message: "no rows" } };
 
     const res = await PATCH(makeRequest({ email_friend_request: false }), {
       params,
     });
 
     expect(res.status).toBe(404);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 and logs when the profile fetch fails with a real DB error (not PGRST116)", async () => {
+    asAdmin();
+    fetchProfileResult = { data: null, error: { code: "XX000", message: "db connection refused" } };
+
+    const res = await PATCH(makeRequest({ email_friend_request: false }), {
+      params,
+    });
+
+    expect(res.status).toBe(500);
+    expect(mockLogError).toHaveBeenCalled();
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 

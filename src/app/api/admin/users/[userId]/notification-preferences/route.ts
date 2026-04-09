@@ -102,7 +102,17 @@ export async function PATCH(
       .eq("id", userId)
       .single();
 
-    if (fetchError || !existing) {
+    // Distinguish "no rows" (PGRST116 — user doesn't exist, return 404)
+    // from a real DB error (network failure, query error — log + return 500).
+    if (fetchError) {
+      const pgCode = (fetchError as { code?: string }).code;
+      if (pgCode === "PGRST116") {
+        return notFound("User");
+      }
+      logError("admin-prefs", `Failed to fetch profile for user ${userId}`, ENDPOINT, fetchError);
+      return NextResponse.json({ error: "Failed to fetch user profile" }, { status: 500 });
+    }
+    if (!existing) {
       return notFound("User");
     }
 
