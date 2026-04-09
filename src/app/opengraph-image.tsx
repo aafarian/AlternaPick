@@ -304,7 +304,7 @@ export default async function HomepageOG() {
               marginTop: 2,
             }}
           >
-            {"Pick over/unders on real player props. Free to play."}
+{"Challenge friends in head-to-head, sabotage, and mirror match modes. Free to play."}
           </div>
 
           {/* Sport pills */}
