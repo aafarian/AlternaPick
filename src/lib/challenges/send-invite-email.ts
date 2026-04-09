@@ -45,7 +45,9 @@ export async function sendChallengeInviteEmail(
       guestPickUrl,
     });
 
-    sendEmail({ to: opponentEmail, subject, react, text, bypassAllowlist: true }).catch((sendErr) => {
+    // No bypass needed under blocklist semantics — non-users are not in the
+    // blocklist by default, so the existing check passes through cleanly.
+    sendEmail({ to: opponentEmail, subject, react, text }).catch((sendErr) => {
       logError("challenges", "Failed to deliver challenge invite email", "sendChallengeInviteEmail", sendErr);
     });
   } catch (err) {

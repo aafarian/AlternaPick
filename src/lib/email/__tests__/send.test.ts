@@ -8,9 +8,17 @@ vi.mock("../client", () => ({
   getResendClient: () => ({ emails: { send: sendMock } }),
 }));
 
+// Default flag mock: email_enabled returns null (treat as on), email_blocklist
+// returns null (no blocklist enforcement). Individual tests can override per
+// flag key by re-implementing the mock.
+const getFlagMock = vi.fn(async (key: string) => {
+  if (key === "email_blocklist") return null;
+  if (key === "email_enabled") return null;
+  return null;
+});
+
 vi.mock("@/lib/feature-flags", () => ({
-  getFlag: vi.fn().mockResolvedValue(null),
-  getFlagValue: vi.fn().mockResolvedValue("*"),
+  getFlag: (key: string) => getFlagMock(key),
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -133,6 +141,87 @@ describe("sendEmail deliverability defaults", () => {
     expect(firstRef).toBeDefined();
     expect(secondRef).toBeDefined();
     expect(firstRef).not.toBe(secondRef);
+  });
+});
+
+describe("sendEmail blocklist semantics", () => {
+  beforeEach(() => {
+    sendMock.mockClear();
+    getFlagMock.mockReset();
+    delete process.env.EMAIL_FROM;
+  });
+
+  function setBlocklist(
+    enabled: boolean,
+    addresses: string[],
+  ) {
+    getFlagMock.mockImplementation(async (key: string) => {
+      if (key === "email_blocklist") {
+        return {
+          enabled,
+          value: addresses.join(","),
+        } as unknown as Awaited<ReturnType<typeof getFlagMock>>;
+      }
+      return null;
+    });
+  }
+
+  async function trySend(to = "user@example.com") {
+    return sendEmail({
+      to,
+      subject: "hi",
+      react: null as unknown as ReactElement,
+    });
+  }
+
+  it("sends normally when the blocklist flag is disabled (even if address is listed)", async () => {
+    setBlocklist(false, ["user@example.com"]);
+    const result = await trySend();
+    expect(result).toEqual({ success: true });
+    expect(sendMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks the send when the recipient is in an enforced blocklist", async () => {
+    setBlocklist(true, ["user@example.com"]);
+    const result = await trySend();
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Recipient on blocklist");
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("matches the blocklist case-insensitively", async () => {
+    setBlocklist(true, ["USER@EXAMPLE.com"]);
+    const result = await trySend("User@Example.COM");
+    expect(result.success).toBe(false);
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("ignores empty entries and whitespace in the comma list", async () => {
+    setBlocklist(true, [" user@example.com ", "", "other@example.com"]);
+    const result = await trySend();
+    expect(result.success).toBe(false);
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("sends normally when the recipient is NOT in the blocklist", async () => {
+    setBlocklist(true, ["someone-else@example.com"]);
+    const result = await trySend();
+    expect(result).toEqual({ success: true });
+    expect(sendMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends normally when there is no blocklist flag at all", async () => {
+    getFlagMock.mockResolvedValue(null);
+    const result = await trySend();
+    expect(result).toEqual({ success: true });
+    expect(sendMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends normally when the blocklist value is empty", async () => {
+    setBlocklist(true, []);
+    const result = await trySend();
+    expect(result).toEqual({ success: true });
+    expect(sendMock).toHaveBeenCalledTimes(1);
   });
 });
 
