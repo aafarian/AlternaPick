@@ -19,6 +19,19 @@ export interface ChallengeResolutionResult {
   is_tie: boolean;
 }
 
+/**
+ * Build the "opponent" label used by group challenge result emails when
+ * piggybacking on the 1v1 email template. A 2-person group has 1 "other
+ * player"; anything bigger uses "{n} others".
+ *
+ * Pure helper, exported for unit testing.
+ */
+export function formatGroupOpponentLabel(totalParticipants: number): string {
+  const otherCount = totalParticipants - 1;
+  if (otherCount <= 1) return "1 other player";
+  return `${otherCount} others`;
+}
+
 /** Participant data fetched from challenge_participants joined with their card. */
 interface GroupParticipantCard {
   participant_id: string;
@@ -543,12 +556,14 @@ async function resolveGroupChallenge(
         const userEmail = profile?.email;
         if (userEmail && shouldSendEmail("challenge_resolved", prefs)) {
           const username = profile?.username ?? "Player";
-          // Use the 1v1 email template with group-adapted data (placement as score comparison)
+          // Use the 1v1 email template with group-adapted data (placement as
+          // score comparison). The opponent label is pluralized via the pure
+          // helper above so it stays unit-testable.
           const emailProps = getChallengeResolvedEmailProps({
             username,
             myScore: p.score,
             theirScore: secondScore,
-            opponentName: `${totalParticipants - 1} others`,
+            opponentName: formatGroupOpponentLabel(totalParticipants),
             isWinner: p.placement === 1,
             isTie: hasFirstPlaceTie && p.placement === 1,
             challengeId: challenge.id,

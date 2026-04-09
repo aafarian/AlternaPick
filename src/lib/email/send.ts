@@ -1,5 +1,8 @@
 import type { ReactElement } from "react";
 import { getResendClient } from "./client";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { typedFrom } from "@/lib/supabase/typed-queries";
+import { maskEmail } from "@/lib/format";
 import { logError, logWarn } from "@/lib/logger";
 import { getFlag } from "@/lib/feature-flags";
 import type {
@@ -7,6 +10,53 @@ import type {
   NotificationPreferences,
 } from "@/lib/supabase/types";
 import { NOTIFICATION_TYPE_TO_EMAIL_KEY } from "@/lib/supabase/types";
+
+/**
+ * Returns true if the address has ever produced a hard bounce or spam
+ * complaint event in our `email_events` table. Used as a permanent
+ * suppression list — once an address bounces, we never try it again.
+ *
+ * Hard bounces are the #1 input to sender reputation. Repeatedly sending
+ * to the same dead address is the fastest way to get throttled or blocked
+ * by Gmail/Yahoo. This check is the simplest possible safeguard.
+ *
+ * Defaults to NOT suppressing on any DB error — we'd rather risk a small
+ * extra bounce than block legitimate sends because of a transient lookup
+ * failure. The error is logged loudly so the failure mode is visible.
+ */
+async function isEmailSuppressed(
+  recipientLower: string,
+): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await typedFrom(admin, "email_events")
+      .select("event_type")
+      .eq("email_to", recipientLower)
+      .in("event_type", ["email.bounced", "email.complained"])
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      logError(
+        "email",
+        `Suppression lookup failed for ${maskEmail(recipientLower)}: ${error.message}`,
+        undefined,
+        error,
+      );
+      return false;
+    }
+
+    return data != null;
+  } catch (err) {
+    logError(
+      "email",
+      `Unexpected error in suppression lookup for ${maskEmail(recipientLower)}`,
+      undefined,
+      err,
+    );
+    return false;
+  }
+}
 
 /**
  * Check whether an email should be sent for a given notification type
@@ -59,7 +109,7 @@ interface SendEmailResult {
 }
 
 /**
- * Send an email via Resend with blocklist filtering.
+ * Send an email via Resend with blocklist + suppression filtering.
  *
  * Filtering layers, in order:
  *   1. Global kill switch — `email_enabled` feature flag
@@ -67,8 +117,9 @@ interface SendEmailResult {
  *      addresses that should NEVER receive notifications). Enforced only when
  *      `email_blocklist.enabled` is true, so admins can temporarily disable
  *      enforcement without losing the list.
- *   3. (Future) Auto-suppression — addresses with prior bounce/complaint events
- *      from the Resend webhook (PR #154 adds this in `email_events`).
+ *   3. Auto-suppression — addresses with prior bounce/complaint events from the
+ *      Resend webhook (`email_events` table). Permanent: once an address has
+ *      bounced or complained, we never send to it again.
  *
  * - Returns early (no error) if RESEND_API_KEY is missing.
  * - Never throws — all errors are caught and returned in the result.
@@ -113,7 +164,19 @@ export async function sendEmail({
       }
     }
 
-    // Step 3: Send the email
+    // Step 3: Auto-suppression list — never re-send to an address that has
+    // previously hard-bounced or filed a spam complaint. Repeated sends to
+    // dead addresses are the #1 reputation killer. This is the automatic
+    // counterpart to the manual blocklist above.
+    if (await isEmailSuppressed(recipientLower)) {
+      logWarn(
+        "email",
+        `sendEmail skipped: ${maskEmail(recipientLower)} is on the suppression list (prior bounce or complaint)`,
+      );
+      return { success: false, error: "Recipient suppressed" };
+    }
+
+    // Step 4: Send the email
     const from =
       process.env.EMAIL_FROM || "AlternaPick <notifications@alternapick.com>";
     const replyTo =
