@@ -32,6 +32,8 @@ const FAKE_PROPS = [
     line: "24.5",
     stat: "POINTS",
     direction: "OVER",
+    // NBA.com headshot CDN — same source the app uses
+    headshot: "https://cdn.nba.com/headshots/nba/latest/260x190/2544.png",
   },
   {
     name: "Stephen Curry",
@@ -40,14 +42,16 @@ const FAKE_PROPS = [
     line: "4.5",
     stat: "3PM",
     direction: "OVER",
+    headshot: "https://cdn.nba.com/headshots/nba/latest/260x190/201939.png",
   },
   {
-    name: "Nikola Jokić",
+    name: "Nikola Jokic",
     team: "DEN",
     sport: "NBA",
     line: "11.5",
     stat: "REB",
     direction: "OVER",
+    headshot: "https://cdn.nba.com/headshots/nba/latest/260x190/203999.png",
   },
 ];
 
@@ -68,41 +72,63 @@ function PropCard({
         background: ZINC_900,
         border: `1px solid ${ZINC_800}`,
         borderRadius: 16,
-        padding: "20px 24px",
-        width: 360,
+        padding: "16px 20px",
+        width: 380,
         boxShadow: "0 20px 50px -20px rgba(0,0,0,0.6)",
         transform: `rotate(${rotation}deg) translateY(${offsetY}px)`,
-        gap: 12,
+        gap: 10,
       }}
     >
-      {/* Player + team */}
+      {/* Player headshot + name/team */}
       <div
         style={{
           display: "flex",
-          flexDirection: "column",
-          gap: 2,
+          alignItems: "center",
+          gap: 14,
         }}
       >
+        <img
+          src={prop.headshot}
+          alt={prop.name}
+          width={56}
+          height={56}
+          style={{
+            borderRadius: 999,
+            objectFit: "cover",
+            background: ZINC_800,
+            border: `2px solid ${ZINC_700}`,
+          }}
+        />
         <div
           style={{
-            color: FG,
-            fontSize: 22,
-            fontWeight: 700,
-            letterSpacing: "-0.02em",
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
           }}
         >
-          {prop.name}
-        </div>
-        <div
-          style={{
-            color: ZINC_500,
-            fontSize: 13,
-            fontWeight: 500,
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-          }}
-        >
-          {`${prop.team} · ${prop.sport}`}
+          <div
+            style={{
+              display: "flex",
+              color: FG,
+              fontSize: 20,
+              fontWeight: 700,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {prop.name}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              color: ZINC_500,
+              fontSize: 12,
+              fontWeight: 500,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+            }}
+          >
+            {`${prop.team} · ${prop.sport}`}
+          </div>
         </div>
       </div>
 
@@ -120,7 +146,7 @@ function PropCard({
             alignItems: "center",
             background: "rgba(251, 146, 60, 0.15)",
             color: ORANGE,
-            padding: "6px 12px",
+            padding: "5px 12px",
             borderRadius: 999,
             fontSize: 12,
             fontWeight: 700,
@@ -136,12 +162,11 @@ function PropCard({
             alignItems: "center",
             gap: 6,
             color: NEON,
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: 700,
           }}
         >
-          <span>{`^ ${prop.direction}`}</span>
-          <span style={{ color: FG }}>{prop.line}</span>
+          <span>{`OVER ${prop.line}`}</span>
         </div>
       </div>
     </div>
