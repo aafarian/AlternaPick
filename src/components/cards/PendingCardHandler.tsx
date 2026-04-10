@@ -77,6 +77,10 @@ export default function PendingCardHandler() {
         router.refresh();
       } else {
         router.push(target);
+        // Also refresh after push so the target route fetches fresh server
+        // data instead of serving a stale route-cache snapshot from before
+        // the card was created.
+        router.refresh();
       }
     })();
   }, [user, router, pathname]);

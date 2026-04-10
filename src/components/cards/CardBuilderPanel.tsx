@@ -149,6 +149,10 @@ export default function CardBuilderPanel() {
     if (redirectRef.current) {
       router.push(redirectRef.current);
       redirectRef.current = null;
+      // Force Next.js to re-fetch server component data for the target route
+      // so the challenge page shows the freshly-locked card instead of a stale
+      // snapshot from the route cache.
+      router.refresh();
     }
   }, [hideSuccess, clearCard, router]);
 
