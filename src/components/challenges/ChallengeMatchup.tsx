@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
 import type { ChallengeDetail } from "@/lib/challenges/queries";
 import { useLiveChallenge } from "@/lib/challenges/use-live-challenge";
+import { useChallengeDetailRealtime } from "@/hooks/useChallengeDetailRealtime";
 import type { LivePickData } from "@/lib/cards/live-types";
 import { toLivePickData } from "@/lib/cards/live-types";
 import GameScoreBanner from "@/components/live/GameScoreBanner";
@@ -231,6 +232,19 @@ export default function ChallengeMatchup({
       router.refresh();
     }
   }, [challengeResolved, router]);
+
+  // Realtime subscription for challenge state changes (opponent accepts,
+  // locks in picks, challenge activates/resolves). Complementary to
+  // useLiveChallenge which polls for live game scores during active games.
+  const handleRealtimeChange = useCallback(() => {
+    router.refresh();
+  }, [router]);
+
+  useChallengeDetailRealtime({
+    challengeId: challenge.id,
+    currentUserId,
+    onChallengeChange: handleRealtimeChange,
+  });
 
   // Build live pick maps
   const challengerLivePickMap = new Map<string, LivePickData>();
