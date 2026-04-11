@@ -19,12 +19,19 @@ interface UseChallengeDetailRealtimeParams {
 /**
  * Subscribes to Supabase Realtime `postgres_changes` on the `challenges` and
  * `cards` tables for a single challenge ID. Calls `onChallengeChange` when
- * another user's action triggers a state change:
+ * a relevant state change is detected:
  *
- *   - Opponent accepts → challenge UPDATE (status pending→accepted)
+ *   - Challenge status transition → challenge UPDATE (accept, activate, resolve)
  *   - Opponent locks in picks → card INSERT (challenge_id = this challenge)
- *   - Both cards locked → challenge UPDATE (status accepted→active)
- *   - Challenge resolves → challenge UPDATE (status active→resolved)
+ *   - Card status change → card UPDATE (draft→locked, locked→resolved)
+ *
+ * Card events skip the current user's own actions (already handled
+ * optimistically). Challenge UPDATEs cannot be filtered by actor — the
+ * `challenges` row doesn't carry a "who triggered this" field — so the
+ * current user's own actions (accept, cancel) will trigger a harmless
+ * extra debounced refresh alongside the optimistic handler. This is by
+ * design: the cost of one redundant fetch is negligible compared to the
+ * complexity of tracking actor identity in the realtime payload.
  *
  * Mirrors the retry/backoff/debounce pattern from `useParticipantsRealtime`.
  *
