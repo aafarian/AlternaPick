@@ -62,6 +62,35 @@ describe("computePickDisplay", () => {
       expect(result.isFinal).toBe(false);
     });
 
+    it("pre-game: status=scheduled with future commence_time -> isPreGame=true", () => {
+      const future = new Date(Date.now() + 3600_000).toISOString();
+      const result = computePickDisplay(
+        makePick({
+          game_status: makeGameStatus({
+            status: "scheduled",
+            commence_time: future,
+          }),
+        }),
+      );
+      expect(result.isPreGame).toBe(true);
+      expect(result.isAwaitingLive).toBe(false);
+    });
+
+    it("scheduled but started: commence_time in the past -> isPreGame=false, isAwaitingLive=true", () => {
+      const past = new Date(Date.now() - 600_000).toISOString(); // 10 min ago
+      const result = computePickDisplay(
+        makePick({
+          game_status: makeGameStatus({
+            status: "scheduled",
+            commence_time: past,
+          }),
+        }),
+      );
+      expect(result.isPreGame).toBe(false);
+      expect(result.isAwaitingLive).toBe(true);
+      expect(result.isLive).toBe(false);
+    });
+
     it("live game -> isLive=true, isPreGame=false", () => {
       const result = computePickDisplay(
         makePick({

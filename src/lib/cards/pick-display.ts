@@ -24,9 +24,22 @@ export function computePickDisplay(pick: LivePickData): PickDisplayState {
   const isOver = pick.selection === "over";
   const isLive = pick.game_status?.status === "live";
   const isFinal = pick.game_status?.status === "final";
+
+  // A game whose commence_time has passed but status is still "scheduled"
+  // is stale data — the game likely started and the next poll will confirm.
+  // Treat it as "awaiting live" (loading) instead of "pre-game" (showing
+  // the stale time) so the user sees a spinner, not "Today 7:10 PM" for a
+  // game that's already in progress.
+  const scheduledButStarted =
+    pick.game_status?.status === "scheduled" &&
+    pick.game_status.commence_time != null &&
+    new Date(pick.game_status.commence_time).getTime() < Date.now();
+
   const isPreGame =
-    !pick.game_status || pick.game_status.status === "scheduled";
-  const isAwaitingLive = !pick.game_status && !hasValue;
+    (!pick.game_status || pick.game_status.status === "scheduled") &&
+    !scheduledButStarted;
+  const isAwaitingLive =
+    (!pick.game_status && !hasValue) || scheduledButStarted;
 
   const isDnp = pick.trending === "dnp";
   const isVoid = pick.trending === "push" && (isFinal || !pick.game_status);
