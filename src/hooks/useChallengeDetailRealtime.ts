@@ -27,11 +27,11 @@ interface UseChallengeDetailRealtimeParams {
  *
  * Card events skip the current user's own actions (already handled
  * optimistically). Challenge UPDATEs cannot be filtered by actor — the
- * `challenges` row doesn't carry a "who triggered this" field — so the
- * current user's own actions (accept, cancel) will trigger a harmless
- * extra debounced refresh alongside the optimistic handler. This is by
- * design: the cost of one redundant fetch is negligible compared to the
- * complexity of tracking actor identity in the realtime payload.
+ * `challenges` row doesn't carry a "who triggered this" field. The
+ * consumer (ChallengeMatchup) handles this by setting a suppression ref
+ * before its own actions and checking it in the callback, so the
+ * redundant refresh is avoided without leaking actor-tracking into the
+ * hook itself.
  *
  * Mirrors the retry/backoff/debounce pattern from `useParticipantsRealtime`.
  *

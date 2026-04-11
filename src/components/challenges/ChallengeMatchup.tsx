@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
@@ -199,6 +199,12 @@ export default function ChallengeMatchup({
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Suppress the realtime handler briefly after the current user triggers an
+  // action (accept/decline/cancel). The API handler already calls
+  // router.refresh(), so the realtime event that follows ~100-500ms later is
+  // redundant. Without this, the page refreshes twice.
+  const suppressRealtimeRef = useRef(false);
+
   // Detect pending picks from the email-invite sign-in flow synchronously
   // so the very first render shows the loader instead of Accept/Decline.
   const [hasPendingPicks] = useState(() => {
@@ -237,6 +243,7 @@ export default function ChallengeMatchup({
   // locks in picks, challenge activates/resolves). Complementary to
   // useLiveChallenge which polls for live game scores during active games.
   const handleRealtimeChange = useCallback(() => {
+    if (suppressRealtimeRef.current) return;
     router.refresh();
   }, [router]);
 
@@ -374,6 +381,12 @@ export default function ChallengeMatchup({
   async function handleAction(action: "accept" | "decline" | "cancel") {
     setActionLoading(true);
     setError(null);
+    // Suppress realtime handler so the echo of our own action doesn't cause
+    // a redundant second refresh. Clear after 2s — generous enough to catch
+    // the realtime event (~100-500ms), short enough to not mask a real
+    // opponent event that arrives right after.
+    suppressRealtimeRef.current = true;
+    setTimeout(() => { suppressRealtimeRef.current = false; }, 2000);
     try {
       const res = await fetch(`/api/challenges/${challenge.id}`, {
         method: "PATCH",
@@ -393,6 +406,7 @@ export default function ChallengeMatchup({
       }
       router.refresh();
     } catch (err) {
+      suppressRealtimeRef.current = false;
       setError(
         err instanceof Error ? err.message : `Failed to ${action} challenge`
       );
