@@ -14,7 +14,7 @@ import {
 interface LeaderboardTableProps {
   entries: LeaderboardEntryWithProfile[];
   currentUserId: string | null;
-  sort: "hit_rate" | "h2h";
+  sort: "hit_rate" | "h2h" | "flame_tokens";
 }
 
 export default function LeaderboardTable({
@@ -39,6 +39,7 @@ export default function LeaderboardTable({
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Correct</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Streak</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">H2H</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">🔥 Flame</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cards</TableHead>
             </TableRow>
           </TableHeader>
