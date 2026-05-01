@@ -5,7 +5,8 @@ import { unauthorized, handleApiError } from "@/lib/api/errors";
 /**
  * GET /api/fire-tokens/balance
  *
- * Returns the authenticated user's Fire Token balance and lifetime earnings.
+ * Returns the authenticated user's Fire Token balance, lifetime earnings,
+ * and whether they can claim today's daily bonus.
  */
 export async function GET() {
   try {
@@ -17,7 +18,7 @@ export async function GET() {
     if (!user) return unauthorized();
 
     const { data, error } = await (supabase.from("leaderboard_entries") as any)
-      .select("fire_tokens_balance, fire_tokens_lifetime")
+      .select("fire_tokens_balance, fire_tokens_lifetime, fire_tokens_last_claim")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -25,10 +26,14 @@ export async function GET() {
       return handleApiError(error, "fire-tokens/balance");
     }
 
-    // No leaderboard row yet = new user with default balance
+    const today = new Date().toISOString().slice(0, 10);
+    const lastClaim = (data as { fire_tokens_last_claim: string | null } | null)?.fire_tokens_last_claim;
+    const canClaim = lastClaim !== today;
+
     return NextResponse.json({
       balance: data?.fire_tokens_balance ?? 1000,
       lifetime: data?.fire_tokens_lifetime ?? 0,
+      can_claim: canClaim,
     });
   } catch (error) {
     return handleApiError(error, "fire-tokens/balance");

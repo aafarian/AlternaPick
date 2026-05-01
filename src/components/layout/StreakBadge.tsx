@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Flame } from "lucide-react";
+import { Flame, Gift, Loader2 } from "lucide-react";
 
 interface StreakData {
   daily_streak: number;
@@ -13,6 +13,7 @@ interface StreakData {
 interface TokenData {
   balance: number;
   lifetime: number;
+  can_claim: boolean;
 }
 
 /**
@@ -23,6 +24,7 @@ export default function StreakBadge() {
   const [streak, setStreak] = useState<StreakData | null>(null);
   const [tokens, setTokens] = useState<TokenData | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,7 +43,7 @@ export default function StreakBadge() {
           }
           if (tokenRes.ok) {
             const data = await tokenRes.json();
-            setTokens({ balance: data.balance ?? 1000, lifetime: data.lifetime ?? 0 });
+            setTokens({ balance: data.balance ?? 1000, lifetime: data.lifetime ?? 0, can_claim: data.can_claim ?? false });
           }
         }
       } catch {
@@ -105,11 +107,44 @@ export default function StreakBadge() {
                 )}
               </>
             )}
-            <div className="border-t border-border pt-1">
-              <p className="text-[10px] text-muted-foreground">
-                Wager tokens in Heat Mode to earn more. Tokens refill daily — claim below!
-              </p>
-            </div>
+            {tokens?.can_claim && (
+              <>
+                <div className="border-t border-border" />
+                <button
+                  type="button"
+                  disabled={claiming}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    setClaiming(true);
+                    try {
+                      const res = await fetch("/api/fire-tokens/claim", { method: "POST" });
+                      const data = await res.json();
+                      if (res.ok) {
+                        setTokens((prev) => prev ? { ...prev, balance: data.balance, can_claim: false } : prev);
+                      }
+                    } catch { /* ignore */ }
+                    finally { setClaiming(false); }
+                  }}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md bg-orange-500/15 px-2 py-1.5 text-xs font-bold text-orange-400 transition-colors hover:bg-orange-500/25"
+                >
+                  {claiming ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <>
+                      <Gift className="h-3 w-3" />
+                      Claim Daily +50
+                    </>
+                  )}
+                </button>
+              </>
+            )}
+            {!tokens?.can_claim && (
+              <div className="border-t border-border pt-1">
+                <p className="text-[10px] text-muted-foreground text-center">
+                  Daily claim used — come back tomorrow!
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

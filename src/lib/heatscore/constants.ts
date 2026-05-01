@@ -171,6 +171,9 @@ export const INVITE_BONUS = 200;
 /** Bonus tokens for challenging 3 different people in a week. */
 export const CHALLENGE_WEEKLY_BONUS = 100;
 
+/** Daily login claim amount. */
+export const DAILY_CLAIM = 50;
+
 // ---------------------------------------------------------------------------
 // Challenge token rewards (no wager — flat bonuses)
 // ---------------------------------------------------------------------------
