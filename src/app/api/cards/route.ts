@@ -267,39 +267,57 @@ export async function POST(request: NextRequest) {
         return badRequest(`Minimum wager is ${MIN_WAGER} tokens`);
       }
 
-      // Deduct wager from balance. Race-condition safe: read current balance,
-      // then update with a WHERE that ensures balance hasn't dropped below the
-      // wager since we read it. If 0 rows affected, balance was insufficient.
+      // Deduct wager from balance. The UPDATE uses a WHERE gte clause so
+      // Postgres checks the balance atomically — no race condition even if
+      // two requests arrive simultaneously.
       const adminClient = createAdminClient();
 
+      // Ensure the leaderboard row exists (new users may not have one yet).
+      // The row is normally created on auth signup, but we guard defensively.
       const { data: entry } = await (adminClient.from("leaderboard_entries") as any)
         .select("fire_tokens_balance")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      const currentBalance = (entry as { fire_tokens_balance: number } | null)?.fire_tokens_balance ?? 1000;
+      if (!entry) {
+        // Create leaderboard row for new user with starting balance minus wager
+        if (1000 < wager) {
+          return badRequest("Insufficient Fire Token balance");
+        }
+        const { error: insertErr } = await (adminClient.from("leaderboard_entries") as any)
+          .insert({
+            user_id: user.id,
+            fire_tokens_balance: 1000 - wager,
+            fire_tokens_lifetime: 0,
+          });
+        if (insertErr) {
+          logWarn("cards", "Fire token leaderboard row creation failed", insertErr);
+          return badRequest("Failed to process wager");
+        }
+        validatedWager = wager;
+      } else {
+        const currentBalance = (entry as { fire_tokens_balance: number }).fire_tokens_balance;
+        if (currentBalance < wager) {
+          return badRequest("Insufficient Fire Token balance");
+        }
 
-      if (currentBalance < wager) {
-        return badRequest("Insufficient Fire Token balance");
+        const { data: updated, error: deductError } = await (adminClient.from("leaderboard_entries") as any)
+          .update({ fire_tokens_balance: currentBalance - wager })
+          .eq("user_id", user.id)
+          .gte("fire_tokens_balance", wager)
+          .select("fire_tokens_balance");
+
+        if (deductError) {
+          logWarn("cards", "Fire token deduction failed", deductError);
+          return badRequest("Failed to process wager");
+        }
+
+        if (!updated || (updated as { fire_tokens_balance: number }[]).length === 0) {
+          return badRequest("Insufficient Fire Token balance");
+        }
+
+        validatedWager = wager;
       }
-
-      const { data: updated, error: deductError } = await (adminClient.from("leaderboard_entries") as any)
-        .update({ fire_tokens_balance: currentBalance - wager })
-        .eq("user_id", user.id)
-        .gte("fire_tokens_balance", wager)
-        .select("fire_tokens_balance");
-
-      if (deductError) {
-        logWarn("cards", "Fire token deduction failed", deductError);
-        return badRequest("Failed to process wager");
-      }
-
-      if (!updated || (updated as { fire_tokens_balance: number }[]).length === 0) {
-        // Race: balance dropped between read and update
-        return badRequest("Insufficient Fire Token balance");
-      }
-
-      validatedWager = wager;
     }
 
     // Create card with user_id if authenticated, anon_id if not

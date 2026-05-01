@@ -55,16 +55,35 @@ export default function CardBuilderPanel() {
   const [balanceLoading, setBalanceLoading] = useState(false);
 
   // Fetch token balance when user has picks and is authenticated (solo only)
-  const shouldShowWager = user && picks.length > 0 && !isInChallengeMode;
+  const shouldShowWager = !!(user && picks.length > 0 && !isInChallengeMode);
   useEffect(() => {
-    if (!shouldShowWager || tokenBalance !== null) return;
+    if (!shouldShowWager) return;
+
+    let cancelled = false;
     setBalanceLoading(true);
+
     fetch("/api/fire-tokens/balance")
       .then((r) => r.json())
-      .then((data) => setTokenBalance(data.balance ?? 1000))
-      .catch(() => setTokenBalance(1000))
-      .finally(() => setBalanceLoading(false));
-  }, [shouldShowWager, tokenBalance]);
+      .then((data) => {
+        if (!cancelled) setTokenBalance(data.balance ?? 1000);
+      })
+      .catch(() => {
+        if (!cancelled) setTokenBalance(1000);
+      })
+      .finally(() => {
+        if (!cancelled) setBalanceLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [shouldShowWager]);
+
+  // Reset wager + balance when card is cleared so next card refetches
+  useEffect(() => {
+    if (picks.length === 0) {
+      setWager(null);
+      setTokenBalance(null);
+    }
+  }, [picks.length]);
 
   // Challenge-a-friend state
   const [showChallengePicker, setShowChallengePicker] = useState(false);
