@@ -1,6 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PickResult, PickSelection, StatCategory } from "@/lib/supabase/types";
-import { computeCardHeatScore, computeFireTokenPayout } from "./compute";
+import {
+  computeCardHeatScore,
+  computeFireTokenPayout,
+  computeQualityBonus,
+} from "./compute";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -14,6 +18,8 @@ export interface SimulatedPick {
   selection: PickSelection;
   result: PickResult;
   actualValue: number | null;
+  /** Flat token bonus/penalty based on how much the pick beat/missed the line. */
+  qualityTokens: number;
 }
 
 export interface SimulationResult {
@@ -25,9 +31,11 @@ export interface SimulationResult {
   hits: number;
   effectiveSize: number;
   heatScoreMultiplier: number;
+  /** Total quality bonus (flat tokens) from hit/miss margins. */
+  qualityBonus: number;
   /** Simulated wager for demo purposes (100 tokens). */
   simulatedWager: number;
-  /** Simulated payout: simulatedWager x heatScoreMultiplier. */
+  /** Simulated payout: simulatedWager x heatScoreMultiplier + qualityBonus. */
   simulatedPayout: number;
 }
 
@@ -102,7 +110,17 @@ export async function simulateCardHeatScore(
 
   const picks = (picksData as SimPickRow[] | null) ?? [];
 
-  const simulatedPicks: SimulatedPick[] = picks.map((pick) => ({
+  // Compute quality bonus per pick
+  const qualityResult = computeQualityBonus(
+    picks.map((p) => ({
+      actualValue: p.actual_value,
+      line: p.prop.line,
+      selection: p.selection,
+      result: p.result,
+    })),
+  );
+
+  const simulatedPicks: SimulatedPick[] = picks.map((pick, i) => ({
     pickId: pick.id,
     playerName: pick.prop.player_name,
     statCategory: pick.prop.stat_category,
@@ -110,6 +128,7 @@ export async function simulateCardHeatScore(
     selection: pick.selection,
     result: pick.result,
     actualValue: pick.actual_value,
+    qualityTokens: qualityResult.perPick[i],
   }));
 
   const hitCount = picks.filter((p) => p.result === "hit").length;
@@ -124,6 +143,7 @@ export async function simulateCardHeatScore(
   const simulatedPayout = computeFireTokenPayout(
     DEMO_WAGER,
     cardResult.multiplier,
+    qualityResult.total,
   );
 
   return {
@@ -135,6 +155,7 @@ export async function simulateCardHeatScore(
     hits: cardResult.hits,
     effectiveSize: cardResult.effectiveSize,
     heatScoreMultiplier: cardResult.multiplier,
+    qualityBonus: qualityResult.total,
     simulatedWager: DEMO_WAGER,
     simulatedPayout,
   };

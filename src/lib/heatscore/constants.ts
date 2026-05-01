@@ -106,6 +106,45 @@ export function getHeatScoreMultiplier(
 }
 
 // ---------------------------------------------------------------------------
+// Hit quality bonus — flat token bonus/penalty based on margin
+//
+// How much the actual value exceeded (or fell short of) the line, as a
+// ratio of the line. Bonus coins for hits that crushed the line, penalty
+// for misses that weren't even close. Uses the line as denominator so
+// it's naturally normalized across stat categories.
+//
+// These are ADDITIVE (flat coins), not multiplicative — they don't scale
+// with the wager. This makes them meaningful but not dominant. A 100-token
+// wager 4/6 card (1.2x = 120 payout) with good margins might get +20
+// bonus tokens → 140 total. Final payout is floored at 0.
+// ---------------------------------------------------------------------------
+
+export interface QualityTier {
+  /** Minimum margin ratio (inclusive) to qualify for this tier. */
+  minMargin: number;
+  /** Flat token bonus (positive) or penalty (negative) per pick. */
+  tokens: number;
+}
+
+/** Bonus tokens for hits that beat the line by a wide margin. */
+export const HIT_QUALITY_TIERS: QualityTier[] = [
+  { minMargin: 1.0, tokens: 25 },  // 100%+ margin — demolished the line
+  { minMargin: 0.5, tokens: 15 },  // 50-100% — crushed it
+  { minMargin: 0.25, tokens: 8 },  // 25-50% — solid beat
+  { minMargin: 0.1, tokens: 3 },   // 10-25% — comfortable
+  { minMargin: 0, tokens: 0 },     // 0-10% — barely beat, no bonus
+];
+
+/** Penalty tokens for misses that weren't close. */
+export const MISS_QUALITY_TIERS: QualityTier[] = [
+  { minMargin: 1.0, tokens: -25 },
+  { minMargin: 0.5, tokens: -15 },
+  { minMargin: 0.25, tokens: -8 },
+  { minMargin: 0.1, tokens: -3 },
+  { minMargin: 0, tokens: 0 },
+];
+
+// ---------------------------------------------------------------------------
 // Fire Token economy constants
 // ---------------------------------------------------------------------------
 

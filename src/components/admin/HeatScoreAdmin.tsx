@@ -291,13 +291,18 @@ function SimulationResults({ result }: { result: SimulationResult }) {
   return (
     <div className="space-y-4">
       {/* Summary */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <SummaryCard label="Card Score" value={`${result.score}/${result.totalPicks}`} />
         <SummaryCard label="Effective Picks" value={`${result.hits}/${result.effectiveSize}`} />
         <SummaryCard
           label="HeatScore"
           value={`${result.heatScoreMultiplier}x`}
           highlight={result.heatScoreMultiplier >= 1 ? "positive" : result.heatScoreMultiplier > 0 ? "neutral" : "negative"}
+        />
+        <SummaryCard
+          label="Quality Bonus"
+          value={`${result.qualityBonus >= 0 ? "+" : ""}${result.qualityBonus}`}
+          highlight={result.qualityBonus > 0 ? "positive" : result.qualityBonus < 0 ? "negative" : "neutral"}
         />
         <SummaryCard
           label={`Payout (${result.simulatedWager} wager)`}
@@ -322,6 +327,7 @@ function SimulationResults({ result }: { result: SimulationResult }) {
                 <th className="px-3 py-2 text-center font-medium">Pick</th>
                 <th className="px-3 py-2 text-right font-medium">Actual</th>
                 <th className="px-3 py-2 text-center font-medium">Result</th>
+                <th className="px-3 py-2 text-right font-medium">Quality</th>
               </tr>
             </thead>
             <tbody>
@@ -341,6 +347,15 @@ function SimulationResults({ result }: { result: SimulationResult }) {
                     {pick.actualValue !== null ? pick.actualValue : "—"}
                   </td>
                   <td className="px-3 py-2 text-center">{resultBadge(pick.result)}</td>
+                  <td className={`px-3 py-2 text-right tabular-nums font-medium ${
+                    pick.qualityTokens > 0
+                      ? "text-emerald-500"
+                      : pick.qualityTokens < 0
+                        ? "text-red-400"
+                        : "text-muted-foreground"
+                  }`}>
+                    {pick.qualityTokens === 0 ? "—" : `${pick.qualityTokens > 0 ? "+" : ""}${pick.qualityTokens}`}
+                  </td>
                 </tr>
               ))}
             </tbody>

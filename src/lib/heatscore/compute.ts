@@ -7,6 +7,8 @@ import {
   MIN_NOTCH,
   MAX_NOTCH,
   getHeatScoreMultiplier,
+  HIT_QUALITY_TIERS,
+  MISS_QUALITY_TIERS,
 } from "./constants";
 
 // ---------------------------------------------------------------------------
@@ -182,10 +184,89 @@ export function computeCardHeatScore(
 
 /**
  * Compute the Fire Token payout for a given wager and HeatScore multiplier.
+ * Includes an optional quality bonus (from hit/miss margins). Floored at 0.
  */
 export function computeFireTokenPayout(
   wager: number,
   multiplier: number,
+  qualityBonus?: number,
 ): number {
-  return Math.round(wager * multiplier);
+  return Math.max(0, Math.round(wager * multiplier + (qualityBonus ?? 0)));
+}
+
+// ---------------------------------------------------------------------------
+// Hit quality bonus — rewards/penalizes based on margin
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute the margin ratio for a single pick.
+ * Positive = beat the line, negative = missed the line.
+ * Uses the line as denominator for natural cross-stat normalization.
+ */
+export function pickMarginRatio(
+  actualValue: number,
+  line: number,
+  selection: "over" | "under",
+): number {
+  if (line === 0) return 0;
+  if (selection === "over") {
+    return (actualValue - line) / line;
+  }
+  return (line - actualValue) / line;
+}
+
+/**
+ * Look up the flat token bonus/penalty for a given margin ratio.
+ * Positive margin (hit) uses HIT_QUALITY_TIERS, negative (miss) uses
+ * MISS_QUALITY_TIERS.
+ */
+export function qualityTokens(marginRatio: number): number {
+  const isHit = marginRatio >= 0;
+  const absMargin = Math.abs(marginRatio);
+  const tiers = isHit ? HIT_QUALITY_TIERS : MISS_QUALITY_TIERS;
+
+  for (const tier of tiers) {
+    if (absMargin >= tier.minMargin) {
+      return tier.tokens;
+    }
+  }
+  return 0;
+}
+
+/** Input for computing quality bonus across a card's picks. */
+export interface QualityPickInput {
+  actualValue: number | null;
+  line: number;
+  selection: "over" | "under";
+  result: "hit" | "miss" | "push" | "dnp" | "pending";
+}
+
+/**
+ * Compute the total quality bonus (flat tokens) for a card.
+ * Sums per-pick bonuses for hits and penalties for misses.
+ * DNP/push picks are excluded.
+ */
+export function computeQualityBonus(picks: QualityPickInput[]): {
+  total: number;
+  perPick: number[];
+} {
+  const perPick: number[] = [];
+  let total = 0;
+
+  for (const pick of picks) {
+    if (
+      pick.actualValue === null ||
+      (pick.result !== "hit" && pick.result !== "miss")
+    ) {
+      perPick.push(0);
+      continue;
+    }
+
+    const margin = pickMarginRatio(pick.actualValue, pick.line, pick.selection);
+    const tokens = qualityTokens(margin);
+    perPick.push(tokens);
+    total += tokens;
+  }
+
+  return { total, perPick };
 }

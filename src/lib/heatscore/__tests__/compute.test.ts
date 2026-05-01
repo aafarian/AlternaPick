@@ -7,6 +7,9 @@ import {
   impliedProbFromAmericanOdds,
   computeCardHeatScore,
   computeFireTokenPayout,
+  pickMarginRatio,
+  qualityTokens,
+  computeQualityBonus,
   getNotchTier,
 } from "../compute";
 import { NOTCH_TIERS, getHeatScoreMultiplier } from "../constants";
@@ -359,6 +362,18 @@ describe("computeFireTokenPayout", () => {
   it("handles perfect 6-pick with large wager", () => {
     expect(computeFireTokenPayout(250, 8.0)).toBe(2000);
   });
+
+  it("adds quality bonus to payout", () => {
+    expect(computeFireTokenPayout(100, 1.2, 20)).toBe(140);
+  });
+
+  it("subtracts quality penalty from payout", () => {
+    expect(computeFireTokenPayout(100, 0.25, -15)).toBe(10);
+  });
+
+  it("floors payout at 0 when quality penalty exceeds base", () => {
+    expect(computeFireTokenPayout(100, 0.25, -50)).toBe(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -412,5 +427,124 @@ describe("EV balance verification", () => {
     const max = Math.max(...evs);
     // All within 0.05 of each other
     expect(max - min).toBeLessThan(0.05);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pickMarginRatio
+// ---------------------------------------------------------------------------
+
+describe("pickMarginRatio", () => {
+  it("computes positive margin for over hit", () => {
+    // Over 22.5, scored 30 → (30 - 22.5) / 22.5 = 0.333
+    expect(pickMarginRatio(30, 22.5, "over")).toBeCloseTo(0.333, 2);
+  });
+
+  it("computes negative margin for over miss", () => {
+    // Over 22.5, scored 15 → (15 - 22.5) / 22.5 = -0.333
+    expect(pickMarginRatio(15, 22.5, "over")).toBeCloseTo(-0.333, 2);
+  });
+
+  it("computes positive margin for under hit", () => {
+    // Under 22.5, scored 15 → (22.5 - 15) / 22.5 = 0.333
+    expect(pickMarginRatio(15, 22.5, "under")).toBeCloseTo(0.333, 2);
+  });
+
+  it("computes negative margin for under miss", () => {
+    // Under 22.5, scored 30 → (22.5 - 30) / 22.5 = -0.333
+    expect(pickMarginRatio(30, 22.5, "under")).toBeCloseTo(-0.333, 2);
+  });
+
+  it("returns 0 for exact hit on the line", () => {
+    expect(pickMarginRatio(22.5, 22.5, "over")).toBe(0);
+  });
+
+  it("handles doubled line (100% margin)", () => {
+    // Over 22.5, scored 45 → (45 - 22.5) / 22.5 = 1.0
+    expect(pickMarginRatio(45, 22.5, "over")).toBe(1.0);
+  });
+
+  it("returns 0 for line of 0", () => {
+    expect(pickMarginRatio(5, 0, "over")).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// qualityTokens
+// ---------------------------------------------------------------------------
+
+describe("qualityTokens", () => {
+  it("returns 0 for barely beat (0-10% margin)", () => {
+    expect(qualityTokens(0.05)).toBe(0);
+  });
+
+  it("returns +3 for 10-25% margin hit", () => {
+    expect(qualityTokens(0.15)).toBe(3);
+  });
+
+  it("returns +8 for 25-50% margin hit", () => {
+    expect(qualityTokens(0.35)).toBe(8);
+  });
+
+  it("returns +15 for 50-100% margin hit", () => {
+    expect(qualityTokens(0.75)).toBe(15);
+  });
+
+  it("returns +25 for 100%+ margin hit (demolished)", () => {
+    expect(qualityTokens(1.5)).toBe(25);
+  });
+
+  it("returns -3 for 10-25% margin miss", () => {
+    expect(qualityTokens(-0.15)).toBe(-3);
+  });
+
+  it("returns -25 for 100%+ margin miss (blowout)", () => {
+    expect(qualityTokens(-1.5)).toBe(-25);
+  });
+
+  it("returns 0 for barely missed (0-10%)", () => {
+    expect(qualityTokens(-0.05)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeQualityBonus
+// ---------------------------------------------------------------------------
+
+describe("computeQualityBonus", () => {
+  it("sums bonuses for multiple hits", () => {
+    const result = computeQualityBonus([
+      { actualValue: 30, line: 22.5, selection: "over", result: "hit" },   // 33% → +8
+      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +25
+    ]);
+    expect(result.total).toBe(33);
+    expect(result.perPick).toEqual([8, 25]);
+  });
+
+  it("sums penalties for misses", () => {
+    const result = computeQualityBonus([
+      { actualValue: 3, line: 22.5, selection: "over", result: "miss" },   // -87% → -15
+      { actualValue: 20, line: 22.5, selection: "over", result: "miss" },  // -11% → -3
+    ]);
+    expect(result.total).toBe(-18);
+    expect(result.perPick).toEqual([-15, -3]);
+  });
+
+  it("excludes DNP/push picks", () => {
+    const result = computeQualityBonus([
+      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },
+      { actualValue: null, line: 22.5, selection: "over", result: "dnp" },
+      { actualValue: null, line: 8.5, selection: "under", result: "push" },
+    ]);
+    expect(result.total).toBe(25);
+    expect(result.perPick).toEqual([25, 0, 0]);
+  });
+
+  it("nets hits and misses together", () => {
+    const result = computeQualityBonus([
+      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +25
+      { actualValue: 3, line: 22.5, selection: "over", result: "miss" },   // -87% → -15
+    ]);
+    expect(result.total).toBe(10); // +25 - 15
   });
 });
