@@ -208,7 +208,7 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
                 player_team: pick.props.player_team,
                 player_position: pick.props.player_position,
                 stat_category: pick.props.stat_category,
-                line: pick.props.line,
+                line: pick.adjusted_line ?? pick.props.line,
                 game_id: pick.props.game_id,
                 games: pick.props.games,
               } : null,
