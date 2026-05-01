@@ -182,29 +182,66 @@ export function computeCardHeatScore(
   return { hits, effectiveSize, multiplier };
 }
 
+// ---------------------------------------------------------------------------
+// HeatScore — per-pick additive scoring (challenges + casual)
+//
+// No multiplier table, no bust threshold, no card-level cliffs.
+// Each pick earns/loses points independently based on:
+//   1. Hit or miss (base points)
+//   2. Notch difficulty (scales base)
+//   3. Quality margin (how much you beat/missed the line by)
+//
+// This is used for comparing players' card quality. It's NOT used
+// for Wager Flame token payouts (those use the multiplier table).
+// ---------------------------------------------------------------------------
+
+/** Base points for a correct pick. Scaled by notch multiplier.
+ * Hit = +130 × notchMult. Standard hit = +130, Volcanic hit = +520. */
+const HEATSCORE_HIT_BASE = 130;
+
+/** Flat penalty for an incorrect pick. NOT scaled by notch — same
+ * cost regardless of difficulty. This makes harder picks worth more
+ * per hit without proportionally increasing the miss penalty. */
+const HEATSCORE_MISS_BASE = 80;
+
+/** Input for a single pick when computing challenge HeatScore. */
+export interface HeatScorePickInput {
+  result: "hit" | "miss" | "push" | "dnp" | "pending";
+  notchMultiplier: number;
+  /** Quality tokens for this pick (already notch-amplified). */
+  qualityTokens: number;
+}
+
 /**
- * Compute the raw HeatScore value for a card (used in challenges + display).
+ * Compute per-pick additive HeatScore for a card.
  *
- * Formula: (table multiplier × 100 × avgNotchMultiplier) + qualityBonus
+ * Formula per scoreable pick:
+ *   hit:  +(HEATSCORE_HIT_BASE × notchMultiplier) + qualityTokens
+ *   miss: -(HEATSCORE_MISS_BASE) + qualityTokens  (flat, NOT scaled)
  *
- * The avgNotchMultiplier scales the base so Frosty picks (easy, 0.25x)
- * produce lower scores and Volcanic picks (hard, 4.0x) produce higher
- * scores. This prevents a "pick all Frosty" exploit in challenges where
- * easy 6/6 would otherwise match a Standard 6/6.
+ * DNP/push picks contribute 0.
  *
- * @param multiplier - Table multiplier from computeCardHeatScore
- * @param qualityBonus - Total quality bonus from computeQualityBonus
- * @param pickNotchMultipliers - Array of notch multiplier per scoreable pick
+ * A standard 4/6: 4(+130) + 2(-80) + quality = 360 + quality
+ * A volcanic 3/6: 3(+520) + 3(-80) + quality = 1320 + quality
+ *
+ * Hits scale with difficulty (notch multiplier), misses don't.
+ * This makes harder picks worth more per hit without proportionally
+ * increasing the miss penalty — balanced across all strategies.
  */
-export function computeRawHeatScore(
-  multiplier: number,
-  qualityBonus: number,
-  pickNotchMultipliers: number[],
-): number {
-  const avgNotch = pickNotchMultipliers.length > 0
-    ? pickNotchMultipliers.reduce((sum, m) => sum + m, 0) / pickNotchMultipliers.length
-    : 1.0;
-  return Math.round(multiplier * 100 * avgNotch) + qualityBonus;
+export function computeHeatScore(picks: HeatScorePickInput[]): number {
+  let total = 0;
+
+  for (const pick of picks) {
+    if (pick.result === "hit") {
+      total += Math.round(HEATSCORE_HIT_BASE * pick.notchMultiplier) + pick.qualityTokens;
+    } else if (pick.result === "miss") {
+      total -= HEATSCORE_MISS_BASE;
+      total += pick.qualityTokens; // quality penalty is already negative
+    }
+    // DNP/push: 0 contribution
+  }
+
+  return total;
 }
 
 /**

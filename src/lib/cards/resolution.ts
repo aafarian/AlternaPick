@@ -32,7 +32,7 @@ import type {
 import { extractStatValue, fuzzyMatchPlayer } from "@/lib/cards/resolution-utils";
 import {
   computeCardHeatScore,
-  computeRawHeatScore,
+  computeHeatScore,
   computeFireTokenPayout,
   computeQualityBonus,
   getNotchTier,
@@ -815,13 +815,7 @@ export async function resolveCard(
   let payout: number | null = null;
 
   try {
-    const hsResult = computeCardHeatScore(score, misses, card.card_size);
-
-    // Collect notch multipliers from scoreable picks for base scaling
-    const scoreableNotchMults = pickResolutions
-      .filter((p) => p.result === "hit" || p.result === "miss")
-      .map((p) => getNotchTier(p.notch ?? 0).multiplier);
-
+    // Quality bonus (shared by both scoring systems)
     const qualityResult = computeQualityBonus(
       pickResolutions.map((p) => ({
         actualValue: p.actual_value,
@@ -833,12 +827,22 @@ export async function resolveCard(
     );
     qualityBonus = qualityResult.total;
 
-    // Raw HeatScore = (multiplier × 100 × avgNotch) + quality
-    heatScoreInt = scoredTotal > 0
-      ? computeRawHeatScore(hsResult.multiplier, qualityBonus, scoreableNotchMults)
-      : null;
+    // HeatScore — per-pick additive (for challenges + display).
+    // No multiplier table, no bust. Each pick earns/loses based on
+    // hit/miss × notch difficulty + quality margin.
+    if (scoredTotal > 0) {
+      heatScoreInt = computeHeatScore(
+        pickResolutions.map((p, i) => ({
+          result: p.result,
+          notchMultiplier: getNotchTier(p.notch ?? 0).multiplier,
+          qualityTokens: qualityResult.perPick[i],
+        })),
+      );
+    }
 
+    // Wager Flame payout — uses multiplier table (separate system)
     if (wager != null) {
+      const hsResult = computeCardHeatScore(score, misses, card.card_size);
       payout = computeFireTokenPayout(wager, hsResult.multiplier, qualityBonus);
     }
   } catch (hsError) {

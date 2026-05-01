@@ -3,9 +3,8 @@ import { requireAdmin } from "@/lib/auth/admin";
 import { badRequest, handleApiError } from "@/lib/api/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  computeCardHeatScore,
+  computeHeatScore,
   computeQualityBonus,
-  computeRawHeatScore,
   getNotchTier,
 } from "@/lib/heatscore/compute";
 import type { PickResult, PickSelection, StatCategory } from "@/lib/supabase/types";
@@ -136,8 +135,6 @@ export async function POST(request: Request) {
       const hitCount = picks.filter((p) => p.result === "hit").length;
       const missCount = picks.filter((p) => p.result === "miss").length;
 
-      const hsResult = computeCardHeatScore(hitCount, missCount, card.card_size);
-
       const qualityResult = computeQualityBonus(
         picks.map((p) => ({
           actualValue: p.actual_value,
@@ -148,10 +145,14 @@ export async function POST(request: Request) {
         })),
       );
 
-      const scoreableNotchMults = picks
-        .filter((p) => p.result === "hit" || p.result === "miss")
-        .map((p) => getNotchTier(p.notch ?? 0).multiplier);
-      const rawHeatScore = computeRawHeatScore(hsResult.multiplier, qualityResult.total, scoreableNotchMults);
+      // Per-pick additive HeatScore (no multiplier table, no bust)
+      const rawHeatScore = computeHeatScore(
+        picks.map((p, i) => ({
+          result: p.result,
+          notchMultiplier: getNotchTier(p.notch ?? 0).multiplier,
+          qualityTokens: qualityResult.perPick[i],
+        })),
+      );
 
       playerCards.push({
         userId: card.user_id,
