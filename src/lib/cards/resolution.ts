@@ -30,6 +30,11 @@ import type {
   NotificationPreferences,
 } from "@/lib/supabase/types";
 import { extractStatValue, fuzzyMatchPlayer } from "@/lib/cards/resolution-utils";
+import {
+  computeCardHeatScore,
+  computeFireTokenPayout,
+  computeQualityBonus,
+} from "@/lib/heatscore/compute";
 
 // Re-export pure functions so existing imports from resolution.ts continue to work
 export { extractStatValue, fuzzyMatchPlayer } from "@/lib/cards/resolution-utils";
@@ -52,6 +57,13 @@ export interface ResolutionResult {
   score: number;
   total: number;
   picks: PickResolution[];
+  /** HeatScore multiplier × 100 (e.g., 250 = 2.5x). Null if no scoreable picks. */
+  heat_score: number | null;
+  /** Fire Token payout. Null if card had no wager. */
+  fire_token_wager: number | null;
+  fire_token_payout: number | null;
+  /** Total quality bonus (flat tokens from margins). */
+  quality_bonus: number;
 }
 
 type PickWithProp = Pick & {
@@ -778,7 +790,28 @@ export async function resolveCard(
   }
 
   const score = pickResolutions.filter((p) => p.result === "hit").length;
-  const scoredTotal = pickResolutions.filter((p) => p.result === "hit" || p.result === "miss").length;
+  const misses = pickResolutions.filter((p) => p.result === "miss").length;
+  const scoredTotal = score + misses;
+
+  // Compute HeatScore multiplier + Fire Token payout
+  const hsResult = computeCardHeatScore(score, misses, card.card_size);
+  const heatScoreInt = scoredTotal > 0 ? Math.round(hsResult.multiplier * 100) : null;
+
+  // Compute quality bonus from pick margins
+  const qualityResult = computeQualityBonus(
+    pickResolutions.map((p) => ({
+      actualValue: p.actual_value,
+      line: p.line,
+      selection: p.selection,
+      result: p.result,
+    })),
+  );
+
+  // Compute Fire Token payout if a wager was placed
+  const wager = card.fire_token_wager as number | null;
+  const payout = wager != null
+    ? computeFireTokenPayout(wager, hsResult.multiplier, qualityResult.total)
+    : null;
 
   return {
     card_id: card.id,
@@ -787,6 +820,10 @@ export async function resolveCard(
     score,
     total: scoredTotal,
     picks: pickResolutions,
+    heat_score: heatScoreInt,
+    fire_token_wager: wager,
+    fire_token_payout: payout,
+    quality_bonus: qualityResult.total,
   };
 }
 
@@ -805,12 +842,17 @@ export async function persistResolution(
       result: p.result,
       actual_value: p.actual_value,
     })),
+    p_heat_score: result.heat_score,
+    p_fire_token_payout: result.fire_token_payout,
   });
 
   if (!error && success) {
     // RPC succeeded — update leaderboard (skip for all-DNP/push cards)
     if (result.user_id && result.total > 0) {
-      await updateLeaderboardStats(supabase, result.user_id, result.score, result.total);
+      await updateLeaderboardStats(
+        supabase, result.user_id, result.score, result.total,
+        result.fire_token_wager, result.fire_token_payout,
+      );
     }
     return true;
   }
@@ -843,7 +885,14 @@ export async function persistResolution(
 
   // Mark card resolved (only if still locked — race protection)
   const { data: updated } = await (supabase.from("cards") as any)
-    .update({ status: "resolved", score: result.score, total_picks: result.total, resolved_at: new Date().toISOString() })
+    .update({
+      status: "resolved",
+      score: result.score,
+      total_picks: result.total,
+      heat_score: result.heat_score,
+      fire_token_payout: result.fire_token_payout,
+      resolved_at: new Date().toISOString(),
+    })
     .eq("id", result.card_id)
     .eq("status", "locked")
     .select("id");
@@ -852,7 +901,10 @@ export async function persistResolution(
 
   // Update leaderboard stats (skip for all-DNP/push cards)
   if (result.user_id && result.total > 0) {
-    await updateLeaderboardStats(supabase, result.user_id, result.score, result.total);
+    await updateLeaderboardStats(
+      supabase, result.user_id, result.score, result.total,
+      result.fire_token_wager, result.fire_token_payout,
+    );
   }
 
   return true;
@@ -1061,7 +1113,9 @@ async function updateLeaderboardStats(
   supabase: ReturnType<typeof createAdminClient>,
   userId: string,
   score: number,
-  totalPicks: number
+  totalPicks: number,
+  fireTokenWager?: number | null,
+  fireTokenPayout?: number | null,
 ): Promise<void> {
   const winThreshold = Math.ceil(totalPicks * 0.66);
   const isWin = totalPicks > 0 && score >= winThreshold;
@@ -1069,7 +1123,7 @@ async function updateLeaderboardStats(
   // Fetch existing entry
   const existingResult = await (supabase.from("leaderboard_entries") as any)
     .select(
-      "total_cards, total_correct_picks, total_attempted_picks, current_streak, best_streak, h2h_wins, h2h_losses"
+      "total_cards, total_correct_picks, total_attempted_picks, current_streak, best_streak, h2h_wins, h2h_losses, fire_tokens_balance, fire_tokens_lifetime"
     )
     .eq("user_id", userId)
     .single();
@@ -1090,6 +1144,8 @@ async function updateLeaderboardStats(
     best_streak: number;
     h2h_wins: number;
     h2h_losses: number;
+    fire_tokens_balance: number;
+    fire_tokens_lifetime: number;
   } | null;
 
   const totalCards = (existing?.total_cards ?? 0) + 1;
@@ -1105,6 +1161,14 @@ async function updateLeaderboardStats(
   const previousBest = existing?.best_streak ?? 0;
   const bestStreak = Math.max(previousBest, currentStreak);
 
+  // Fire Token balance updates (only when a wager was placed)
+  const hasTokenWager = fireTokenWager != null && fireTokenPayout != null;
+  const tokenBalanceDelta = hasTokenWager ? fireTokenPayout - fireTokenWager : 0;
+  const tokenLifetimeDelta = hasTokenWager ? fireTokenPayout : 0;
+
+  const fireTokensBalance = (existing?.fire_tokens_balance ?? 1000) + tokenBalanceDelta;
+  const fireTokensLifetime = (existing?.fire_tokens_lifetime ?? 0) + tokenLifetimeDelta;
+
   if (existing) {
     // Update existing entry -- preserve h2h stats
     const { error: updateErr } = await (supabase.from("leaderboard_entries") as any)
@@ -1115,6 +1179,10 @@ async function updateLeaderboardStats(
         win_rate: winRate,
         current_streak: currentStreak,
         best_streak: bestStreak,
+        ...(hasTokenWager && {
+          fire_tokens_balance: fireTokensBalance,
+          fire_tokens_lifetime: fireTokensLifetime,
+        }),
         updated_at: new Date().toISOString(),
       })
       .eq("user_id", userId);
@@ -1133,6 +1201,8 @@ async function updateLeaderboardStats(
       best_streak: bestStreak,
       h2h_wins: 0,
       h2h_losses: 0,
+      fire_tokens_balance: fireTokensBalance,
+      fire_tokens_lifetime: fireTokensLifetime,
     });
     if (insertErr) {
       logError("resolution", `updateLeaderboardStats: insert failed for user ${userId}`, undefined, insertErr);
