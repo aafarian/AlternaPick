@@ -376,19 +376,14 @@ export async function POST(request: NextRequest) {
     const card = cardResult.data as Card;
 
     // Create picks
-    const pickInserts = picks.map((p) => {
-      const pickNotch = p.notch ?? 0;
-      return {
-        card_id: card.id,
-        prop_id: p.prop_id,
-        selection: p.selection,
-        result: "pending" as const,
-        ...(pickNotch !== 0 && {
-          notch: pickNotch,
-          adjusted_line: p.adjusted_line,
-        }),
-      };
-    });
+    const pickInserts = picks.map((p) => ({
+      card_id: card.id,
+      prop_id: p.prop_id,
+      selection: p.selection,
+      result: "pending" as const,
+      notch: p.notch ?? 0,
+      adjusted_line: p.adjusted_line ?? null,
+    }));
 
     const picksResult = await (supabase.from("picks") as any)
       .insert(pickInserts)
