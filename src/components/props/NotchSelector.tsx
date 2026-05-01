@@ -69,13 +69,13 @@ export default function NotchSelector({
         onClick={(e) => { e.stopPropagation(); shift(-1); }}
         disabled={!canGoLeft}
         className={cn(
-          "flex h-6 w-5 items-center justify-center transition-colors",
+          "flex h-7 w-6 items-center justify-center rounded-full transition-colors",
           canGoLeft
-            ? "text-muted-foreground hover:text-foreground"
+            ? "text-muted-foreground/70 hover:bg-muted hover:text-foreground"
             : "pointer-events-none text-transparent",
         )}
       >
-        <ChevronLeft className="h-3 w-3" />
+        <ChevronLeft className="h-4 w-4" />
       </button>
 
       <div className="relative flex min-w-[2.5rem] items-baseline justify-center overflow-hidden">
@@ -102,13 +102,13 @@ export default function NotchSelector({
         onClick={(e) => { e.stopPropagation(); shift(1); }}
         disabled={!canGoRight}
         className={cn(
-          "flex h-6 w-5 items-center justify-center transition-colors",
+          "flex h-7 w-6 items-center justify-center rounded-full transition-colors",
           canGoRight
-            ? "text-muted-foreground hover:text-foreground"
+            ? "text-muted-foreground/70 hover:bg-muted hover:text-foreground"
             : "pointer-events-none text-transparent",
         )}
       >
-        <ChevronRight className="h-3 w-3" />
+        <ChevronRight className="h-4 w-4" />
       </button>
     </div>
   );
