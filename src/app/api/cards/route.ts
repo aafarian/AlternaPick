@@ -369,26 +369,33 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (cardResult.error || !cardResult.data) {
+      logError("cards", `Failed to create card: ${cardResult.error?.message}`, "POST /api/cards", cardResult.error);
       return serverError("Failed to create card", cardResult.error?.message);
     }
 
     const card = cardResult.data as Card;
 
     // Create picks
-    const pickInserts = picks.map((p) => ({
-      card_id: card.id,
-      prop_id: p.prop_id,
-      selection: p.selection,
-      result: "pending" as const,
-      ...(p.notch != null && p.notch !== 0 && { notch: p.notch }),
-      ...(p.adjusted_line != null && { adjusted_line: p.adjusted_line }),
-    }));
+    const pickInserts = picks.map((p) => {
+      const pickNotch = p.notch ?? 0;
+      return {
+        card_id: card.id,
+        prop_id: p.prop_id,
+        selection: p.selection,
+        result: "pending" as const,
+        ...(pickNotch !== 0 && {
+          notch: pickNotch,
+          adjusted_line: p.adjusted_line,
+        }),
+      };
+    });
 
     const picksResult = await (supabase.from("picks") as any)
       .insert(pickInserts)
       .select();
 
     if (picksResult.error) {
+      logError("cards", `Failed to create picks: ${picksResult.error.message}`, "POST /api/cards", picksResult.error);
       return serverError("Failed to create picks", picksResult.error.message);
     }
 
