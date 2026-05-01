@@ -494,7 +494,7 @@ describe("pickMarginRatio", () => {
 // ---------------------------------------------------------------------------
 
 describe("qualityTokens", () => {
-  it("returns 0 for barely beat (0-5% margin)", () => {
+  it("returns 0 for barely beat (0-5%)", () => {
     expect(qualityTokens(0.03)).toBe(0);
   });
 
@@ -502,32 +502,56 @@ describe("qualityTokens", () => {
     expect(qualityTokens(0.07)).toBe(3);
   });
 
-  it("returns +8 for comfortable hit (10-25%)", () => {
-    expect(qualityTokens(0.15)).toBe(8);
+  it("returns +6 for decent edge (10-15%)", () => {
+    expect(qualityTokens(0.12)).toBe(6);
   });
 
-  it("returns +15 for solid beat (25-50%)", () => {
-    expect(qualityTokens(0.35)).toBe(15);
+  it("returns +10 for comfortable (15-25%)", () => {
+    expect(qualityTokens(0.18)).toBe(10);
   });
 
-  it("returns +25 for crushed it (50-80%)", () => {
-    expect(qualityTokens(0.65)).toBe(25);
+  it("returns +15 for solid (25-35%)", () => {
+    expect(qualityTokens(0.30)).toBe(15);
   });
 
-  it("returns +35 for demolished (80%+)", () => {
-    expect(qualityTokens(0.9)).toBe(35);
+  it("returns +20 for strong (35-50%)", () => {
+    expect(qualityTokens(0.40)).toBe(20);
   });
 
-  it("returns -3 for 10-25% margin miss", () => {
-    expect(qualityTokens(-0.15)).toBe(-3);
+  it("returns +25 for crushed (50-65%)", () => {
+    expect(qualityTokens(0.55)).toBe(25);
   });
 
-  it("returns -25 for 80%+ margin miss (blowout)", () => {
-    expect(qualityTokens(-0.9)).toBe(-25);
+  it("returns +30 for dominant (65-80%)", () => {
+    expect(qualityTokens(0.70)).toBe(30);
   });
 
-  it("returns 0 for barely missed (0-10%)", () => {
-    expect(qualityTokens(-0.05)).toBe(0);
+  it("returns +38 for demolished (80-100%)", () => {
+    expect(qualityTokens(0.90)).toBe(38);
+  });
+
+  it("returns +45 for doubled the line (100%+)", () => {
+    expect(qualityTokens(1.5)).toBe(45);
+  });
+
+  it("returns -1 for very close miss (5-10%)", () => {
+    expect(qualityTokens(-0.07)).toBe(-1);
+  });
+
+  it("returns -3 for close miss (10-15%)", () => {
+    expect(qualityTokens(-0.12)).toBe(-3);
+  });
+
+  it("returns -25 for way off miss (80-100%)", () => {
+    expect(qualityTokens(-0.90)).toBe(-25);
+  });
+
+  it("returns -30 for completely wrong miss (100%+)", () => {
+    expect(qualityTokens(-1.5)).toBe(-30);
+  });
+
+  it("returns 0 for barely missed (0-5%)", () => {
+    expect(qualityTokens(-0.03)).toBe(0);
   });
 });
 
@@ -539,10 +563,10 @@ describe("computeQualityBonus", () => {
   it("sums bonuses for multiple hits", () => {
     const result = computeQualityBonus([
       { actualValue: 30, line: 22.5, selection: "over", result: "hit" },   // 33% → +15
-      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +35
+      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +45
     ]);
-    expect(result.total).toBe(50);
-    expect(result.perPick).toEqual([15, 35]);
+    expect(result.total).toBe(60);
+    expect(result.perPick).toEqual([15, 45]);
   });
 
   it("sums penalties for misses", () => {
@@ -556,19 +580,19 @@ describe("computeQualityBonus", () => {
 
   it("excludes DNP/push picks", () => {
     const result = computeQualityBonus([
-      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +35
+      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +45
       { actualValue: null, line: 22.5, selection: "over", result: "dnp" },
       { actualValue: null, line: 8.5, selection: "under", result: "push" },
     ]);
-    expect(result.total).toBe(35);
-    expect(result.perPick).toEqual([35, 0, 0]);
+    expect(result.total).toBe(45);
+    expect(result.perPick).toEqual([45, 0, 0]);
   });
 
   it("nets hits and misses together", () => {
     const result = computeQualityBonus([
-      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +35
+      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +45
       { actualValue: 3, line: 22.5, selection: "over", result: "miss" },   // -87% → -25
     ]);
-    expect(result.total).toBe(10); // +35 - 25
+    expect(result.total).toBe(20); // +45 - 25
   });
 });
