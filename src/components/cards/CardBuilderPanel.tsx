@@ -568,10 +568,12 @@ export default function CardBuilderPanel() {
                     <span className="shrink-0 text-xs text-muted-foreground">
                       🔥 {tokenBalance ?? 1000}
                     </span>
+                  </>
+                )}
 
-                    {/* Payout preview — inline after the balance */}
-                    {wager != null && wager >= 10 && picks.length >= 2 && (
-                    <div className="flex gap-1.5">
+                {/* Payout preview — right-aligned on the same row */}
+                {wager != null && wager >= 10 && picks.length >= 2 && (
+                <div className="ml-auto flex gap-1.5">
                   {Array.from({ length: picks.length + 1 }, (_, k) => picks.length - k)
                     .map((hits) => {
                       const mult = getHeatScoreMultiplier(hits, picks.length);
@@ -622,9 +624,7 @@ export default function CardBuilderPanel() {
                         </div>
                       );
                     })}
-                    </div>
-                    )}
-                  </>
+                </div>
                 )}
               </div>
             </div>
