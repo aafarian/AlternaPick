@@ -236,6 +236,11 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
                 )}>
                   {pick.line}
                 </span>
+                {pick.notch != null && pick.notch !== 0 && (() => {
+                  const t = getNotchTier(pick.notch!);
+                  const c = TIER_COLORS[t.color] ?? TIER_COLORS.neutral;
+                  return <span className={cn("rounded-full border px-1 py-0 text-[8px] font-bold leading-tight", c.bg, c.text, c.border)}>{t.label}</span>;
+                })()}
               </span>
             ) : (
               <span className="flex items-center gap-1.5">
@@ -245,6 +250,11 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
                 )}>
                   {pick.line}
                 </span>
+                {pick.notch != null && pick.notch !== 0 && (() => {
+                  const t = getNotchTier(pick.notch!);
+                  const c = TIER_COLORS[t.color] ?? TIER_COLORS.neutral;
+                  return <span className={cn("rounded-full border px-1 py-0 text-[8px] font-bold leading-tight", c.bg, c.text, c.border)}>{t.label}</span>;
+                })()}
                 {d.isAwaitingLive && (
                   <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/50" />
                 )}
