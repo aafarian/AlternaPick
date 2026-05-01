@@ -265,6 +265,7 @@ export interface Database {
           resolved_at: string | null;
           share_token: string | null;
           created_at: string;
+          heat_score: number | null;
         };
         Insert: {
           id?: string;
@@ -279,6 +280,7 @@ export interface Database {
           locked_at?: string | null;
           share_token?: string | null;
           created_at?: string;
+          heat_score?: number | null;
         };
         Update: {
           user_id?: string | null;
@@ -292,6 +294,7 @@ export interface Database {
           locked_at?: string | null;
           resolved_at?: string | null;
           share_token?: string | null;
+          heat_score?: number | null;
         };
       };
       picks: {
@@ -303,6 +306,9 @@ export interface Database {
           result: PickResult;
           actual_value: number | null;
           created_at: string;
+          notch: number;
+          adjusted_line: number | null;
+          heat_score: number | null;
         };
         Insert: {
           id?: string;
@@ -312,6 +318,9 @@ export interface Database {
           result?: PickResult;
           actual_value?: number | null;
           created_at?: string;
+          notch?: number;
+          adjusted_line?: number | null;
+          heat_score?: number | null;
         };
         Update: {
           card_id?: string;
@@ -319,6 +328,9 @@ export interface Database {
           selection?: PickSelection;
           result?: PickResult;
           actual_value?: number | null;
+          notch?: number;
+          adjusted_line?: number | null;
+          heat_score?: number | null;
         };
       };
       challenges: {
