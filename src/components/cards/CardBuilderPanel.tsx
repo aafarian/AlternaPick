@@ -51,13 +51,13 @@ export default function CardBuilderPanel() {
 
   // Fire Token wager (solo ranked mode)
   const [wager, setWager] = useState<number | null>(null);
+  const [showRankedPicker, setShowRankedPicker] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
 
-  // Fetch token balance when user has picks and is authenticated (solo only)
-  const shouldShowWager = !!(user && picks.length > 0 && !isInChallengeMode);
+  // Fetch token balance when ranked picker is opened
   useEffect(() => {
-    if (!shouldShowWager) return;
+    if (!showRankedPicker || tokenBalance !== null) return;
 
     let cancelled = false;
     setBalanceLoading(true);
@@ -75,12 +75,13 @@ export default function CardBuilderPanel() {
       });
 
     return () => { cancelled = true; };
-  }, [shouldShowWager]);
+  }, [showRankedPicker, tokenBalance]);
 
   // Reset wager + balance when card is cleared so next card refetches
   useEffect(() => {
     if (picks.length === 0) {
       setWager(null);
+      setShowRankedPicker(false);
       setTokenBalance(null);
     }
   }, [picks.length]);
@@ -476,6 +477,55 @@ export default function CardBuilderPanel() {
           </div>
         )}
 
+        {/* Ranked wager picker panel — sits ABOVE the bar (like challenge picker) */}
+        {showRankedPicker && !isInChallengeMode && (
+          <div className="border-t border-orange-500/30 bg-surface/95 backdrop-blur-xl">
+            <div className="mx-auto max-w-6xl px-4 py-2.5">
+              <div className="flex items-center gap-3">
+                <Flame className="h-4 w-4 shrink-0 text-orange-400" />
+                <span className="shrink-0 text-xs font-semibold text-orange-400">Wager</span>
+
+                {balanceLoading ? (
+                  <div className="flex gap-1.5">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="h-8 w-14 animate-pulse rounded-lg bg-secondary" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex gap-1.5 overflow-x-auto scrollbar-thin">
+                    {[10, 25, 50, 100, 250].map((amt) => {
+                      const isSelected = wager === amt;
+                      const isDisabled = tokenBalance !== null && tokenBalance < amt;
+                      return (
+                        <button
+                          key={amt}
+                          type="button"
+                          disabled={isDisabled}
+                          onClick={() => setWager(isSelected ? null : amt)}
+                          className={cn(
+                            "flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-all",
+                            isSelected
+                              ? "border-orange-500 bg-orange-500/15 text-orange-400"
+                              : isDisabled
+                                ? "cursor-not-allowed border-border/50 text-muted-foreground/30"
+                                : "border-border bg-card hover:border-orange-500/50 hover:bg-orange-500/10",
+                          )}
+                        >
+                          <span className="text-xs font-bold">{amt}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                  {balanceLoading ? "..." : `${tokenBalance ?? 1000} available`}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Main bottom bar */}
         <div className="border-t border-border bg-surface/80 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl px-4 py-3">
@@ -539,69 +589,23 @@ export default function CardBuilderPanel() {
                     )}
                   </Button>
                 ) : (
-                  /* Regular card — Solo + Challenge split */
+                  /* Regular card — Solo lock-in + Ranked toggle + Challenge */
                   <>
-                    {/* Fire Token wager selector (solo ranked) */}
-                    {shouldShowWager && (
-                      <div className="flex items-center gap-1.5">
-                        <Flame className="h-3.5 w-3.5 text-orange-400" />
-                        {balanceLoading ? (
-                          <span className="text-xs text-muted-foreground">Loading...</span>
-                        ) : (
-                          <>
-                            <div className="flex gap-1">
-                              {wager === null ? (
-                                <Badge
-                                  variant="secondary"
-                                  className="cursor-default text-[10px]"
-                                >
-                                  Casual
-                                </Badge>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setWager(null)}
-                                  className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/80"
-                                >
-                                  Casual
-                                </button>
-                              )}
-                              {[10, 25, 50, 100].map((amt) => (
-                                <button
-                                  key={amt}
-                                  type="button"
-                                  disabled={tokenBalance !== null && tokenBalance < amt}
-                                  onClick={() => setWager(amt === wager ? null : amt)}
-                                  className={cn(
-                                    "rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors",
-                                    wager === amt
-                                      ? "bg-orange-500/20 text-orange-400"
-                                      : tokenBalance !== null && tokenBalance < amt
-                                        ? "cursor-not-allowed text-muted-foreground/30"
-                                        : "bg-muted text-muted-foreground hover:bg-orange-500/10 hover:text-orange-400",
-                                  )}
-                                >
-                                  {amt}
-                                </button>
-                              ))}
-                            </div>
-                            <span className="text-[10px] text-muted-foreground">
-                              {tokenBalance ?? "—"} bal
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    )}
                     <Button
                       onClick={handleLockIn}
                       disabled={!canLockIn || isLocking || creatingChallenge}
                       size="sm"
                       className={cn(
                         "font-bold",
-                        isLocking
-                          ? "opacity-70"
+                        wager != null
+                          ? "bg-orange-500 text-white hover:bg-orange-600"
                           : "",
-                        canLockIn && !isLocking && !creatingChallenge && "animate-pulse shadow-[0_0_20px_rgba(0,210,106,0.4)]",
+                        isLocking && "opacity-70",
+                        canLockIn && !isLocking && !creatingChallenge && (
+                          wager != null
+                            ? "animate-pulse shadow-[0_0_20px_rgba(249,115,22,0.4)]"
+                            : "animate-pulse shadow-[0_0_20px_rgba(0,210,106,0.4)]"
+                        ),
                       )}
                     >
                       {isLocking ? (
@@ -612,7 +616,7 @@ export default function CardBuilderPanel() {
                       ) : wager != null ? (
                         <>
                           <Flame className="mr-1.5 h-3.5 w-3.5" />
-                          Wager {wager} — Lock In {pickCountLabel}Solo
+                          Wager {wager} — Lock In
                         </>
                       ) : (
                         <>
@@ -621,7 +625,7 @@ export default function CardBuilderPanel() {
                         </>
                       )}
                     </Button>
-                    {user && (
+                    {user && !showRankedPicker && (
                       <>
                         <span className="text-xs text-muted-foreground">or</span>
                         <Button
@@ -630,6 +634,8 @@ export default function CardBuilderPanel() {
                               setShowChallengePicker(false);
                             } else {
                               setShowChallengePicker(true);
+                              setShowRankedPicker(false);
+                              setWager(null);
                               fetchFriendsForChallenge();
                             }
                           }}
@@ -638,11 +644,41 @@ export default function CardBuilderPanel() {
                           size="sm"
                           className={cn(
                             "font-bold border-orange-500/40 text-orange-400 hover:bg-orange-500/10",
-                            showChallengePicker && "bg-orange-500/10"
+                            showChallengePicker && "bg-orange-500/10",
                           )}
                         >
                           <Swords className="mr-1.5 h-3.5 w-3.5" />
                           Challenge
+                        </Button>
+                      </>
+                    )}
+                    {user && !showChallengePicker && (
+                      <>
+                        {!showRankedPicker && (
+                          <span className="text-xs text-muted-foreground">or</span>
+                        )}
+                        <Button
+                          onClick={() => {
+                            if (showRankedPicker) {
+                              setShowRankedPicker(false);
+                              setWager(null);
+                            } else {
+                              setShowRankedPicker(true);
+                              setShowChallengePicker(false);
+                            }
+                          }}
+                          disabled={isLocking}
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "font-bold",
+                            showRankedPicker
+                              ? "border-orange-500 bg-orange-500/15 text-orange-400"
+                              : "border-orange-500/40 text-orange-400 hover:bg-orange-500/10",
+                          )}
+                        >
+                          <Flame className="mr-1.5 h-3.5 w-3.5" />
+                          Ranked
                         </Button>
                       </>
                     )}
