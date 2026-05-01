@@ -38,7 +38,7 @@ export function getNotchTier(notch: number) {
  * Compute the per-notch step size for a given line and stat category.
  *
  * The shift is percentage-based (`line × pct`), with a minimum of MIN_STEP
- * (0.5) to ensure every notch produces a meaningful change. The result is
+ * (1.0) to ensure every notch produces a meaningful change. The result is
  * snapped to the nearest 0.5 increment so adjusted lines are always on
  * clean half-point or whole-number boundaries.
  */

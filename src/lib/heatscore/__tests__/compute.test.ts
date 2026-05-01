@@ -6,6 +6,7 @@ import {
   selectionAllowedForNotch,
   impliedProbFromAmericanOdds,
   computeCardHeatScore,
+  computeHeatScore,
   computeFireTokenPayout,
   pickMarginRatio,
   qualityTokens,
@@ -594,5 +595,114 @@ describe("computeQualityBonus", () => {
       { actualValue: 3, line: 22.5, selection: "over", result: "miss" },   // -87% → -25
     ]);
     expect(result.total).toBe(20); // +45 - 25
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeHeatScore (per-pick additive — for challenges + display)
+// ---------------------------------------------------------------------------
+
+describe("computeHeatScore", () => {
+  it("scores a standard hit at +130", () => {
+    const hs = computeHeatScore([
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 0 },
+    ]);
+    expect(hs).toBe(130);
+  });
+
+  it("scores a volcanic hit at +520 (130 × 4.0)", () => {
+    const hs = computeHeatScore([
+      { result: "hit", notchMultiplier: 4.0, qualityTokens: 0 },
+    ]);
+    expect(hs).toBe(520);
+  });
+
+  it("scores a frosty hit at +33 (130 × 0.25 = 32.5 → 33)", () => {
+    const hs = computeHeatScore([
+      { result: "hit", notchMultiplier: 0.25, qualityTokens: 0 },
+    ]);
+    expect(hs).toBe(33);
+  });
+
+  it("misses contribute only quality tokens (no flat penalty)", () => {
+    const hs = computeHeatScore([
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: -5 },
+    ]);
+    expect(hs).toBe(-5);
+  });
+
+  it("misses with zero quality contribute nothing", () => {
+    const hs = computeHeatScore([
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: 0 },
+    ]);
+    expect(hs).toBe(0);
+  });
+
+  it("DNP and push contribute nothing", () => {
+    const hs = computeHeatScore([
+      { result: "dnp", notchMultiplier: 1.0, qualityTokens: 0 },
+      { result: "push", notchMultiplier: 1.0, qualityTokens: 0 },
+    ]);
+    expect(hs).toBe(0);
+  });
+
+  it("adds quality tokens to hits", () => {
+    const hs = computeHeatScore([
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 15 },
+    ]);
+    expect(hs).toBe(145); // 130 + 15
+  });
+
+  it("computes a mixed 4/6 standard card", () => {
+    const hs = computeHeatScore([
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 10 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 6 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 15 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 0 },
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: -3 },
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: -8 },
+    ]);
+    // 4 hits: 4×130 = 520, quality: 10+6+15+0-3-8 = 20
+    expect(hs).toBe(540);
+  });
+
+  it("volcanic 3/6 beats standard 4/6", () => {
+    const volcanic = computeHeatScore([
+      { result: "hit", notchMultiplier: 4.0, qualityTokens: 20 },
+      { result: "hit", notchMultiplier: 4.0, qualityTokens: 15 },
+      { result: "hit", notchMultiplier: 4.0, qualityTokens: 25 },
+      { result: "miss", notchMultiplier: 4.0, qualityTokens: -10 },
+      { result: "miss", notchMultiplier: 4.0, qualityTokens: -5 },
+      { result: "miss", notchMultiplier: 4.0, qualityTokens: -15 },
+    ]);
+    const standard = computeHeatScore([
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 10 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 6 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 15 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 0 },
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: -3 },
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: -8 },
+    ]);
+    expect(volcanic).toBeGreaterThan(standard);
+  });
+
+  it("same hits = same score regardless of card size", () => {
+    // 4 standard hits on a 4-pick card
+    const fourPick = computeHeatScore([
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 10 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 6 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 15 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 0 },
+    ]);
+    // Same 4 hits on a 6-pick card (2 misses with no quality)
+    const sixPick = computeHeatScore([
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 10 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 6 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 15 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 0 },
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: 0 },
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: 0 },
+    ]);
+    expect(fourPick).toBe(sixPick); // Same hits, no miss penalty
   });
 });
