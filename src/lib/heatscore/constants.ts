@@ -68,47 +68,65 @@ export const NOTCH_SHIFT_PCT: Record<StatCategory, number> = {
 export const MIN_STEP = 0.5;
 
 // ---------------------------------------------------------------------------
-// Card-level multipliers — applied to net card score based on hit count
+// HeatScore multiplier table
 //
-// Key: `${cardSize}-${hits}` → multiplier
-// Missing entries default to 1.0 (no bonus/penalty).
-// The 0-hit row amplifies losses (net score is negative, so 1.5× makes it
-// more negative).
+// HeatScore is a multiplier (0x to 12x) applied to the user's Fire Token
+// wager. Payout = wager × HeatScore.
+//
+// The table is balanced so that E[return] ≈ 0.70 at a 50% per-pick hit
+// rate for ALL card sizes. This means a coin-flip player loses ~30% per
+// card on average, creating the refill loop. A skilled player hitting 60%+
+// sustains or grows their token balance.
+//
+// 0 hits and 1 hit always return 0x (total loss of wager).
+// Break-even hit rates: ~67% (2-pick), ~63% (3-pick), ~58% (4-pick),
+// ~57% (5-pick), ~55% (6-pick). Larger cards are slightly easier to
+// break even on due to more scoring opportunities.
 // ---------------------------------------------------------------------------
 
-const CARD_MULTIPLIER_MAP: Record<string, number> = {
-  // 2-pick
-  "2-2": 1.5,
-  "2-0": 1.5,
-  // 3-pick
-  "3-3": 2.0,
-  "3-0": 1.5,
-  // 4-pick
-  "4-4": 3.0,
-  "4-3": 1.5,
-  "4-0": 1.5,
-  // 5-pick
-  "5-5": 4.0,
-  "5-4": 2.0,
-  "5-3": 1.25,
-  "5-0": 1.5,
-  // 6-pick
-  "6-6": 5.0,
-  "6-5": 2.5,
-  "6-4": 1.5,
-  "6-0": 1.5,
+const HEATSCORE_TABLE: Record<number, Record<number, number>> = {
+  2: { 2: 2.2, 1: 0.3, 0: 0 },
+  3: { 3: 3.0, 2: 0.8, 1: 0.1, 0: 0 },
+  4: { 4: 4.0, 3: 1.3, 2: 0.3, 1: 0.05, 0: 0 },
+  5: { 5: 7.0, 4: 1.8, 3: 0.5, 2: 0.1, 1: 0, 0: 0 },
+  6: { 6: 12.0, 5: 3.0, 4: 0.7, 3: 0.2, 2: 0.05, 1: 0, 0: 0 },
 };
 
 /**
- * Look up the card-level multiplier for a given effective card size and hit
- * count. Returns 1.0 (no multiplier) for combinations not in the table.
+ * Look up the HeatScore multiplier for a given effective card size and hit
+ * count. Returns 0 for combinations not in the table.
  */
-export function getCardMultiplier(
-  effectiveCardSize: number,
+export function getHeatScoreMultiplier(
   hits: number,
+  effectiveCardSize: number,
 ): number {
-  return CARD_MULTIPLIER_MAP[`${effectiveCardSize}-${hits}`] ?? 1.0;
+  return HEATSCORE_TABLE[effectiveCardSize]?.[hits] ?? 0;
 }
+
+// ---------------------------------------------------------------------------
+// Fire Token economy constants
+// ---------------------------------------------------------------------------
+
+/** Starting Fire Token balance for new users. */
+export const STARTING_BALANCE = 1000;
+
+/** Minimum wager per card. */
+export const MIN_WAGER = 10;
+
+/** Weekly free token refill amount. */
+export const WEEKLY_REFILL = 500;
+
+/** Tokens earned per ad watched. */
+export const AD_REFILL = 50;
+
+/** Max ad refills per day. */
+export const AD_REFILL_CAP = 3;
+
+/** Bonus tokens for inviting a friend. */
+export const INVITE_BONUS = 200;
+
+/** Bonus tokens for challenging 3 different people in a week. */
+export const CHALLENGE_WEEKLY_BONUS = 100;
 
 // ---------------------------------------------------------------------------
 // Misc constants
@@ -116,6 +134,3 @@ export function getCardMultiplier(
 
 /** Minimum allowed adjusted line — can't go below this. */
 export const MIN_LINE = 0.5;
-
-/** Starting HeatScore balance for new users. */
-export const STARTING_BALANCE = 1000;

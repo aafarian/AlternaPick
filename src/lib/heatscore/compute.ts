@@ -1,4 +1,4 @@
-import type { StatCategory, PickResult } from "@/lib/supabase/types";
+import type { StatCategory } from "@/lib/supabase/types";
 import {
   NOTCH_TIERS,
   NOTCH_SHIFT_PCT,
@@ -6,7 +6,7 @@ import {
   MIN_LINE,
   MIN_NOTCH,
   MAX_NOTCH,
-  getCardMultiplier,
+  getHeatScoreMultiplier,
 } from "./constants";
 
 // ---------------------------------------------------------------------------
@@ -29,7 +29,7 @@ export function getNotchTier(notch: number) {
 }
 
 // ---------------------------------------------------------------------------
-// Line adjustment
+// Line adjustment (deferred to Phase 2 — notch tiers)
 // ---------------------------------------------------------------------------
 
 /**
@@ -87,9 +87,7 @@ export function getAvailableNotches(
   const seen = new Set<number>();
   for (let n = MIN_NOTCH; n <= MAX_NOTCH; n++) {
     const adjusted = adjustLine(baseLine, statCategory, n);
-    // Exclude if the raw (pre-floor) shift drops below MIN_LINE
     if (baseLine + n * step < MIN_LINE) continue;
-    // Exclude if this produces the same adjusted line as one already included
     if (n !== 0 && seen.has(adjusted)) continue;
     notches.push(n);
     seen.add(adjusted);
@@ -109,11 +107,8 @@ export function selectionAllowedForNotch(
 }
 
 // ---------------------------------------------------------------------------
-// Odds → probability → HeatScore
+// Odds → probability (kept for future notch phase)
 // ---------------------------------------------------------------------------
-
-/** Maximum base HeatScore — prevents extreme outliers from game-breaking scores. */
-const MAX_BASE_HS = 500;
 
 /** Default probability used when odds are missing or degenerate. */
 const DEFAULT_PROB = 0.5;
@@ -139,100 +134,58 @@ export function impliedProbFromAmericanOdds(americanOdds: number): number {
     prob = 100 / (americanOdds + 100);
   }
 
-  // Clamp to avoid edge-case 0 or 1 probabilities
   return Math.max(0.01, Math.min(0.99, prob));
 }
 
-/**
- * Base HeatScore from implied probability.
- * At 50/50 (prob = 0.5) this returns 100.
- * Lower probability → higher score (harder pick is worth more).
- * Capped at MAX_BASE_HS to prevent game-breaking outliers.
- */
-export function baseHeatScore(impliedProb: number): number {
-  if (impliedProb <= 0 || impliedProb >= 1) return 100;
-  return Math.min(MAX_BASE_HS, Math.round((100 * (1 - impliedProb)) / impliedProb));
-}
-
-/**
- * HeatScore earned on a HIT — base score scaled by notch multiplier.
- * This is the variable "win" amount in the asymmetric scoring model.
- */
-export function pickHeatScoreOnHit(
-  impliedProb: number,
-  notchMultiplier: number,
-): number {
-  return Math.round(baseHeatScore(impliedProb) * notchMultiplier);
-}
-
-/**
- * HeatScore lost on a MISS — fixed base (100) scaled by notch multiplier.
- * This is the fixed "risk" amount in the asymmetric scoring model.
- *
- * Why asymmetric: symmetric win/loss (same amount for hit and miss) creates
- * positive EV for favorites and negative EV for underdogs. By fixing the
- * loss at 100 × notchMultiplier, the EV is ~0 regardless of odds:
- *
- *   EV = prob × winHS - (1 - prob) × lossHS
- *      = prob × (base × mult) - (1 - prob) × (100 × mult)
- *      = mult × [prob × base - (1 - prob) × 100]
- *      = mult × [prob × 100×(1-p)/p - (1-p) × 100]
- *      = mult × [100×(1-p) - 100×(1-p)]
- *      = 0
- */
-export function pickHeatScoreOnMiss(notchMultiplier: number): number {
-  return Math.round(100 * notchMultiplier);
-}
-
 // ---------------------------------------------------------------------------
-// Card-level HeatScore
+// HeatScore multiplier + Fire Token payout
 // ---------------------------------------------------------------------------
 
-/** Input for a single pick when computing the card-level score. */
-export interface CardPickInput {
-  /**
-   * Signed HeatScore for this pick:
-   * - Hit picks: positive value from `pickHeatScoreOnHit`
-   * - Miss picks: negative value from `-pickHeatScoreOnMiss`
-   * - DNP/push picks: 0 (excluded from scoring)
-   */
-  heatScore: number;
-  result: PickResult;
+export interface CardHeatScoreResult {
+  /** Number of hits (scoreable picks that were correct). */
+  hits: number;
+  /** Effective card size: hits + misses (excludes DNP/push). */
+  effectiveSize: number;
+  /** The HeatScore multiplier (0x to 12x). */
+  multiplier: number;
 }
 
 /**
- * Compute the final card-level HeatScore.
+ * Compute the HeatScore multiplier for a resolved card.
  *
- * 1. Sum signed per-pick scores (hit = +, miss = -).
- *    DNP and push picks are excluded from the sum AND from the effective
- *    card size used to look up the multiplier.
- * 2. Look up the card multiplier based on effective card size and hit count.
- * 3. Return Math.round(netRaw × multiplier).
+ * HeatScore is a multiplier (0x to 12x) based on how many picks hit
+ * relative to the effective card size. DNP and push picks are excluded —
+ * only pass hits and misses (not DNP/push counts).
+ *
+ * The multiplier is looked up from a balanced table where E[return] ≈ 0.70
+ * at 50% hit rate for all card sizes, ensuring no card size is inherently
+ * better or worse.
  */
 export function computeCardHeatScore(
-  picks: CardPickInput[],
+  hits: number,
+  misses: number,
   cardSize: number,
-): { netRaw: number; multiplier: number; final: number } {
-  const scoreable = picks.filter(
-    (p) => p.result === "hit" || p.result === "miss",
-  );
+): CardHeatScoreResult {
+  const effectiveSize = hits + misses;
 
-  const effectiveSize = scoreable.length;
   if (effectiveSize === 0) {
-    return { netRaw: 0, multiplier: 1, final: 0 };
+    return { hits: 0, effectiveSize: 0, multiplier: 0 };
   }
 
-  const hits = scoreable.filter((p) => p.result === "hit").length;
-  const netRaw = scoreable.reduce((sum, p) => sum + p.heatScore, 0);
-  const multiplier = getCardMultiplier(
-    // Use effective size so DNP doesn't inflate the multiplier tier.
-    Math.min(effectiveSize, cardSize),
+  const multiplier = getHeatScoreMultiplier(
     hits,
+    Math.min(effectiveSize, cardSize),
   );
 
-  return {
-    netRaw,
-    multiplier,
-    final: Math.round(netRaw * multiplier),
-  };
+  return { hits, effectiveSize, multiplier };
+}
+
+/**
+ * Compute the Fire Token payout for a given wager and HeatScore multiplier.
+ */
+export function computeFireTokenPayout(
+  wager: number,
+  multiplier: number,
+): number {
+  return Math.round(wager * multiplier);
 }

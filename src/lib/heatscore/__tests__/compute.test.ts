@@ -5,13 +5,11 @@ import {
   getAvailableNotches,
   selectionAllowedForNotch,
   impliedProbFromAmericanOdds,
-  baseHeatScore,
-  pickHeatScoreOnHit,
-  pickHeatScoreOnMiss,
   computeCardHeatScore,
+  computeFireTokenPayout,
   getNotchTier,
 } from "../compute";
-import { NOTCH_TIERS } from "../constants";
+import { NOTCH_TIERS, getHeatScoreMultiplier } from "../constants";
 
 // ---------------------------------------------------------------------------
 // getNotchTier
@@ -55,12 +53,10 @@ describe("NOTCH_TIERS ordering", () => {
 
 describe("getStepSize", () => {
   it("computes percentage-based step for high-line stats", () => {
-    // points at 30.0, pct = 0.08: raw = 2.4, snapped to 2.5
     expect(getStepSize(30.0, "points")).toBe(2.5);
   });
 
   it("computes percentage-based step for low-line stats", () => {
-    // points at 4.5, pct = 0.08: raw = 0.36, snapped to 0.5 (min step)
     expect(getStepSize(4.5, "points")).toBe(0.5);
   });
 
@@ -120,7 +116,6 @@ describe("adjustLine", () => {
   });
 
   it("can produce whole-number adjusted lines", () => {
-    // This verifies pushes are possible with adjusted lines
     expect(adjustLine(25.0, "points", 1) % 1).toBe(0);
   });
 });
@@ -149,7 +144,6 @@ describe("getAvailableNotches", () => {
   });
 
   it("uses adjustLine internally for consistency", () => {
-    // Every returned notch should produce a line >= 0.5 via adjustLine
     const notches = getAvailableNotches(2.0, "blocks");
     for (const n of notches) {
       expect(adjustLine(2.0, "blocks", n)).toBeGreaterThanOrEqual(0.5);
@@ -202,7 +196,6 @@ describe("impliedProbFromAmericanOdds", () => {
     expect(impliedProbFromAmericanOdds(300)).toBeCloseTo(0.25, 2);
   });
 
-  // Edge cases
   it("returns default for NaN", () => {
     expect(impliedProbFromAmericanOdds(NaN)).toBe(0.5);
   });
@@ -215,129 +208,64 @@ describe("impliedProbFromAmericanOdds", () => {
     expect(impliedProbFromAmericanOdds(-100)).toBe(0.5);
   });
 
-  it("clamps very large odds to 0.99 max probability", () => {
-    // -10000 → prob = 10000/10100 = 0.99009... → clamped to 0.99
+  it("clamps very large odds", () => {
     expect(impliedProbFromAmericanOdds(-10000)).toBe(0.99);
-  });
-
-  it("clamps very large positive odds to 0.01 min probability", () => {
-    // +50000 → prob = 100/50100 = 0.002 → clamped to 0.01
     expect(impliedProbFromAmericanOdds(50000)).toBe(0.01);
   });
 });
 
 // ---------------------------------------------------------------------------
-// baseHeatScore
+// getHeatScoreMultiplier
 // ---------------------------------------------------------------------------
 
-describe("baseHeatScore", () => {
-  it("returns 100 at 50/50", () => {
-    expect(baseHeatScore(0.5)).toBe(100);
+describe("getHeatScoreMultiplier", () => {
+  it("returns correct multiplier for every cell of 2-pick table", () => {
+    expect(getHeatScoreMultiplier(2, 2)).toBe(2.2);
+    expect(getHeatScoreMultiplier(1, 2)).toBe(0.3);
+    expect(getHeatScoreMultiplier(0, 2)).toBe(0);
   });
 
-  it("returns lower score for favored picks", () => {
-    expect(baseHeatScore(0.75)).toBe(33);
+  it("returns correct multiplier for every cell of 3-pick table", () => {
+    expect(getHeatScoreMultiplier(3, 3)).toBe(3.0);
+    expect(getHeatScoreMultiplier(2, 3)).toBe(0.8);
+    expect(getHeatScoreMultiplier(1, 3)).toBe(0.1);
+    expect(getHeatScoreMultiplier(0, 3)).toBe(0);
   });
 
-  it("returns higher score for underdog picks", () => {
-    expect(baseHeatScore(0.25)).toBe(300);
+  it("returns correct multiplier for every cell of 4-pick table", () => {
+    expect(getHeatScoreMultiplier(4, 4)).toBe(4.0);
+    expect(getHeatScoreMultiplier(3, 4)).toBe(1.3);
+    expect(getHeatScoreMultiplier(2, 4)).toBe(0.3);
+    expect(getHeatScoreMultiplier(1, 4)).toBe(0.05);
+    expect(getHeatScoreMultiplier(0, 4)).toBe(0);
   });
 
-  it("returns 100 for edge-case probabilities", () => {
-    expect(baseHeatScore(0)).toBe(100);
-    expect(baseHeatScore(1)).toBe(100);
+  it("returns correct multiplier for every cell of 5-pick table", () => {
+    expect(getHeatScoreMultiplier(5, 5)).toBe(7.0);
+    expect(getHeatScoreMultiplier(4, 5)).toBe(1.8);
+    expect(getHeatScoreMultiplier(3, 5)).toBe(0.5);
+    expect(getHeatScoreMultiplier(2, 5)).toBe(0.1);
+    expect(getHeatScoreMultiplier(1, 5)).toBe(0);
+    expect(getHeatScoreMultiplier(0, 5)).toBe(0);
   });
 
-  it("caps at MAX_BASE_HS (500) for extreme probabilities", () => {
-    // prob = 0.01 → raw = 100 * 0.99 / 0.01 = 9900 → capped at 500
-    expect(baseHeatScore(0.01)).toBe(500);
-    expect(baseHeatScore(0.05)).toBe(500);
+  it("returns correct multiplier for every cell of 6-pick table", () => {
+    expect(getHeatScoreMultiplier(6, 6)).toBe(12.0);
+    expect(getHeatScoreMultiplier(5, 6)).toBe(3.0);
+    expect(getHeatScoreMultiplier(4, 6)).toBe(0.7);
+    expect(getHeatScoreMultiplier(3, 6)).toBe(0.2);
+    expect(getHeatScoreMultiplier(2, 6)).toBe(0.05);
+    expect(getHeatScoreMultiplier(1, 6)).toBe(0);
+    expect(getHeatScoreMultiplier(0, 6)).toBe(0);
   });
 
-  it("does not cap moderate underdog picks", () => {
-    // prob = 0.25 → 300, under cap
-    expect(baseHeatScore(0.25)).toBe(300);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// pickHeatScoreOnHit / pickHeatScoreOnMiss (asymmetric scoring)
-// ---------------------------------------------------------------------------
-
-describe("pickHeatScoreOnHit", () => {
-  it("returns base score at 1.0x multiplier", () => {
-    expect(pickHeatScoreOnHit(0.5, 1.0)).toBe(100);
+  it("returns 0 for card sizes not in the table", () => {
+    expect(getHeatScoreMultiplier(1, 1)).toBe(0);
+    expect(getHeatScoreMultiplier(7, 7)).toBe(0);
   });
 
-  it("applies Frosty multiplier (0.25x)", () => {
-    expect(pickHeatScoreOnHit(0.5, 0.25)).toBe(25);
-  });
-
-  it("applies Volcanic multiplier (4.0x)", () => {
-    expect(pickHeatScoreOnHit(0.5, 4.0)).toBe(400);
-  });
-
-  it("returns less for favorites (lower odds-based reward)", () => {
-    // -200 favorite, standard notch
-    expect(pickHeatScoreOnHit(impliedProbFromAmericanOdds(-200), 1.0)).toBe(50);
-  });
-
-  it("returns more for underdogs (higher odds-based reward)", () => {
-    // +200 underdog, standard notch
-    expect(pickHeatScoreOnHit(impliedProbFromAmericanOdds(200), 1.0)).toBe(200);
-  });
-});
-
-describe("pickHeatScoreOnMiss", () => {
-  it("returns flat 100 at standard notch", () => {
-    expect(pickHeatScoreOnMiss(1.0)).toBe(100);
-  });
-
-  it("scales with notch multiplier only", () => {
-    expect(pickHeatScoreOnMiss(0.25)).toBe(25); // Frosty
-    expect(pickHeatScoreOnMiss(0.5)).toBe(50); // Chilled
-    expect(pickHeatScoreOnMiss(1.75)).toBe(175); // Heated
-    expect(pickHeatScoreOnMiss(4.0)).toBe(400); // Volcanic
-  });
-
-  it("does NOT depend on odds", () => {
-    // Miss penalty is the same regardless of the pick's implied probability
-    expect(pickHeatScoreOnMiss(1.0)).toBe(100);
-  });
-});
-
-describe("asymmetric EV balance", () => {
-  it("produces ~0 EV for a 50/50 standard pick", () => {
-    const prob = 0.5;
-    const win = pickHeatScoreOnHit(prob, 1.0);
-    const loss = pickHeatScoreOnMiss(1.0);
-    const ev = prob * win - (1 - prob) * loss;
-    expect(Math.abs(ev)).toBeLessThan(1);
-  });
-
-  it("produces ~0 EV for a 60% favorite at standard", () => {
-    const prob = 0.6;
-    const win = pickHeatScoreOnHit(prob, 1.0);
-    const loss = pickHeatScoreOnMiss(1.0);
-    const ev = prob * win - (1 - prob) * loss;
-    expect(Math.abs(ev)).toBeLessThan(5); // rounding tolerance
-  });
-
-  it("produces ~0 EV for a 40% underdog at standard", () => {
-    const prob = 0.4;
-    const win = pickHeatScoreOnHit(prob, 1.0);
-    const loss = pickHeatScoreOnMiss(1.0);
-    const ev = prob * win - (1 - prob) * loss;
-    expect(Math.abs(ev)).toBeLessThan(5);
-  });
-
-  it("produces ~0 EV for a Volcanic pick at even odds", () => {
-    const prob = 0.5;
-    const mult = 4.0;
-    const win = pickHeatScoreOnHit(prob, mult);
-    const loss = pickHeatScoreOnMiss(mult);
-    const ev = prob * win - (1 - prob) * loss;
-    expect(Math.abs(ev)).toBeLessThan(1);
+  it("returns 0 for more hits than effective size", () => {
+    expect(getHeatScoreMultiplier(3, 2)).toBe(0);
   });
 });
 
@@ -346,174 +274,143 @@ describe("asymmetric EV balance", () => {
 // ---------------------------------------------------------------------------
 
 describe("computeCardHeatScore", () => {
-  it("computes a perfect 2-pick card (1.5x)", () => {
-    const result = computeCardHeatScore(
-      [
-        { heatScore: 100, result: "hit" },
-        { heatScore: 100, result: "hit" },
-      ],
-      2,
-    );
-    expect(result.netRaw).toBe(200);
-    expect(result.multiplier).toBe(1.5);
-    expect(result.final).toBe(300);
+  it("computes a perfect 2-pick card", () => {
+    const result = computeCardHeatScore(2, 0, 2);
+    expect(result.hits).toBe(2);
+    expect(result.effectiveSize).toBe(2);
+    expect(result.multiplier).toBe(2.2);
   });
 
-  it("computes a 0-hit 3-pick card (1.5x penalty amplifier)", () => {
-    const result = computeCardHeatScore(
-      [
-        { heatScore: -100, result: "miss" },
-        { heatScore: -100, result: "miss" },
-        { heatScore: -100, result: "miss" },
-      ],
-      3,
-    );
-    expect(result.netRaw).toBe(-300);
-    expect(result.multiplier).toBe(1.5);
-    expect(result.final).toBe(-450);
+  it("computes a perfect 6-pick card", () => {
+    const result = computeCardHeatScore(6, 0, 6);
+    expect(result.multiplier).toBe(12.0);
   });
 
-  it("computes a perfect 6-pick card (5.0x)", () => {
-    const result = computeCardHeatScore(
-      [
-        { heatScore: 100, result: "hit" },
-        { heatScore: 175, result: "hit" },
-        { heatScore: 100, result: "hit" },
-        { heatScore: 275, result: "hit" },
-        { heatScore: 100, result: "hit" },
-        { heatScore: 400, result: "hit" },
-      ],
-      6,
-    );
-    expect(result.netRaw).toBe(1150);
-    expect(result.multiplier).toBe(5.0);
-    expect(result.final).toBe(5750);
+  it("computes a 4/6 card", () => {
+    const result = computeCardHeatScore(4, 2, 6);
+    expect(result.effectiveSize).toBe(6);
+    expect(result.multiplier).toBe(0.7);
   });
 
-  it("computes a 5/6 card (2.5x)", () => {
-    const result = computeCardHeatScore(
-      [
-        { heatScore: 100, result: "hit" },
-        { heatScore: 100, result: "hit" },
-        { heatScore: 100, result: "hit" },
-        { heatScore: 100, result: "hit" },
-        { heatScore: 100, result: "hit" },
-        { heatScore: -100, result: "miss" },
-      ],
-      6,
-    );
-    expect(result.netRaw).toBe(400);
-    expect(result.multiplier).toBe(2.5);
-    expect(result.final).toBe(1000);
+  it("computes a 0-hit card as 0x (total wager loss)", () => {
+    const result = computeCardHeatScore(0, 3, 3);
+    expect(result.multiplier).toBe(0);
   });
 
-  it("excludes DNP picks from sum and effective card size", () => {
-    const result = computeCardHeatScore(
-      [
-        { heatScore: 100, result: "hit" },
-        { heatScore: 100, result: "hit" },
-        { heatScore: 0, result: "dnp" },
-      ],
-      3,
-    );
-    expect(result.netRaw).toBe(200);
-    expect(result.multiplier).toBe(1.5);
-    expect(result.final).toBe(300);
+  it("excludes DNP from effective card size", () => {
+    // 3-pick card with 1 DNP → effectively 2-pick
+    const result = computeCardHeatScore(2, 0, 3);
+    expect(result.effectiveSize).toBe(2);
+    expect(result.multiplier).toBe(2.2); // Perfect 2-pick = 2.2x
   });
 
-  it("excludes push picks from sum and effective card size", () => {
-    const result = computeCardHeatScore(
-      [
-        { heatScore: 100, result: "hit" },
-        { heatScore: -100, result: "miss" },
-        { heatScore: 0, result: "push" },
-        { heatScore: 100, result: "hit" },
-      ],
-      4,
-    );
-    expect(result.netRaw).toBe(100);
-    expect(result.multiplier).toBe(1.0);
-    expect(result.final).toBe(100);
+  it("returns 0 multiplier when all picks are DNP", () => {
+    const result = computeCardHeatScore(0, 0, 3);
+    expect(result.effectiveSize).toBe(0);
+    expect(result.multiplier).toBe(0);
   });
 
-  it("returns 0 when all picks are DNP", () => {
-    const result = computeCardHeatScore(
-      [
-        { heatScore: 0, result: "dnp" },
-        { heatScore: 0, result: "dnp" },
-      ],
-      2,
-    );
-    expect(result.final).toBe(0);
+  it("handles 5/6 card", () => {
+    const result = computeCardHeatScore(5, 1, 6);
+    expect(result.multiplier).toBe(3.0);
   });
 
-  it("handles asymmetric hit/miss values correctly", () => {
-    // Simulates a 2-pick card: one underdog hit (+150), one favorite miss (-100)
-    const result = computeCardHeatScore(
-      [
-        { heatScore: 150, result: "hit" },
-        { heatScore: -100, result: "miss" },
-      ],
-      2,
-    );
-    expect(result.netRaw).toBe(50);
-    expect(result.multiplier).toBe(1.0); // 1/2 = no multiplier
-    expect(result.final).toBe(50);
+  it("returns 0x for unsupported 1-pick cards", () => {
+    const result = computeCardHeatScore(1, 0, 1);
+    expect(result.multiplier).toBe(0);
+  });
+
+  it("returns 0x for unsupported 7-pick cards", () => {
+    const result = computeCardHeatScore(7, 0, 7);
+    expect(result.multiplier).toBe(0);
+  });
+
+  it("handles 1-hit cards as 0x across all sizes", () => {
+    expect(computeCardHeatScore(1, 1, 2).multiplier).toBe(0.3);
+    expect(computeCardHeatScore(1, 2, 3).multiplier).toBe(0.1);
+    expect(computeCardHeatScore(1, 3, 4).multiplier).toBe(0.05);
+    expect(computeCardHeatScore(1, 4, 5).multiplier).toBe(0);
+    expect(computeCardHeatScore(1, 5, 6).multiplier).toBe(0);
   });
 });
 
 // ---------------------------------------------------------------------------
-// End-to-end: odds → probability → pick HS → card HS
+// computeFireTokenPayout
 // ---------------------------------------------------------------------------
 
-describe("end-to-end HeatScore calculation", () => {
-  it("computes a full 3-pick card at standard notch with real odds", () => {
-    // Pick 1: -110 over (standard favorite)
-    const prob1 = impliedProbFromAmericanOdds(-110);
-    const hit1 = pickHeatScoreOnHit(prob1, 1.0); // ~91
-    const _miss1 = pickHeatScoreOnMiss(1.0); // 100 (not used in this scenario)
-
-    // Pick 2: +150 underdog
-    const prob2 = impliedProbFromAmericanOdds(150);
-    const hit2 = pickHeatScoreOnHit(prob2, 1.0); // ~150
-    const _miss2 = pickHeatScoreOnMiss(1.0); // 100 (not used in this scenario)
-
-    // Pick 3: -200 heavy favorite
-    const prob3 = impliedProbFromAmericanOdds(-200);
-    const _hit3 = pickHeatScoreOnHit(prob3, 1.0); // ~50 (not used in this scenario)
-    const miss3 = pickHeatScoreOnMiss(1.0); // 100
-
-    // Scenario: picks 1 and 2 hit, pick 3 misses (2/3)
-    const card = computeCardHeatScore(
-      [
-        { heatScore: hit1, result: "hit" },
-        { heatScore: hit2, result: "hit" },
-        { heatScore: -miss3, result: "miss" },
-      ],
-      3,
-    );
-
-    // Net = 91 + 150 - 100 = 141, multiplier = 1.0 (2/3 on 3-pick), final = 141
-    expect(card.netRaw).toBe(hit1 + hit2 - miss3);
-    expect(card.multiplier).toBe(1.0);
-    expect(card.final).toBe(card.netRaw);
+describe("computeFireTokenPayout", () => {
+  it("multiplies wager by multiplier", () => {
+    expect(computeFireTokenPayout(100, 2.2)).toBe(220);
   });
 
-  it("computes a Volcanic perfect 2-pick card", () => {
-    const prob = impliedProbFromAmericanOdds(-110);
-    const volcanicMult = 4.0;
-    const hit = pickHeatScoreOnHit(prob, volcanicMult);
-    // 91 * 4 = 364
+  it("returns 0 for 0x multiplier", () => {
+    expect(computeFireTokenPayout(100, 0)).toBe(0);
+  });
 
-    const card = computeCardHeatScore(
-      [
-        { heatScore: hit, result: "hit" },
-        { heatScore: hit, result: "hit" },
-      ],
-      2,
-    );
+  it("returns 0 for 0 wager", () => {
+    expect(computeFireTokenPayout(0, 12.0)).toBe(0);
+  });
 
-    expect(card.multiplier).toBe(1.5);
-    expect(card.final).toBe(Math.round(hit * 2 * 1.5));
+  it("rounds to nearest integer", () => {
+    expect(computeFireTokenPayout(100, 0.3)).toBe(30);
+    expect(computeFireTokenPayout(75, 0.7)).toBe(53); // 52.5 → 53
+  });
+
+  it("handles perfect 6-pick with large wager", () => {
+    expect(computeFireTokenPayout(250, 12.0)).toBe(3000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// EV verification — expected return ≈ 0.70 at 50% hit rate for all card sizes
+// ---------------------------------------------------------------------------
+
+describe("EV balance verification", () => {
+  function binomialCoeff(n: number, k: number): number {
+    if (k > n) return 0;
+    if (k === 0 || k === n) return 1;
+    let result = 1;
+    for (let i = 0; i < k; i++) {
+      result = (result * (n - i)) / (i + 1);
+    }
+    return result;
+  }
+
+  function expectedReturn(cardSize: number, hitRate: number): number {
+    let ev = 0;
+    for (let k = 0; k <= cardSize; k++) {
+      const prob = binomialCoeff(cardSize, k) * Math.pow(hitRate, k) * Math.pow(1 - hitRate, cardSize - k);
+      const multiplier = getHeatScoreMultiplier(k, cardSize);
+      ev += prob * multiplier;
+    }
+    return ev;
+  }
+
+  it("2-pick card has E[return] ≈ 0.70 at 50% hit rate", () => {
+    expect(expectedReturn(2, 0.5)).toBeCloseTo(0.70, 2);
+  });
+
+  it("3-pick card has E[return] ≈ 0.70 at 50% hit rate", () => {
+    expect(expectedReturn(3, 0.5)).toBeCloseTo(0.71, 2);
+  });
+
+  it("4-pick card has E[return] ≈ 0.70 at 50% hit rate", () => {
+    expect(expectedReturn(4, 0.5)).toBeCloseTo(0.70, 2);
+  });
+
+  it("5-pick card has E[return] ≈ 0.70 at 50% hit rate", () => {
+    expect(expectedReturn(5, 0.5)).toBeCloseTo(0.69, 2);
+  });
+
+  it("6-pick card has E[return] ≈ 0.70 at 50% hit rate", () => {
+    expect(expectedReturn(6, 0.5)).toBeCloseTo(0.71, 2);
+  });
+
+  it("all card sizes have the same E[return] within tolerance", () => {
+    const evs = [2, 3, 4, 5, 6].map((size) => expectedReturn(size, 0.5));
+    const min = Math.min(...evs);
+    const max = Math.max(...evs);
+    // All within 0.05 of each other
+    expect(max - min).toBeLessThan(0.05);
   });
 });
