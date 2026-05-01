@@ -57,6 +57,8 @@ export interface PickWithPropAndGame {
   selection: PickSelection;
   result?: string;
   actual_value?: number | null;
+  notch?: number;
+  adjusted_line?: number | null;
   props: {
     player_name: string;
     player_id: string | null;
@@ -207,11 +209,12 @@ export function buildLivePicksForCard(
           } else if (!playerStats.dnp) {
             currentValue = extractStatValue(playerStats, pick.props.stat_category);
 
-            if (currentValue === pick.props.line) {
+            const effectiveLine = pick.adjusted_line ?? pick.props.line;
+            if (currentValue === effectiveLine) {
               trending = "push";
             } else if (
-              (pick.selection === "over" && currentValue > pick.props.line) ||
-              (pick.selection === "under" && currentValue < pick.props.line)
+              (pick.selection === "over" && currentValue > effectiveLine) ||
+              (pick.selection === "under" && currentValue < effectiveLine)
             ) {
               trending = "hit";
             } else {
@@ -255,11 +258,12 @@ export function buildLivePicksForCard(
       player_position: pick.props.player_position ?? null,
       sport: pick.props.games?.sport ?? undefined,
       stat_category: pick.props.stat_category,
-      line: pick.props.line,
+      line: pick.adjusted_line ?? pick.props.line,
       selection: pick.selection,
       current_value: currentValue,
       trending,
       game_status: gameStatus,
+      notch: pick.notch ?? 0,
     });
   }
 
