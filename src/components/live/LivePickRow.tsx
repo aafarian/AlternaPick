@@ -10,8 +10,7 @@ import PlayerAvatar from "@/components/players/PlayerAvatar";
 import { Badge } from "@/components/ui/badge";
 import { ChevronUp, ChevronDown, Check, X, CheckCircle2, XCircle, Minus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getNotchTier } from "@/lib/heatscore/compute";
-import { TIER_COLORS } from "@/components/props/NotchSelector";
+import { notchNumberTint } from "@/components/props/NotchSelector";
 import NotchBadge from "@/components/props/NotchBadge";
 
 // SVG chevron patterns — fit within h-2 (8px) bar
@@ -21,11 +20,6 @@ const CHEVRON_LEFT = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/20
 interface LivePickRowProps {
   pick: LivePickData;
   variant?: "full" | "compact";
-}
-
-function notchNumberTint(notch?: number): string | undefined {
-  if (notch == null || notch === 0) return undefined;
-  return TIER_COLORS[getNotchTier(notch).color]?.numberTint;
 }
 
 export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps) {
@@ -96,22 +90,13 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
         )}
 
         {/* Line + notch tier */}
-        {(() => {
-          const hasNotch = pick.notch != null && pick.notch !== 0;
-          const tier = hasNotch ? getNotchTier(pick.notch!) : null;
-          const colors = tier ? (TIER_COLORS[tier.color] ?? TIER_COLORS.neutral) : null;
-          return (
-            <>
-              <span className={cn(
-                "text-sm font-bold tabular-nums",
-                hasNotch && colors?.numberTint,
-              )}>
-                {pick.line ?? "\u2014"}
-              </span>
-              {hasNotch && <NotchBadge notch={pick.notch!} />}
-            </>
-          );
-        })()}
+        <span className={cn(
+          "text-sm font-bold tabular-nums",
+          notchNumberTint(pick.notch),
+        )}>
+          {pick.line ?? "\u2014"}
+        </span>
+        {pick.notch != null && pick.notch !== 0 && <NotchBadge notch={pick.notch} />}
 
         {/* Over/Under badge */}
         <Badge

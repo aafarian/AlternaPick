@@ -24,6 +24,12 @@ export const TIER_COLORS: Record<string, { text: string; bg: string; border: str
 export { getNotchTier };
 export type { NotchTier };
 
+/** Get the number tint class for a notch value. Returns undefined for Standard. */
+export function notchNumberTint(notch?: number): string | undefined {
+  if (notch == null || notch === 0) return undefined;
+  return TIER_COLORS[getNotchTier(notch).color]?.numberTint;
+}
+
 // ---------------------------------------------------------------------------
 // Component — just the line number with left/right arrows
 // ---------------------------------------------------------------------------
