@@ -106,7 +106,7 @@ export default function GameCard({
 
       {expanded && (
         <CardContent className="p-3">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {sortedProps.map((prop) => (
               <PropLine
                 key={prop.id}
