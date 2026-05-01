@@ -170,6 +170,16 @@ export const INVITE_BONUS = 200;
 export const CHALLENGE_WEEKLY_BONUS = 100;
 
 // ---------------------------------------------------------------------------
+// Challenge token rewards (no wager — flat bonuses)
+// ---------------------------------------------------------------------------
+
+/** Tokens awarded to the winner of a challenge. */
+export const CHALLENGE_WIN_BONUS = 25;
+
+/** Tokens awarded to each player in a tied challenge. */
+export const CHALLENGE_TIE_BONUS = 10;
+
+// ---------------------------------------------------------------------------
 // Misc constants
 // ---------------------------------------------------------------------------
 

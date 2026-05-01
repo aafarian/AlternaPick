@@ -266,6 +266,8 @@ export interface Database {
           share_token: string | null;
           created_at: string;
           heat_score: number | null;
+          fire_token_wager: number | null;
+          fire_token_payout: number | null;
         };
         Insert: {
           id?: string;
@@ -281,6 +283,7 @@ export interface Database {
           share_token?: string | null;
           created_at?: string;
           heat_score?: number | null;
+          fire_token_wager?: number | null;
         };
         Update: {
           user_id?: string | null;
@@ -295,6 +298,7 @@ export interface Database {
           resolved_at?: string | null;
           share_token?: string | null;
           heat_score?: number | null;
+          fire_token_payout?: number | null;
         };
       };
       picks: {
@@ -562,6 +566,8 @@ export interface Database {
           h2h_wins: number;
           h2h_losses: number;
           h2h_win_pct: number;
+          fire_tokens_balance: number;
+          fire_tokens_lifetime: number;
           updated_at: string;
         };
         Insert: {
@@ -578,6 +584,8 @@ export interface Database {
           last_played_date?: string | null;
           h2h_wins?: number;
           h2h_losses?: number;
+          fire_tokens_balance?: number;
+          fire_tokens_lifetime?: number;
           updated_at?: string;
         };
         Update: {
@@ -592,6 +600,8 @@ export interface Database {
           last_played_date?: string | null;
           h2h_wins?: number;
           h2h_losses?: number;
+          fire_tokens_balance?: number;
+          fire_tokens_lifetime?: number;
           updated_at?: string;
         };
       };

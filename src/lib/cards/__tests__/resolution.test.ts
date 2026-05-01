@@ -230,6 +230,8 @@ function makeCardWithPick(overrides: {
     share_token: null,
     created_at: new Date().toISOString(),
     heat_score: null,
+    fire_token_wager: null,
+    fire_token_payout: null,
     picks: [
       {
         id: "pick-1",
