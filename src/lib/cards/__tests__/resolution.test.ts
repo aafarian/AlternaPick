@@ -229,6 +229,7 @@ function makeCardWithPick(overrides: {
     resolved_at: null,
     share_token: null,
     created_at: new Date().toISOString(),
+    heat_score: null,
     picks: [
       {
         id: "pick-1",
@@ -238,6 +239,9 @@ function makeCardWithPick(overrides: {
         result: "pending" as const,
         actual_value: null,
         created_at: new Date().toISOString(),
+        notch: 0,
+        adjusted_line: null,
+        heat_score: null,
         props: {
           id: "prop-1",
           game_id: "game-1",
