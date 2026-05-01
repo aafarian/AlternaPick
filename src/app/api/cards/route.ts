@@ -375,6 +375,9 @@ export async function POST(request: NextRequest) {
 
     const card = cardResult.data as Card;
 
+    // TODO: remove after debugging notch/wager flow
+    logWarn("cards", `DEBUG card=${card.id} wager=${card.fire_token_wager} picks=${JSON.stringify(picks.map(p => ({ n: p.notch, al: p.adjusted_line })))}`);
+
     // Create picks
     const pickInserts = picks.map((p) => ({
       card_id: card.id,
