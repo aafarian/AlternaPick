@@ -7,7 +7,8 @@ import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { usePlayerProfile } from "@/lib/players/player-profile-context";
 import { getModeConfig } from "@/lib/modes/definitions";
 import PlayerHeadshot from "@/components/props/PlayerHeadshot";
-import NotchSelector, { getNotchTier, TIER_COLORS } from "@/components/props/NotchSelector";
+import NotchSelector from "@/components/props/NotchSelector";
+import NotchBadge from "@/components/props/NotchBadge";
 import { cn } from "@/lib/utils";
 
 interface PropLineProps {
@@ -137,16 +138,9 @@ export default function PropLine({
     >
       {/* Notch tier badge — top-left overlay, only when shifted */}
       {notch !== 0 && (() => {
-        const tier = getNotchTier(notch);
-        const colors = TIER_COLORS[tier.color] ?? TIER_COLORS.neutral;
         return (
-          <div className={cn(
-            "absolute left-2 top-2 z-20 rounded-full border px-1.5 py-0.5 text-[9px] font-bold leading-none",
-            colors.bg,
-            colors.text,
-            colors.border,
-          )}>
-            {tier.label} {tier.multiplier}x
+          <div className="absolute left-2 top-2 z-20">
+            <NotchBadge notch={notch} />
           </div>
         );
       })()}

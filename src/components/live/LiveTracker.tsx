@@ -24,7 +24,8 @@ function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
       player_position: pick.props?.player_position ?? null,
       sport: pick.props?.games?.sport,
       stat_category: (pick.props?.stat_category ?? "points") as StatCategory,
-      line: pick.props?.line ?? 0,
+      line: pick.adjusted_line ?? pick.props?.line ?? 0,
+      notch: pick.notch ?? 0,
       selection: pick.selection as PickSelection,
       current_value: pick.actual_value,
       trending: hasResult ? (pick.result as "hit" | "miss" | "push" | "dnp") : null,
@@ -105,6 +106,11 @@ function LiveCard({
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <CardTypeBadge card={card} />
           {card.picks.length} picks
+          {card.fire_token_wager != null && (
+            <span className="text-orange-400 font-bold">
+              · 🔥 {card.fire_token_wager}
+            </span>
+          )}
         </span>
       }
       loading={!hasFetched}
