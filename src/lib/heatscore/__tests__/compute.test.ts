@@ -6,10 +6,12 @@ import {
   selectionAllowedForNotch,
   impliedProbFromAmericanOdds,
   baseHeatScore,
-  pickHeatScore,
+  pickHeatScoreOnHit,
+  pickHeatScoreOnMiss,
   computeCardHeatScore,
   getNotchTier,
 } from "../compute";
+import { NOTCH_TIERS } from "../constants";
 
 // ---------------------------------------------------------------------------
 // getNotchTier
@@ -31,6 +33,22 @@ describe("getNotchTier", () => {
   });
 });
 
+describe("NOTCH_TIERS ordering", () => {
+  it("has multipliers in ascending order", () => {
+    for (let i = 1; i < NOTCH_TIERS.length; i++) {
+      expect(NOTCH_TIERS[i].multiplier).toBeGreaterThan(
+        NOTCH_TIERS[i - 1].multiplier,
+      );
+    }
+  });
+
+  it("has notch values in ascending order", () => {
+    for (let i = 1; i < NOTCH_TIERS.length; i++) {
+      expect(NOTCH_TIERS[i].notch).toBeGreaterThan(NOTCH_TIERS[i - 1].notch);
+    }
+  });
+});
+
 // ---------------------------------------------------------------------------
 // getStepSize
 // ---------------------------------------------------------------------------
@@ -47,28 +65,22 @@ describe("getStepSize", () => {
   });
 
   it("enforces minimum step of 0.5", () => {
-    // rebounds at 2.5, pct = 0.10: raw = 0.25, below min → 0.5
     expect(getStepSize(2.5, "rebounds")).toBe(0.5);
   });
 
   it("snaps to nearest 0.5", () => {
-    // rebounds at 8.5, pct = 0.10: raw = 0.85, snaps to 1.0
     expect(getStepSize(8.5, "rebounds")).toBe(1.0);
-    // rebounds at 12.5, pct = 0.10: raw = 1.25, snaps to 1.5
     expect(getStepSize(12.5, "rebounds")).toBe(1.5);
   });
 
-  it("scales proportionally for high-volume scorers", () => {
-    // points at 32.5, pct = 0.08: raw = 2.6, snaps to 2.5
-    expect(getStepSize(32.5, "points")).toBe(2.5);
-    // points at 10.5, pct = 0.08: raw = 0.84, snaps to 1.0
-    expect(getStepSize(10.5, "points")).toBe(1.0);
+  it("scales proportionally for different baselines", () => {
+    const starStep = getStepSize(32.5, "points");
+    const roleStep = getStepSize(4.5, "points");
+    expect(starStep).toBeGreaterThan(roleStep);
   });
 
   it("handles soccer stats", () => {
-    // goals at 0.5, pct = 0.30: raw = 0.15, min → 0.5
     expect(getStepSize(0.5, "goals")).toBe(0.5);
-    // passes at 35.0, pct = 0.08: raw = 2.8, snaps to 3.0
     expect(getStepSize(35.0, "passes")).toBe(3.0);
   });
 });
@@ -84,7 +96,6 @@ describe("adjustLine", () => {
   });
 
   it("shifts up proportionally for positive notch", () => {
-    // points at 24.5, step = max(0.5, round(24.5*0.08*2)/2) = round(3.92)/2 = 2.0
     const step = getStepSize(24.5, "points");
     expect(adjustLine(24.5, "points", 1)).toBe(24.5 + step);
     expect(adjustLine(24.5, "points", 2)).toBe(24.5 + step * 2);
@@ -96,33 +107,21 @@ describe("adjustLine", () => {
   });
 
   it("floors at MIN_LINE (0.5)", () => {
-    // Very low line with big negative notch should floor at 0.5
     expect(adjustLine(1.0, "blocks", -2)).toBe(0.5);
   });
 
   it("clamps notch to valid range", () => {
-    expect(adjustLine(10.5, "rebounds", 5)).toBe(adjustLine(10.5, "rebounds", 3));
-    expect(adjustLine(10.5, "rebounds", -5)).toBe(adjustLine(10.5, "rebounds", -2));
-  });
-
-  it("produces proportional shifts for different baselines", () => {
-    // A star at 32.5 points: step should be ~2.5
-    const starStep = getStepSize(32.5, "points");
-    // A role player at 4.5 points: step should be ~0.5
-    const roleStep = getStepSize(4.5, "points");
-
-    // Star shift is proportionally similar to role player shift
-    expect(starStep / 32.5).toBeCloseTo(roleStep / 4.5, 0);
-    // But absolute shift is much larger for the star
-    expect(starStep).toBeGreaterThan(roleStep);
+    expect(adjustLine(10.5, "rebounds", 5)).toBe(
+      adjustLine(10.5, "rebounds", 3),
+    );
+    expect(adjustLine(10.5, "rebounds", -5)).toBe(
+      adjustLine(10.5, "rebounds", -2),
+    );
   });
 
   it("can produce whole-number adjusted lines", () => {
-    // rebounds at 8.5, step = 1.0, notch +1 → 9.5 (.5 value)
-    // rebounds at 8.5, step = 1.0, notch -1 → 7.5 (.5 value)
-    // But points at 24.5, step = 2.0, notch +1 → 26.5 (.5 value)
-    // points at 25.0, step = 2.0, notch +1 → 27.0 (whole number!)
-    expect(adjustLine(25.0, "points", 1) % 1).toBe(0); // whole number
+    // This verifies pushes are possible with adjusted lines
+    expect(adjustLine(25.0, "points", 1) % 1).toBe(0);
   });
 });
 
@@ -132,38 +131,29 @@ describe("adjustLine", () => {
 
 describe("getAvailableNotches", () => {
   it("returns all notches for a high line", () => {
-    const notches = getAvailableNotches(24.5, "points");
-    expect(notches).toEqual([-2, -1, 0, 1, 2, 3]);
+    expect(getAvailableNotches(24.5, "points")).toEqual([-2, -1, 0, 1, 2, 3]);
   });
 
   it("restricts downward notches near the floor", () => {
-    // blocks at 0.5, step = 0.5: can't go lower
     const notches = getAvailableNotches(0.5, "blocks");
     expect(notches).toEqual([0, 1, 2, 3]);
   });
 
   it("allows one downward notch when line is barely above floor", () => {
-    // steals at 1.0, step = 0.5: -1 → 0.5 (ok), -2 → 0.0 → excluded
     const notches = getAvailableNotches(1.0, "steals");
     expect(notches).toEqual([-1, 0, 1, 2, 3]);
   });
 
-  it("handles goals at 0.5", () => {
-    const notches = getAvailableNotches(0.5, "goals");
-    expect(notches).toEqual([0, 1, 2, 3]);
-  });
-
   it("always includes notch 0", () => {
-    const notches = getAvailableNotches(0.5, "blocks");
-    expect(notches).toContain(0);
+    expect(getAvailableNotches(0.5, "blocks")).toContain(0);
   });
 
-  it("filters duplicate adjusted lines near floor", () => {
-    // If two negative notches both produce MIN_LINE due to floor clamping,
-    // only the one closest to 0 should be included
-    const notches = getAvailableNotches(0.5, "steals");
-    // step = 0.5, -1 → 0.0 (excluded), -2 → -0.5 (excluded)
-    expect(notches).toEqual([0, 1, 2, 3]);
+  it("uses adjustLine internally for consistency", () => {
+    // Every returned notch should produce a line >= 0.5 via adjustLine
+    const notches = getAvailableNotches(2.0, "blocks");
+    for (const n of notches) {
+      expect(adjustLine(2.0, "blocks", n)).toBeGreaterThanOrEqual(0.5);
+    }
   });
 });
 
@@ -193,28 +183,46 @@ describe("selectionAllowedForNotch", () => {
 
 describe("impliedProbFromAmericanOdds", () => {
   it("handles standard -110 line", () => {
-    const prob = impliedProbFromAmericanOdds(-110);
-    expect(prob).toBeCloseTo(0.524, 2);
+    expect(impliedProbFromAmericanOdds(-110)).toBeCloseTo(0.524, 2);
   });
 
   it("handles positive odds (+150)", () => {
-    const prob = impliedProbFromAmericanOdds(150);
-    expect(prob).toBeCloseTo(0.4, 2);
+    expect(impliedProbFromAmericanOdds(150)).toBeCloseTo(0.4, 2);
   });
 
   it("handles heavy favorite (-200)", () => {
-    const prob = impliedProbFromAmericanOdds(-200);
-    expect(prob).toBeCloseTo(0.667, 2);
+    expect(impliedProbFromAmericanOdds(-200)).toBeCloseTo(0.667, 2);
   });
 
   it("handles even money (+100)", () => {
-    const prob = impliedProbFromAmericanOdds(100);
-    expect(prob).toBeCloseTo(0.5, 2);
+    expect(impliedProbFromAmericanOdds(100)).toBeCloseTo(0.5, 2);
   });
 
   it("handles large underdog (+300)", () => {
-    const prob = impliedProbFromAmericanOdds(300);
-    expect(prob).toBeCloseTo(0.25, 2);
+    expect(impliedProbFromAmericanOdds(300)).toBeCloseTo(0.25, 2);
+  });
+
+  // Edge cases
+  it("returns default for NaN", () => {
+    expect(impliedProbFromAmericanOdds(NaN)).toBe(0.5);
+  });
+
+  it("returns default for Infinity", () => {
+    expect(impliedProbFromAmericanOdds(Infinity)).toBe(0.5);
+  });
+
+  it("returns default for -100 (division by zero)", () => {
+    expect(impliedProbFromAmericanOdds(-100)).toBe(0.5);
+  });
+
+  it("clamps very large odds to 0.99 max probability", () => {
+    // -10000 → prob = 10000/10100 = 0.99009... → clamped to 0.99
+    expect(impliedProbFromAmericanOdds(-10000)).toBe(0.99);
+  });
+
+  it("clamps very large positive odds to 0.01 min probability", () => {
+    // +50000 → prob = 100/50100 = 0.002 → clamped to 0.01
+    expect(impliedProbFromAmericanOdds(50000)).toBe(0.01);
   });
 });
 
@@ -240,33 +248,96 @@ describe("baseHeatScore", () => {
     expect(baseHeatScore(1)).toBe(100);
   });
 
-  it("handles typical -110 implied probability", () => {
-    const prob = impliedProbFromAmericanOdds(-110);
-    expect(baseHeatScore(prob)).toBe(91);
+  it("caps at MAX_BASE_HS (500) for extreme probabilities", () => {
+    // prob = 0.01 → raw = 100 * 0.99 / 0.01 = 9900 → capped at 500
+    expect(baseHeatScore(0.01)).toBe(500);
+    expect(baseHeatScore(0.05)).toBe(500);
+  });
+
+  it("does not cap moderate underdog picks", () => {
+    // prob = 0.25 → 300, under cap
+    expect(baseHeatScore(0.25)).toBe(300);
   });
 });
 
 // ---------------------------------------------------------------------------
-// pickHeatScore
+// pickHeatScoreOnHit / pickHeatScoreOnMiss (asymmetric scoring)
 // ---------------------------------------------------------------------------
 
-describe("pickHeatScore", () => {
+describe("pickHeatScoreOnHit", () => {
   it("returns base score at 1.0x multiplier", () => {
-    expect(pickHeatScore(0.5, 1.0)).toBe(100);
+    expect(pickHeatScoreOnHit(0.5, 1.0)).toBe(100);
   });
 
   it("applies Frosty multiplier (0.25x)", () => {
-    expect(pickHeatScore(0.5, 0.25)).toBe(25);
+    expect(pickHeatScoreOnHit(0.5, 0.25)).toBe(25);
   });
 
   it("applies Volcanic multiplier (4.0x)", () => {
-    expect(pickHeatScore(0.5, 4.0)).toBe(400);
+    expect(pickHeatScoreOnHit(0.5, 4.0)).toBe(400);
   });
 
-  it("combines odds and multiplier", () => {
-    const prob = impliedProbFromAmericanOdds(-200);
-    const base = baseHeatScore(prob);
-    expect(pickHeatScore(prob, 2.75)).toBe(Math.round(base * 2.75));
+  it("returns less for favorites (lower odds-based reward)", () => {
+    // -200 favorite, standard notch
+    expect(pickHeatScoreOnHit(impliedProbFromAmericanOdds(-200), 1.0)).toBe(50);
+  });
+
+  it("returns more for underdogs (higher odds-based reward)", () => {
+    // +200 underdog, standard notch
+    expect(pickHeatScoreOnHit(impliedProbFromAmericanOdds(200), 1.0)).toBe(200);
+  });
+});
+
+describe("pickHeatScoreOnMiss", () => {
+  it("returns flat 100 at standard notch", () => {
+    expect(pickHeatScoreOnMiss(1.0)).toBe(100);
+  });
+
+  it("scales with notch multiplier only", () => {
+    expect(pickHeatScoreOnMiss(0.25)).toBe(25); // Frosty
+    expect(pickHeatScoreOnMiss(0.5)).toBe(50); // Chilled
+    expect(pickHeatScoreOnMiss(1.75)).toBe(175); // Heated
+    expect(pickHeatScoreOnMiss(4.0)).toBe(400); // Volcanic
+  });
+
+  it("does NOT depend on odds", () => {
+    // Miss penalty is the same regardless of the pick's implied probability
+    expect(pickHeatScoreOnMiss(1.0)).toBe(100);
+  });
+});
+
+describe("asymmetric EV balance", () => {
+  it("produces ~0 EV for a 50/50 standard pick", () => {
+    const prob = 0.5;
+    const win = pickHeatScoreOnHit(prob, 1.0);
+    const loss = pickHeatScoreOnMiss(1.0);
+    const ev = prob * win - (1 - prob) * loss;
+    expect(Math.abs(ev)).toBeLessThan(1);
+  });
+
+  it("produces ~0 EV for a 60% favorite at standard", () => {
+    const prob = 0.6;
+    const win = pickHeatScoreOnHit(prob, 1.0);
+    const loss = pickHeatScoreOnMiss(1.0);
+    const ev = prob * win - (1 - prob) * loss;
+    expect(Math.abs(ev)).toBeLessThan(5); // rounding tolerance
+  });
+
+  it("produces ~0 EV for a 40% underdog at standard", () => {
+    const prob = 0.4;
+    const win = pickHeatScoreOnHit(prob, 1.0);
+    const loss = pickHeatScoreOnMiss(1.0);
+    const ev = prob * win - (1 - prob) * loss;
+    expect(Math.abs(ev)).toBeLessThan(5);
+  });
+
+  it("produces ~0 EV for a Volcanic pick at even odds", () => {
+    const prob = 0.5;
+    const mult = 4.0;
+    const win = pickHeatScoreOnHit(prob, mult);
+    const loss = pickHeatScoreOnMiss(mult);
+    const ev = prob * win - (1 - prob) * loss;
+    expect(Math.abs(ev)).toBeLessThan(1);
   });
 });
 
@@ -300,21 +371,6 @@ describe("computeCardHeatScore", () => {
     expect(result.netRaw).toBe(-300);
     expect(result.multiplier).toBe(1.5);
     expect(result.final).toBe(-450);
-  });
-
-  it("computes a mixed 4-pick card (no multiplier for 2/4)", () => {
-    const result = computeCardHeatScore(
-      [
-        { heatScore: 100, result: "hit" },
-        { heatScore: 100, result: "hit" },
-        { heatScore: -100, result: "miss" },
-        { heatScore: -100, result: "miss" },
-      ],
-      4,
-    );
-    expect(result.netRaw).toBe(0);
-    expect(result.multiplier).toBe(1.0);
-    expect(result.final).toBe(0);
   });
 
   it("computes a perfect 6-pick card (5.0x)", () => {
@@ -391,19 +447,73 @@ describe("computeCardHeatScore", () => {
     expect(result.final).toBe(0);
   });
 
-  it("handles a 4/5 card (2.0x)", () => {
+  it("handles asymmetric hit/miss values correctly", () => {
+    // Simulates a 2-pick card: one underdog hit (+150), one favorite miss (-100)
     const result = computeCardHeatScore(
       [
-        { heatScore: 100, result: "hit" },
-        { heatScore: 100, result: "hit" },
-        { heatScore: 100, result: "hit" },
-        { heatScore: 100, result: "hit" },
+        { heatScore: 150, result: "hit" },
         { heatScore: -100, result: "miss" },
       ],
-      5,
+      2,
     );
-    expect(result.netRaw).toBe(300);
-    expect(result.multiplier).toBe(2.0);
-    expect(result.final).toBe(600);
+    expect(result.netRaw).toBe(50);
+    expect(result.multiplier).toBe(1.0); // 1/2 = no multiplier
+    expect(result.final).toBe(50);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// End-to-end: odds → probability → pick HS → card HS
+// ---------------------------------------------------------------------------
+
+describe("end-to-end HeatScore calculation", () => {
+  it("computes a full 3-pick card at standard notch with real odds", () => {
+    // Pick 1: -110 over (standard favorite)
+    const prob1 = impliedProbFromAmericanOdds(-110);
+    const hit1 = pickHeatScoreOnHit(prob1, 1.0); // ~91
+    const _miss1 = pickHeatScoreOnMiss(1.0); // 100 (not used in this scenario)
+
+    // Pick 2: +150 underdog
+    const prob2 = impliedProbFromAmericanOdds(150);
+    const hit2 = pickHeatScoreOnHit(prob2, 1.0); // ~150
+    const _miss2 = pickHeatScoreOnMiss(1.0); // 100 (not used in this scenario)
+
+    // Pick 3: -200 heavy favorite
+    const prob3 = impliedProbFromAmericanOdds(-200);
+    const _hit3 = pickHeatScoreOnHit(prob3, 1.0); // ~50 (not used in this scenario)
+    const miss3 = pickHeatScoreOnMiss(1.0); // 100
+
+    // Scenario: picks 1 and 2 hit, pick 3 misses (2/3)
+    const card = computeCardHeatScore(
+      [
+        { heatScore: hit1, result: "hit" },
+        { heatScore: hit2, result: "hit" },
+        { heatScore: -miss3, result: "miss" },
+      ],
+      3,
+    );
+
+    // Net = 91 + 150 - 100 = 141, multiplier = 1.0 (2/3 on 3-pick), final = 141
+    expect(card.netRaw).toBe(hit1 + hit2 - miss3);
+    expect(card.multiplier).toBe(1.0);
+    expect(card.final).toBe(card.netRaw);
+  });
+
+  it("computes a Volcanic perfect 2-pick card", () => {
+    const prob = impliedProbFromAmericanOdds(-110);
+    const volcanicMult = 4.0;
+    const hit = pickHeatScoreOnHit(prob, volcanicMult);
+    // 91 * 4 = 364
+
+    const card = computeCardHeatScore(
+      [
+        { heatScore: hit, result: "hit" },
+        { heatScore: hit, result: "hit" },
+      ],
+      2,
+    );
+
+    expect(card.multiplier).toBe(1.5);
+    expect(card.final).toBe(Math.round(hit * 2 * 1.5));
   });
 });

@@ -41,27 +41,27 @@ export const MAX_NOTCH = 3;
  * use a larger one.
  */
 export const NOTCH_SHIFT_PCT: Record<StatCategory, number> = {
-  // Basketball
-  points: 0.08,
-  rebounds: 0.10,
-  assists: 0.10,
-  threes: 0.15,
-  pra: 0.07,
-  pts_reb: 0.08,
-  pts_ast: 0.08,
-  reb_ast: 0.10,
-  blocks: 0.20,
-  steals: 0.20,
-  blk_stl: 0.15,
-  turnovers: 0.15,
-  // Soccer
-  goals: 0.30,
-  shots: 0.15,
-  shots_on_target: 0.20,
-  tackles: 0.15,
-  passes: 0.08,
-  fouls_committed: 0.20,
-  saves: 0.20,
+  // Basketball — high-volume stats get lower pct (smaller relative shift)
+  points: 0.08, // ~2pt shift on a 25-line, ~0.5 on a 5-line
+  rebounds: 0.10, // ~1pt shift on a 10-line
+  assists: 0.10, // ~0.5pt shift on a 6-line
+  threes: 0.15, // ~0.5pt shift on a 3-line (higher pct because low volume)
+  pra: 0.07, // ~2.5pt shift on a 35-line (lower pct — already composite)
+  pts_reb: 0.08, // composite stat, similar to points
+  pts_ast: 0.08, // composite stat, similar to points
+  reb_ast: 0.10, // composite stat, mid-range volume
+  blocks: 0.20, // ~0.5pt on a 2-line (high pct — very low volume, volatile)
+  steals: 0.20, // ~0.5pt on a 2-line (same rationale as blocks)
+  blk_stl: 0.15, // composite of two volatile stats
+  turnovers: 0.15, // low volume, fairly volatile
+  // Soccer — generally higher pct because stat lines are lower
+  goals: 0.30, // ~0.5pt on a 1-line (very low volume, binary-ish)
+  shots: 0.15, // ~0.5pt on a 3-line
+  shots_on_target: 0.20, // ~0.5pt on a 2-line
+  tackles: 0.15, // ~0.5pt on a 3-line
+  passes: 0.08, // ~3pt on a 35-line (high volume like points)
+  fouls_committed: 0.20, // ~0.5pt on a 2-line
+  saves: 0.20, // ~0.5pt on a 2-line
 };
 
 /** Minimum shift per notch — ensures at least a 0.5 move. */

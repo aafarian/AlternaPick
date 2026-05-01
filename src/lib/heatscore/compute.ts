@@ -45,9 +45,8 @@ export function getStepSize(
   statCategory: StatCategory,
 ): number {
   const pct = NOTCH_SHIFT_PCT[statCategory];
-  const raw = baseLine * pct;
-  // Snap to nearest 0.5, with a floor of MIN_STEP
-  return Math.max(MIN_STEP, Math.round(raw * 2) / 2);
+  const unsnapped = baseLine * pct;
+  return Math.max(MIN_STEP, Math.round(unsnapped * 2) / 2);
 }
 
 /**
@@ -58,7 +57,7 @@ export function getStepSize(
  * - Shift is percentage-based and snapped to 0.5 increments
  * - Result is floored at `MIN_LINE` (0.5)
  * - Notch is clamped to [MIN_NOTCH, MAX_NOTCH]
- * - Adjusted lines may be whole numbers (pushes are handled as voids)
+ * - Adjusted lines may land on whole numbers — pushes are treated as voids
  */
 export function adjustLine(
   baseLine: number,
@@ -75,9 +74,9 @@ export function adjustLine(
  * Return the array of valid notch values for a given base line and stat,
  * respecting the MIN_LINE floor.
  *
- * A notch is excluded when the shift would drop the line below MIN_LINE.
- * Also excludes notches that produce the same adjusted line as a closer-
- * to-zero notch (can happen when step is small and floor kicks in).
+ * A notch is excluded when it produces a duplicate adjusted line (meaning
+ * the floor clamped it to the same value as a less-extreme notch) or when
+ * the adjusted line would be below MIN_LINE before clamping.
  */
 export function getAvailableNotches(
   baseLine: number,
@@ -87,14 +86,13 @@ export function getAvailableNotches(
   const notches: number[] = [];
   const seen = new Set<number>();
   for (let n = MIN_NOTCH; n <= MAX_NOTCH; n++) {
-    const adjusted = Math.max(MIN_LINE, baseLine + n * step);
-    // Skip if this notch produces the same line as one already included
-    // (happens near the floor for negative notches)
+    const adjusted = adjustLine(baseLine, statCategory, n);
+    // Exclude if the raw (pre-floor) shift drops below MIN_LINE
+    if (baseLine + n * step < MIN_LINE) continue;
+    // Exclude if this produces the same adjusted line as one already included
     if (n !== 0 && seen.has(adjusted)) continue;
-    if (baseLine + n * step >= MIN_LINE) {
-      notches.push(n);
-      seen.add(adjusted);
-    }
+    notches.push(n);
+    seen.add(adjusted);
   }
   return notches;
 }
@@ -114,39 +112,76 @@ export function selectionAllowedForNotch(
 // Odds → probability → HeatScore
 // ---------------------------------------------------------------------------
 
+/** Maximum base HeatScore — prevents extreme outliers from game-breaking scores. */
+const MAX_BASE_HS = 500;
+
+/** Default probability used when odds are missing or degenerate. */
+const DEFAULT_PROB = 0.5;
+
 /**
  * Convert American odds to implied probability.
  *
  *   Negative odds (e.g. -110): prob = |odds| / (|odds| + 100)
  *   Positive odds (e.g. +150): prob = 100 / (odds + 100)
  *
- * Returns a value between 0 and 1 (exclusive).
+ * Guards against degenerate inputs (NaN, Infinity, -100 which causes
+ * division by zero). Returns a value clamped to [0.01, 0.99].
  */
 export function impliedProbFromAmericanOdds(americanOdds: number): number {
-  if (americanOdds < 0) {
-    return Math.abs(americanOdds) / (Math.abs(americanOdds) + 100);
+  if (!Number.isFinite(americanOdds) || americanOdds === -100) {
+    return DEFAULT_PROB;
   }
-  return 100 / (americanOdds + 100);
+
+  let prob: number;
+  if (americanOdds < 0) {
+    prob = Math.abs(americanOdds) / (Math.abs(americanOdds) + 100);
+  } else {
+    prob = 100 / (americanOdds + 100);
+  }
+
+  // Clamp to avoid edge-case 0 or 1 probabilities
+  return Math.max(0.01, Math.min(0.99, prob));
 }
 
 /**
  * Base HeatScore from implied probability.
  * At 50/50 (prob = 0.5) this returns 100.
  * Lower probability → higher score (harder pick is worth more).
+ * Capped at MAX_BASE_HS to prevent game-breaking outliers.
  */
 export function baseHeatScore(impliedProb: number): number {
   if (impliedProb <= 0 || impliedProb >= 1) return 100;
-  return Math.round((100 * (1 - impliedProb)) / impliedProb);
+  return Math.min(MAX_BASE_HS, Math.round((100 * (1 - impliedProb)) / impliedProb));
 }
 
 /**
- * Per-pick HeatScore: base score scaled by notch multiplier.
+ * HeatScore earned on a HIT — base score scaled by notch multiplier.
+ * This is the variable "win" amount in the asymmetric scoring model.
  */
-export function pickHeatScore(
+export function pickHeatScoreOnHit(
   impliedProb: number,
   notchMultiplier: number,
 ): number {
   return Math.round(baseHeatScore(impliedProb) * notchMultiplier);
+}
+
+/**
+ * HeatScore lost on a MISS — fixed base (100) scaled by notch multiplier.
+ * This is the fixed "risk" amount in the asymmetric scoring model.
+ *
+ * Why asymmetric: symmetric win/loss (same amount for hit and miss) creates
+ * positive EV for favorites and negative EV for underdogs. By fixing the
+ * loss at 100 × notchMultiplier, the EV is ~0 regardless of odds:
+ *
+ *   EV = prob × winHS - (1 - prob) × lossHS
+ *      = prob × (base × mult) - (1 - prob) × (100 × mult)
+ *      = mult × [prob × base - (1 - prob) × 100]
+ *      = mult × [prob × 100×(1-p)/p - (1-p) × 100]
+ *      = mult × [100×(1-p) - 100×(1-p)]
+ *      = 0
+ */
+export function pickHeatScoreOnMiss(notchMultiplier: number): number {
+  return Math.round(100 * notchMultiplier);
 }
 
 // ---------------------------------------------------------------------------
@@ -155,7 +190,12 @@ export function pickHeatScore(
 
 /** Input for a single pick when computing the card-level score. */
 export interface CardPickInput {
-  /** Signed HeatScore for this pick (+HS on hit, -HS on miss). */
+  /**
+   * Signed HeatScore for this pick:
+   * - Hit picks: positive value from `pickHeatScoreOnHit`
+   * - Miss picks: negative value from `-pickHeatScoreOnMiss`
+   * - DNP/push picks: 0 (excluded from scoring)
+   */
   heatScore: number;
   result: PickResult;
 }
@@ -185,8 +225,7 @@ export function computeCardHeatScore(
   const hits = scoreable.filter((p) => p.result === "hit").length;
   const netRaw = scoreable.reduce((sum, p) => sum + p.heatScore, 0);
   const multiplier = getCardMultiplier(
-    // Use actual effective size, not original cardSize, so DNP doesn't
-    // inflate the multiplier tier.
+    // Use effective size so DNP doesn't inflate the multiplier tier.
     Math.min(effectiveSize, cardSize),
     hits,
   );
