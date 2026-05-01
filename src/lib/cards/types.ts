@@ -9,6 +9,10 @@ export interface CardBuilderPick {
   line: number;
   selection: PickSelection;
   game_id: string;
+  /** Notch tier selected (-2 to +3). 0 = Standard (no shift). */
+  notch: number;
+  /** The line after applying the notch shift. Equals `line` when notch is 0. */
+  adjusted_line: number;
 }
 
 export interface ChallengeOpponent {

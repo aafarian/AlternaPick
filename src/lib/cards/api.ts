@@ -53,7 +53,7 @@ export interface CardWithPicks {
 }
 
 export async function createCard(
-  picks: { prop_id: string; selection: PickSelection }[],
+  picks: { prop_id: string; selection: PickSelection; notch?: number; adjusted_line?: number }[],
   anonId?: string,
   challengeId?: string | null,
   gameMode?: string,

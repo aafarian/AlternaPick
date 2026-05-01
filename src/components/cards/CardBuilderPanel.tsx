@@ -172,7 +172,7 @@ export default function CardBuilderPanel() {
 
         const anonId = getAnonymousId();
         await createCard(
-          picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
+          picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection, notch: p.notch, adjusted_line: p.adjusted_line })),
           anonId,
           newChallengeId,
           gameMode,
@@ -244,7 +244,7 @@ export default function CardBuilderPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token: guestToken,
-          picks: picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
+          picks: picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection, notch: p.notch, adjusted_line: p.adjusted_line })),
         }),
       });
 
@@ -269,7 +269,7 @@ export default function CardBuilderPanel() {
     // Guest users: save picks and show auth modal
     if (!user) {
       sessionStorage.setItem("pending_card_picks", JSON.stringify({
-        picks: picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
+        picks: picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection, notch: p.notch, adjusted_line: p.adjusted_line })),
         gameMode,
         cardSize: picks.length,
         challengeId: challengeId ?? undefined,
@@ -319,7 +319,7 @@ export default function CardBuilderPanel() {
       }
 
       await createCard(
-        picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
+        picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection, notch: p.notch, adjusted_line: p.adjusted_line })),
         undefined,
         effectiveChallengeId,
         gameMode,

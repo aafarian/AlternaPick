@@ -239,12 +239,18 @@ export interface QualityPickInput {
   line: number;
   selection: "over" | "under";
   result: "hit" | "miss" | "push" | "dnp" | "pending";
+  /** Notch tier multiplier (1.0 for Standard, up to 4.0 for Volcanic). Amplifies quality tokens. */
+  notchMultiplier?: number;
 }
 
 /**
  * Compute the total quality bonus (flat tokens) for a card.
  * Sums per-pick bonuses for hits and penalties for misses.
  * DNP/push picks are excluded.
+ *
+ * When a pick has a notchMultiplier > 1.0, the quality tokens for
+ * that pick are amplified — rewarding bold play when it pays off,
+ * and penalizing it when it doesn't.
  */
 export function computeQualityBonus(picks: QualityPickInput[]): {
   total: number;
@@ -263,9 +269,10 @@ export function computeQualityBonus(picks: QualityPickInput[]): {
     }
 
     const margin = pickMarginRatio(pick.actualValue, pick.line, pick.selection);
-    const tokens = qualityTokens(margin);
-    perPick.push(tokens);
-    total += tokens;
+    const baseTokens = qualityTokens(margin);
+    const amplified = Math.round(baseTokens * (pick.notchMultiplier ?? 1));
+    perPick.push(amplified);
+    total += amplified;
   }
 
   return { total, perPick };

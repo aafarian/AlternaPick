@@ -34,6 +34,7 @@ import {
   computeCardHeatScore,
   computeFireTokenPayout,
   computeQualityBonus,
+  getNotchTier,
 } from "@/lib/heatscore/compute";
 
 // Re-export pure functions so existing imports from resolution.ts continue to work
@@ -48,6 +49,7 @@ export interface PickResolution {
   selection: "over" | "under";
   actual_value: number | null;
   result: PickResult;
+  notch: number;
 }
 
 export interface ResolutionResult {
@@ -640,6 +642,7 @@ export async function resolveCard(
         selection: pick.selection,
         actual_value: null,
         result: "push",
+        notch: pick.notch ?? 0,
       });
       continue;
     }
@@ -672,6 +675,7 @@ export async function resolveCard(
               selection: remainingPick.selection,
               actual_value: null,
               result: "push",
+              notch: remainingPick.notch ?? 0,
             });
           }
           break; // exit pick loop, resolve the card with what we have
@@ -707,6 +711,7 @@ export async function resolveCard(
             selection: remainingPick.selection,
             actual_value: null,
             result: "push",
+            notch: remainingPick.notch ?? 0,
           });
         }
         continue;
@@ -740,6 +745,7 @@ export async function resolveCard(
         selection: pick.selection,
         actual_value: null,
         result: "dnp",
+        notch: pick.notch ?? 0,
       });
       continue;
     }
@@ -755,6 +761,7 @@ export async function resolveCard(
         selection: pick.selection,
         actual_value: null,
         result: "dnp",
+        notch: pick.notch ?? 0,
       });
       continue;
     }
@@ -765,15 +772,20 @@ export async function resolveCard(
     );
     let result: PickResult;
 
-    if (
-      (pick.selection === "over" && actualValue > pick.props.line) ||
-      (pick.selection === "under" && actualValue < pick.props.line)
+    // Use the adjusted line (notch-shifted) if set, otherwise the original prop line.
+    // Existing picks with adjusted_line=NULL resolve against the original line.
+    const effectiveLine = pick.adjusted_line ?? pick.props.line;
+
+    if (actualValue === effectiveLine) {
+      // Push: actual value exactly equals the line. With notch-shifted lines
+      // landing on whole numbers, pushes are now possible. Treated as a void.
+      result = "push";
+    } else if (
+      (pick.selection === "over" && actualValue > effectiveLine) ||
+      (pick.selection === "under" && actualValue < effectiveLine)
     ) {
       result = "hit";
     } else {
-      // Push (actualValue === line) falls through to "miss". This is intentional:
-      // consensus lines are forced to half-point values (e.g. 18.0 → 18.5) making
-      // pushes against integer stat values impossible in practice.
       result = "miss";
     }
 
@@ -782,10 +794,11 @@ export async function resolveCard(
       prop_id: pick.prop_id,
       player_name: pick.props.player_name,
       stat_category: pick.props.stat_category,
-      line: pick.props.line,
+      line: effectiveLine,
       selection: pick.selection,
       actual_value: actualValue,
       result,
+      notch: pick.notch ?? 0,
     });
   }
 
@@ -810,6 +823,7 @@ export async function resolveCard(
         line: p.line,
         selection: p.selection,
         result: p.result,
+        notchMultiplier: getNotchTier(p.notch ?? 0).multiplier,
       })),
     );
     qualityBonus = qualityResult.total;

@@ -65,6 +65,8 @@ export default function PropLine({
         line,
         selection: side,
         game_id: gameId,
+        notch: 0,
+        adjusted_line: line,
       });
     } else {
       addPick({
@@ -75,6 +77,8 @@ export default function PropLine({
         line,
         selection: side,
         game_id: gameId,
+        notch: 0,
+        adjusted_line: line,
       });
     }
   }
