@@ -114,14 +114,10 @@ export async function simulateCardHeatScore(
 
   const hitCount = picks.filter((p) => p.result === "hit").length;
   const missCount = picks.filter((p) => p.result === "miss").length;
-  const dnpCount = picks.filter(
-    (p) => p.result === "dnp" || p.result === "push",
-  ).length;
 
   const cardResult = computeCardHeatScore(
     hitCount,
     missCount,
-    dnpCount,
     card.card_size,
   );
 

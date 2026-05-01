@@ -275,52 +275,62 @@ describe("getHeatScoreMultiplier", () => {
 
 describe("computeCardHeatScore", () => {
   it("computes a perfect 2-pick card", () => {
-    const result = computeCardHeatScore(2, 0, 0, 2);
+    const result = computeCardHeatScore(2, 0, 2);
     expect(result.hits).toBe(2);
     expect(result.effectiveSize).toBe(2);
     expect(result.multiplier).toBe(2.2);
   });
 
   it("computes a perfect 6-pick card", () => {
-    const result = computeCardHeatScore(6, 0, 0, 6);
+    const result = computeCardHeatScore(6, 0, 6);
     expect(result.multiplier).toBe(12.0);
   });
 
   it("computes a 4/6 card", () => {
-    const result = computeCardHeatScore(4, 2, 0, 6);
+    const result = computeCardHeatScore(4, 2, 6);
     expect(result.effectiveSize).toBe(6);
     expect(result.multiplier).toBe(0.7);
   });
 
   it("computes a 0-hit card as 0x (total wager loss)", () => {
-    const result = computeCardHeatScore(0, 3, 0, 3);
+    const result = computeCardHeatScore(0, 3, 3);
     expect(result.multiplier).toBe(0);
   });
 
   it("excludes DNP from effective card size", () => {
     // 3-pick card with 1 DNP → effectively 2-pick
-    const result = computeCardHeatScore(2, 0, 1, 3);
+    const result = computeCardHeatScore(2, 0, 3);
     expect(result.effectiveSize).toBe(2);
     expect(result.multiplier).toBe(2.2); // Perfect 2-pick = 2.2x
   });
 
   it("returns 0 multiplier when all picks are DNP", () => {
-    const result = computeCardHeatScore(0, 0, 3, 3);
+    const result = computeCardHeatScore(0, 0, 3);
     expect(result.effectiveSize).toBe(0);
     expect(result.multiplier).toBe(0);
   });
 
   it("handles 5/6 card", () => {
-    const result = computeCardHeatScore(5, 1, 0, 6);
+    const result = computeCardHeatScore(5, 1, 6);
     expect(result.multiplier).toBe(3.0);
   });
 
+  it("returns 0x for unsupported 1-pick cards", () => {
+    const result = computeCardHeatScore(1, 0, 1);
+    expect(result.multiplier).toBe(0);
+  });
+
+  it("returns 0x for unsupported 7-pick cards", () => {
+    const result = computeCardHeatScore(7, 0, 7);
+    expect(result.multiplier).toBe(0);
+  });
+
   it("handles 1-hit cards as 0x across all sizes", () => {
-    expect(computeCardHeatScore(1, 1, 0, 2).multiplier).toBe(0.3);
-    expect(computeCardHeatScore(1, 2, 0, 3).multiplier).toBe(0.1);
-    expect(computeCardHeatScore(1, 3, 0, 4).multiplier).toBe(0.05);
-    expect(computeCardHeatScore(1, 4, 0, 5).multiplier).toBe(0);
-    expect(computeCardHeatScore(1, 5, 0, 6).multiplier).toBe(0);
+    expect(computeCardHeatScore(1, 1, 2).multiplier).toBe(0.3);
+    expect(computeCardHeatScore(1, 2, 3).multiplier).toBe(0.1);
+    expect(computeCardHeatScore(1, 3, 4).multiplier).toBe(0.05);
+    expect(computeCardHeatScore(1, 4, 5).multiplier).toBe(0);
+    expect(computeCardHeatScore(1, 5, 6).multiplier).toBe(0);
   });
 });
 
@@ -377,23 +387,23 @@ describe("EV balance verification", () => {
   }
 
   it("2-pick card has E[return] ≈ 0.70 at 50% hit rate", () => {
-    expect(expectedReturn(2, 0.5)).toBeCloseTo(0.70, 1);
+    expect(expectedReturn(2, 0.5)).toBeCloseTo(0.70, 2);
   });
 
   it("3-pick card has E[return] ≈ 0.70 at 50% hit rate", () => {
-    expect(expectedReturn(3, 0.5)).toBeCloseTo(0.70, 1);
+    expect(expectedReturn(3, 0.5)).toBeCloseTo(0.71, 2);
   });
 
   it("4-pick card has E[return] ≈ 0.70 at 50% hit rate", () => {
-    expect(expectedReturn(4, 0.5)).toBeCloseTo(0.70, 1);
+    expect(expectedReturn(4, 0.5)).toBeCloseTo(0.70, 2);
   });
 
   it("5-pick card has E[return] ≈ 0.70 at 50% hit rate", () => {
-    expect(expectedReturn(5, 0.5)).toBeCloseTo(0.70, 1);
+    expect(expectedReturn(5, 0.5)).toBeCloseTo(0.69, 2);
   });
 
   it("6-pick card has E[return] ≈ 0.70 at 50% hit rate", () => {
-    expect(expectedReturn(6, 0.5)).toBeCloseTo(0.70, 1);
+    expect(expectedReturn(6, 0.5)).toBeCloseTo(0.71, 2);
   });
 
   it("all card sizes have the same E[return] within tolerance", () => {

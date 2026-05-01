@@ -154,7 +154,8 @@ export interface CardHeatScoreResult {
  * Compute the HeatScore multiplier for a resolved card.
  *
  * HeatScore is a multiplier (0x to 12x) based on how many picks hit
- * relative to the effective card size. DNP and push picks are excluded.
+ * relative to the effective card size. DNP and push picks are excluded —
+ * only pass hits and misses (not DNP/push counts).
  *
  * The multiplier is looked up from a balanced table where E[return] ≈ 0.70
  * at 50% hit rate for all card sizes, ensuring no card size is inherently
@@ -163,7 +164,6 @@ export interface CardHeatScoreResult {
 export function computeCardHeatScore(
   hits: number,
   misses: number,
-  dnpCount: number,
   cardSize: number,
 ): CardHeatScoreResult {
   const effectiveSize = hits + misses;

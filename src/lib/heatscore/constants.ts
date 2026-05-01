@@ -79,7 +79,9 @@ export const MIN_STEP = 0.5;
 // sustains or grows their token balance.
 //
 // 0 hits and 1 hit always return 0x (total loss of wager).
-// Break-even falls at roughly 67% hits for every card size.
+// Break-even hit rates: ~67% (2-pick), ~63% (3-pick), ~58% (4-pick),
+// ~57% (5-pick), ~55% (6-pick). Larger cards are slightly easier to
+// break even on due to more scoring opportunities.
 // ---------------------------------------------------------------------------
 
 const HEATSCORE_TABLE: Record<number, Record<number, number>> = {

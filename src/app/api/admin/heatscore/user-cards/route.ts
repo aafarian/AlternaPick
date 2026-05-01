@@ -58,7 +58,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       userId: profile.id,
-      username: profile.username ?? profile.email,
+      username: profile.username ?? "(no username)",
       cards: cards.map((c) => ({
         id: c.id,
         score: c.score,
