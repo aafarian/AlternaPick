@@ -89,23 +89,30 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
           </span>
         )}
 
-        {/* Line */}
-        <span className="text-sm font-bold tabular-nums">
-          {pick.line ?? "\u2014"}
-        </span>
-
-        {/* Notch tier badge */}
-        {pick.notch != null && pick.notch !== 0 && (() => {
-          const tier = getNotchTier(pick.notch);
-          const colors = TIER_COLORS[tier.color] ?? TIER_COLORS.neutral;
+        {/* Line + notch tier */}
+        {(() => {
+          const hasNotch = pick.notch != null && pick.notch !== 0;
+          const tier = hasNotch ? getNotchTier(pick.notch!) : null;
+          const colors = tier ? (TIER_COLORS[tier.color] ?? TIER_COLORS.neutral) : null;
           return (
-            <span className={cn(
-              "rounded-full px-1.5 py-0 text-[9px] font-bold leading-tight",
-              colors.bg,
-              colors.text,
-            )}>
-              {tier.label}
-            </span>
+            <>
+              <span className={cn(
+                "text-sm font-bold tabular-nums",
+                hasNotch && colors?.numberTint,
+              )}>
+                {pick.line ?? "\u2014"}
+              </span>
+              {hasNotch && tier && colors && (
+                <span className={cn(
+                  "rounded-full border px-1.5 py-0 text-[9px] font-bold leading-tight",
+                  colors.bg,
+                  colors.text,
+                  colors.border,
+                )}>
+                  {tier.label}
+                </span>
+              )}
+            </>
           );
         })()}
 
@@ -223,13 +230,19 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
                   {pick.current_value}
                 </span>
                 <span className="text-[10px] text-muted-foreground/40">/</span>
-                <span className="text-xs tabular-nums text-muted-foreground/60">
+                <span className={cn(
+                  "text-xs tabular-nums text-muted-foreground/60",
+                  pick.notch != null && pick.notch !== 0 && (TIER_COLORS[getNotchTier(pick.notch).color]?.numberTint),
+                )}>
                   {pick.line}
                 </span>
               </span>
             ) : (
               <span className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                <span className={cn(
+                  "text-xs font-semibold tabular-nums text-muted-foreground",
+                  pick.notch != null && pick.notch !== 0 && (TIER_COLORS[getNotchTier(pick.notch).color]?.numberTint),
+                )}>
                   {pick.line}
                 </span>
                 {d.isAwaitingLive && (
