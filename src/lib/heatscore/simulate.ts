@@ -1,12 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PickResult, PickSelection, StatCategory } from "@/lib/supabase/types";
-import {
-  impliedProbFromAmericanOdds,
-  baseHeatScore,
-  pickHeatScoreOnHit,
-  pickHeatScoreOnMiss,
-  computeCardHeatScore,
-} from "./compute";
+import { computeCardHeatScore, computeFireTokenPayout } from "./compute";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -20,18 +14,6 @@ export interface SimulatedPick {
   selection: PickSelection;
   result: PickResult;
   actualValue: number | null;
-  overOdds: number | null;
-  underOdds: number | null;
-  impliedProb: number;
-  baseHS: number;
-  /** The notch-adjusted HeatScore earned on a hit (unsigned). */
-  hitHS: number;
-  /** The notch-adjusted HeatScore lost on a miss (unsigned). */
-  missHS: number;
-  /** Signed HeatScore: positive if hit, negative if miss, 0 if DNP/push. */
-  signedHS: number;
-  /** Whether odds were estimated (defaulted to 50/50) or actual. */
-  oddsSource: "actual" | "estimated";
 }
 
 export interface SimulationResult {
@@ -40,9 +22,13 @@ export interface SimulationResult {
   score: number;
   totalPicks: number;
   picks: SimulatedPick[];
-  netRaw: number;
-  cardMultiplier: number;
-  finalHeatScore: number;
+  hits: number;
+  effectiveSize: number;
+  heatScoreMultiplier: number;
+  /** Simulated wager for demo purposes (100 tokens). */
+  simulatedWager: number;
+  /** Simulated payout: simulatedWager x heatScoreMultiplier. */
+  simulatedPayout: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -66,8 +52,6 @@ type SimPickRow = {
     player_name: string;
     stat_category: StatCategory;
     line: number;
-    over_odds: number | null;
-    under_odds: number | null;
   };
 };
 
@@ -75,12 +59,12 @@ type SimPickRow = {
 // Simulator
 // ---------------------------------------------------------------------------
 
+const DEMO_WAGER = 100;
+
 /**
- * Simulate the HeatScore for an existing resolved card.
- *
- * All picks are treated as notch=0 (standard line) since the notch column
- * doesn't exist on existing picks yet. This shows what the HeatScore
- * *would have been* for the card as-is.
+ * Simulate the HeatScore multiplier and Fire Token payout for an existing
+ * resolved card. Uses a demo wager of 100 tokens to show what the payout
+ * would have been.
  */
 export async function simulateCardHeatScore(
   cardId: string,
@@ -108,7 +92,7 @@ export async function simulateCardHeatScore(
     supabase.from("picks") as any
   )
     .select(
-      "id, selection, result, actual_value, prop:props!inner(player_name, stat_category, line, over_odds, under_odds)",
+      "id, selection, result, actual_value, prop:props!inner(player_name, stat_category, line)",
     )
     .eq("card_id", cardId);
 
@@ -118,55 +102,32 @@ export async function simulateCardHeatScore(
 
   const picks = (picksData as SimPickRow[] | null) ?? [];
 
-  // Standard notch for all existing picks
-  const notchMultiplier = 1.0;
+  const simulatedPicks: SimulatedPick[] = picks.map((pick) => ({
+    pickId: pick.id,
+    playerName: pick.prop.player_name,
+    statCategory: pick.prop.stat_category,
+    originalLine: pick.prop.line,
+    selection: pick.selection,
+    result: pick.result,
+    actualValue: pick.actual_value,
+  }));
 
-  const simulatedPicks: SimulatedPick[] = picks.map((pick) => {
-    const odds =
-      pick.selection === "over"
-        ? pick.prop.over_odds
-        : pick.prop.under_odds;
-    const hasOdds = odds !== null;
-    const impliedProb = hasOdds
-      ? impliedProbFromAmericanOdds(odds)
-      : 0.5;
-
-    const base = baseHeatScore(impliedProb);
-    const hitHS = pickHeatScoreOnHit(impliedProb, notchMultiplier);
-    const missHS = pickHeatScoreOnMiss(notchMultiplier);
-
-    let signedHS = 0;
-    if (pick.result === "hit") {
-      signedHS = hitHS;
-    } else if (pick.result === "miss") {
-      signedHS = -missHS;
-    }
-
-    return {
-      pickId: pick.id,
-      playerName: pick.prop.player_name,
-      statCategory: pick.prop.stat_category,
-      originalLine: pick.prop.line,
-      selection: pick.selection,
-      result: pick.result,
-      actualValue: pick.actual_value,
-      overOdds: pick.prop.over_odds,
-      underOdds: pick.prop.under_odds,
-      impliedProb,
-      baseHS: base,
-      hitHS,
-      missHS,
-      signedHS,
-      oddsSource: hasOdds ? "actual" : "estimated",
-    };
-  });
+  const hitCount = picks.filter((p) => p.result === "hit").length;
+  const missCount = picks.filter((p) => p.result === "miss").length;
+  const dnpCount = picks.filter(
+    (p) => p.result === "dnp" || p.result === "push",
+  ).length;
 
   const cardResult = computeCardHeatScore(
-    simulatedPicks.map((p) => ({
-      heatScore: p.signedHS,
-      result: p.result,
-    })),
+    hitCount,
+    missCount,
+    dnpCount,
     card.card_size,
+  );
+
+  const simulatedPayout = computeFireTokenPayout(
+    DEMO_WAGER,
+    cardResult.multiplier,
   );
 
   return {
@@ -175,8 +136,10 @@ export async function simulateCardHeatScore(
     score: card.score,
     totalPicks: card.total_picks,
     picks: simulatedPicks,
-    netRaw: cardResult.netRaw,
-    cardMultiplier: cardResult.multiplier,
-    finalHeatScore: cardResult.final,
+    hits: cardResult.hits,
+    effectiveSize: cardResult.effectiveSize,
+    heatScoreMultiplier: cardResult.multiplier,
+    simulatedWager: DEMO_WAGER,
+    simulatedPayout,
   };
 }
