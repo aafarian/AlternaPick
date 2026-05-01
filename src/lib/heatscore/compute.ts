@@ -1,7 +1,8 @@
 import type { StatCategory, PickResult } from "@/lib/supabase/types";
 import {
   NOTCH_TIERS,
-  STAT_STEP_SIZES,
+  NOTCH_SHIFT_PCT,
+  MIN_STEP,
   MIN_LINE,
   MIN_NOTCH,
   MAX_NOTCH,
@@ -32,12 +33,32 @@ export function getNotchTier(notch: number) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Compute the per-notch step size for a given line and stat category.
+ *
+ * The shift is percentage-based (`line × pct`), with a minimum of MIN_STEP
+ * (0.5) to ensure every notch produces a meaningful change. The result is
+ * snapped to the nearest 0.5 increment so adjusted lines are always on
+ * clean half-point or whole-number boundaries.
+ */
+export function getStepSize(
+  baseLine: number,
+  statCategory: StatCategory,
+): number {
+  const pct = NOTCH_SHIFT_PCT[statCategory];
+  const raw = baseLine * pct;
+  // Snap to nearest 0.5, with a floor of MIN_STEP
+  return Math.max(MIN_STEP, Math.round(raw * 2) / 2);
+}
+
+/**
  * Compute the adjusted line after applying a notch shift.
  *
  * - Positive notch → line increases (harder over)
  * - Negative notch → line decreases (easier over)
+ * - Shift is percentage-based and snapped to 0.5 increments
  * - Result is floored at `MIN_LINE` (0.5)
  * - Notch is clamped to [MIN_NOTCH, MAX_NOTCH]
+ * - Adjusted lines may be whole numbers (pushes are handled as voids)
  */
 export function adjustLine(
   baseLine: number,
@@ -45,7 +66,7 @@ export function adjustLine(
   notch: number,
 ): number {
   const clamped = Math.max(MIN_NOTCH, Math.min(MAX_NOTCH, notch));
-  const step = STAT_STEP_SIZES[statCategory];
+  const step = getStepSize(baseLine, statCategory);
   const shifted = baseLine + clamped * step;
   return Math.max(MIN_LINE, shifted);
 }
@@ -54,20 +75,25 @@ export function adjustLine(
  * Return the array of valid notch values for a given base line and stat,
  * respecting the MIN_LINE floor.
  *
- * A notch is excluded when the raw (unclamped) shift would drop the line
- * below MIN_LINE — i.e., the floor would override the intended shift and
- * the user wouldn't actually get a different line from a less-negative notch.
+ * A notch is excluded when the shift would drop the line below MIN_LINE.
+ * Also excludes notches that produce the same adjusted line as a closer-
+ * to-zero notch (can happen when step is small and floor kicks in).
  */
 export function getAvailableNotches(
   baseLine: number,
   statCategory: StatCategory,
 ): number[] {
-  const step = STAT_STEP_SIZES[statCategory];
+  const step = getStepSize(baseLine, statCategory);
   const notches: number[] = [];
+  const seen = new Set<number>();
   for (let n = MIN_NOTCH; n <= MAX_NOTCH; n++) {
-    const raw = baseLine + n * step;
-    if (raw >= MIN_LINE) {
+    const adjusted = Math.max(MIN_LINE, baseLine + n * step);
+    // Skip if this notch produces the same line as one already included
+    // (happens near the floor for negative notches)
+    if (n !== 0 && seen.has(adjusted)) continue;
+    if (baseLine + n * step >= MIN_LINE) {
       notches.push(n);
+      seen.add(adjusted);
     }
   }
   return notches;

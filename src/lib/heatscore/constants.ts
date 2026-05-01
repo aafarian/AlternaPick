@@ -24,32 +24,48 @@ export const MIN_NOTCH = -2;
 export const MAX_NOTCH = 3;
 
 // ---------------------------------------------------------------------------
-// Line adjustment step sizes per stat category
+// Line adjustment — percentage-based shift per notch
+//
+// Each notch shifts the line by a percentage of the base line, so a +1 notch
+// on a 32.5-point line (~3.25 shift) is proportionally equivalent to +1 on a
+// 4.5-point line (~0.45 shift). The result is snapped to the nearest 0.5
+// increment (allowing both .0 and .5 values — pushes are handled as voids).
+//
+// A minimum step of 0.5 ensures low-line stats always shift by at least one
+// half-point per notch.
 // ---------------------------------------------------------------------------
 
-export const STAT_STEP_SIZES: Record<StatCategory, number> = {
+/**
+ * Percentage of the base line to shift per notch, per stat category.
+ * Lower-variance stats use a smaller percentage; higher-variance stats
+ * use a larger one.
+ */
+export const NOTCH_SHIFT_PCT: Record<StatCategory, number> = {
   // Basketball
-  points: 2.0,
-  rebounds: 1.0,
-  assists: 1.0,
-  threes: 0.5,
-  pra: 3.0,
-  pts_reb: 2.0,
-  pts_ast: 2.0,
-  reb_ast: 1.5,
-  blocks: 0.5,
-  steals: 0.5,
-  blk_stl: 0.5,
-  turnovers: 0.5,
+  points: 0.08,
+  rebounds: 0.10,
+  assists: 0.10,
+  threes: 0.15,
+  pra: 0.07,
+  pts_reb: 0.08,
+  pts_ast: 0.08,
+  reb_ast: 0.10,
+  blocks: 0.20,
+  steals: 0.20,
+  blk_stl: 0.15,
+  turnovers: 0.15,
   // Soccer
-  goals: 0.5,
-  shots: 0.5,
-  shots_on_target: 0.5,
-  tackles: 1.0,
-  passes: 5.0,
-  fouls_committed: 0.5,
-  saves: 0.5,
+  goals: 0.30,
+  shots: 0.15,
+  shots_on_target: 0.20,
+  tackles: 0.15,
+  passes: 0.08,
+  fouls_committed: 0.20,
+  saves: 0.20,
 };
+
+/** Minimum shift per notch — ensures at least a 0.5 move. */
+export const MIN_STEP = 0.5;
 
 // ---------------------------------------------------------------------------
 // Card-level multipliers — applied to net card score based on hit count

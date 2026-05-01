@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   adjustLine,
+  getStepSize,
   getAvailableNotches,
   selectionAllowedForNotch,
   impliedProbFromAmericanOdds,
@@ -31,6 +32,48 @@ describe("getNotchTier", () => {
 });
 
 // ---------------------------------------------------------------------------
+// getStepSize
+// ---------------------------------------------------------------------------
+
+describe("getStepSize", () => {
+  it("computes percentage-based step for high-line stats", () => {
+    // points at 30.0, pct = 0.08: raw = 2.4, snapped to 2.5
+    expect(getStepSize(30.0, "points")).toBe(2.5);
+  });
+
+  it("computes percentage-based step for low-line stats", () => {
+    // points at 4.5, pct = 0.08: raw = 0.36, snapped to 0.5 (min step)
+    expect(getStepSize(4.5, "points")).toBe(0.5);
+  });
+
+  it("enforces minimum step of 0.5", () => {
+    // rebounds at 2.5, pct = 0.10: raw = 0.25, below min → 0.5
+    expect(getStepSize(2.5, "rebounds")).toBe(0.5);
+  });
+
+  it("snaps to nearest 0.5", () => {
+    // rebounds at 8.5, pct = 0.10: raw = 0.85, snaps to 1.0
+    expect(getStepSize(8.5, "rebounds")).toBe(1.0);
+    // rebounds at 12.5, pct = 0.10: raw = 1.25, snaps to 1.5
+    expect(getStepSize(12.5, "rebounds")).toBe(1.5);
+  });
+
+  it("scales proportionally for high-volume scorers", () => {
+    // points at 32.5, pct = 0.08: raw = 2.6, snaps to 2.5
+    expect(getStepSize(32.5, "points")).toBe(2.5);
+    // points at 10.5, pct = 0.08: raw = 0.84, snaps to 1.0
+    expect(getStepSize(10.5, "points")).toBe(1.0);
+  });
+
+  it("handles soccer stats", () => {
+    // goals at 0.5, pct = 0.30: raw = 0.15, min → 0.5
+    expect(getStepSize(0.5, "goals")).toBe(0.5);
+    // passes at 35.0, pct = 0.08: raw = 2.8, snaps to 3.0
+    expect(getStepSize(35.0, "passes")).toBe(3.0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // adjustLine
 // ---------------------------------------------------------------------------
 
@@ -40,52 +83,46 @@ describe("adjustLine", () => {
     expect(adjustLine(8.5, "rebounds", 0)).toBe(8.5);
   });
 
-  it("shifts up for positive notch using stat step size", () => {
-    // points step = 2.0
-    expect(adjustLine(24.5, "points", 1)).toBe(26.5);
-    expect(adjustLine(24.5, "points", 2)).toBe(28.5);
-    expect(adjustLine(24.5, "points", 3)).toBe(30.5);
+  it("shifts up proportionally for positive notch", () => {
+    // points at 24.5, step = max(0.5, round(24.5*0.08*2)/2) = round(3.92)/2 = 2.0
+    const step = getStepSize(24.5, "points");
+    expect(adjustLine(24.5, "points", 1)).toBe(24.5 + step);
+    expect(adjustLine(24.5, "points", 2)).toBe(24.5 + step * 2);
   });
 
   it("shifts down for negative notch", () => {
-    // rebounds step = 1.0
-    expect(adjustLine(8.5, "rebounds", -1)).toBe(7.5);
-    expect(adjustLine(8.5, "rebounds", -2)).toBe(6.5);
+    const step = getStepSize(8.5, "rebounds");
+    expect(adjustLine(8.5, "rebounds", -1)).toBe(8.5 - step);
   });
 
   it("floors at MIN_LINE (0.5)", () => {
-    // blocks step = 0.5, line = 1.5, notch -2 → 1.5 - 1.0 = 0.5
-    expect(adjustLine(1.5, "blocks", -2)).toBe(0.5);
-    // blocks step = 0.5, line = 1.0, notch -2 → 1.0 - 1.0 = 0.0 → clamped to 0.5
+    // Very low line with big negative notch should floor at 0.5
     expect(adjustLine(1.0, "blocks", -2)).toBe(0.5);
   });
 
   it("clamps notch to valid range", () => {
-    // notch 5 should be clamped to 3
     expect(adjustLine(10.5, "rebounds", 5)).toBe(adjustLine(10.5, "rebounds", 3));
-    // notch -5 should be clamped to -2
     expect(adjustLine(10.5, "rebounds", -5)).toBe(adjustLine(10.5, "rebounds", -2));
   });
 
-  it("handles soccer stats correctly", () => {
-    // goals step = 0.5
-    expect(adjustLine(0.5, "goals", 1)).toBe(1.0);
-    expect(adjustLine(0.5, "goals", 3)).toBe(2.0);
-    // passes step = 5.0
-    expect(adjustLine(35, "passes", 1)).toBe(40);
+  it("produces proportional shifts for different baselines", () => {
+    // A star at 32.5 points: step should be ~2.5
+    const starStep = getStepSize(32.5, "points");
+    // A role player at 4.5 points: step should be ~0.5
+    const roleStep = getStepSize(4.5, "points");
+
+    // Star shift is proportionally similar to role player shift
+    expect(starStep / 32.5).toBeCloseTo(roleStep / 4.5, 0);
+    // But absolute shift is much larger for the star
+    expect(starStep).toBeGreaterThan(roleStep);
   });
 
-  it("handles half-step stats", () => {
-    // threes step = 0.5
-    expect(adjustLine(2.5, "threes", 1)).toBe(3.0);
-    expect(adjustLine(2.5, "threes", -1)).toBe(2.0);
-  });
-
-  it("handles combo stats", () => {
-    // pra step = 3.0
-    expect(adjustLine(35.5, "pra", 2)).toBe(41.5);
-    // reb_ast step = 1.5
-    expect(adjustLine(10.5, "reb_ast", -1)).toBe(9.0);
+  it("can produce whole-number adjusted lines", () => {
+    // rebounds at 8.5, step = 1.0, notch +1 → 9.5 (.5 value)
+    // rebounds at 8.5, step = 1.0, notch -1 → 7.5 (.5 value)
+    // But points at 24.5, step = 2.0, notch +1 → 26.5 (.5 value)
+    // points at 25.0, step = 2.0, notch +1 → 27.0 (whole number!)
+    expect(adjustLine(25.0, "points", 1) % 1).toBe(0); // whole number
   });
 });
 
@@ -100,22 +137,32 @@ describe("getAvailableNotches", () => {
   });
 
   it("restricts downward notches near the floor", () => {
-    // blocks at 1.5, step 0.5: -2 → 0.5 (ok), -1 → 1.0 (ok), but if line=0.5:
+    // blocks at 0.5, step = 0.5: can't go lower
     const notches = getAvailableNotches(0.5, "blocks");
-    // -2 → 0.5 - 1.0 = -0.5 → below 0.5, excluded
-    // -1 → 0.5 - 0.5 = 0.0 → below 0.5, excluded
     expect(notches).toEqual([0, 1, 2, 3]);
   });
 
   it("allows one downward notch when line is barely above floor", () => {
-    // steals at 1.0, step 0.5: -1 → 0.5 (ok), -2 → 0.0 → excluded
+    // steals at 1.0, step = 0.5: -1 → 0.5 (ok), -2 → 0.0 → excluded
     const notches = getAvailableNotches(1.0, "steals");
     expect(notches).toEqual([-1, 0, 1, 2, 3]);
   });
 
   it("handles goals at 0.5", () => {
-    // goals step = 0.5, line = 0.5
     const notches = getAvailableNotches(0.5, "goals");
+    expect(notches).toEqual([0, 1, 2, 3]);
+  });
+
+  it("always includes notch 0", () => {
+    const notches = getAvailableNotches(0.5, "blocks");
+    expect(notches).toContain(0);
+  });
+
+  it("filters duplicate adjusted lines near floor", () => {
+    // If two negative notches both produce MIN_LINE due to floor clamping,
+    // only the one closest to 0 should be included
+    const notches = getAvailableNotches(0.5, "steals");
+    // step = 0.5, -1 → 0.0 (excluded), -2 → -0.5 (excluded)
     expect(notches).toEqual([0, 1, 2, 3]);
   });
 });
@@ -181,12 +228,10 @@ describe("baseHeatScore", () => {
   });
 
   it("returns lower score for favored picks", () => {
-    // 75% → 100 * 0.25 / 0.75 = 33.33 → 33
     expect(baseHeatScore(0.75)).toBe(33);
   });
 
   it("returns higher score for underdog picks", () => {
-    // 25% → 100 * 0.75 / 0.25 = 300
     expect(baseHeatScore(0.25)).toBe(300);
   });
 
@@ -196,7 +241,6 @@ describe("baseHeatScore", () => {
   });
 
   it("handles typical -110 implied probability", () => {
-    // ~52.4% → 100 * 0.476 / 0.524 ≈ 91
     const prob = impliedProbFromAmericanOdds(-110);
     expect(baseHeatScore(prob)).toBe(91);
   });
@@ -220,7 +264,6 @@ describe("pickHeatScore", () => {
   });
 
   it("combines odds and multiplier", () => {
-    // -200 odds → prob ≈ 0.667 → base ≈ 50, × 2.75 (Scorched) ≈ 138
     const prob = impliedProbFromAmericanOdds(-200);
     const base = baseHeatScore(prob);
     expect(pickHeatScore(prob, 2.75)).toBe(Math.round(base * 2.75));
@@ -309,7 +352,6 @@ describe("computeCardHeatScore", () => {
   });
 
   it("excludes DNP picks from sum and effective card size", () => {
-    // 3-pick card with 1 DNP → effectively a 2-pick card
     const result = computeCardHeatScore(
       [
         { heatScore: 100, result: "hit" },
@@ -318,7 +360,6 @@ describe("computeCardHeatScore", () => {
       ],
       3,
     );
-    // Effective size = 2, hits = 2 → perfect 2-pick → 1.5x
     expect(result.netRaw).toBe(200);
     expect(result.multiplier).toBe(1.5);
     expect(result.final).toBe(300);
@@ -334,7 +375,6 @@ describe("computeCardHeatScore", () => {
       ],
       4,
     );
-    // Effective size = 3, hits = 2, misses = 1 → 3-pick with 2 hits → 1.0x
     expect(result.netRaw).toBe(100);
     expect(result.multiplier).toBe(1.0);
     expect(result.final).toBe(100);
