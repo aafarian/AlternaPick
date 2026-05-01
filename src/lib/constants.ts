@@ -400,6 +400,29 @@ export const CATEGORY_LABELS: Record<StatCategory, string> = {
   saves: "Saves",
 };
 
+/** Abbreviated stat labels for dense tables (admin, HeatScore simulator). */
+export const CATEGORY_SHORT_LABELS: Record<StatCategory, string> = {
+  points: "PTS",
+  rebounds: "REB",
+  assists: "AST",
+  threes: "3PM",
+  blocks: "BLK",
+  steals: "STL",
+  turnovers: "TO",
+  pra: "PRA",
+  pts_reb: "P+R",
+  pts_ast: "P+A",
+  reb_ast: "R+A",
+  blk_stl: "B+S",
+  shots: "SHO",
+  shots_on_target: "SOT",
+  tackles: "TKL",
+  passes: "PAS",
+  goals: "GOL",
+  fouls_committed: "FLS",
+  saves: "SAV",
+};
+
 /** Map a raw stat_category key (e.g. "pts_ast") to its human label ("Pts+Ast"). */
 export function catLabel(key: string): string {
   const lower = key.toLowerCase();
