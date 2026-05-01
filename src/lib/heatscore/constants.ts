@@ -128,22 +128,43 @@ export interface QualityTier {
   tokens: number;
 }
 
-/** Bonus tokens for hits that beat the line by a wide margin. */
+/** Bonus tokens for hits that beat the line by a wide margin.
+ *
+ * Tiers based on real margin distribution (1382 picks analyzed):
+ *   0-5%: 6.5% of hits → barely beat, no bonus
+ *   5-10%: 8.1% → slight edge
+ *   10-20%: 25.7% → comfortable (biggest bucket, split at 15%)
+ *   20-35%: 21.5% → solid
+ *   35-50%: 11.7% → strong
+ *   50-80%: 18.4% → crushed it (split at 65%)
+ *   80%+: 8.1% → demolished
+ */
 export const HIT_QUALITY_TIERS: QualityTier[] = [
-  { minMargin: 1.0, tokens: 25 },  // 100%+ margin — demolished the line
-  { minMargin: 0.5, tokens: 15 },  // 50-100% — crushed it
-  { minMargin: 0.25, tokens: 8 },  // 25-50% — solid beat
-  { minMargin: 0.1, tokens: 3 },   // 10-25% — comfortable
-  { minMargin: 0, tokens: 0 },     // 0-10% — barely beat, no bonus
+  { minMargin: 1.0, tokens: 45 },  // 100%+ — doubled the line or more
+  { minMargin: 0.8, tokens: 38 },  // 80-100% — demolished
+  { minMargin: 0.65, tokens: 30 }, // 65-80% — dominant
+  { minMargin: 0.5, tokens: 25 },  // 50-65% — crushed it
+  { minMargin: 0.35, tokens: 20 }, // 35-50% — strong beat
+  { minMargin: 0.25, tokens: 15 }, // 25-35% — solid
+  { minMargin: 0.15, tokens: 10 }, // 15-25% — comfortable
+  { minMargin: 0.1, tokens: 6 },   // 10-15% — decent edge
+  { minMargin: 0.05, tokens: 3 },  // 5-10% — slight edge
+  { minMargin: 0, tokens: 0 },     // 0-5% — barely beat
 ];
 
-/** Penalty tokens for misses that weren't close. */
+/** Penalty tokens for misses. More tiers for finer differentiation.
+ * Penalties are smaller than hit bonuses (asymmetric — reward > punish). */
 export const MISS_QUALITY_TIERS: QualityTier[] = [
-  { minMargin: 1.0, tokens: -25 },
-  { minMargin: 0.5, tokens: -15 },
-  { minMargin: 0.25, tokens: -8 },
-  { minMargin: 0.1, tokens: -3 },
-  { minMargin: 0, tokens: 0 },
+  { minMargin: 1.0, tokens: -30 },  // 100%+ — completely wrong
+  { minMargin: 0.8, tokens: -25 },  // 80-100% — way off
+  { minMargin: 0.65, tokens: -20 }, // 65-80% — bad miss
+  { minMargin: 0.5, tokens: -15 },  // 50-65% — clear miss
+  { minMargin: 0.35, tokens: -10 }, // 35-50% — noticeable miss
+  { minMargin: 0.25, tokens: -8 },  // 25-35% — moderate miss
+  { minMargin: 0.15, tokens: -5 },  // 15-25% — close-ish
+  { minMargin: 0.1, tokens: -3 },   // 10-15% — close
+  { minMargin: 0.05, tokens: -1 },  // 5-10% — very close
+  { minMargin: 0, tokens: 0 },      // 0-5% — barely missed
 ];
 
 // ---------------------------------------------------------------------------
@@ -173,6 +194,13 @@ export const CHALLENGE_WEEKLY_BONUS = 100;
 
 /** Daily login claim amount. */
 export const DAILY_CLAIM = 50;
+
+/**
+ * Maximum number of "easy" notch picks (Frosty + Chilled) per card.
+ * Prevents the exploit of picking all easy lines for guaranteed hits.
+ * Set to 0 to disable the limit.
+ */
+export const MAX_EASY_NOTCH_PICKS = 2;
 
 // ---------------------------------------------------------------------------
 // Challenge token rewards (no wager — flat bonuses)

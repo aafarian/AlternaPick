@@ -59,7 +59,7 @@ export default function PicksTabs({
         </TabsTrigger>
       </TabsList>
 
-      <div className="mt-4">
+      <div className="mx-auto mt-4 max-w-3xl">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}

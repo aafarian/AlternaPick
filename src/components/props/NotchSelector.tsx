@@ -24,6 +24,12 @@ export const TIER_COLORS: Record<string, { text: string; bg: string; border: str
 export { getNotchTier };
 export type { NotchTier };
 
+/** Get the number tint class for a notch value. Returns undefined for Standard. */
+export function notchNumberTint(notch?: number): string | undefined {
+  if (notch == null || notch === 0) return undefined;
+  return TIER_COLORS[getNotchTier(notch).color]?.numberTint;
+}
+
 // ---------------------------------------------------------------------------
 // Component — just the line number with left/right arrows
 // ---------------------------------------------------------------------------
@@ -33,6 +39,8 @@ interface NotchSelectorProps {
   statCategory: StatCategory;
   notch: number;
   onNotchChange: (notch: number, adjustedLine: number) => void;
+  /** Whether shifting to easy (negative) notches is allowed. */
+  canGoEasy?: boolean;
 }
 
 export default function NotchSelector({
@@ -40,6 +48,7 @@ export default function NotchSelector({
   statCategory,
   notch,
   onNotchChange,
+  canGoEasy = true,
 }: NotchSelectorProps) {
   const prefersReduced = useReducedMotion();
   const prevNotchRef = useRef(notch);
@@ -49,7 +58,8 @@ export default function NotchSelector({
   const tier = getNotchTier(notch);
   const colors = TIER_COLORS[tier.color] ?? TIER_COLORS.neutral;
 
-  const canGoLeft = availableNotches.indexOf(notch) > 0;
+  const nextLeftNotch = availableNotches[availableNotches.indexOf(notch) - 1];
+  const canGoLeft = availableNotches.indexOf(notch) > 0 && (nextLeftNotch >= 0 || canGoEasy);
   const canGoRight = availableNotches.indexOf(notch) < availableNotches.length - 1;
 
   function shift(direction: -1 | 1) {

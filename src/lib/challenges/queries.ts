@@ -81,6 +81,7 @@ interface ChallengeCard {
   status: string;
   score: number;
   total_picks: number;
+  heat_score: number | null;
   locked_at: string | null;
   resolved_at: string | null;
   picks: ChallengePick[];
@@ -91,6 +92,8 @@ interface ChallengePick {
   selection: string;
   result: string;
   actual_value: number | null;
+  notch?: number;
+  adjusted_line?: number | null;
   prop: {
     id: string;
     player_name: string;
@@ -262,7 +265,7 @@ export async function getChallenge(
   // Must use admin client to bypass RLS — user can't see opponent's card
   const { data: cards } = await (admin.from("cards") as any)
     .select(
-      "id, user_id, status, score, total_picks, locked_at, resolved_at, picks(id, selection, result, actual_value, prop:props(id, player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport, commence_time)))"
+      "id, user_id, status, score, total_picks, heat_score, locked_at, resolved_at, picks(id, selection, result, actual_value, notch, adjusted_line, prop:props(id, player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport, commence_time)))"
     )
     .eq("challenge_id", challengeId);
 
@@ -272,6 +275,7 @@ export async function getChallenge(
     status: string;
     score: number;
     total_picks: number;
+    heat_score: number | null;
     locked_at: string | null;
     resolved_at: string | null;
     picks: ChallengePick[];
@@ -286,6 +290,7 @@ export async function getChallenge(
       status: card.status,
       score: card.score,
       total_picks: card.total_picks,
+      heat_score: card.heat_score,
       locked_at: card.locked_at,
       resolved_at: card.resolved_at,
       picks: card.picks ?? [],

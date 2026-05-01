@@ -18,7 +18,7 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Flame } from "lucide-react";
+import CardHeatScoreBadge from "@/components/cards/CardHeatScoreBadge";
 import { Separator } from "@/components/ui/separator";
 import { SlideUp, ScaleIn, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
@@ -166,26 +166,11 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
           <span className="text-xs text-muted-foreground">{date}</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* HeatScore + Fire Token info */}
-          {card.heat_score != null && (
-            <Badge variant="outline" className="border-orange-500/30 text-orange-400 text-[10px] px-1.5 py-0">
-              {(card.heat_score / 100).toFixed(1)}x
-            </Badge>
-          )}
-          {card.fire_token_wager != null && (
-            <Badge
-              variant="outline"
-              className="text-[10px] px-1.5 py-0 gap-1 tabular-nums border-orange-500/30 text-orange-400"
-            >
-              <Flame className="h-3 w-3" />
-              -{card.fire_token_wager}
-              {card.fire_token_payout != null && (
-                <span className={card.fire_token_payout > 0 ? "text-emerald-500" : "text-red-400"}>
-                  +{card.fire_token_payout}
-                </span>
-              )}
-            </Badge>
-          )}
+          <CardHeatScoreBadge
+            heatScore={card.heat_score}
+            wager={card.fire_token_wager}
+            payout={card.fire_token_payout}
+          />
           {liveData?.has_live_games && (
             <div className="flex items-center gap-1">
               <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-foreground" />

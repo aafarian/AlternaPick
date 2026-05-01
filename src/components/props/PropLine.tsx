@@ -10,6 +10,7 @@ import PlayerHeadshot from "@/components/props/PlayerHeadshot";
 import NotchSelector from "@/components/props/NotchSelector";
 import NotchBadge from "@/components/props/NotchBadge";
 import { cn } from "@/lib/utils";
+import { MAX_EASY_NOTCH_PICKS } from "@/lib/heatscore/constants";
 
 interface PropLineProps {
   propId: string;
@@ -61,7 +62,16 @@ export default function PropLine({
     }
   }
 
+  // Count easy notch picks already in the card (excluding this prop if selected)
+  const easyNotchCount = state.picks.filter(
+    (p) => p.notch < 0 && p.prop_id !== propId,
+  ).length;
+  const canGoEasy = MAX_EASY_NOTCH_PICKS <= 0 || easyNotchCount < MAX_EASY_NOTCH_PICKS;
+
   function handleNotchChange(newNotch: number, newAdjustedLine: number) {
+    // Block going to easy notch if limit reached
+    if (newNotch < 0 && !canGoEasy && notch >= 0) return;
+
     setNotch(newNotch);
     setCurrentAdjustedLine(newAdjustedLine);
 
@@ -208,6 +218,7 @@ export default function PropLine({
             baseLine={line}
             statCategory={statCategory}
             notch={notch}
+            canGoEasy={canGoEasy}
             onNotchChange={handleNotchChange}
           />
           <span

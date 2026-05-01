@@ -38,7 +38,7 @@ export function getNotchTier(notch: number) {
  * Compute the per-notch step size for a given line and stat category.
  *
  * The shift is percentage-based (`line × pct`), with a minimum of MIN_STEP
- * (0.5) to ensure every notch produces a meaningful change. The result is
+ * (1.0) to ensure every notch produces a meaningful change. The result is
  * snapped to the nearest 0.5 increment so adjusted lines are always on
  * clean half-point or whole-number boundaries.
  */
@@ -182,6 +182,63 @@ export function computeCardHeatScore(
   return { hits, effectiveSize, multiplier };
 }
 
+// ---------------------------------------------------------------------------
+// HeatScore — per-pick additive scoring (challenges + casual)
+//
+// No multiplier table, no bust threshold, no card-level cliffs.
+// Each pick earns/loses points independently based on:
+//   1. Hit or miss (base points)
+//   2. Notch difficulty (scales base)
+//   3. Quality margin (how much you beat/missed the line by)
+//
+// This is used for comparing players' card quality. It's NOT used
+// for Wager Flame token payouts (those use the multiplier table).
+// ---------------------------------------------------------------------------
+
+/** Base points for a correct pick. Scaled by notch multiplier.
+ * Hit = +130 × notchMult. Standard hit = +130, Volcanic hit = +520. */
+const HEATSCORE_HIT_BASE = 130;
+
+/** Input for a single pick when computing challenge HeatScore. */
+export interface HeatScorePickInput {
+  result: "hit" | "miss" | "push" | "dnp" | "pending";
+  notchMultiplier: number;
+  /** Quality tokens for this pick (already notch-amplified). */
+  qualityTokens: number;
+}
+
+/**
+ * Compute per-pick additive HeatScore for a card.
+ *
+ * Formula per scoreable pick:
+ *   hit:  +(HEATSCORE_HIT_BASE × notchMultiplier) + qualityTokens
+ *   miss: qualityTokens only (negative quality = penalty for bad miss)
+ *
+ * DNP/push picks contribute 0.
+ *
+ * Misses have NO flat penalty — they're just missed opportunities.
+ * The only penalty comes from quality (negative tokens for bad margins).
+ * This means:
+ *   - Same hits = same HeatScore regardless of card size
+ *   - Bold picks (Volcanic) are rewarded per hit, not extra-punished per miss
+ *   - Frosty 6/6 (204) < Standard 4/6 (552) — easy perfect loses to real hits
+ *   - Volcanic 3/6 (1860) > Standard 4/6 (552) — hard hits dominate
+ */
+export function computeHeatScore(picks: HeatScorePickInput[]): number {
+  let total = 0;
+
+  for (const pick of picks) {
+    if (pick.result === "hit") {
+      total += Math.round(HEATSCORE_HIT_BASE * pick.notchMultiplier) + pick.qualityTokens;
+    } else if (pick.result === "miss") {
+      total += pick.qualityTokens; // quality penalty only (negative tokens for bad margins)
+    }
+    // DNP/push: 0 contribution
+  }
+
+  return total;
+}
+
 /**
  * Compute the Fire Token payout for a given wager and HeatScore multiplier.
  * Includes an optional quality bonus (from hit/miss margins). Floored at 0.
@@ -199,9 +256,18 @@ export function computeFireTokenPayout(
 // ---------------------------------------------------------------------------
 
 /**
+ * Minimum denominator for margin ratio calculation.
+ * Prevents low-line stats (0.5 threes, 1.5 blocks) from producing
+ * extreme margin ratios. Missing 0.5 by 0.5 should NOT be a 100%
+ * margin — it's barely a miss. With a floor of 5, that becomes 10%.
+ */
+const MARGIN_DENOM_FLOOR = 5;
+
+/**
  * Compute the margin ratio for a single pick.
  * Positive = beat the line, negative = missed the line.
- * Uses the line as denominator for natural cross-stat normalization.
+ * Uses max(line, MARGIN_DENOM_FLOOR) as denominator so low-line stats
+ * don't produce disproportionate quality bonuses/penalties.
  */
 export function pickMarginRatio(
   actualValue: number,
@@ -209,10 +275,11 @@ export function pickMarginRatio(
   selection: "over" | "under",
 ): number {
   if (line === 0) return 0;
+  const denom = Math.max(line, MARGIN_DENOM_FLOOR);
   if (selection === "over") {
-    return (actualValue - line) / line;
+    return (actualValue - line) / denom;
   }
-  return (line - actualValue) / line;
+  return (line - actualValue) / denom;
 }
 
 /**

@@ -6,6 +6,7 @@ import {
   selectionAllowedForNotch,
   impliedProbFromAmericanOdds,
   computeCardHeatScore,
+  computeHeatScore,
   computeFireTokenPayout,
   pickMarginRatio,
   qualityTokens,
@@ -470,6 +471,23 @@ describe("pickMarginRatio", () => {
   it("returns 0 for line of 0", () => {
     expect(pickMarginRatio(5, 0, "over")).toBe(0);
   });
+
+  it("uses denominator floor for low-line stats", () => {
+    // Over 0.5, scored 0 → miss by 0.5, but denom = max(0.5, 5) = 5
+    // margin = (0 - 0.5) / 5 = -0.1 (not -1.0 like without floor)
+    expect(pickMarginRatio(0, 0.5, "over")).toBeCloseTo(-0.1, 2);
+  });
+
+  it("doesn't inflate bonus for low-line hits", () => {
+    // Over 0.5, scored 3 → hit by 2.5, denom = 5
+    // margin = (3 - 0.5) / 5 = 0.5 (not 5.0 like without floor)
+    expect(pickMarginRatio(3, 0.5, "over")).toBeCloseTo(0.5, 2);
+  });
+
+  it("high-line stats unaffected by floor", () => {
+    // Over 24.5, scored 30 → denom = max(24.5, 5) = 24.5 (unchanged)
+    expect(pickMarginRatio(30, 24.5, "over")).toBeCloseTo(0.224, 2);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -477,36 +495,64 @@ describe("pickMarginRatio", () => {
 // ---------------------------------------------------------------------------
 
 describe("qualityTokens", () => {
-  it("returns 0 for barely beat (0-10% margin)", () => {
-    expect(qualityTokens(0.05)).toBe(0);
+  it("returns 0 for barely beat (0-5%)", () => {
+    expect(qualityTokens(0.03)).toBe(0);
   });
 
-  it("returns +3 for 10-25% margin hit", () => {
-    expect(qualityTokens(0.15)).toBe(3);
+  it("returns +3 for slight edge (5-10%)", () => {
+    expect(qualityTokens(0.07)).toBe(3);
   });
 
-  it("returns +8 for 25-50% margin hit", () => {
-    expect(qualityTokens(0.35)).toBe(8);
+  it("returns +6 for decent edge (10-15%)", () => {
+    expect(qualityTokens(0.12)).toBe(6);
   });
 
-  it("returns +15 for 50-100% margin hit", () => {
-    expect(qualityTokens(0.75)).toBe(15);
+  it("returns +10 for comfortable (15-25%)", () => {
+    expect(qualityTokens(0.18)).toBe(10);
   });
 
-  it("returns +25 for 100%+ margin hit (demolished)", () => {
-    expect(qualityTokens(1.5)).toBe(25);
+  it("returns +15 for solid (25-35%)", () => {
+    expect(qualityTokens(0.30)).toBe(15);
   });
 
-  it("returns -3 for 10-25% margin miss", () => {
-    expect(qualityTokens(-0.15)).toBe(-3);
+  it("returns +20 for strong (35-50%)", () => {
+    expect(qualityTokens(0.40)).toBe(20);
   });
 
-  it("returns -25 for 100%+ margin miss (blowout)", () => {
-    expect(qualityTokens(-1.5)).toBe(-25);
+  it("returns +25 for crushed (50-65%)", () => {
+    expect(qualityTokens(0.55)).toBe(25);
   });
 
-  it("returns 0 for barely missed (0-10%)", () => {
-    expect(qualityTokens(-0.05)).toBe(0);
+  it("returns +30 for dominant (65-80%)", () => {
+    expect(qualityTokens(0.70)).toBe(30);
+  });
+
+  it("returns +38 for demolished (80-100%)", () => {
+    expect(qualityTokens(0.90)).toBe(38);
+  });
+
+  it("returns +45 for doubled the line (100%+)", () => {
+    expect(qualityTokens(1.5)).toBe(45);
+  });
+
+  it("returns -1 for very close miss (5-10%)", () => {
+    expect(qualityTokens(-0.07)).toBe(-1);
+  });
+
+  it("returns -3 for close miss (10-15%)", () => {
+    expect(qualityTokens(-0.12)).toBe(-3);
+  });
+
+  it("returns -25 for way off miss (80-100%)", () => {
+    expect(qualityTokens(-0.90)).toBe(-25);
+  });
+
+  it("returns -30 for completely wrong miss (100%+)", () => {
+    expect(qualityTokens(-1.5)).toBe(-30);
+  });
+
+  it("returns 0 for barely missed (0-5%)", () => {
+    expect(qualityTokens(-0.03)).toBe(0);
   });
 });
 
@@ -517,37 +563,146 @@ describe("qualityTokens", () => {
 describe("computeQualityBonus", () => {
   it("sums bonuses for multiple hits", () => {
     const result = computeQualityBonus([
-      { actualValue: 30, line: 22.5, selection: "over", result: "hit" },   // 33% → +8
-      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +25
+      { actualValue: 30, line: 22.5, selection: "over", result: "hit" },   // 33% → +15
+      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +45
     ]);
-    expect(result.total).toBe(33);
-    expect(result.perPick).toEqual([8, 25]);
+    expect(result.total).toBe(60);
+    expect(result.perPick).toEqual([15, 45]);
   });
 
   it("sums penalties for misses", () => {
     const result = computeQualityBonus([
-      { actualValue: 3, line: 22.5, selection: "over", result: "miss" },   // -87% → -15
+      { actualValue: 3, line: 22.5, selection: "over", result: "miss" },   // -87% → -25
       { actualValue: 20, line: 22.5, selection: "over", result: "miss" },  // -11% → -3
     ]);
-    expect(result.total).toBe(-18);
-    expect(result.perPick).toEqual([-15, -3]);
+    expect(result.total).toBe(-28);
+    expect(result.perPick).toEqual([-25, -3]);
   });
 
   it("excludes DNP/push picks", () => {
     const result = computeQualityBonus([
-      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },
+      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +45
       { actualValue: null, line: 22.5, selection: "over", result: "dnp" },
       { actualValue: null, line: 8.5, selection: "under", result: "push" },
     ]);
-    expect(result.total).toBe(25);
-    expect(result.perPick).toEqual([25, 0, 0]);
+    expect(result.total).toBe(45);
+    expect(result.perPick).toEqual([45, 0, 0]);
   });
 
   it("nets hits and misses together", () => {
     const result = computeQualityBonus([
-      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +25
-      { actualValue: 3, line: 22.5, selection: "over", result: "miss" },   // -87% → -15
+      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +45
+      { actualValue: 3, line: 22.5, selection: "over", result: "miss" },   // -87% → -25
     ]);
-    expect(result.total).toBe(10); // +25 - 15
+    expect(result.total).toBe(20); // +45 - 25
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeHeatScore (per-pick additive — for challenges + display)
+// ---------------------------------------------------------------------------
+
+describe("computeHeatScore", () => {
+  it("scores a standard hit at +130", () => {
+    const hs = computeHeatScore([
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 0 },
+    ]);
+    expect(hs).toBe(130);
+  });
+
+  it("scores a volcanic hit at +520 (130 × 4.0)", () => {
+    const hs = computeHeatScore([
+      { result: "hit", notchMultiplier: 4.0, qualityTokens: 0 },
+    ]);
+    expect(hs).toBe(520);
+  });
+
+  it("scores a frosty hit at +33 (130 × 0.25 = 32.5 → 33)", () => {
+    const hs = computeHeatScore([
+      { result: "hit", notchMultiplier: 0.25, qualityTokens: 0 },
+    ]);
+    expect(hs).toBe(33);
+  });
+
+  it("misses contribute only quality tokens (no flat penalty)", () => {
+    const hs = computeHeatScore([
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: -5 },
+    ]);
+    expect(hs).toBe(-5);
+  });
+
+  it("misses with zero quality contribute nothing", () => {
+    const hs = computeHeatScore([
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: 0 },
+    ]);
+    expect(hs).toBe(0);
+  });
+
+  it("DNP and push contribute nothing", () => {
+    const hs = computeHeatScore([
+      { result: "dnp", notchMultiplier: 1.0, qualityTokens: 0 },
+      { result: "push", notchMultiplier: 1.0, qualityTokens: 0 },
+    ]);
+    expect(hs).toBe(0);
+  });
+
+  it("adds quality tokens to hits", () => {
+    const hs = computeHeatScore([
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 15 },
+    ]);
+    expect(hs).toBe(145); // 130 + 15
+  });
+
+  it("computes a mixed 4/6 standard card", () => {
+    const hs = computeHeatScore([
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 10 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 6 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 15 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 0 },
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: -3 },
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: -8 },
+    ]);
+    // 4 hits: 4×130 = 520, quality: 10+6+15+0-3-8 = 20
+    expect(hs).toBe(540);
+  });
+
+  it("volcanic 3/6 beats standard 4/6", () => {
+    const volcanic = computeHeatScore([
+      { result: "hit", notchMultiplier: 4.0, qualityTokens: 20 },
+      { result: "hit", notchMultiplier: 4.0, qualityTokens: 15 },
+      { result: "hit", notchMultiplier: 4.0, qualityTokens: 25 },
+      { result: "miss", notchMultiplier: 4.0, qualityTokens: -10 },
+      { result: "miss", notchMultiplier: 4.0, qualityTokens: -5 },
+      { result: "miss", notchMultiplier: 4.0, qualityTokens: -15 },
+    ]);
+    const standard = computeHeatScore([
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 10 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 6 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 15 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 0 },
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: -3 },
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: -8 },
+    ]);
+    expect(volcanic).toBeGreaterThan(standard);
+  });
+
+  it("same hits = same score regardless of card size", () => {
+    // 4 standard hits on a 4-pick card
+    const fourPick = computeHeatScore([
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 10 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 6 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 15 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 0 },
+    ]);
+    // Same 4 hits on a 6-pick card (2 misses with no quality)
+    const sixPick = computeHeatScore([
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 10 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 6 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 15 },
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 0 },
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: 0 },
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: 0 },
+    ]);
+    expect(fourPick).toBe(sixPick); // Same hits, no miss penalty
   });
 });
