@@ -10,6 +10,8 @@ import PlayerAvatar from "@/components/players/PlayerAvatar";
 import { Badge } from "@/components/ui/badge";
 import { ChevronUp, ChevronDown, Check, X, CheckCircle2, XCircle, Minus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getNotchTier } from "@/lib/heatscore/compute";
+import { TIER_COLORS } from "@/components/props/NotchSelector";
 
 // SVG chevron patterns — fit within h-2 (8px) bar
 const CHEVRON_RIGHT = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpolyline points='2,1 6,4 2,7' fill='none' stroke='rgba(255,255,255,0.28)' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`;
@@ -91,6 +93,21 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
         <span className="text-sm font-bold tabular-nums">
           {pick.line ?? "\u2014"}
         </span>
+
+        {/* Notch tier badge */}
+        {pick.notch != null && pick.notch !== 0 && (() => {
+          const tier = getNotchTier(pick.notch);
+          const colors = TIER_COLORS[tier.color] ?? TIER_COLORS.neutral;
+          return (
+            <span className={cn(
+              "rounded-full px-1.5 py-0 text-[9px] font-bold leading-tight",
+              colors.bg,
+              colors.text,
+            )}>
+              {tier.label}
+            </span>
+          );
+        })()}
 
         {/* Over/Under badge */}
         <Badge
