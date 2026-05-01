@@ -153,8 +153,8 @@ export async function POST(request: Request) {
         userId: card.user_id,
         username: card.user_id ? (profileMap.get(card.user_id) as string) ?? null : null,
         cardId: card.id,
-        score: card.score,
-        totalPicks: card.total_picks,
+        score: hitCount,
+        totalPicks: hitCount + missCount,
         heatScore: rawHeatScore,
         qualityBonus: qualityResult.total,
         picks: picks.map((p, i) => ({
