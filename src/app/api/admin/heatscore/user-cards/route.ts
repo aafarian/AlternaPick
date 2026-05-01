@@ -4,10 +4,11 @@ import { badRequest, handleApiError } from "@/lib/api/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * GET /api/admin/heatscore/user-cards?q=<search>
+ * GET /api/admin/heatscore/user-cards?q=<search>&userId=<id>
  *
- * Search for a user by username or email, then return their resolved cards
- * for use in the HeatScore simulator.
+ * Two modes:
+ * 1. ?q=<search> — search users by username (partial, for autocomplete)
+ * 2. ?userId=<id> — fetch resolved cards for a specific user
  */
 export async function GET(request: Request) {
   try {
@@ -16,57 +17,72 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q")?.trim();
-
-    if (!query || query.length < 2) {
-      return badRequest("Search query must be at least 2 characters");
-    }
+    const userId = searchParams.get("userId")?.trim();
 
     const supabase = createAdminClient();
 
-    // Search profiles by username or email (partial, case-insensitive)
-    const { data: profiles, error: profileError } = await (
-      supabase.from("profiles") as any
-    )
-      .select("id, username, email")
-      .or(`username.ilike.%${query}%,email.ilike.%${query}%`)
-      .limit(1)
-      .single();
+    // Mode 1: Search users by username
+    if (query) {
+      if (query.length < 2) {
+        return badRequest("Search query must be at least 2 characters");
+      }
 
-    if (profileError || !profiles) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      const { data: profiles } = await (supabase.from("profiles") as any)
+        .select("id, username")
+        .ilike("username", `%${query}%`)
+        .not("username", "is", null)
+        .limit(5);
+
+      return NextResponse.json({
+        users: (profiles ?? []).map((p: { id: string; username: string }) => ({
+          userId: p.id,
+          username: p.username,
+        })),
+      });
     }
 
-    const profile = profiles as { id: string; username: string; email: string };
+    // Mode 2: Fetch cards for a specific user
+    if (userId) {
+      const { data: profile } = await (supabase.from("profiles") as any)
+        .select("id, username")
+        .eq("id", userId)
+        .single();
 
-    // Fetch their resolved cards
-    const { data: cardsData } = await (supabase.from("cards") as any)
-      .select("id, score, total_picks, card_size, resolved_at")
-      .eq("user_id", profile.id)
-      .eq("status", "resolved")
-      .order("resolved_at", { ascending: false })
-      .limit(20);
+      if (!profile) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
 
-    const cards = (
-      cardsData as Array<{
-        id: string;
-        score: number;
-        total_picks: number;
-        card_size: number;
-        resolved_at: string;
-      }> | null
-    ) ?? [];
+      const { data: cardsData } = await (supabase.from("cards") as any)
+        .select("id, score, total_picks, card_size, resolved_at")
+        .eq("user_id", userId)
+        .eq("status", "resolved")
+        .order("resolved_at", { ascending: false })
+        .limit(20);
 
-    return NextResponse.json({
-      userId: profile.id,
-      username: profile.username ?? "(no username)",
-      cards: cards.map((c) => ({
-        id: c.id,
-        score: c.score,
-        totalPicks: c.total_picks,
-        cardSize: c.card_size,
-        resolvedAt: c.resolved_at,
-      })),
-    });
+      const cards = (
+        cardsData as Array<{
+          id: string;
+          score: number;
+          total_picks: number;
+          card_size: number;
+          resolved_at: string;
+        }> | null
+      ) ?? [];
+
+      return NextResponse.json({
+        userId: profile.id,
+        username: profile.username ?? "(no username)",
+        cards: cards.map((c) => ({
+          id: c.id,
+          score: c.score,
+          totalPicks: c.total_picks,
+          cardSize: c.card_size,
+          resolvedAt: c.resolved_at,
+        })),
+      });
+    }
+
+    return badRequest("Provide either ?q=<search> or ?userId=<id>");
   } catch (error) {
     return handleApiError(error, "admin/heatscore/user-cards");
   }

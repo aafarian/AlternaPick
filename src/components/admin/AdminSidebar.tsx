@@ -19,7 +19,6 @@ import {
   Settings,
   RefreshCw,
   Menu,
-  Flame,
 } from "lucide-react";
 
 interface AdminNavLink {
@@ -34,7 +33,6 @@ const adminLinks: AdminNavLink[] = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/lookup", label: "Lookup", icon: Search },
   { href: "/admin/system", label: "System", icon: Server },
-  { href: "/admin/heatscore", label: "HeatScore", icon: Flame },
   { href: "/admin/resync", label: "Resync", icon: RefreshCw },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];

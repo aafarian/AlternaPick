@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Card,
   CardContent,
@@ -38,8 +38,13 @@ function resultBadge(result: PickResult) {
 }
 
 // ---------------------------------------------------------------------------
-// User card lookup types
+// Types
 // ---------------------------------------------------------------------------
+
+interface UserSuggestion {
+  userId: string;
+  username: string;
+}
 
 interface UserCardSummary {
   id: string;
@@ -65,11 +70,62 @@ export default function HeatScoreAdmin() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SimulationResult | null>(null);
 
-  // User lookup
+  // User autocomplete
   const [userQuery, setUserQuery] = useState("");
-  const [userLoading, setUserLoading] = useState(false);
-  const [userError, setUserError] = useState<string | null>(null);
-  const [userCards, setUserCards] = useState<UserCardsResult | null>(null);
+  const [suggestions, setSuggestions] = useState<UserSuggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserCardsResult | null>(null);
+  const [cardsLoading, setCardsLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Debounced user search
+  const searchUsers = useCallback(async (q: string) => {
+    if (q.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    setSuggestionsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/heatscore/user-cards?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (res.ok && data.users) {
+        setSuggestions(data.users as UserSuggestion[]);
+      }
+    } catch {
+      // Silently fail autocomplete — not critical
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    if (userQuery.length >= 2) {
+      debounceRef.current = setTimeout(() => searchUsers(userQuery), 300);
+    } else {
+      setSuggestions([]);
+    }
+    return () => clearTimeout(debounceRef.current);
+  }, [userQuery, searchUsers]);
+
+  async function selectUser(user: UserSuggestion) {
+    setUserQuery(user.username);
+    setSuggestions([]);
+    setCardsLoading(true);
+    setSelectedUser(null);
+
+    try {
+      const res = await fetch(`/api/admin/heatscore/user-cards?userId=${user.userId}`);
+      const data = await res.json();
+      if (res.ok) {
+        setSelectedUser(data as UserCardsResult);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setCardsLoading(false);
+    }
+  }
 
   async function handleSimulate(id?: string) {
     const trimmed = (id ?? cardId).trim();
@@ -108,43 +164,9 @@ export default function HeatScoreAdmin() {
     }
   }
 
-  async function handleUserSearch() {
-    const trimmed = userQuery.trim();
-    if (!trimmed) return;
-
-    setUserLoading(true);
-    setUserError(null);
-    setUserCards(null);
-
-    try {
-      const res = await fetch(
-        `/api/admin/heatscore/user-cards?q=${encodeURIComponent(trimmed)}`,
-      );
-
-      let data: Record<string, unknown>;
-      try {
-        data = await res.json();
-      } catch {
-        setUserError("Invalid response from server");
-        return;
-      }
-
-      if (!res.ok) {
-        setUserError((data.error as string) ?? `Error ${res.status}`);
-        return;
-      }
-
-      setUserCards(data as unknown as UserCardsResult);
-    } catch {
-      setUserError("Network error");
-    } finally {
-      setUserLoading(false);
-    }
-  }
-
   return (
     <>
-      {/* ---- User lookup ---- */}
+      {/* ---- User lookup with autocomplete ---- */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -153,42 +175,55 @@ export default function HeatScoreAdmin() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Search by username or email to find a user&apos;s resolved cards, then click one to simulate.
-          </p>
-
-          <div className="flex gap-2">
+          <div className="relative">
             <Input
               value={userQuery}
-              onChange={(e) => setUserQuery(e.target.value)}
-              placeholder="Username or email"
-              className="text-sm"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleUserSearch();
+              onChange={(e) => {
+                setUserQuery(e.target.value);
+                setSelectedUser(null);
               }}
+              placeholder="Search by username..."
+              className="text-sm"
             />
-            <Button onClick={handleUserSearch} disabled={userLoading || !userQuery.trim()}>
-              {userLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
-            </Button>
+            {suggestionsLoading && (
+              <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+
+            {/* Autocomplete dropdown */}
+            {suggestions.length > 0 && !selectedUser && (
+              <div className="absolute z-10 mt-1 w-full rounded-md border border-border bg-card shadow-lg">
+                {suggestions.map((user) => (
+                  <button
+                    key={user.userId}
+                    type="button"
+                    onClick={() => selectUser(user)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-muted/50 first:rounded-t-md last:rounded-b-md"
+                  >
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    {user.username}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {userError && (
-            <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              {userError}
+          {cardsLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading cards...
             </div>
           )}
 
-          {userCards && (
+          {selectedUser && (
             <div className="space-y-2">
               <p className="text-sm font-medium">
-                {userCards.username} — {userCards.cards.length} resolved card{userCards.cards.length !== 1 ? "s" : ""}
+                {selectedUser.username} — {selectedUser.cards.length} resolved card{selectedUser.cards.length !== 1 ? "s" : ""}
               </p>
-              {userCards.cards.length === 0 ? (
+              {selectedUser.cards.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No resolved cards found.</p>
               ) : (
                 <div className="max-h-48 space-y-1 overflow-y-auto">
-                  {userCards.cards.map((card) => (
+                  {selectedUser.cards.map((card) => (
                     <button
                       key={card.id}
                       type="button"
@@ -242,23 +277,6 @@ export default function HeatScoreAdmin() {
           )}
 
           {result && <SimulationResults result={result} />}
-        </CardContent>
-      </Card>
-
-      {/* ---- Rollout settings ---- */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Rollout Settings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Use the{" "}
-            <a href="/admin/settings" className="underline hover:text-foreground">
-              Feature Flags
-            </a>{" "}
-            page to toggle <code className="text-xs bg-muted px-1 py-0.5 rounded">heatscore_enabled</code> and
-            manage the <code className="text-xs bg-muted px-1 py-0.5 rounded">heatscore_allowlist</code>.
-          </p>
         </CardContent>
       </Card>
     </>

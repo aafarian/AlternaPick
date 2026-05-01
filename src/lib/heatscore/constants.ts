@@ -70,7 +70,7 @@ export const MIN_STEP = 0.5;
 // ---------------------------------------------------------------------------
 // HeatScore multiplier table
 //
-// HeatScore is a multiplier (0x to 12x) applied to the user's Fire Token
+// HeatScore is a multiplier (0x to 8x) applied to the user's Fire Token
 // wager. Payout = wager × HeatScore.
 //
 // The table is balanced so that E[return] ≈ 0.70 at a 50% per-pick hit
@@ -78,18 +78,20 @@ export const MIN_STEP = 0.5;
 // card on average, creating the refill loop. A skilled player hitting 60%+
 // sustains or grows their token balance.
 //
-// 0 hits and 1 hit always return 0x (total loss of wager).
-// Break-even hit rates: ~67% (2-pick), ~63% (3-pick), ~58% (4-pick),
-// ~57% (5-pick), ~55% (6-pick). Larger cards are slightly easier to
-// break even on due to more scoring opportunities.
+// Design philosophy: common outcomes (60%+ hit rate) should feel
+// rewarding, not punishing. Value is spread across the curve rather
+// than concentrated in the perfect card.
+//
+// Break-even hit rates: 100% (2-pick), ~67% (3-pick), ~63% (4-pick),
+// ~60% (5-pick), ~58% (6-pick).
 // ---------------------------------------------------------------------------
 
 const HEATSCORE_TABLE: Record<number, Record<number, number>> = {
-  2: { 2: 2.2, 1: 0.3, 0: 0 },
-  3: { 3: 3.0, 2: 0.8, 1: 0.1, 0: 0 },
-  4: { 4: 4.0, 3: 1.3, 2: 0.3, 1: 0.05, 0: 0 },
-  5: { 5: 7.0, 4: 1.8, 3: 0.5, 2: 0.1, 1: 0, 0: 0 },
-  6: { 6: 12.0, 5: 3.0, 4: 0.7, 3: 0.2, 2: 0.05, 1: 0, 0: 0 },
+  2: { 2: 2.0, 1: 0.4, 0: 0 },
+  3: { 3: 2.0, 2: 1.1, 1: 0.1, 0: 0 },
+  4: { 4: 3.2, 3: 1.5, 2: 0.3, 1: 0.05, 0: 0 },
+  5: { 5: 5.0, 4: 2.0, 3: 0.65, 2: 0.1, 1: 0, 0: 0 },
+  6: { 6: 8.0, 5: 2.2, 4: 1.2, 3: 0.25, 2: 0.05, 1: 0, 0: 0 },
 };
 
 /**
