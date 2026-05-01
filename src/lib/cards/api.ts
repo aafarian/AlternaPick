@@ -57,12 +57,14 @@ export async function createCard(
   anonId?: string,
   challengeId?: string | null,
   gameMode?: string,
-  cardSize?: number
+  cardSize?: number,
+  fireTokenWager?: number | null,
 ): Promise<CardWithPicks> {
   const body: Record<string, unknown> = { picks, anon_id: anonId };
   if (challengeId) body.challenge_id = challengeId;
   if (gameMode) body.game_mode = gameMode;
   if (cardSize !== undefined) body.card_size = cardSize;
+  if (fireTokenWager != null) body.fire_token_wager = fireTokenWager;
 
   const response = await fetch("/api/cards", {
     method: "POST",
