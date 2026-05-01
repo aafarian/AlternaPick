@@ -128,18 +128,21 @@ export interface QualityTier {
   tokens: number;
 }
 
-/** Bonus tokens for hits that beat the line by a wide margin. */
+/** Bonus tokens for hits that beat the line by a wide margin.
+ * Amounts are higher to compensate for the MARGIN_DENOM_FLOOR (5)
+ * which dampens margins on low-line stats. */
 export const HIT_QUALITY_TIERS: QualityTier[] = [
-  { minMargin: 1.0, tokens: 25 },  // 100%+ margin — demolished the line
-  { minMargin: 0.5, tokens: 15 },  // 50-100% — crushed it
-  { minMargin: 0.25, tokens: 8 },  // 25-50% — solid beat
-  { minMargin: 0.1, tokens: 3 },   // 10-25% — comfortable
-  { minMargin: 0, tokens: 0 },     // 0-10% — barely beat, no bonus
+  { minMargin: 0.8, tokens: 35 },  // 80%+ margin — demolished the line
+  { minMargin: 0.5, tokens: 25 },  // 50-80% — crushed it
+  { minMargin: 0.25, tokens: 15 }, // 25-50% — solid beat
+  { minMargin: 0.1, tokens: 8 },   // 10-25% — comfortable
+  { minMargin: 0.05, tokens: 3 },  // 5-10% — slight edge
+  { minMargin: 0, tokens: 0 },     // 0-5% — barely beat, no bonus
 ];
 
 /** Penalty tokens for misses that weren't close. */
 export const MISS_QUALITY_TIERS: QualityTier[] = [
-  { minMargin: 1.0, tokens: -25 },
+  { minMargin: 0.8, tokens: -25 },
   { minMargin: 0.5, tokens: -15 },
   { minMargin: 0.25, tokens: -8 },
   { minMargin: 0.1, tokens: -3 },

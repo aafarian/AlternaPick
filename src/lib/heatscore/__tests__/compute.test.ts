@@ -494,32 +494,36 @@ describe("pickMarginRatio", () => {
 // ---------------------------------------------------------------------------
 
 describe("qualityTokens", () => {
-  it("returns 0 for barely beat (0-10% margin)", () => {
-    expect(qualityTokens(0.05)).toBe(0);
+  it("returns 0 for barely beat (0-5% margin)", () => {
+    expect(qualityTokens(0.03)).toBe(0);
   });
 
-  it("returns +3 for 10-25% margin hit", () => {
-    expect(qualityTokens(0.15)).toBe(3);
+  it("returns +3 for slight edge (5-10%)", () => {
+    expect(qualityTokens(0.07)).toBe(3);
   });
 
-  it("returns +8 for 25-50% margin hit", () => {
-    expect(qualityTokens(0.35)).toBe(8);
+  it("returns +8 for comfortable hit (10-25%)", () => {
+    expect(qualityTokens(0.15)).toBe(8);
   });
 
-  it("returns +15 for 50-100% margin hit", () => {
-    expect(qualityTokens(0.75)).toBe(15);
+  it("returns +15 for solid beat (25-50%)", () => {
+    expect(qualityTokens(0.35)).toBe(15);
   });
 
-  it("returns +25 for 100%+ margin hit (demolished)", () => {
-    expect(qualityTokens(1.5)).toBe(25);
+  it("returns +25 for crushed it (50-80%)", () => {
+    expect(qualityTokens(0.65)).toBe(25);
+  });
+
+  it("returns +35 for demolished (80%+)", () => {
+    expect(qualityTokens(0.9)).toBe(35);
   });
 
   it("returns -3 for 10-25% margin miss", () => {
     expect(qualityTokens(-0.15)).toBe(-3);
   });
 
-  it("returns -25 for 100%+ margin miss (blowout)", () => {
-    expect(qualityTokens(-1.5)).toBe(-25);
+  it("returns -25 for 80%+ margin miss (blowout)", () => {
+    expect(qualityTokens(-0.9)).toBe(-25);
   });
 
   it("returns 0 for barely missed (0-10%)", () => {
@@ -534,37 +538,37 @@ describe("qualityTokens", () => {
 describe("computeQualityBonus", () => {
   it("sums bonuses for multiple hits", () => {
     const result = computeQualityBonus([
-      { actualValue: 30, line: 22.5, selection: "over", result: "hit" },   // 33% → +8
-      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +25
+      { actualValue: 30, line: 22.5, selection: "over", result: "hit" },   // 33% → +15
+      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +35
     ]);
-    expect(result.total).toBe(33);
-    expect(result.perPick).toEqual([8, 25]);
+    expect(result.total).toBe(50);
+    expect(result.perPick).toEqual([15, 35]);
   });
 
   it("sums penalties for misses", () => {
     const result = computeQualityBonus([
-      { actualValue: 3, line: 22.5, selection: "over", result: "miss" },   // -87% → -15
+      { actualValue: 3, line: 22.5, selection: "over", result: "miss" },   // -87% → -25
       { actualValue: 20, line: 22.5, selection: "over", result: "miss" },  // -11% → -3
     ]);
-    expect(result.total).toBe(-18);
-    expect(result.perPick).toEqual([-15, -3]);
+    expect(result.total).toBe(-28);
+    expect(result.perPick).toEqual([-25, -3]);
   });
 
   it("excludes DNP/push picks", () => {
     const result = computeQualityBonus([
-      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },
+      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +35
       { actualValue: null, line: 22.5, selection: "over", result: "dnp" },
       { actualValue: null, line: 8.5, selection: "under", result: "push" },
     ]);
-    expect(result.total).toBe(25);
-    expect(result.perPick).toEqual([25, 0, 0]);
+    expect(result.total).toBe(35);
+    expect(result.perPick).toEqual([35, 0, 0]);
   });
 
   it("nets hits and misses together", () => {
     const result = computeQualityBonus([
-      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +25
-      { actualValue: 3, line: 22.5, selection: "over", result: "miss" },   // -87% → -15
+      { actualValue: 45, line: 22.5, selection: "over", result: "hit" },   // 100% → +35
+      { actualValue: 3, line: 22.5, selection: "over", result: "miss" },   // -87% → -25
     ]);
-    expect(result.total).toBe(10); // +25 - 15
+    expect(result.total).toBe(10); // +35 - 25
   });
 });
