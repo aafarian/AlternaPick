@@ -50,6 +50,19 @@ export default function CardBuilderPanel() {
   // Auth gate for guest lock-in
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  // Heat Mode feature flag — gated by heatscore_enabled + heatscore_allowlist.
+  // Fetched once on mount; cached for 60s server-side.
+  const [heatModeAccess, setHeatModeAccess] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    fetch("/api/heatscore/access")
+      .then((r) => r.json())
+      .then((data) => { if (!cancelled) setHeatModeAccess(data.enabled === true); })
+      .catch(() => { /* fail closed — Heat Mode stays hidden */ });
+    return () => { cancelled = true; };
+  }, [user]);
+
   // Fire Token wager (solo ranked mode)
   const [wager, setWager] = useState<number | null>(null);
   const [showHeatPicker, setShowRankedPicker] = useState(false);
@@ -159,7 +172,7 @@ export default function CardBuilderPanel() {
 
         const anonId = getAnonymousId();
         await createCard(
-          picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
+          picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection, notch: p.notch, adjusted_line: p.adjusted_line })),
           anonId,
           newChallengeId,
           gameMode,
@@ -231,7 +244,7 @@ export default function CardBuilderPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token: guestToken,
-          picks: picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
+          picks: picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection, notch: p.notch, adjusted_line: p.adjusted_line })),
         }),
       });
 
@@ -256,7 +269,7 @@ export default function CardBuilderPanel() {
     // Guest users: save picks and show auth modal
     if (!user) {
       sessionStorage.setItem("pending_card_picks", JSON.stringify({
-        picks: picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
+        picks: picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection, notch: p.notch, adjusted_line: p.adjusted_line })),
         gameMode,
         cardSize: picks.length,
         challengeId: challengeId ?? undefined,
@@ -306,7 +319,7 @@ export default function CardBuilderPanel() {
       }
 
       await createCard(
-        picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
+        picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection, notch: p.notch, adjusted_line: p.adjusted_line })),
         undefined,
         effectiveChallengeId,
         gameMode,
@@ -552,38 +565,35 @@ export default function CardBuilderPanel() {
                       </button>
                     </div>
 
-                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                      🔥 {tokenBalance ?? 1000} available
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      🔥 {tokenBalance ?? 1000}
                     </span>
-                  </>
-                )}
-              </div>
 
-              {/* Row 2: Payout preview for current card size */}
-              {wager != null && wager >= 10 && picks.length >= 2 && (
-                <div className="mt-2 flex gap-2 overflow-x-auto scrollbar-thin">
+                    {/* Payout preview — inline after the balance */}
+                    {wager != null && wager >= 10 && picks.length >= 2 && (
+                    <div className="flex gap-1.5">
                   {Array.from({ length: picks.length + 1 }, (_, k) => picks.length - k)
-                    .filter((hits) => {
-                      const mult = getHeatScoreMultiplier(hits, picks.length);
-                      return mult > 0 || hits === picks.length || hits === 0;
-                    })
                     .map((hits) => {
                       const mult = getHeatScoreMultiplier(hits, picks.length);
                       const payout = Math.round(wager * mult);
                       const net = payout - wager;
                       const isPerfect = hits === picks.length;
+                      // Quality bonus is additive on top of the base multiplier,
+                      // so the displayed multiplier is a floor — append "+" to
+                      // indicate the actual payout may be higher.
+                      const hasQualityUpside = mult > 0;
                       return (
                         <div
                           key={hits}
                           className={cn(
-                            "flex shrink-0 flex-col items-center rounded-md border px-2.5 py-1",
+                            "flex shrink-0 flex-col items-center rounded-md border px-2 py-1",
                             isPerfect
                               ? "border-orange-500/40 bg-orange-500/10"
                               : net > 0
                                 ? "border-emerald-500/20 bg-emerald-500/5"
-                                : net === 0
-                                  ? "border-border bg-muted/30"
-                                  : "border-border bg-card",
+                                : mult === 0
+                                  ? "border-red-500/20 bg-red-500/5"
+                                  : "border-border bg-muted/30",
                           )}
                         >
                           <span className="text-[10px] font-medium text-muted-foreground">
@@ -595,11 +605,11 @@ export default function CardBuilderPanel() {
                               ? "text-orange-400"
                               : net > 0
                                 ? "text-emerald-500"
-                                : net < 0
+                                : mult === 0
                                   ? "text-red-400"
                                   : "text-muted-foreground",
                           )}>
-                            {mult > 0 ? `${mult}x` : "BUST"}
+                            {mult > 0 ? `${mult}x${hasQualityUpside ? "+" : ""}` : "BUST"}
                           </span>
                           {mult > 0 && (
                             <span className={cn(
@@ -612,8 +622,11 @@ export default function CardBuilderPanel() {
                         </div>
                       );
                     })}
-                </div>
-              )}
+                    </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -744,7 +757,7 @@ export default function CardBuilderPanel() {
                         </Button>
                       </>
                     )}
-                    {user && !showChallengePicker && (
+                    {user && heatModeAccess && !showChallengePicker && (
                       <>
                         {!showHeatPicker && (
                           <span className="text-xs text-muted-foreground">or</span>
@@ -821,7 +834,7 @@ export default function CardBuilderPanel() {
                           pick.selection === "over" ? "text-neon-green" : "text-bold-red"
                         )}
                       >
-                        {pick.selection === "over" ? "O" : "U"} {pick.line}
+                        {pick.selection === "over" ? "O" : "U"} {pick.adjusted_line}
                       </span>
                       <button
                         onClick={() => removePick(pick.prop_id)}

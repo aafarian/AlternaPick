@@ -10,6 +10,9 @@ import PlayerAvatar from "@/components/players/PlayerAvatar";
 import { Badge } from "@/components/ui/badge";
 import { ChevronUp, ChevronDown, Check, X, CheckCircle2, XCircle, Minus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getNotchTier } from "@/lib/heatscore/compute";
+import { TIER_COLORS } from "@/components/props/NotchSelector";
+import NotchBadge from "@/components/props/NotchBadge";
 
 // SVG chevron patterns — fit within h-2 (8px) bar
 const CHEVRON_RIGHT = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpolyline points='2,1 6,4 2,7' fill='none' stroke='rgba(255,255,255,0.28)' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`;
@@ -18,6 +21,11 @@ const CHEVRON_LEFT = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/20
 interface LivePickRowProps {
   pick: LivePickData;
   variant?: "full" | "compact";
+}
+
+function notchNumberTint(notch?: number): string | undefined {
+  if (notch == null || notch === 0) return undefined;
+  return TIER_COLORS[getNotchTier(notch).color]?.numberTint;
 }
 
 export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps) {
@@ -87,10 +95,23 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
           </span>
         )}
 
-        {/* Line */}
-        <span className="text-sm font-bold tabular-nums">
-          {pick.line ?? "\u2014"}
-        </span>
+        {/* Line + notch tier */}
+        {(() => {
+          const hasNotch = pick.notch != null && pick.notch !== 0;
+          const tier = hasNotch ? getNotchTier(pick.notch!) : null;
+          const colors = tier ? (TIER_COLORS[tier.color] ?? TIER_COLORS.neutral) : null;
+          return (
+            <>
+              <span className={cn(
+                "text-sm font-bold tabular-nums",
+                hasNotch && colors?.numberTint,
+              )}>
+                {pick.line ?? "\u2014"}
+              </span>
+              {hasNotch && <NotchBadge notch={pick.notch!} />}
+            </>
+          );
+        })()}
 
         {/* Over/Under badge */}
         <Badge
@@ -132,7 +153,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 border-l-2 px-4 py-3 transition-colors",
+        "flex flex-col gap-1.5 border-l-2 px-3 py-2 transition-colors",
         d.accentClass,
         d.isSettled && "opacity-75"
       )}
@@ -206,15 +227,23 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
                   {pick.current_value}
                 </span>
                 <span className="text-[10px] text-muted-foreground/40">/</span>
-                <span className="text-xs tabular-nums text-muted-foreground/60">
+                <span className={cn(
+                  "text-xs tabular-nums text-muted-foreground/60",
+                  notchNumberTint(pick.notch),
+                )}>
                   {pick.line}
                 </span>
+                {pick.notch != null && pick.notch !== 0 && <NotchBadge notch={pick.notch} />}
               </span>
             ) : (
               <span className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                <span className={cn(
+                  "text-xs font-semibold tabular-nums text-muted-foreground",
+                  notchNumberTint(pick.notch),
+                )}>
                   {pick.line}
                 </span>
+                {pick.notch != null && pick.notch !== 0 && <NotchBadge notch={pick.notch} />}
                 {d.isAwaitingLive && (
                   <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/50" />
                 )}

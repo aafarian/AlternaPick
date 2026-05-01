@@ -568,6 +568,7 @@ export interface Database {
           h2h_win_pct: number;
           fire_tokens_balance: number;
           fire_tokens_lifetime: number;
+          fire_tokens_last_claim: string | null;
           updated_at: string;
         };
         Insert: {
@@ -586,6 +587,7 @@ export interface Database {
           h2h_losses?: number;
           fire_tokens_balance?: number;
           fire_tokens_lifetime?: number;
+          fire_tokens_last_claim?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -602,6 +604,7 @@ export interface Database {
           h2h_losses?: number;
           fire_tokens_balance?: number;
           fire_tokens_lifetime?: number;
+          fire_tokens_last_claim?: string | null;
           updated_at?: string;
         };
       };

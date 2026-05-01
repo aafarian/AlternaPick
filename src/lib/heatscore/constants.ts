@@ -15,9 +15,9 @@ export const NOTCH_TIERS: readonly NotchTier[] = [
   { notch: -2, label: "Frosty", multiplier: 0.25, color: "blue" },
   { notch: -1, label: "Chilled", multiplier: 0.5, color: "lightblue" },
   { notch: 0, label: "Standard", multiplier: 1.0, color: "neutral" },
-  { notch: 1, label: "Heated", multiplier: 1.75, color: "orange" },
-  { notch: 2, label: "Scorched", multiplier: 2.75, color: "red" },
-  { notch: 3, label: "Volcanic", multiplier: 4.0, color: "purple" },
+  { notch: 1, label: "Heated", multiplier: 1.75, color: "yellow" },
+  { notch: 2, label: "Scorched", multiplier: 2.75, color: "orange" },
+  { notch: 3, label: "Volcanic", multiplier: 4.0, color: "red" },
 ] as const;
 
 export const MIN_NOTCH = -2;
@@ -64,8 +64,10 @@ export const NOTCH_SHIFT_PCT: Record<StatCategory, number> = {
   saves: 0.20, // ~0.5pt on a 2-line
 };
 
-/** Minimum shift per notch — ensures at least a 0.5 move. */
-export const MIN_STEP = 0.5;
+/** Minimum shift per notch — ensures at least a 1-point move.
+ * This prevents low-line stats (steals 0.5, blocks 1.5) from having
+ * negligible half-point jumps between notch tiers. */
+export const MIN_STEP = 1.0;
 
 // ---------------------------------------------------------------------------
 // HeatScore multiplier table
@@ -168,6 +170,9 @@ export const INVITE_BONUS = 200;
 
 /** Bonus tokens for challenging 3 different people in a week. */
 export const CHALLENGE_WEEKLY_BONUS = 100;
+
+/** Daily login claim amount. */
+export const DAILY_CLAIM = 50;
 
 // ---------------------------------------------------------------------------
 // Challenge token rewards (no wager — flat bonuses)

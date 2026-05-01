@@ -10,7 +10,7 @@ import LivePickCard from "./LivePickCard";
 import { Badge } from "@/components/ui/badge";
 import { AnimatedList } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
-import { Radio } from "lucide-react";
+import { Radio, Flame } from "lucide-react";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
 
 function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
@@ -24,7 +24,8 @@ function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
       player_position: pick.props?.player_position ?? null,
       sport: pick.props?.games?.sport,
       stat_category: (pick.props?.stat_category ?? "points") as StatCategory,
-      line: pick.props?.line ?? 0,
+      line: pick.adjusted_line ?? pick.props?.line ?? 0,
+      notch: pick.notch ?? 0,
       selection: pick.selection as PickSelection,
       current_value: pick.actual_value,
       trending: hasResult ? (pick.result as "hit" | "miss" | "push" | "dnp") : null,
@@ -105,6 +106,16 @@ function LiveCard({
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <CardTypeBadge card={card} />
           {card.picks.length} picks
+          {card.fire_token_wager != null && (
+            <span className="inline-flex items-center gap-0.5 font-bold text-orange-400">
+              · <Flame className="h-3 w-3" /> -{card.fire_token_wager}
+              {card.fire_token_payout != null && (
+                <span className={card.fire_token_payout > 0 ? "text-emerald-500" : "text-red-400"}>
+                  {" "}+{card.fire_token_payout}
+                </span>
+              )}
+            </span>
+          )}
         </span>
       }
       loading={!hasFetched}

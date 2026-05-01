@@ -6,10 +6,11 @@ import { unauthorized, badRequest, notFound, forbidden, conflict, serverError, h
 import { logError, logWarn } from "@/lib/logger";
 import { isValidGameMode } from "@/lib/modes/definitions";
 import { MIN_WAGER } from "@/lib/heatscore/constants";
+import { adjustLine, getAvailableNotches, selectionAllowedForNotch } from "@/lib/heatscore/compute";
 import { validatePicksForMode } from "@/lib/modes/validation";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE, DEFAULT_CARD_SIZE } from "@/lib/modes/types";
 import type { GameMode, PickValidationInput } from "@/lib/modes/types";
-import type { Card, Challenge, Pick, PickSelection } from "@/lib/supabase/types";
+import type { Card, Challenge, Pick, PickSelection, StatCategory } from "@/lib/supabase/types";
 import { CARD_SELECT } from "@/lib/cards/api";
 import { notifyChallengeOpponent } from "@/lib/challenges/notify-opponent";
 import { linkCardToParticipant } from "@/lib/challenges/queries";
@@ -17,6 +18,8 @@ import { linkCardToParticipant } from "@/lib/challenges/queries";
 interface CreatePickInput {
   prop_id: string;
   selection: PickSelection;
+  notch?: number;
+  adjusted_line?: number;
 }
 
 interface CreateCardBody {
@@ -209,7 +212,7 @@ export async function POST(request: NextRequest) {
 
     // Verify all props exist (also fetch player_name and player_team for mode validation)
     const propsResult = await (supabase.from("props") as any)
-      .select("id, player_name, player_team")
+      .select("id, player_name, player_team, line, stat_category")
       .in("id", propIds);
 
     if (propsResult.error) {
@@ -220,6 +223,8 @@ export async function POST(request: NextRequest) {
       id: string;
       player_name: string;
       player_team: string | null;
+      line: number;
+      stat_category: string;
     }[];
 
     if (existingProps.length !== propIds.length) {
@@ -248,6 +253,33 @@ export async function POST(request: NextRequest) {
       );
       if (!modeValidation.valid) {
         return badRequest(modeValidation.error ?? "Picks violate mode constraints");
+      }
+    }
+
+    // Validate notch picks — server-side verification prevents client tampering
+    const propLookupForNotch = new Map(existingProps.map((p) => [p.id, p]));
+    for (const pick of picks) {
+      const notch = pick.notch ?? 0;
+      if (notch === 0) continue;
+
+      const prop = propLookupForNotch.get(pick.prop_id);
+      if (!prop) continue;
+
+      const available = getAvailableNotches(prop.line, prop.stat_category as StatCategory);
+      if (!available.includes(notch)) {
+        return badRequest(`Notch ${notch} is not available for this prop`);
+      }
+
+      const allowed = selectionAllowedForNotch(notch);
+      if (!allowed.includes(pick.selection)) {
+        return badRequest("Only Over is allowed for shifted lines");
+      }
+
+      if (pick.adjusted_line != null) {
+        const expected = adjustLine(prop.line, prop.stat_category as StatCategory, notch);
+        if (Math.abs(pick.adjusted_line - expected) > 0.01) {
+          return badRequest("Adjusted line does not match expected value");
+        }
       }
     }
 
@@ -337,6 +369,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (cardResult.error || !cardResult.data) {
+      logError("cards", `Failed to create card: ${cardResult.error?.message}`, "POST /api/cards", cardResult.error);
       return serverError("Failed to create card", cardResult.error?.message);
     }
 
@@ -348,6 +381,8 @@ export async function POST(request: NextRequest) {
       prop_id: p.prop_id,
       selection: p.selection,
       result: "pending" as const,
+      notch: p.notch ?? 0,
+      adjusted_line: p.adjusted_line ?? null,
     }));
 
     const picksResult = await (supabase.from("picks") as any)
@@ -355,6 +390,7 @@ export async function POST(request: NextRequest) {
       .select();
 
     if (picksResult.error) {
+      logError("cards", `Failed to create picks: ${picksResult.error.message}`, "POST /api/cards", picksResult.error);
       return serverError("Failed to create picks", picksResult.error.message);
     }
 

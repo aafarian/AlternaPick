@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -115,6 +116,95 @@ const statCards: StatCardConfig[] = [
     getValue: (s) => `${s.h2hWins}W - ${s.h2hLosses}L`,
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Fire Token Adjuster
+// ---------------------------------------------------------------------------
+
+function FireTokenAdjuster({ userId }: { userId: string }) {
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [balance, setBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    const supaFetch = async () => {
+      try {
+        const res = await fetch(`/api/admin/heatscore/user-cards?userId=${userId}`);
+        if (!res.ok) return;
+        // We just need the balance — fetch it from the leaderboard data
+      } catch { /* ignore */ }
+    };
+    supaFetch();
+  }, [userId]);
+
+  async function handleAdjust() {
+    const num = parseInt(amount, 10);
+    if (isNaN(num) || num === 0) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/fire-tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, amount: num, reason: reason.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBalance(data.new_balance);
+        setAmount("");
+        setReason("");
+        toast.success(`Tokens adjusted: ${data.previous_balance} → ${data.new_balance}`);
+      } else {
+        toast.error(data.error ?? "Failed to adjust tokens");
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card className="py-4">
+      <CardHeader className="pb-2 pt-0 px-4">
+        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <Flame className="h-4 w-4 text-orange-400" />
+          Fire Tokens
+          {balance != null && (
+            <span className="text-orange-400 font-bold tabular-nums">{balance}</span>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-0 pt-0">
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="Amount (+/-)"
+            className="w-28 text-sm"
+          />
+          <Input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason (optional)"
+            className="flex-1 text-sm"
+          />
+          <Button
+            onClick={handleAdjust}
+            disabled={loading || !amount || parseInt(amount, 10) === 0}
+            size="sm"
+            variant="outline"
+            className="shrink-0"
+          >
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Adjust"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Skeleton components
@@ -648,6 +738,9 @@ export default function UserDetail({ userId }: { userId: string }) {
 
       {/* Header */}
       <UserHeader profile={detail.profile} />
+
+      {/* Fire Token Adjustment */}
+      <FireTokenAdjuster userId={detail.profile.id} />
 
       {/* Moderation Actions */}
       <Card className="py-4">

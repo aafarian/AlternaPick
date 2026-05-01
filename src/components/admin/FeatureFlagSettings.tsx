@@ -77,6 +77,8 @@ function flagDisplayLabel(key: string): string | null {
   const labels: Record<string, string> = {
     email_blocklist: "Email Blocklist",
     admin_emails: "Admin Emails",
+    heatscore_enabled: "Heat Mode",
+    heatscore_allowlist: "Heat Mode Allowlist",
   };
   return labels[key] ?? null;
 }

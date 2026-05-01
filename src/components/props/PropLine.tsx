@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import type { StatCategory } from "@/lib/supabase/types";
 import { CATEGORY_LABELS, CATEGORY_TEXT_COLORS, teamLogoUrl } from "@/lib/constants";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { usePlayerProfile } from "@/lib/players/player-profile-context";
 import { getModeConfig } from "@/lib/modes/definitions";
 import PlayerHeadshot from "@/components/props/PlayerHeadshot";
+import NotchSelector from "@/components/props/NotchSelector";
+import NotchBadge from "@/components/props/NotchBadge";
 import { cn } from "@/lib/utils";
 
 interface PropLineProps {
@@ -37,8 +40,16 @@ export default function PropLine({
     useCardBuilder();
   const { openProfile } = usePlayerProfile();
 
+  // Notch state — local to each prop card
+  const [notch, setNotch] = useState(0);
+
+  // Track the current adjusted line for addPick
+  const [currentAdjustedLine, setCurrentAdjustedLine] = useState(line);
+
   // For constrained modes (one_player/one_team), hide non-matching props
   const selected = isPickSelected(propId);
+  const selection = getSelection(propId);
+
   if (state.picks.length > 0 && !selected) {
     const modeConfig = getModeConfig(state.gameMode);
     const anchor = state.picks[0];
@@ -50,11 +61,37 @@ export default function PropLine({
     }
   }
 
-  const selection = getSelection(propId);
+  function handleNotchChange(newNotch: number, newAdjustedLine: number) {
+    setNotch(newNotch);
+    setCurrentAdjustedLine(newAdjustedLine);
+
+    if (selected) {
+      // If user has Under selected and shifts notch away from 0, auto-remove
+      if (selection === "under" && newNotch !== 0) {
+        removePick(propId);
+        return;
+      }
+      // Re-add the pick with the updated notch + adjusted_line
+      removePick(propId);
+      addPick({
+        prop_id: propId,
+        player_name: playerName,
+        player_team: playerTeam ?? "",
+        stat_category: statCategory,
+        line,
+        selection: selection ?? "over",
+        game_id: gameId,
+        notch: newNotch,
+        adjusted_line: newAdjustedLine,
+      });
+    }
+  }
 
   function handleClick(side: "over" | "under") {
     if (selected && selection === side) {
       removePick(propId);
+      setNotch(0);
+      setCurrentAdjustedLine(line);
     } else if (selected) {
       removePick(propId);
       addPick({
@@ -65,6 +102,8 @@ export default function PropLine({
         line,
         selection: side,
         game_id: gameId,
+        notch,
+        adjusted_line: currentAdjustedLine,
       });
     } else {
       addPick({
@@ -75,11 +114,14 @@ export default function PropLine({
         line,
         selection: side,
         game_id: gameId,
+        notch,
+        adjusted_line: currentAdjustedLine,
       });
     }
   }
 
   const disabledUnselected = isFull && !selected;
+  const underDisabled = disabledUnselected || notch !== 0;
 
   // Only use the player's enriched team — falling back to homeTeam would show
   // the opponent's logo for away-team players whose enrichment is missing.
@@ -94,6 +136,15 @@ export default function PropLine({
           : "hover:border-border/80"
       )}
     >
+      {/* Notch tier badge — top-left overlay, only when shifted */}
+      {notch !== 0 && (() => {
+        return (
+          <div className="absolute left-2 top-2 z-20">
+            <NotchBadge notch={notch} />
+          </div>
+        );
+      })()}
+
       {/* Center: player headshot with team logo background */}
       <div className="relative flex flex-col items-center px-2 pt-3 pb-2 sm:px-4 sm:pt-4">
         {/* Team logo watermark behind player */}
@@ -129,7 +180,7 @@ export default function PropLine({
                 playerTeam,
                 playerPosition,
                 sport,
-                propContext: { line, statCategory },
+                propContext: { line: currentAdjustedLine, statCategory },
               });
             }
           }}
@@ -150,12 +201,15 @@ export default function PropLine({
         </button>
       </div>
 
-      {/* Line number + stat category */}
+      {/* Line number with notch selector + stat category */}
       <div className="flex flex-col items-center gap-0.5 pb-2">
-        <div className="flex items-baseline justify-center gap-1.5">
-          <span className="text-2xl font-black tabular-nums tracking-tight sm:text-3xl">
-            {line}
-          </span>
+        <div className="flex items-center justify-center gap-1.5">
+          <NotchSelector
+            baseLine={line}
+            statCategory={statCategory}
+            notch={notch}
+            onNotchChange={handleNotchChange}
+          />
           <span
             className={cn(
               "text-xs font-bold uppercase",
@@ -177,7 +231,6 @@ export default function PropLine({
             </span>
           );
         })()}
-
       </div>
 
       {/* Over / Under buttons */}
@@ -198,12 +251,12 @@ export default function PropLine({
         </button>
         <button
           onClick={() => handleClick("under")}
-          disabled={disabledUnselected}
+          disabled={underDisabled}
           className={cn(
             "cursor-pointer border-l border-border py-3 text-xs font-bold uppercase tracking-wider transition-all",
             selected && selection === "under"
               ? "bg-bold-red/15 text-bold-red"
-              : disabledUnselected
+              : underDisabled
                 ? "cursor-not-allowed text-muted-foreground/30"
                 : "text-muted-foreground hover:bg-bold-red/5 hover:text-bold-red"
           )}

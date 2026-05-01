@@ -36,6 +36,8 @@ export interface LivePickData {
   current_value: number | null;
   trending: "hit" | "miss" | "push" | "dnp" | null;
   game_status: LiveGameStatus | null;
+  /** Notch tier (-2 to +3). 0 = Standard. */
+  notch?: number;
 }
 
 export interface LiveCardData {
