@@ -834,7 +834,7 @@ export default function CardBuilderPanel() {
                           pick.selection === "over" ? "text-neon-green" : "text-bold-red"
                         )}
                       >
-                        {pick.selection === "over" ? "O" : "U"} {pick.line}
+                        {pick.selection === "over" ? "O" : "U"} {pick.adjusted_line}
                       </span>
                       <button
                         onClick={() => removePick(pick.prop_id)}
