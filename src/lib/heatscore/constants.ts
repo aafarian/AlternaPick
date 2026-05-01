@@ -78,20 +78,20 @@ export const MIN_STEP = 0.5;
 // card on average, creating the refill loop. A skilled player hitting 60%+
 // sustains or grows their token balance.
 //
-// Design philosophy: common outcomes (60%+ hit rate) should feel
-// rewarding, not punishing. Value is spread across the curve rather
-// than concentrated in the perfect card.
+// Design philosophy: perfect cards should feel exciting (big payouts),
+// majority-right cards (60%+) should be profitable, and below 50% should
+// sting. More top-heavy than a flat curve, with real downside risk.
 //
 // Break-even hit rates: 100% (2-pick), ~67% (3-pick), ~63% (4-pick),
 // ~60% (5-pick), ~58% (6-pick).
 // ---------------------------------------------------------------------------
 
 const HEATSCORE_TABLE: Record<number, Record<number, number>> = {
-  2: { 2: 2.0, 1: 0.4, 0: 0 },
-  3: { 3: 2.0, 2: 1.1, 1: 0.1, 0: 0 },
-  4: { 4: 3.2, 3: 1.5, 2: 0.3, 1: 0.05, 0: 0 },
-  5: { 5: 5.0, 4: 2.0, 3: 0.65, 2: 0.1, 1: 0, 0: 0 },
-  6: { 6: 8.0, 5: 2.2, 4: 1.2, 3: 0.25, 2: 0.05, 1: 0, 0: 0 },
+  2: { 2: 2.4, 1: 0.2, 0: 0 },
+  3: { 3: 2.5, 2: 0.9, 1: 0.1, 0: 0 },
+  4: { 4: 4.0, 3: 1.4, 2: 0.2, 1: 0, 0: 0 },
+  5: { 5: 6.0, 4: 2.0, 3: 0.5, 2: 0.05, 1: 0, 0: 0 },
+  6: { 6: 10.0, 5: 2.5, 4: 1.1, 3: 0.15, 2: 0, 1: 0, 0: 0 },
 };
 
 /**

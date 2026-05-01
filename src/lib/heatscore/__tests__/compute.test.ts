@@ -223,41 +223,41 @@ describe("impliedProbFromAmericanOdds", () => {
 
 describe("getHeatScoreMultiplier", () => {
   it("returns correct multiplier for every cell of 2-pick table", () => {
-    expect(getHeatScoreMultiplier(2, 2)).toBe(2.0);
-    expect(getHeatScoreMultiplier(1, 2)).toBe(0.4);
+    expect(getHeatScoreMultiplier(2, 2)).toBe(2.4);
+    expect(getHeatScoreMultiplier(1, 2)).toBe(0.2);
     expect(getHeatScoreMultiplier(0, 2)).toBe(0);
   });
 
   it("returns correct multiplier for every cell of 3-pick table", () => {
-    expect(getHeatScoreMultiplier(3, 3)).toBe(2.0);
-    expect(getHeatScoreMultiplier(2, 3)).toBe(1.1);
+    expect(getHeatScoreMultiplier(3, 3)).toBe(2.5);
+    expect(getHeatScoreMultiplier(2, 3)).toBe(0.9);
     expect(getHeatScoreMultiplier(1, 3)).toBe(0.1);
     expect(getHeatScoreMultiplier(0, 3)).toBe(0);
   });
 
   it("returns correct multiplier for every cell of 4-pick table", () => {
-    expect(getHeatScoreMultiplier(4, 4)).toBe(3.2);
-    expect(getHeatScoreMultiplier(3, 4)).toBe(1.5);
-    expect(getHeatScoreMultiplier(2, 4)).toBe(0.3);
-    expect(getHeatScoreMultiplier(1, 4)).toBe(0.05);
+    expect(getHeatScoreMultiplier(4, 4)).toBe(4.0);
+    expect(getHeatScoreMultiplier(3, 4)).toBe(1.4);
+    expect(getHeatScoreMultiplier(2, 4)).toBe(0.2);
+    expect(getHeatScoreMultiplier(1, 4)).toBe(0);
     expect(getHeatScoreMultiplier(0, 4)).toBe(0);
   });
 
   it("returns correct multiplier for every cell of 5-pick table", () => {
-    expect(getHeatScoreMultiplier(5, 5)).toBe(5.0);
+    expect(getHeatScoreMultiplier(5, 5)).toBe(6.0);
     expect(getHeatScoreMultiplier(4, 5)).toBe(2.0);
-    expect(getHeatScoreMultiplier(3, 5)).toBe(0.65);
-    expect(getHeatScoreMultiplier(2, 5)).toBe(0.1);
+    expect(getHeatScoreMultiplier(3, 5)).toBe(0.5);
+    expect(getHeatScoreMultiplier(2, 5)).toBe(0.05);
     expect(getHeatScoreMultiplier(1, 5)).toBe(0);
     expect(getHeatScoreMultiplier(0, 5)).toBe(0);
   });
 
   it("returns correct multiplier for every cell of 6-pick table", () => {
-    expect(getHeatScoreMultiplier(6, 6)).toBe(8.0);
-    expect(getHeatScoreMultiplier(5, 6)).toBe(2.2);
-    expect(getHeatScoreMultiplier(4, 6)).toBe(1.2);
-    expect(getHeatScoreMultiplier(3, 6)).toBe(0.25);
-    expect(getHeatScoreMultiplier(2, 6)).toBe(0.05);
+    expect(getHeatScoreMultiplier(6, 6)).toBe(10.0);
+    expect(getHeatScoreMultiplier(5, 6)).toBe(2.5);
+    expect(getHeatScoreMultiplier(4, 6)).toBe(1.1);
+    expect(getHeatScoreMultiplier(3, 6)).toBe(0.15);
+    expect(getHeatScoreMultiplier(2, 6)).toBe(0);
     expect(getHeatScoreMultiplier(1, 6)).toBe(0);
     expect(getHeatScoreMultiplier(0, 6)).toBe(0);
   });
@@ -281,18 +281,18 @@ describe("computeCardHeatScore", () => {
     const result = computeCardHeatScore(2, 0, 2);
     expect(result.hits).toBe(2);
     expect(result.effectiveSize).toBe(2);
-    expect(result.multiplier).toBe(2.0);
+    expect(result.multiplier).toBe(2.4);
   });
 
   it("computes a perfect 6-pick card", () => {
     const result = computeCardHeatScore(6, 0, 6);
-    expect(result.multiplier).toBe(8.0);
+    expect(result.multiplier).toBe(10.0);
   });
 
   it("computes a 4/6 card", () => {
     const result = computeCardHeatScore(4, 2, 6);
     expect(result.effectiveSize).toBe(6);
-    expect(result.multiplier).toBe(1.2);
+    expect(result.multiplier).toBe(1.1);
   });
 
   it("computes a 0-hit card as 0x (total wager loss)", () => {
@@ -304,7 +304,7 @@ describe("computeCardHeatScore", () => {
     // 3-pick card with 1 DNP → effectively 2-pick
     const result = computeCardHeatScore(2, 0, 3);
     expect(result.effectiveSize).toBe(2);
-    expect(result.multiplier).toBe(2.0); // Perfect 2-pick = 2.0x
+    expect(result.multiplier).toBe(2.4); // Perfect 2-pick = 2.4x
   });
 
   it("returns 0 multiplier when all picks are DNP", () => {
@@ -315,7 +315,7 @@ describe("computeCardHeatScore", () => {
 
   it("handles 5/6 card", () => {
     const result = computeCardHeatScore(5, 1, 6);
-    expect(result.multiplier).toBe(2.2);
+    expect(result.multiplier).toBe(2.5);
   });
 
   it("returns 0x for unsupported 1-pick cards", () => {
@@ -329,9 +329,9 @@ describe("computeCardHeatScore", () => {
   });
 
   it("handles 1-hit cards across all sizes", () => {
-    expect(computeCardHeatScore(1, 1, 2).multiplier).toBe(0.4);
+    expect(computeCardHeatScore(1, 1, 2).multiplier).toBe(0.2);
     expect(computeCardHeatScore(1, 2, 3).multiplier).toBe(0.1);
-    expect(computeCardHeatScore(1, 3, 4).multiplier).toBe(0.05);
+    expect(computeCardHeatScore(1, 3, 4).multiplier).toBe(0);
     expect(computeCardHeatScore(1, 4, 5).multiplier).toBe(0);
     expect(computeCardHeatScore(1, 5, 6).multiplier).toBe(0);
   });
@@ -360,7 +360,7 @@ describe("computeFireTokenPayout", () => {
   });
 
   it("handles perfect 6-pick with large wager", () => {
-    expect(computeFireTokenPayout(250, 8.0)).toBe(2000);
+    expect(computeFireTokenPayout(250, 10.0)).toBe(2500);
   });
 
   it("adds quality bonus to payout", () => {
@@ -405,16 +405,16 @@ describe("EV balance verification", () => {
     expect(expectedReturn(2, 0.5)).toBeCloseTo(0.70, 2);
   });
 
-  it("3-pick card has E[return] ≈ 0.70 at 50% hit rate", () => {
-    expect(expectedReturn(3, 0.5)).toBeCloseTo(0.70, 2);
+  it("3-pick card has E[return] ≈ 0.69 at 50% hit rate", () => {
+    expect(expectedReturn(3, 0.5)).toBeCloseTo(0.69, 2);
   });
 
-  it("4-pick card has E[return] ≈ 0.70 at 50% hit rate", () => {
-    expect(expectedReturn(4, 0.5)).toBeCloseTo(0.70, 2);
+  it("4-pick card has E[return] ≈ 0.68 at 50% hit rate", () => {
+    expect(expectedReturn(4, 0.5)).toBeCloseTo(0.675, 2);
   });
 
-  it("5-pick card has E[return] ≈ 0.70 at 50% hit rate", () => {
-    expect(expectedReturn(5, 0.5)).toBeCloseTo(0.70, 2);
+  it("5-pick card has E[return] ≈ 0.67 at 50% hit rate", () => {
+    expect(expectedReturn(5, 0.5)).toBeCloseTo(0.67, 2);
   });
 
   it("6-pick card has E[return] ≈ 0.70 at 50% hit rate", () => {
