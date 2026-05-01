@@ -7,13 +7,18 @@ import { handleApiError } from "@/lib/api/errors";
  * GET /api/heatscore/access
  *
  * Returns { enabled: boolean } indicating whether the authenticated user
- * has access to Heat Mode. Checks two feature flags:
+ * has access to Heat Mode. Two flags, independent of each other:
  *
- *   1. `heatscore_enabled` — global toggle. If disabled, Heat Mode is off
- *      for everyone.
- *   2. `heatscore_allowlist` — comma-separated list of emails that can
- *      access Heat Mode when enabled. If the value is `*`, all users have
- *      access. If a specific list, only those emails are allowed.
+ *   1. `heatscore_allowlist` — comma-separated emails that ALWAYS have
+ *      access regardless of the global toggle. Use this to whitelist
+ *      yourself or beta testers while the feature is still off for
+ *      everyone else.
+ *   2. `heatscore_enabled` — global toggle. When ON, ALL authenticated
+ *      users have access (the allowlist is irrelevant). When OFF, only
+ *      allowlisted users see Heat Mode.
+ *
+ * Priority: allowlist is checked first. If the user is on it, they're in
+ * regardless of the global toggle. If not, the global toggle decides.
  *
  * Unauthenticated requests return { enabled: false }.
  */
@@ -28,27 +33,29 @@ export async function GET() {
       return NextResponse.json({ enabled: false });
     }
 
-    // Global gate
-    const enabledFlag = await getFlag("heatscore_enabled");
-    if (!enabledFlag?.enabled) {
-      return NextResponse.json({ enabled: false });
-    }
-
-    // Per-user allowlist
-    const allowlistFlag = await getFlag("heatscore_allowlist");
-    const allowlistValue = allowlistFlag?.enabled ? (allowlistFlag.value ?? "") : "";
-
-    if (allowlistValue.trim() === "*") {
-      return NextResponse.json({ enabled: true });
-    }
-
-    const allowedEmails = allowlistValue
-      .split(",")
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
-
     const userEmail = (user.email ?? "").toLowerCase();
-    const enabled = allowedEmails.includes(userEmail);
+
+    // Check allowlist first — overrides the global toggle.
+    // This lets you whitelist yourself while the feature is off for everyone.
+    const allowlistFlag = await getFlag("heatscore_allowlist");
+    if (allowlistFlag?.enabled) {
+      const allowlistValue = allowlistFlag.value ?? "";
+      const allowedEmails = allowlistValue
+        .split(",")
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+
+      if (allowedEmails.includes(userEmail)) {
+        return NextResponse.json(
+          { enabled: true },
+          { headers: { "Cache-Control": "private, max-age=60" } },
+        );
+      }
+    }
+
+    // Global toggle — when ON, everyone has access
+    const enabledFlag = await getFlag("heatscore_enabled");
+    const enabled = enabledFlag?.enabled === true;
 
     return NextResponse.json(
       { enabled },
