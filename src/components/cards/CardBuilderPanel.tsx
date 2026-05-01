@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { X, Lock, Loader2, Swords, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getHeatScoreMultiplier } from "@/lib/heatscore/constants";
 import CardSuccessAnimation from "./CardSuccessAnimation";
 import AuthRequiredModal from "./AuthRequiredModal";
 import ModeSelector from "./ModeSelector";
@@ -481,47 +482,138 @@ export default function CardBuilderPanel() {
         {showHeatPicker && !isInChallengeMode && (
           <div className="border-t border-orange-500/30 bg-surface/95 backdrop-blur-xl">
             <div className="mx-auto max-w-6xl px-4 py-2.5">
-              <div className="flex items-center gap-3">
+              {/* Row 1: Wager input + quick presets + balance */}
+              <div className="flex items-center gap-2">
                 <Flame className="h-4 w-4 shrink-0 text-orange-400" />
-                <span className="shrink-0 text-xs font-semibold text-orange-400">Wager</span>
 
                 {balanceLoading ? (
-                  <div className="flex gap-1.5">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="h-8 w-14 animate-pulse rounded-lg bg-secondary" />
-                    ))}
-                  </div>
+                  <div className="h-8 w-20 animate-pulse rounded-md bg-secondary" />
                 ) : (
-                  <div className="flex gap-1.5 overflow-x-auto scrollbar-thin">
-                    {[10, 25, 50, 100, 250].map((amt) => {
-                      const isSelected = wager === amt;
-                      const isDisabled = tokenBalance !== null && tokenBalance < amt;
+                  <>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={10}
+                        max={tokenBalance ?? 1000}
+                        value={wager ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "") {
+                            setWager(null);
+                            return;
+                          }
+                          const num = parseInt(val, 10);
+                          if (!isNaN(num) && num >= 0) {
+                            setWager(Math.min(num, tokenBalance ?? 1000));
+                          }
+                        }}
+                        placeholder="0"
+                        className="h-8 w-20 rounded-md border border-orange-500/40 bg-background px-2.5 text-sm font-bold tabular-nums text-orange-400 placeholder:text-muted-foreground/40 focus:border-orange-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="flex gap-1">
+                      {[25, 50, 100].map((amt) => {
+                        const isDisabled = tokenBalance !== null && tokenBalance < amt;
+                        return (
+                          <button
+                            key={amt}
+                            type="button"
+                            disabled={isDisabled}
+                            onClick={() => setWager(amt)}
+                            className={cn(
+                              "rounded-md px-2 py-1 text-[11px] font-bold transition-colors",
+                              wager === amt
+                                ? "bg-orange-500/20 text-orange-400"
+                                : isDisabled
+                                  ? "cursor-not-allowed text-muted-foreground/30"
+                                  : "bg-muted text-muted-foreground hover:bg-orange-500/10 hover:text-orange-400",
+                            )}
+                          >
+                            {amt}
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        disabled={!tokenBalance}
+                        onClick={() => setWager(tokenBalance ?? 0)}
+                        className={cn(
+                          "rounded-md px-2 py-1 text-[11px] font-bold transition-colors",
+                          wager === tokenBalance
+                            ? "bg-orange-500/20 text-orange-400"
+                            : !tokenBalance
+                              ? "cursor-not-allowed text-muted-foreground/30"
+                              : "bg-muted text-muted-foreground hover:bg-orange-500/10 hover:text-orange-400",
+                        )}
+                      >
+                        MAX
+                      </button>
+                    </div>
+
+                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                      🔥 {tokenBalance ?? 1000} available
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {/* Row 2: Payout preview for current card size */}
+              {wager != null && wager >= 10 && picks.length >= 2 && (
+                <div className="mt-2 flex gap-2 overflow-x-auto scrollbar-thin">
+                  {Array.from({ length: picks.length + 1 }, (_, k) => picks.length - k)
+                    .filter((hits) => {
+                      const mult = getHeatScoreMultiplier(hits, picks.length);
+                      return mult > 0 || hits === picks.length || hits === 0;
+                    })
+                    .map((hits) => {
+                      const mult = getHeatScoreMultiplier(hits, picks.length);
+                      const payout = Math.round(wager * mult);
+                      const net = payout - wager;
+                      const isPerfect = hits === picks.length;
                       return (
-                        <button
-                          key={amt}
-                          type="button"
-                          disabled={isDisabled}
-                          onClick={() => setWager(isSelected ? null : amt)}
+                        <div
+                          key={hits}
                           className={cn(
-                            "flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-all",
-                            isSelected
-                              ? "border-orange-500 bg-orange-500/15 text-orange-400"
-                              : isDisabled
-                                ? "cursor-not-allowed border-border/50 text-muted-foreground/30"
-                                : "border-border bg-card hover:border-orange-500/50 hover:bg-orange-500/10",
+                            "flex shrink-0 flex-col items-center rounded-md border px-2.5 py-1",
+                            isPerfect
+                              ? "border-orange-500/40 bg-orange-500/10"
+                              : net > 0
+                                ? "border-emerald-500/20 bg-emerald-500/5"
+                                : net === 0
+                                  ? "border-border bg-muted/30"
+                                  : "border-border bg-card",
                           )}
                         >
-                          <span className="text-xs font-bold">{amt}</span>
-                        </button>
+                          <span className="text-[10px] font-medium text-muted-foreground">
+                            {hits}/{picks.length}
+                          </span>
+                          <span className={cn(
+                            "text-xs font-bold tabular-nums",
+                            isPerfect
+                              ? "text-orange-400"
+                              : net > 0
+                                ? "text-emerald-500"
+                                : net < 0
+                                  ? "text-red-400"
+                                  : "text-muted-foreground",
+                          )}>
+                            {mult > 0 ? `${mult}x` : "BUST"}
+                          </span>
+                          {mult > 0 && (
+                            <span className={cn(
+                              "text-[10px] tabular-nums",
+                              net > 0 ? "text-emerald-500" : net < 0 ? "text-red-400" : "text-muted-foreground",
+                            )}>
+                              {net >= 0 ? "+" : ""}{net}
+                            </span>
+                          )}
+                        </div>
                       );
                     })}
-                  </div>
-                )}
-
-                <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                  {balanceLoading ? "..." : `${tokenBalance ?? 1000} available`}
-                </span>
-              </div>
+                </div>
+              )}
             </div>
           </div>
         )}
