@@ -18,7 +18,7 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { Flame } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { SlideUp, ScaleIn, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
@@ -175,18 +175,14 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
           {card.fire_token_wager != null && (
             <Badge
               variant="outline"
-              className={cn(
-                "text-[10px] px-1.5 py-0 gap-1 tabular-nums",
-                card.fire_token_payout != null && card.fire_token_payout > card.fire_token_wager
-                  ? "border-emerald-500/30 text-emerald-500"
-                  : card.fire_token_payout != null && card.fire_token_payout < card.fire_token_wager
-                    ? "border-red-400/30 text-red-400"
-                    : "border-orange-500/30 text-orange-400",
-              )}
+              className="text-[10px] px-1.5 py-0 gap-1 tabular-nums border-orange-500/30 text-orange-400"
             >
-              🔥 Wagered {card.fire_token_wager}
+              <Flame className="h-3 w-3" />
+              -{card.fire_token_wager}
               {card.fire_token_payout != null && (
-                <> · Won {card.fire_token_payout}</>
+                <span className={card.fire_token_payout > 0 ? "text-emerald-500" : "text-red-400"}>
+                  +{card.fire_token_payout}
+                </span>
               )}
             </Badge>
           )}

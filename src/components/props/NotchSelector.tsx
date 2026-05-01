@@ -16,9 +16,9 @@ export const TIER_COLORS: Record<string, { text: string; bg: string; border: str
   blue: { text: "text-blue-400", bg: "bg-blue-400/15", border: "border-blue-400/30", numberTint: "text-blue-300/80" },
   lightblue: { text: "text-sky-400", bg: "bg-sky-400/15", border: "border-sky-400/30", numberTint: "text-sky-300/80" },
   neutral: { text: "text-muted-foreground", bg: "bg-muted", border: "border-border", numberTint: "" },
+  yellow: { text: "text-yellow-400", bg: "bg-yellow-400/15", border: "border-yellow-400/30", numberTint: "text-yellow-300/70" },
   orange: { text: "text-orange-400", bg: "bg-orange-400/15", border: "border-orange-400/30", numberTint: "text-orange-300/70" },
   red: { text: "text-red-400", bg: "bg-red-400/15", border: "border-red-400/30", numberTint: "text-red-300/70" },
-  purple: { text: "text-purple-400", bg: "bg-purple-400/15", border: "border-purple-400/30", numberTint: "text-purple-300/70" },
 };
 
 export { getNotchTier };

@@ -15,9 +15,9 @@ export const NOTCH_TIERS: readonly NotchTier[] = [
   { notch: -2, label: "Frosty", multiplier: 0.25, color: "blue" },
   { notch: -1, label: "Chilled", multiplier: 0.5, color: "lightblue" },
   { notch: 0, label: "Standard", multiplier: 1.0, color: "neutral" },
-  { notch: 1, label: "Heated", multiplier: 1.75, color: "orange" },
-  { notch: 2, label: "Scorched", multiplier: 2.75, color: "red" },
-  { notch: 3, label: "Volcanic", multiplier: 4.0, color: "purple" },
+  { notch: 1, label: "Heated", multiplier: 1.75, color: "yellow" },
+  { notch: 2, label: "Scorched", multiplier: 2.75, color: "orange" },
+  { notch: 3, label: "Volcanic", multiplier: 4.0, color: "red" },
 ] as const;
 
 export const MIN_NOTCH = -2;
