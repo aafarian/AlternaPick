@@ -51,13 +51,13 @@ export default function CardBuilderPanel() {
 
   // Fire Token wager (solo ranked mode)
   const [wager, setWager] = useState<number | null>(null);
-  const [showRankedPicker, setShowRankedPicker] = useState(false);
+  const [showHeatPicker, setShowRankedPicker] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
 
   // Fetch token balance when ranked picker is opened
   useEffect(() => {
-    if (!showRankedPicker || tokenBalance !== null) return;
+    if (!showHeatPicker || tokenBalance !== null) return;
 
     let cancelled = false;
     setBalanceLoading(true);
@@ -75,7 +75,7 @@ export default function CardBuilderPanel() {
       });
 
     return () => { cancelled = true; };
-  }, [showRankedPicker, tokenBalance]);
+  }, [showHeatPicker, tokenBalance]);
 
   // Reset wager + balance when card is cleared so next card refetches
   useEffect(() => {
@@ -477,8 +477,8 @@ export default function CardBuilderPanel() {
           </div>
         )}
 
-        {/* Ranked wager picker panel — sits ABOVE the bar (like challenge picker) */}
-        {showRankedPicker && !isInChallengeMode && (
+        {/* Heat Mode wager picker panel — sits ABOVE the bar (like challenge picker) */}
+        {showHeatPicker && !isInChallengeMode && (
           <div className="border-t border-orange-500/30 bg-surface/95 backdrop-blur-xl">
             <div className="mx-auto max-w-6xl px-4 py-2.5">
               <div className="flex items-center gap-3">
@@ -589,7 +589,7 @@ export default function CardBuilderPanel() {
                     )}
                   </Button>
                 ) : (
-                  /* Regular card — Solo lock-in + Ranked toggle + Challenge */
+                  /* Regular card — Solo lock-in + Heat Mode toggle + Challenge */
                   <>
                     <Button
                       onClick={handleLockIn}
@@ -625,7 +625,7 @@ export default function CardBuilderPanel() {
                         </>
                       )}
                     </Button>
-                    {user && !showRankedPicker && (
+                    {user && !showHeatPicker && (
                       <>
                         <span className="text-xs text-muted-foreground">or</span>
                         <Button
@@ -654,12 +654,12 @@ export default function CardBuilderPanel() {
                     )}
                     {user && !showChallengePicker && (
                       <>
-                        {!showRankedPicker && (
+                        {!showHeatPicker && (
                           <span className="text-xs text-muted-foreground">or</span>
                         )}
                         <Button
                           onClick={() => {
-                            if (showRankedPicker) {
+                            if (showHeatPicker) {
                               setShowRankedPicker(false);
                               setWager(null);
                             } else {
@@ -672,13 +672,22 @@ export default function CardBuilderPanel() {
                           size="sm"
                           className={cn(
                             "font-bold",
-                            showRankedPicker
-                              ? "border-orange-500 bg-orange-500/15 text-orange-400"
+                            showHeatPicker
+                              ? "border-muted-foreground/40 text-muted-foreground hover:bg-muted/50"
                               : "border-orange-500/40 text-orange-400 hover:bg-orange-500/10",
                           )}
                         >
-                          <Flame className="mr-1.5 h-3.5 w-3.5" />
-                          Ranked
+                          {showHeatPicker ? (
+                            <>
+                              <Lock className="mr-1.5 h-3.5 w-3.5" />
+                              Casual
+                            </>
+                          ) : (
+                            <>
+                              <Flame className="mr-1.5 h-3.5 w-3.5" />
+                              Heat Mode
+                            </>
+                          )}
                         </Button>
                       </>
                     )}
