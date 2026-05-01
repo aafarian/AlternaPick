@@ -43,12 +43,12 @@ export async function GET(request: Request) {
 
     // Mode 2: Fetch cards for a specific user
     if (userId) {
-      const { data: profile } = await (supabase.from("profiles") as any)
+      const { data: profile, error: profileError } = await (supabase.from("profiles") as any)
         .select("id, username")
         .eq("id", userId)
         .single();
 
-      if (!profile) {
+      if (profileError || !profile) {
         return NextResponse.json({ error: "User not found" }, { status: 404 });
       }
 

@@ -148,7 +148,7 @@ export interface CardHeatScoreResult {
   hits: number;
   /** Effective card size: hits + misses (excludes DNP/push). */
   effectiveSize: number;
-  /** The HeatScore multiplier (0x to 12x). */
+  /** The HeatScore multiplier (0x to 25x). */
   multiplier: number;
 }
 
