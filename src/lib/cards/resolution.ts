@@ -913,8 +913,8 @@ export async function persistResolution(
 
   // Update leaderboard stats + fire token balance
   const hasScoreablePicks = result.total > 0;
-  const hasTokenWagerFallback = result.fire_token_wager != null;
-  if (result.user_id && (hasScoreablePicks || hasTokenWagerFallback)) {
+  const hasTokenWager = result.fire_token_wager != null;
+  if (result.user_id && (hasScoreablePicks || hasTokenWager)) {
     await updateLeaderboardStats(
       supabase, result.user_id, result.score, result.total,
       result.fire_token_wager, result.fire_token_payout,
