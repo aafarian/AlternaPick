@@ -470,6 +470,23 @@ describe("pickMarginRatio", () => {
   it("returns 0 for line of 0", () => {
     expect(pickMarginRatio(5, 0, "over")).toBe(0);
   });
+
+  it("uses denominator floor for low-line stats", () => {
+    // Over 0.5, scored 0 → miss by 0.5, but denom = max(0.5, 5) = 5
+    // margin = (0 - 0.5) / 5 = -0.1 (not -1.0 like without floor)
+    expect(pickMarginRatio(0, 0.5, "over")).toBeCloseTo(-0.1, 2);
+  });
+
+  it("doesn't inflate bonus for low-line hits", () => {
+    // Over 0.5, scored 3 → hit by 2.5, denom = 5
+    // margin = (3 - 0.5) / 5 = 0.5 (not 5.0 like without floor)
+    expect(pickMarginRatio(3, 0.5, "over")).toBeCloseTo(0.5, 2);
+  });
+
+  it("high-line stats unaffected by floor", () => {
+    // Over 24.5, scored 30 → denom = max(24.5, 5) = 24.5 (unchanged)
+    expect(pickMarginRatio(30, 24.5, "over")).toBeCloseTo(0.224, 2);
+  });
 });
 
 // ---------------------------------------------------------------------------

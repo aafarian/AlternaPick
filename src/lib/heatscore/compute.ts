@@ -199,9 +199,18 @@ export function computeFireTokenPayout(
 // ---------------------------------------------------------------------------
 
 /**
+ * Minimum denominator for margin ratio calculation.
+ * Prevents low-line stats (0.5 threes, 1.5 blocks) from producing
+ * extreme margin ratios. Missing 0.5 by 0.5 should NOT be a 100%
+ * margin — it's barely a miss. With a floor of 5, that becomes 10%.
+ */
+const MARGIN_DENOM_FLOOR = 5;
+
+/**
  * Compute the margin ratio for a single pick.
  * Positive = beat the line, negative = missed the line.
- * Uses the line as denominator for natural cross-stat normalization.
+ * Uses max(line, MARGIN_DENOM_FLOOR) as denominator so low-line stats
+ * don't produce disproportionate quality bonuses/penalties.
  */
 export function pickMarginRatio(
   actualValue: number,
@@ -209,10 +218,11 @@ export function pickMarginRatio(
   selection: "over" | "under",
 ): number {
   if (line === 0) return 0;
+  const denom = Math.max(line, MARGIN_DENOM_FLOOR);
   if (selection === "over") {
-    return (actualValue - line) / line;
+    return (actualValue - line) / denom;
   }
-  return (line - actualValue) / line;
+  return (line - actualValue) / denom;
 }
 
 /**
