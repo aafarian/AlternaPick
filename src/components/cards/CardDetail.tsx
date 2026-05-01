@@ -173,19 +173,22 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
             </Badge>
           )}
           {card.fire_token_wager != null && (
-            <span className={cn(
-              "text-[10px] font-bold tabular-nums",
-              card.fire_token_payout != null && card.fire_token_payout > card.fire_token_wager
-                ? "text-emerald-500"
-                : card.fire_token_payout != null && card.fire_token_payout < card.fire_token_wager
-                  ? "text-red-400"
-                  : "text-muted-foreground",
-            )}>
-              🔥 {card.fire_token_wager}
-              {card.fire_token_payout != null && (
-                <> → {card.fire_token_payout}</>
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-[10px] px-1.5 py-0 gap-1 tabular-nums",
+                card.fire_token_payout != null && card.fire_token_payout > card.fire_token_wager
+                  ? "border-emerald-500/30 text-emerald-500"
+                  : card.fire_token_payout != null && card.fire_token_payout < card.fire_token_wager
+                    ? "border-red-400/30 text-red-400"
+                    : "border-orange-500/30 text-orange-400",
               )}
-            </span>
+            >
+              🔥 Wagered {card.fire_token_wager}
+              {card.fire_token_payout != null && (
+                <> · Won {card.fire_token_payout}</>
+              )}
+            </Badge>
           )}
           {liveData?.has_live_games && (
             <div className="flex items-center gap-1">
