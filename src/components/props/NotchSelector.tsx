@@ -81,7 +81,7 @@ export default function NotchSelector({
         <ChevronLeft className="h-5 w-5" />
       </button>
 
-      <div className="relative flex min-w-[2.5rem] items-baseline justify-center overflow-hidden">
+      <div className="relative flex w-[3.5rem] items-baseline justify-center overflow-hidden sm:w-[4rem]">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span
             key={currentLine}
