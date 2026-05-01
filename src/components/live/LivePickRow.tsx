@@ -23,6 +23,11 @@ interface LivePickRowProps {
   variant?: "full" | "compact";
 }
 
+function notchNumberTint(notch?: number): string | undefined {
+  if (notch == null || notch === 0) return undefined;
+  return TIER_COLORS[getNotchTier(notch).color]?.numberTint;
+}
+
 export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps) {
   // Mount at 0% width, then animate to target after browser paints the initial frame
   const [mounted, setMounted] = useState(false);
@@ -224,7 +229,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
                 <span className="text-[10px] text-muted-foreground/40">/</span>
                 <span className={cn(
                   "text-xs tabular-nums text-muted-foreground/60",
-                  pick.notch != null && pick.notch !== 0 && (TIER_COLORS[getNotchTier(pick.notch).color]?.numberTint),
+                  notchNumberTint(pick.notch),
                 )}>
                   {pick.line}
                 </span>
@@ -234,7 +239,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
               <span className="flex items-center gap-1.5">
                 <span className={cn(
                   "text-xs font-semibold tabular-nums text-muted-foreground",
-                  pick.notch != null && pick.notch !== 0 && (TIER_COLORS[getNotchTier(pick.notch).color]?.numberTint),
+                  notchNumberTint(pick.notch),
                 )}>
                   {pick.line}
                 </span>
