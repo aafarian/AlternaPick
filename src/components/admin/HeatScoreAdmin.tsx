@@ -15,6 +15,8 @@ import {
   AlertTriangle,
   Search,
   User,
+  Swords,
+  Trophy,
 } from "lucide-react";
 import type { PickResult } from "@/lib/supabase/types";
 import type { SimulationResult } from "@/lib/heatscore/simulate";
@@ -279,7 +281,212 @@ export default function HeatScoreAdmin() {
           {result && <SimulationResults result={result} />}
         </CardContent>
       </Card>
+
+      {/* ---- Challenge simulator ---- */}
+      <ChallengeSimulator />
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Challenge simulator
+// ---------------------------------------------------------------------------
+
+interface ChallengePlayer {
+  userId: string | null;
+  username: string | null;
+  cardId: string;
+  score: number;
+  totalPicks: number;
+  heatScore: number;
+  qualityBonus: number;
+  picks: Array<{
+    playerName: string;
+    statCategory: string;
+    line: number;
+    selection: string;
+    result: PickResult;
+    actualValue: number | null;
+    notch: number;
+    qualityTokens: number;
+  }>;
+}
+
+interface ChallengeSimResult {
+  challengeId: string;
+  status: string;
+  actualWinner: string | null;
+  simulatedWinner: string | null;
+  simulatedWinnerUsername: string | null;
+  players: ChallengePlayer[];
+}
+
+function ChallengeSimulator() {
+  const [challengeId, setChallengeId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<ChallengeSimResult | null>(null);
+
+  async function handleSimulate() {
+    const trimmed = challengeId.trim();
+    if (!trimmed) return;
+
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const res = await fetch("/api/admin/heatscore/simulate-challenge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ challenge_id: trimmed }),
+      });
+
+      let data: Record<string, unknown>;
+      try {
+        data = await res.json();
+      } catch {
+        setError("Invalid response from server");
+        return;
+      }
+
+      if (!res.ok) {
+        setError((data.error as string) ?? `Error ${res.status}`);
+        return;
+      }
+
+      setResult(data as unknown as ChallengeSimResult);
+    } catch {
+      setError("Network error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Swords className="h-4 w-4" />
+          Challenge HeatScore Simulator
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Enter a challenge ID to see each player&apos;s HeatScore and who would win with tiebreaker.
+        </p>
+
+        <div className="flex gap-2">
+          <Input
+            value={challengeId}
+            onChange={(e) => setChallengeId(e.target.value)}
+            placeholder="Challenge UUID"
+            className="font-mono text-sm"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSimulate();
+            }}
+          />
+          <Button onClick={handleSimulate} disabled={loading || !challengeId.trim()}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simulate"}
+          </Button>
+        </div>
+
+        {error && (
+          <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        {result && (
+          <div className="space-y-4">
+            {/* Winner summary */}
+            <div className="flex items-center gap-3 rounded-md border border-border bg-muted/20 px-3 py-2">
+              <Trophy className="h-4 w-4 text-orange-400" />
+              <span className="text-sm">
+                {result.simulatedWinner ? (
+                  <>
+                    <span className="font-bold text-emerald-500">
+                      {result.simulatedWinnerUsername ?? result.simulatedWinner}
+                    </span>
+                    {" wins"}
+                    {result.players.length === 2 &&
+                      result.players[0].score === result.players[1]?.score && (
+                        <span className="text-muted-foreground"> (HeatScore tiebreaker)</span>
+                      )}
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">True draw — no winner</span>
+                )}
+              </span>
+              <Badge variant="outline" className="ml-auto text-[10px]">
+                {result.status}
+              </Badge>
+            </div>
+
+            {/* Player cards */}
+            {result.players.map((player, idx) => (
+              <div key={player.cardId} className="rounded-md border border-border">
+                {/* Player header */}
+                <div className="flex items-center justify-between border-b border-border bg-muted/20 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold">
+                      {idx + 1}. {player.username ?? player.userId ?? "Unknown"}
+                    </span>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {player.score}/{player.totalPicks}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Quality</span>
+                    <span className={`text-xs font-bold tabular-nums ${
+                      player.qualityBonus > 0 ? "text-emerald-500" : player.qualityBonus < 0 ? "text-red-400" : "text-muted-foreground"
+                    }`}>
+                      {player.qualityBonus >= 0 ? "+" : ""}{player.qualityBonus}
+                    </span>
+                    <span className="text-xs text-muted-foreground">HeatScore</span>
+                    <span className="text-sm font-bold tabular-nums text-orange-400">
+                      {player.heatScore}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Picks table */}
+                <table className="w-full text-sm">
+                  <tbody>
+                    {player.picks.map((pick, i) => (
+                      <tr key={i} className="border-b border-border/50 last:border-0">
+                        <td className="px-3 py-1.5 font-medium">{pick.playerName}</td>
+                        <td className="px-2 py-1.5 text-muted-foreground text-xs">
+                          {CATEGORY_SHORT_LABELS[pick.statCategory as keyof typeof CATEGORY_SHORT_LABELS] ?? pick.statCategory}
+                        </td>
+                        <td className="px-2 py-1.5 text-right tabular-nums">{pick.line}</td>
+                        <td className="px-2 py-1.5 text-center">
+                          <span className={pick.selection === "over" ? "text-emerald-500" : "text-red-400"}>
+                            {pick.selection === "over" ? "O" : "U"}
+                          </span>
+                        </td>
+                        <td className="px-2 py-1.5 text-right tabular-nums">
+                          {pick.actualValue ?? "—"}
+                        </td>
+                        <td className="px-2 py-1.5 text-center">
+                          {resultBadge(pick.result)}
+                        </td>
+                        <td className={`px-2 py-1.5 text-right tabular-nums font-medium ${
+                          pick.qualityTokens > 0 ? "text-emerald-500" : pick.qualityTokens < 0 ? "text-red-400" : "text-muted-foreground"
+                        }`}>
+                          {pick.qualityTokens === 0 ? "—" : `${pick.qualityTokens > 0 ? "+" : ""}${pick.qualityTokens}`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
