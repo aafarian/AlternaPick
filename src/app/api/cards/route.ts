@@ -3,8 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { updateDailyStreak } from "@/lib/streaks/engine";
 import { unauthorized, badRequest, notFound, forbidden, conflict, serverError, handleApiError } from "@/lib/api/errors";
-import { logError } from "@/lib/logger";
+import { logError, logWarn } from "@/lib/logger";
 import { isValidGameMode } from "@/lib/modes/definitions";
+import { MIN_WAGER } from "@/lib/heatscore/constants";
 import { validatePicksForMode } from "@/lib/modes/validation";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE, DEFAULT_CARD_SIZE } from "@/lib/modes/types";
 import type { GameMode, PickValidationInput } from "@/lib/modes/types";
@@ -24,6 +25,8 @@ interface CreateCardBody {
   challenge_id?: string;
   game_mode?: string;
   card_size?: number;
+  /** Fire Token wager for ranked solo play. Null/omitted for casual or challenges. */
+  fire_token_wager?: number | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -248,6 +251,57 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Validate and deduct Fire Token wager (solo ranked only)
+    const wager = body.fire_token_wager;
+    let validatedWager: number | null = null;
+
+    if (wager != null) {
+      // Wager only allowed on solo cards (no challenge) by authenticated users
+      if (challenge_id) {
+        return badRequest("Token wagering is not allowed on challenges");
+      }
+      if (!user) {
+        return badRequest("Token wagering requires authentication");
+      }
+      if (!Number.isInteger(wager) || wager < MIN_WAGER) {
+        return badRequest(`Minimum wager is ${MIN_WAGER} tokens`);
+      }
+
+      // Deduct wager from balance. Race-condition safe: read current balance,
+      // then update with a WHERE that ensures balance hasn't dropped below the
+      // wager since we read it. If 0 rows affected, balance was insufficient.
+      const adminClient = createAdminClient();
+
+      const { data: entry } = await (adminClient.from("leaderboard_entries") as any)
+        .select("fire_tokens_balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const currentBalance = (entry as { fire_tokens_balance: number } | null)?.fire_tokens_balance ?? 1000;
+
+      if (currentBalance < wager) {
+        return badRequest("Insufficient Fire Token balance");
+      }
+
+      const { data: updated, error: deductError } = await (adminClient.from("leaderboard_entries") as any)
+        .update({ fire_tokens_balance: currentBalance - wager })
+        .eq("user_id", user.id)
+        .gte("fire_tokens_balance", wager)
+        .select("fire_tokens_balance");
+
+      if (deductError) {
+        logWarn("cards", "Fire token deduction failed", deductError);
+        return badRequest("Failed to process wager");
+      }
+
+      if (!updated || (updated as { fire_tokens_balance: number }[]).length === 0) {
+        // Race: balance dropped between read and update
+        return badRequest("Insufficient Fire Token balance");
+      }
+
+      validatedWager = wager;
+    }
+
     // Create card with user_id if authenticated, anon_id if not
     const cardResult = await (supabase.from("cards") as any)
       .insert({
@@ -259,6 +313,7 @@ export async function POST(request: NextRequest) {
         card_size: cardSize,
         game_mode: gameMode,
         locked_at: new Date().toISOString(),
+        ...(validatedWager != null && { fire_token_wager: validatedWager }),
       })
       .select()
       .single();

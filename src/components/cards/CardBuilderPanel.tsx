@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { createCard } from "@/lib/cards/api";
@@ -12,7 +12,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { X, Lock, Loader2, Swords } from "lucide-react";
+import { X, Lock, Loader2, Swords, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CardSuccessAnimation from "./CardSuccessAnimation";
 import AuthRequiredModal from "./AuthRequiredModal";
@@ -48,6 +48,23 @@ export default function CardBuilderPanel() {
 
   // Auth gate for guest lock-in
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Fire Token wager (solo ranked mode)
+  const [wager, setWager] = useState<number | null>(null);
+  const [tokenBalance, setTokenBalance] = useState<number | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+
+  // Fetch token balance when user has picks and is authenticated (solo only)
+  const shouldShowWager = user && picks.length > 0 && !isInChallengeMode;
+  useEffect(() => {
+    if (!shouldShowWager || tokenBalance !== null) return;
+    setBalanceLoading(true);
+    fetch("/api/fire-tokens/balance")
+      .then((r) => r.json())
+      .then((data) => setTokenBalance(data.balance ?? 1000))
+      .catch(() => setTokenBalance(1000))
+      .finally(() => setBalanceLoading(false));
+  }, [shouldShowWager, tokenBalance]);
 
   // Challenge-a-friend state
   const [showChallengePicker, setShowChallengePicker] = useState(false);
@@ -272,7 +289,8 @@ export default function CardBuilderPanel() {
         undefined,
         effectiveChallengeId,
         gameMode,
-        picks.length
+        picks.length,
+        effectiveChallengeId ? null : wager,
       );
       redirectRef.current = effectiveChallengeId
         ? `/challenges/${effectiveChallengeId}`
@@ -504,6 +522,57 @@ export default function CardBuilderPanel() {
                 ) : (
                   /* Regular card — Solo + Challenge split */
                   <>
+                    {/* Fire Token wager selector (solo ranked) */}
+                    {shouldShowWager && (
+                      <div className="flex items-center gap-1.5">
+                        <Flame className="h-3.5 w-3.5 text-orange-400" />
+                        {balanceLoading ? (
+                          <span className="text-xs text-muted-foreground">Loading...</span>
+                        ) : (
+                          <>
+                            <div className="flex gap-1">
+                              {wager === null ? (
+                                <Badge
+                                  variant="secondary"
+                                  className="cursor-default text-[10px]"
+                                >
+                                  Casual
+                                </Badge>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setWager(null)}
+                                  className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/80"
+                                >
+                                  Casual
+                                </button>
+                              )}
+                              {[10, 25, 50, 100].map((amt) => (
+                                <button
+                                  key={amt}
+                                  type="button"
+                                  disabled={tokenBalance !== null && tokenBalance < amt}
+                                  onClick={() => setWager(amt === wager ? null : amt)}
+                                  className={cn(
+                                    "rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors",
+                                    wager === amt
+                                      ? "bg-orange-500/20 text-orange-400"
+                                      : tokenBalance !== null && tokenBalance < amt
+                                        ? "cursor-not-allowed text-muted-foreground/30"
+                                        : "bg-muted text-muted-foreground hover:bg-orange-500/10 hover:text-orange-400",
+                                  )}
+                                >
+                                  {amt}
+                                </button>
+                              ))}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground">
+                              {tokenBalance ?? "—"} bal
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
                     <Button
                       onClick={handleLockIn}
                       disabled={!canLockIn || isLocking || creatingChallenge}
@@ -520,6 +589,11 @@ export default function CardBuilderPanel() {
                         <>
                           <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                           Locking...
+                        </>
+                      ) : wager != null ? (
+                        <>
+                          <Flame className="mr-1.5 h-3.5 w-3.5" />
+                          Wager {wager} — Lock In {pickCountLabel}Solo
                         </>
                       ) : (
                         <>
