@@ -793,25 +793,33 @@ export async function resolveCard(
   const misses = pickResolutions.filter((p) => p.result === "miss").length;
   const scoredTotal = score + misses;
 
-  // Compute HeatScore multiplier + Fire Token payout
-  const hsResult = computeCardHeatScore(score, misses, card.card_size);
-  const heatScoreInt = scoredTotal > 0 ? Math.round(hsResult.multiplier * 100) : null;
-
-  // Compute quality bonus from pick margins
-  const qualityResult = computeQualityBonus(
-    pickResolutions.map((p) => ({
-      actualValue: p.actual_value,
-      line: p.line,
-      selection: p.selection,
-      result: p.result,
-    })),
-  );
-
-  // Compute Fire Token payout if a wager was placed
+  // Compute HeatScore multiplier + Fire Token payout.
+  // Wrapped defensively so a computation error never blocks card resolution.
+  let heatScoreInt: number | null = null;
+  let qualityBonus = 0;
   const wager = card.fire_token_wager as number | null;
-  const payout = wager != null
-    ? computeFireTokenPayout(wager, hsResult.multiplier, qualityResult.total)
-    : null;
+  let payout: number | null = null;
+
+  try {
+    const hsResult = computeCardHeatScore(score, misses, card.card_size);
+    heatScoreInt = scoredTotal > 0 ? Math.round(hsResult.multiplier * 100) : null;
+
+    const qualityResult = computeQualityBonus(
+      pickResolutions.map((p) => ({
+        actualValue: p.actual_value,
+        line: p.line,
+        selection: p.selection,
+        result: p.result,
+      })),
+    );
+    qualityBonus = qualityResult.total;
+
+    if (wager != null) {
+      payout = computeFireTokenPayout(wager, hsResult.multiplier, qualityBonus);
+    }
+  } catch (hsError) {
+    logError("resolution", "HeatScore computation failed, resolving without HS", undefined, hsError);
+  }
 
   return {
     card_id: card.id,
@@ -823,7 +831,7 @@ export async function resolveCard(
     heat_score: heatScoreInt,
     fire_token_wager: wager,
     fire_token_payout: payout,
-    quality_bonus: qualityResult.total,
+    quality_bonus: qualityBonus,
   };
 }
 
@@ -847,8 +855,12 @@ export async function persistResolution(
   });
 
   if (!error && success) {
-    // RPC succeeded — update leaderboard (skip for all-DNP/push cards)
-    if (result.user_id && result.total > 0) {
+    // RPC succeeded — update leaderboard stats + fire token balance.
+    // Stats update requires scoreable picks (total > 0). Token balance
+    // update runs even for all-DNP cards so the wager is credited back.
+    const hasScoreablePicks = result.total > 0;
+    const hasTokenWager = result.fire_token_wager != null;
+    if (result.user_id && (hasScoreablePicks || hasTokenWager)) {
       await updateLeaderboardStats(
         supabase, result.user_id, result.score, result.total,
         result.fire_token_wager, result.fire_token_payout,
@@ -899,8 +911,10 @@ export async function persistResolution(
 
   if (!updated?.length) return false;
 
-  // Update leaderboard stats (skip for all-DNP/push cards)
-  if (result.user_id && result.total > 0) {
+  // Update leaderboard stats + fire token balance
+  const hasScoreablePicks = result.total > 0;
+  const hasTokenWagerFallback = result.fire_token_wager != null;
+  if (result.user_id && (hasScoreablePicks || hasTokenWagerFallback)) {
     await updateLeaderboardStats(
       supabase, result.user_id, result.score, result.total,
       result.fire_token_wager, result.fire_token_payout,
