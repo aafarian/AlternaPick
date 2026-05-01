@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   computeCardHeatScore,
   computeQualityBonus,
+  computeRawHeatScore,
   getNotchTier,
 } from "@/lib/heatscore/compute";
 import type { PickResult, PickSelection, StatCategory } from "@/lib/supabase/types";
@@ -147,7 +148,10 @@ export async function POST(request: Request) {
         })),
       );
 
-      const rawHeatScore = Math.round(hsResult.multiplier * 100) + qualityResult.total;
+      const scoreableNotchMults = picks
+        .filter((p) => p.result === "hit" || p.result === "miss")
+        .map((p) => getNotchTier(p.notch ?? 0).multiplier);
+      const rawHeatScore = computeRawHeatScore(hsResult.multiplier, qualityResult.total, scoreableNotchMults);
 
       playerCards.push({
         userId: card.user_id,

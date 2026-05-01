@@ -32,6 +32,7 @@ import type {
 import { extractStatValue, fuzzyMatchPlayer } from "@/lib/cards/resolution-utils";
 import {
   computeCardHeatScore,
+  computeRawHeatScore,
   computeFireTokenPayout,
   computeQualityBonus,
   getNotchTier,
@@ -815,7 +816,11 @@ export async function resolveCard(
 
   try {
     const hsResult = computeCardHeatScore(score, misses, card.card_size);
-    heatScoreInt = scoredTotal > 0 ? Math.round(hsResult.multiplier * 100) : null;
+
+    // Collect notch multipliers from scoreable picks for base scaling
+    const scoreableNotchMults = pickResolutions
+      .filter((p) => p.result === "hit" || p.result === "miss")
+      .map((p) => getNotchTier(p.notch ?? 0).multiplier);
 
     const qualityResult = computeQualityBonus(
       pickResolutions.map((p) => ({
@@ -827,6 +832,11 @@ export async function resolveCard(
       })),
     );
     qualityBonus = qualityResult.total;
+
+    // Raw HeatScore = (multiplier × 100 × avgNotch) + quality
+    heatScoreInt = scoredTotal > 0
+      ? computeRawHeatScore(hsResult.multiplier, qualityBonus, scoreableNotchMults)
+      : null;
 
     if (wager != null) {
       payout = computeFireTokenPayout(wager, hsResult.multiplier, qualityBonus);

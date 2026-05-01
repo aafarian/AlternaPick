@@ -177,6 +177,13 @@ export const CHALLENGE_WEEKLY_BONUS = 100;
 /** Daily login claim amount. */
 export const DAILY_CLAIM = 50;
 
+/**
+ * Maximum number of "easy" notch picks (Frosty + Chilled) per card.
+ * Prevents the exploit of picking all easy lines for guaranteed hits.
+ * Set to 0 to disable the limit.
+ */
+export const MAX_EASY_NOTCH_PICKS = 2;
+
 // ---------------------------------------------------------------------------
 // Challenge token rewards (no wager — flat bonuses)
 // ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ import { updateDailyStreak } from "@/lib/streaks/engine";
 import { unauthorized, badRequest, notFound, forbidden, conflict, serverError, handleApiError } from "@/lib/api/errors";
 import { logError, logWarn } from "@/lib/logger";
 import { isValidGameMode } from "@/lib/modes/definitions";
-import { MIN_WAGER } from "@/lib/heatscore/constants";
+import { MIN_WAGER, MAX_EASY_NOTCH_PICKS } from "@/lib/heatscore/constants";
 import { adjustLine, getAvailableNotches, selectionAllowedForNotch } from "@/lib/heatscore/compute";
 import { validatePicksForMode } from "@/lib/modes/validation";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE, DEFAULT_CARD_SIZE } from "@/lib/modes/types";
@@ -280,6 +280,14 @@ export async function POST(request: NextRequest) {
         if (Math.abs(pick.adjusted_line - expected) > 0.01) {
           return badRequest("Adjusted line does not match expected value");
         }
+      }
+    }
+
+    // Enforce easy notch pick limit
+    if (MAX_EASY_NOTCH_PICKS > 0) {
+      const easyCount = picks.filter((p) => (p.notch ?? 0) < 0).length;
+      if (easyCount > MAX_EASY_NOTCH_PICKS) {
+        return badRequest(`Maximum ${MAX_EASY_NOTCH_PICKS} Frosty/Chilled picks per card`);
       }
     }
 

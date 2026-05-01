@@ -183,6 +183,31 @@ export function computeCardHeatScore(
 }
 
 /**
+ * Compute the raw HeatScore value for a card (used in challenges + display).
+ *
+ * Formula: (table multiplier × 100 × avgNotchMultiplier) + qualityBonus
+ *
+ * The avgNotchMultiplier scales the base so Frosty picks (easy, 0.25x)
+ * produce lower scores and Volcanic picks (hard, 4.0x) produce higher
+ * scores. This prevents a "pick all Frosty" exploit in challenges where
+ * easy 6/6 would otherwise match a Standard 6/6.
+ *
+ * @param multiplier - Table multiplier from computeCardHeatScore
+ * @param qualityBonus - Total quality bonus from computeQualityBonus
+ * @param pickNotchMultipliers - Array of notch multiplier per scoreable pick
+ */
+export function computeRawHeatScore(
+  multiplier: number,
+  qualityBonus: number,
+  pickNotchMultipliers: number[],
+): number {
+  const avgNotch = pickNotchMultipliers.length > 0
+    ? pickNotchMultipliers.reduce((sum, m) => sum + m, 0) / pickNotchMultipliers.length
+    : 1.0;
+  return Math.round(multiplier * 100 * avgNotch) + qualityBonus;
+}
+
+/**
  * Compute the Fire Token payout for a given wager and HeatScore multiplier.
  * Includes an optional quality bonus (from hit/miss margins). Floored at 0.
  */
