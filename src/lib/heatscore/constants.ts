@@ -64,8 +64,10 @@ export const NOTCH_SHIFT_PCT: Record<StatCategory, number> = {
   saves: 0.20, // ~0.5pt on a 2-line
 };
 
-/** Minimum shift per notch — ensures at least a 0.5 move. */
-export const MIN_STEP = 0.5;
+/** Minimum shift per notch — ensures at least a 1-point move.
+ * This prevents low-line stats (steals 0.5, blocks 1.5) from having
+ * negligible half-point jumps between notch tiers. */
+export const MIN_STEP = 1.0;
 
 // ---------------------------------------------------------------------------
 // HeatScore multiplier table

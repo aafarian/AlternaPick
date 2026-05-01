@@ -60,11 +60,12 @@ describe("getStepSize", () => {
   });
 
   it("computes percentage-based step for low-line stats", () => {
-    expect(getStepSize(4.5, "points")).toBe(0.5);
+    // points at 4.5, pct = 0.08: raw = 0.36, below MIN_STEP → 1.0
+    expect(getStepSize(4.5, "points")).toBe(1.0);
   });
 
-  it("enforces minimum step of 0.5", () => {
-    expect(getStepSize(2.5, "rebounds")).toBe(0.5);
+  it("enforces minimum step of 1.0", () => {
+    expect(getStepSize(2.5, "rebounds")).toBe(1.0);
   });
 
   it("snaps to nearest 0.5", () => {
@@ -79,7 +80,8 @@ describe("getStepSize", () => {
   });
 
   it("handles soccer stats", () => {
-    expect(getStepSize(0.5, "goals")).toBe(0.5);
+    // goals at 0.5: raw = 0.15, below MIN_STEP → 1.0
+    expect(getStepSize(0.5, "goals")).toBe(1.0);
     expect(getStepSize(35.0, "passes")).toBe(3.0);
   });
 });
@@ -137,9 +139,10 @@ describe("getAvailableNotches", () => {
     expect(notches).toEqual([0, 1, 2, 3]);
   });
 
-  it("allows one downward notch when line is barely above floor", () => {
+  it("restricts downward notches when step exceeds line minus floor", () => {
+    // steals at 1.0, step = 1.0: -1 → 0.0 (below 0.5), excluded
     const notches = getAvailableNotches(1.0, "steals");
-    expect(notches).toEqual([-1, 0, 1, 2, 3]);
+    expect(notches).toEqual([0, 1, 2, 3]);
   });
 
   it("always includes notch 0", () => {
