@@ -15,78 +15,21 @@ import {
   AlertTriangle,
   Search,
 } from "lucide-react";
-import type { PickResult, StatCategory } from "@/lib/supabase/types";
+import type { PickResult } from "@/lib/supabase/types";
+import type { SimulationResult } from "@/lib/heatscore/simulate";
+import { CATEGORY_SHORT_LABELS } from "@/lib/constants";
 
-// ---------------------------------------------------------------------------
-// Types matching the API response
-// ---------------------------------------------------------------------------
-
-interface SimulatedPick {
-  pickId: string;
-  playerName: string;
-  statCategory: StatCategory;
-  originalLine: number;
-  selection: "over" | "under";
-  result: PickResult;
-  actualValue: number | null;
-  impliedProb: number;
-  baseHS: number;
-  hitHS: number;
-  missHS: number;
-  signedHS: number;
-  oddsSource: "actual" | "estimated";
-}
-
-interface SimulationResult {
-  cardId: string;
-  cardSize: number;
-  score: number;
-  totalPicks: number;
-  picks: SimulatedPick[];
-  netRaw: number;
-  cardMultiplier: number;
-  finalHeatScore: number;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const CATEGORY_LABELS: Record<string, string> = {
-  points: "PTS",
-  rebounds: "REB",
-  assists: "AST",
-  threes: "3PM",
-  pra: "PRA",
-  pts_reb: "P+R",
-  pts_ast: "P+A",
-  reb_ast: "R+A",
-  blocks: "BLK",
-  steals: "STL",
-  blk_stl: "B+S",
-  turnovers: "TO",
-  goals: "GOL",
-  shots: "SHO",
-  shots_on_target: "SOT",
-  tackles: "TKL",
-  passes: "PAS",
-  fouls_committed: "FLS",
-  saves: "SAV",
+const RESULT_BADGE_STYLES: Record<string, string> = {
+  hit: "bg-emerald-500/15 text-emerald-500 border-emerald-600/20",
+  miss: "bg-red-500/15 text-red-400 border-red-600/20",
+  push: "bg-slate-500/15 text-slate-400 border-slate-600/20",
+  dnp: "bg-slate-500/15 text-slate-400 border-slate-600/20",
+  pending: "bg-amber-500/15 text-amber-400 border-amber-600/20",
 };
 
 function resultBadge(result: PickResult) {
-  switch (result) {
-    case "hit":
-      return <Badge className="bg-emerald-600/15 text-emerald-500 border-emerald-600/20">Hit</Badge>;
-    case "miss":
-      return <Badge variant="destructive" className="opacity-80">Miss</Badge>;
-    case "push":
-      return <Badge variant="secondary">Push</Badge>;
-    case "dnp":
-      return <Badge variant="secondary">DNP</Badge>;
-    default:
-      return <Badge variant="outline">Pending</Badge>;
-  }
+  const label = result === "dnp" ? "DNP" : result.charAt(0).toUpperCase() + result.slice(1);
+  return <Badge className={RESULT_BADGE_STYLES[result] ?? RESULT_BADGE_STYLES.pending}>{label}</Badge>;
 }
 
 function formatHS(value: number): string {
@@ -119,14 +62,20 @@ export default function HeatScoreAdmin() {
         body: JSON.stringify({ card_id: trimmed }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error ?? `Error ${res.status}`);
+      let data: Record<string, unknown>;
+      try {
+        data = await res.json();
+      } catch {
+        setError("Invalid response from server");
         return;
       }
 
-      setResult(data as SimulationResult);
+      if (!res.ok) {
+        setError((data.error as string) ?? `Error ${res.status}`);
+        return;
+      }
+
+      setResult(data as unknown as SimulationResult);
     } catch {
       setError("Network error — check your connection");
     } finally {
@@ -220,6 +169,11 @@ function SimulationResults({ result }: { result: SimulationResult }) {
       </div>
 
       {/* Per-pick breakdown */}
+      {result.picks.length === 0 ? (
+        <p className="py-4 text-center text-sm text-muted-foreground">No picks on this card.</p>
+      ) : !result.picks.some((p) => p.result === "hit" || p.result === "miss") ? (
+        <p className="py-4 text-center text-sm text-muted-foreground">All picks are DNP or push — no scoreable picks.</p>
+      ) : (
       <div className="overflow-x-auto rounded-md border border-border">
         <table className="w-full text-sm">
           <thead>
@@ -241,7 +195,7 @@ function SimulationResults({ result }: { result: SimulationResult }) {
               <tr key={pick.pickId} className="border-b border-border/50 last:border-0">
                 <td className="px-3 py-2 font-medium">{pick.playerName}</td>
                 <td className="px-3 py-2 text-muted-foreground">
-                  {CATEGORY_LABELS[pick.statCategory] ?? pick.statCategory}
+                  {CATEGORY_SHORT_LABELS[pick.statCategory] ?? pick.statCategory}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">{pick.originalLine}</td>
                 <td className="px-3 py-2 text-center">
@@ -281,6 +235,7 @@ function SimulationResults({ result }: { result: SimulationResult }) {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }
