@@ -64,9 +64,25 @@ export default function PropLine({
     setNotch(newNotch);
     setCurrentAdjustedLine(newAdjustedLine);
 
-    // If user has Under selected and shifts notch away from 0, auto-remove
-    if (selected && selection === "under" && newNotch !== 0) {
+    if (selected) {
+      // If user has Under selected and shifts notch away from 0, auto-remove
+      if (selection === "under" && newNotch !== 0) {
+        removePick(propId);
+        return;
+      }
+      // Re-add the pick with the updated notch + adjusted_line
       removePick(propId);
+      addPick({
+        prop_id: propId,
+        player_name: playerName,
+        player_team: playerTeam ?? "",
+        stat_category: statCategory,
+        line,
+        selection: selection ?? "over",
+        game_id: gameId,
+        notch: newNotch,
+        adjusted_line: newAdjustedLine,
+      });
     }
   }
 
