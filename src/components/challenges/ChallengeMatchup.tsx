@@ -594,9 +594,18 @@ export default function ChallengeMatchup({
             {/* Score — below avatar row */}
             {challenge.challenger_card && challenge.opponent_card &&
               (challenge.status === "active" || challenge.status === "resolved") && (
-              <span className="mt-6 text-lg font-bold tabular-nums tracking-wide md:mt-10">
-                {challengerLiveScore ?? challenge.challenger_card.score} &ndash; {opponentLiveScore ?? challenge.opponent_card.score}
-              </span>
+              <>
+                <span className="mt-6 text-lg font-bold tabular-nums tracking-wide md:mt-10">
+                  {challengerLiveScore ?? challenge.challenger_card.score} &ndash; {opponentLiveScore ?? challenge.opponent_card.score}
+                </span>
+                {challenge.status === "resolved" &&
+                  challenge.challenger_card.heat_score != null &&
+                  challenge.opponent_card.heat_score != null && (
+                  <span className="text-[10px] font-semibold tabular-nums text-orange-400">
+                    HS {challenge.challenger_card.heat_score} &ndash; {challenge.opponent_card.heat_score}
+                  </span>
+                )}
+              </>
             )}
             {/* VS centered in remaining space */}
             <div className="flex flex-1 items-center justify-center">
