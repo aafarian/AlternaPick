@@ -153,7 +153,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 border-l-2 px-4 py-3 transition-colors",
+        "flex flex-col gap-1.5 border-l-2 px-3 py-2 transition-colors",
         d.accentClass,
         d.isSettled && "opacity-75"
       )}
