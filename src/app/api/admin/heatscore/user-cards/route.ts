@@ -57,7 +57,7 @@ export async function GET(request: Request) {
         .eq("user_id", userId)
         .eq("status", "resolved")
         .order("resolved_at", { ascending: false })
-        .limit(20);
+        .limit(100);
 
       const cards = (
         cardsData as Array<{

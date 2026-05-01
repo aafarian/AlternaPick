@@ -222,7 +222,7 @@ export default function HeatScoreAdmin() {
               {selectedUser.cards.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No resolved cards found.</p>
               ) : (
-                <div className="max-h-48 space-y-1 overflow-y-auto">
+                <div className="max-h-96 space-y-1 overflow-y-auto">
                   {selectedUser.cards.map((card) => (
                     <button
                       key={card.id}

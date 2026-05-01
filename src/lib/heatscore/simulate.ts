@@ -67,7 +67,7 @@ type SimPickRow = {
 // Simulator
 // ---------------------------------------------------------------------------
 
-const DEMO_WAGER = 100;
+const DEMO_WAGER = 50;
 
 /**
  * Simulate the HeatScore multiplier and Fire Token payout for an existing
