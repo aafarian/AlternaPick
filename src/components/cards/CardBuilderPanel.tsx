@@ -63,7 +63,7 @@ export default function CardBuilderPanel() {
     return () => { cancelled = true; };
   }, [user]);
 
-  // Fire Token wager (solo ranked mode)
+  // Flame Token wager (solo ranked mode)
   const [wager, setWager] = useState<number | null>(null);
   const [showHeatPicker, setShowRankedPicker] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
