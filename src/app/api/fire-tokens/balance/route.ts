@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { unauthorized, handleApiError } from "@/lib/api/errors";
 
 /**
@@ -17,7 +18,9 @@ export async function GET() {
 
     if (!user) return unauthorized();
 
-    const { data, error } = await (supabase.from("leaderboard_entries") as any)
+    // Use admin client to bypass RLS — auth is already verified above
+    const admin = createAdminClient();
+    const { data, error } = await (admin.from("leaderboard_entries") as any)
       .select("fire_tokens_balance, fire_tokens_lifetime, fire_tokens_last_claim")
       .eq("user_id", user.id)
       .maybeSingle();

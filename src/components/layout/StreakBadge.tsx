@@ -41,10 +41,16 @@ export default function StreakBadge() {
     ]).then(([streakData, tokenData]) => {
       if (cancelled) return;
       if (streakData) setStreak(streakData);
-      if (tokenData) {
-        setTokens({ balance: tokenData.balance ?? 1000, lifetime: tokenData.lifetime ?? 0, can_claim: tokenData.can_claim ?? false });
-      }
-    }).catch(() => { /* fail silently — badge stays hidden */ });
+      // Always set tokens — use defaults if API failed
+      setTokens({
+        balance: tokenData?.balance ?? 0,
+        lifetime: tokenData?.lifetime ?? 0,
+        can_claim: tokenData?.can_claim ?? false,
+      });
+    }).catch(() => {
+      // Network error — show badge with 0 so it's never invisible
+      if (!cancelled) setTokens({ balance: 0, lifetime: 0, can_claim: false });
+    });
 
     return () => { cancelled = true; };
   }, [user]);
