@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import type { LivePickData } from "@/lib/cards/live-types";
 import { computePickDisplay } from "@/lib/cards/pick-display";
 import { CATEGORY_LABELS, CATEGORY_COLORS, formatPlayerSubtitle } from "@/lib/constants";
@@ -27,7 +27,7 @@ interface LivePickRowProps {
   showQualityTokens?: boolean;
 }
 
-export default function LivePickRow({ pick, variant = "full", showQualityTokens = false }: LivePickRowProps) {
+function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }: LivePickRowProps) {
   // Mount at 0% width, then animate to target after browser paints the initial frame
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -392,3 +392,6 @@ export default function LivePickRow({ pick, variant = "full", showQualityTokens 
     </div>
   );
 }
+
+const LivePickRow = memo(LivePickRowInner);
+export default LivePickRow;

@@ -9,6 +9,7 @@ import type { LivePickData, LiveGameStatus } from "@/lib/cards/live-types";
 import ShareButton from "@/components/cards/ShareButton";
 import { useLiveStats } from "@/lib/cards/use-live-stats";
 import GameScoreBanner from "@/components/live/GameScoreBanner";
+import { Skeleton } from "@/components/ui/skeleton";
 import LivePickRow from "@/components/live/LivePickRow";
 import { teamTricode, teamLogoUrl, gameUrl } from "@/lib/constants";
 import {
@@ -192,9 +193,19 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
 
       {(() => {
         const gamesToShow = liveData?.games ?? (fallbackGames.length > 0 ? fallbackGames : undefined);
+
+        // Locked card waiting for live data — show skeleton to reserve space
+        if (isLocked && !gamesToShow) {
+          return (
+            <div className="flex gap-2 px-3 pb-2">
+              <Skeleton className="h-[50px] w-[200px] rounded-lg" />
+            </div>
+          );
+        }
+
         if (!gamesToShow || gamesToShow.length === 0) return null;
+
         if (!animate) {
-          // Standalone page: render immediately, no animation
           return (
             <div className="px-3 pb-2">
               <GameScoreBanner games={gamesToShow} />
