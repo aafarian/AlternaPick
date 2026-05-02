@@ -862,7 +862,10 @@ export async function resolveCard(
     // Wager Flame payout — uses multiplier table (separate system)
     if (wager != null) {
       const hsResult = computeCardHeatScore(score, misses, card.card_size);
-      payout = computeFireTokenPayout(wager, hsResult.multiplier, qualityBonus);
+      // All picks voided (DNP/push) — refund wager in full
+      payout = hsResult.effectiveSize === 0
+        ? wager
+        : computeFireTokenPayout(wager, hsResult.multiplier, qualityBonus);
     }
   } catch (hsError) {
     logError("resolution", "HeatScore computation failed, resolving without HS", undefined, hsError);

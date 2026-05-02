@@ -8,9 +8,9 @@ import { DAILY_CLAIM, STARTING_BALANCE } from "@/lib/heatscore/constants";
  * POST /api/fire-tokens/claim
  *
  * Claim the daily Flame Token bonus. Can be claimed once per UTC day.
- * Uses `.neq("fire_tokens_last_claim", today)` in the UPDATE to prevent
- * double-spend from concurrent requests — if two requests race, only the
- * first one matches the WHERE clause and mutates the row.
+ * Uses an atomic RPC (claim_daily_tokens) that sets last_claim and
+ * increments balance in a single transaction — no partial failure
+ * where the claim slot is consumed but tokens aren't credited.
  */
 export async function POST() {
   try {
@@ -24,9 +24,9 @@ export async function POST() {
     const admin = createAdminClient();
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
 
-    // Fetch current state
+    // Check if user has a leaderboard entry
     const { data: entry } = await (admin.from("leaderboard_entries") as any)
-      .select("fire_tokens_balance, fire_tokens_last_claim")
+      .select("fire_tokens_last_claim")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -49,35 +49,27 @@ export async function POST() {
       });
     }
 
-    // Early rejection for obvious duplicate (avoids unnecessary UPDATE)
+    // Early rejection for obvious duplicate
     if (entry.fire_tokens_last_claim === today) {
       return badRequest("Already claimed today");
     }
 
-    // Step 1: Set last_claim to today with .neq guard (idempotency — only one request wins)
-    const { data: claimResult, error: claimError } = await (admin.from("leaderboard_entries") as any)
-      .update({ fire_tokens_last_claim: today })
-      .eq("user_id", user.id)
-      .neq("fire_tokens_last_claim", today)
-      .select("id");
+    // Atomic claim: sets last_claim and increments balance in one transaction.
+    // Returns -1 if already claimed today (concurrent request won), or new balance.
+    const { data: newBalance, error: claimError } = await (admin.rpc as any)(
+      "claim_daily_tokens",
+      { p_user_id: user.id, p_amount: DAILY_CLAIM, p_today: today },
+    );
 
     if (claimError) return handleApiError(claimError, "fire-tokens/claim");
 
-    if (!claimResult || claimResult.length === 0) {
+    if (newBalance === -1) {
       return badRequest("Already claimed today");
     }
 
-    // Step 2: Atomic credit via RPC — prevents lost writes from concurrent payouts
-    const { data: newBalance, error: creditError } = await (admin.rpc as any)(
-      "credit_fire_tokens",
-      { p_user_id: user.id, p_amount: DAILY_CLAIM, p_include_lifetime: false },
-    );
-
-    if (creditError) return handleApiError(creditError, "fire-tokens/claim");
-
     return NextResponse.json({
       claimed: DAILY_CLAIM,
-      balance: newBalance ?? (entry.fire_tokens_balance ?? STARTING_BALANCE) + DAILY_CLAIM,
+      balance: newBalance,
       next_claim: "tomorrow",
     });
   } catch (error) {
