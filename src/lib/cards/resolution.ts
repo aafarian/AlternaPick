@@ -859,13 +859,19 @@ export async function resolveCard(
       heatScoreInt = pickResolutions.reduce((sum, p) => sum + p.heat_score, 0);
     }
 
-    // Wager Flame payout — uses multiplier table (separate system)
+    // Wager Flame payout — uses multiplier table, scaled by notch difficulty.
+    // Frosty picks reduce payout, Volcanic picks increase it.
     if (wager != null) {
       const hsResult = computeCardHeatScore(score, misses, card.card_size);
-      // All picks voided (DNP/push) — refund wager in full
-      payout = hsResult.effectiveSize === 0
-        ? wager
-        : computeFireTokenPayout(wager, hsResult.multiplier, qualityBonus);
+      if (hsResult.effectiveSize === 0) {
+        // All picks voided (DNP/push) — refund wager in full
+        payout = wager;
+      } else {
+        const avgNotch = pickResolutions.length > 0
+          ? pickResolutions.reduce((sum, p) => sum + getNotchTier(p.notch ?? 0).multiplier, 0) / pickResolutions.length
+          : 1;
+        payout = computeFireTokenPayout(wager, hsResult.multiplier, qualityBonus, avgNotch);
+      }
     }
   } catch (hsError) {
     logError("resolution", "HeatScore computation failed, resolving without HS", undefined, hsError);

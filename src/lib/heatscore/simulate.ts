@@ -4,6 +4,7 @@ import {
   computeCardHeatScore,
   computeFireTokenPayout,
   computeQualityBonus,
+  getNotchTier,
 } from "./compute";
 
 // ---------------------------------------------------------------------------
@@ -56,6 +57,7 @@ type SimPickRow = {
   selection: PickSelection;
   result: PickResult;
   actual_value: number | null;
+  notch: number | null;
   prop: {
     player_name: string;
     stat_category: StatCategory;
@@ -100,7 +102,7 @@ export async function simulateCardHeatScore(
     supabase.from("picks") as any
   )
     .select(
-      "id, selection, result, actual_value, prop:props!inner(player_name, stat_category, line)",
+      "id, selection, result, actual_value, notch, prop:props!inner(player_name, stat_category, line)",
     )
     .eq("card_id", cardId);
 
@@ -140,10 +142,16 @@ export async function simulateCardHeatScore(
     card.card_size,
   );
 
+  // Average notch multiplier across picks (defaults to 1.0 for pre-notch cards)
+  const avgNotchMult = picks.length > 0
+    ? picks.reduce((sum, p) => sum + getNotchTier(p.notch ?? 0).multiplier, 0) / picks.length
+    : 1;
+
   const simulatedPayout = computeFireTokenPayout(
     DEMO_WAGER,
     cardResult.multiplier,
     qualityResult.total,
+    avgNotchMult,
   );
 
   return {

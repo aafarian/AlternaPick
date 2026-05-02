@@ -241,14 +241,20 @@ export function computeHeatScore(picks: HeatScorePickInput[]): number {
 
 /**
  * Compute the Flame Token payout for a given wager and HeatScore multiplier.
- * Includes an optional quality bonus (from hit/miss margins). Floored at 0.
+ *
+ * The payout is scaled by the average notch multiplier across picks, so
+ * easier picks (Frosty 0.25x) reduce the payout and harder picks (Volcanic 4x)
+ * increase it. Includes an optional quality bonus (from hit/miss margins).
+ * Floored at 0.
  */
 export function computeFireTokenPayout(
   wager: number,
   multiplier: number,
   qualityBonus?: number,
+  avgNotchMultiplier?: number,
 ): number {
-  return Math.max(0, Math.round(wager * multiplier + (qualityBonus ?? 0)));
+  const notchScale = avgNotchMultiplier ?? 1;
+  return Math.max(0, Math.round(wager * multiplier * notchScale + (qualityBonus ?? 0)));
 }
 
 // ---------------------------------------------------------------------------

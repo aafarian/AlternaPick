@@ -45,12 +45,24 @@ export default function CardHeatScoreBadge({
 
   const hasNotchPicks = pickNotches ? pickNotches.some((n) => n !== 0) : false;
 
+  // Average notch multiplier — now scales the actual wager payout
+  const avgNotchMult = pickNotches && pickNotches.length > 0
+    ? pickNotches.reduce((sum, n) => sum + getNotchTier(n).multiplier, 0) / pickNotches.length
+    : 1;
+  // Effective multiplier shown to user = base × notch (matches actual payout formula)
+  const effectiveMultiplier = baseMultiplier != null
+    ? Math.round(baseMultiplier * avgNotchMult * 10) / 10
+    : baseMultiplier;
+
   // Build base multiplier rows (raw table values)
   const baseRows = cardSize
-    ? Array.from({ length: cardSize + 1 }, (_, i) => cardSize - i).map((hits) => ({
-        hits,
-        multiplier: getHeatScoreMultiplier(hits, cardSize),
-      }))
+    ? Array.from({ length: cardSize + 1 }, (_, i) => cardSize - i).map((hits) => {
+        const rawMult = getHeatScoreMultiplier(hits, cardSize);
+        return {
+          hits,
+          multiplier: Math.round(rawMult * avgNotchMult * 10) / 10,
+        };
+      })
     : [];
 
   // Build notch line items: group by tier, show count × multiplier
@@ -103,9 +115,9 @@ export default function CardHeatScoreBadge({
               +{payout}
             </span>
           )}
-          {payout == null && baseMultiplier != null && baseMultiplier > 0 && (
+          {payout == null && effectiveMultiplier != null && effectiveMultiplier > 0 && (
             <span className="relative inline-flex items-center gap-1">
-              <span className="text-xs font-black text-orange-400">{baseMultiplier}x{hasNotchPicks ? "+" : ""}</span>
+              <span className="text-xs font-black text-orange-400">{effectiveMultiplier}x</span>
               <button
                 type="button"
                 onClick={(e) => {
@@ -168,17 +180,17 @@ export default function CardHeatScoreBadge({
                   )}
 
                   {/* Grand total */}
-                  {wager != null && baseMultiplier != null && (
+                  {wager != null && effectiveMultiplier != null && (
                     <>
                       <div className="my-1.5 border-t border-border" />
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-foreground">Base payout</span>
+                        <span className="font-semibold text-foreground">Max payout</span>
                         <span className="font-black text-emerald-500">
-                          {Math.round(wager * baseMultiplier).toLocaleString()}
+                          {Math.round(wager * effectiveMultiplier).toLocaleString()}
                         </span>
                       </div>
                       <p className="mt-0.5 text-[9px] text-muted-foreground/60">
-                        {wager} × {baseMultiplier}x{hasNotchPicks ? " + quality bonus" : ""}
+                        {wager} × {baseMultiplier}x{hasNotchPicks ? ` × ${Math.round(avgNotchMult * 100) / 100}x` : ""} + quality
                       </p>
                     </>
                   )}
