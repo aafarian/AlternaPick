@@ -92,12 +92,12 @@ export default function NotchSelector({
         <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
       </button>
 
-      <div className="relative flex w-[2.75rem] items-baseline justify-center overflow-hidden sm:w-[4rem]">
+      <div className="relative flex min-w-[2.75rem] items-baseline justify-center overflow-hidden sm:min-w-[4rem]">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span
             key={currentLine}
             className={cn(
-              "text-2xl font-black tabular-nums tracking-tight sm:text-3xl",
+              "text-xl font-black tabular-nums tracking-tight sm:text-3xl",
               notch !== 0 && colors.numberTint,
             )}
             {...(prefersReduced

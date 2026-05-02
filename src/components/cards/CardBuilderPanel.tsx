@@ -504,8 +504,8 @@ export default function CardBuilderPanel() {
           <div className="border-t border-orange-500/30 bg-surface/95 backdrop-blur-xl">
             <div className="mx-auto max-w-6xl px-4 py-2.5">
               {/* Row 1: Wager input + quick presets + balance */}
-              <div className="flex items-center gap-2">
-                <Flame className="h-4 w-4 shrink-0 text-orange-400" />
+              <div className="flex flex-wrap items-center gap-2">
+                <Flame className="hidden h-4 w-4 shrink-0 text-orange-400 sm:block" />
 
                 {balanceLoading ? (
                   <div className="flex items-center gap-2">
@@ -584,12 +584,12 @@ export default function CardBuilderPanel() {
 
                     <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
                       <Flame className="h-3 w-3 text-orange-400" />
-                      {(tokenBalance ?? STARTING_BALANCE).toLocaleString()} remaining
+                      {(tokenBalance ?? STARTING_BALANCE).toLocaleString()} left
                     </span>
 
-                    {/* Payout preview — inline after the balance */}
+                    {/* Payout preview — wraps to next line on mobile */}
                     {wager != null && wager >= 10 && picks.length >= 2 && (
-                    <div className="flex gap-1.5">
+                    <div className="flex w-full gap-1.5 sm:w-auto">
                   {Array.from({ length: picks.length + 1 }, (_, k) => picks.length - k)
                     .map((hits) => {
                       const mult = getHeatScoreMultiplier(hits, picks.length);
@@ -739,18 +739,17 @@ export default function CardBuilderPanel() {
                       ) : wager != null ? (
                         <>
                           <Flame className="mr-1.5 h-3.5 w-3.5" />
-                          Wager {wager} — Lock In
+                          <span className="hidden sm:inline">Wager {wager} —&nbsp;</span>Lock In
                         </>
                       ) : (
                         <>
                           <Lock className="mr-1.5 h-3.5 w-3.5" />
-                          Lock In {pickCountLabel}Solo
+                          Lock In <span className="hidden sm:inline">{pickCountLabel}Solo</span>
                         </>
                       )}
                     </Button>
                     {user && !showHeatPicker && (
                       <>
-                        <span className="text-xs text-muted-foreground">or</span>
                         <Button
                           onClick={() => {
                             if (showChallengePicker) {
@@ -771,15 +770,12 @@ export default function CardBuilderPanel() {
                           )}
                         >
                           <Swords className="mr-1.5 h-3.5 w-3.5" />
-                          Challenge
+                          <span className="hidden sm:inline">Challenge</span>
                         </Button>
                       </>
                     )}
                     {user && heatModeAccess && !showChallengePicker && (
                       <>
-                        {!showHeatPicker && (
-                          <span className="text-xs text-muted-foreground">or</span>
-                        )}
                         <Button
                           onClick={() => {
                             if (showHeatPicker) {
@@ -803,12 +799,12 @@ export default function CardBuilderPanel() {
                           {showHeatPicker ? (
                             <>
                               <Lock className="mr-1.5 h-3.5 w-3.5" />
-                              Casual
+                              <span className="hidden sm:inline">Casual</span>
                             </>
                           ) : (
                             <>
                               <Flame className="mr-1.5 h-3.5 w-3.5" />
-                              Wager Flame
+                              <span className="hidden sm:inline">Wager</span>
                             </>
                           )}
                         </Button>
