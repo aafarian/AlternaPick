@@ -62,6 +62,7 @@ export interface AdminUserRow {
   lastActive: string | null;
   totalCards: number;
   winRate: number;
+  flameTokens: number | null;
   isDeactivated: boolean;
 }
 

@@ -16,6 +16,7 @@ const LEADERBOARD_SORT_COLUMNS = new Set([
   "total_cards",
   "win_rate",
   "last_active",
+  "flame_tokens",
 ] as const);
 
 type SortBy =
@@ -142,6 +143,7 @@ export async function GET(request: NextRequest) {
         total_cards: "total_cards",
         win_rate: "win_rate",
         last_active: "last_played_date",
+        flame_tokens: "fire_tokens_balance",
       };
       const lbColumn = lbColumnMap[sortBy] ?? "total_cards";
 
@@ -172,7 +174,7 @@ export async function GET(request: NextRequest) {
            
           const lbQuery: any = supabase
             .from("leaderboard_entries")
-            .select("user_id, total_cards, win_rate, last_played_date")
+            .select("user_id, total_cards, win_rate, last_played_date, fire_tokens_balance")
             .in("user_id", matchedIds)
             .order(lbColumn, { ascending: sortOrder === "asc" })
             .range(from, to);
@@ -222,7 +224,7 @@ export async function GET(request: NextRequest) {
          
         const lbQuery: any = supabase
           .from("leaderboard_entries")
-          .select("user_id, total_cards, win_rate, last_played_date")
+          .select("user_id, total_cards, win_rate, last_played_date, fire_tokens_balance")
           .order(lbColumn, { ascending: sortOrder === "asc" })
           .range(from, to);
 
@@ -293,6 +295,7 @@ type LeaderboardRow = {
   total_cards: number;
   win_rate: number;
   last_played_date: string | null;
+  fire_tokens_balance: number | null;
 };
 
 /**
@@ -317,7 +320,7 @@ async function fetchLeaderboardMap(
     batches.map((batch) =>
       supabase
         .from("leaderboard_entries")
-        .select("user_id, total_cards, win_rate, last_played_date")
+        .select("user_id, total_cards, win_rate, last_played_date, fire_tokens_balance")
         .in("user_id", batch)
     )
   );
@@ -349,6 +352,7 @@ function mapToAdminUserRow(
     lastActive: lb?.last_played_date ?? null,
     totalCards: lb?.total_cards ?? 0,
     winRate: lb?.win_rate ?? 0,
+    flameTokens: lb?.fire_tokens_balance ?? null,
     isDeactivated: profile.is_deactivated,
   };
 }

@@ -35,7 +35,8 @@ type SortBy =
   | "created_at"
   | "last_active"
   | "total_cards"
-  | "win_rate";
+  | "win_rate"
+  | "flame_tokens";
 
 interface ColumnDef {
   key: SortBy;
@@ -49,6 +50,7 @@ const columns: ColumnDef[] = [
   { key: "last_active", label: "Last Active" },
   { key: "total_cards", label: "Cards" },
   { key: "win_rate", label: "Win Rate" },
+  { key: "flame_tokens", label: "Tokens" },
 ];
 
 // Status is not sortable, rendered separately
@@ -338,6 +340,10 @@ export default function UsersTable() {
                   {/* Win Rate */}
                   <TableCell className="text-muted-foreground">
                     {formatWinRate(user.winRate)}
+                  </TableCell>
+                  {/* Flame Tokens */}
+                  <TableCell className="tabular-nums text-orange-400">
+                    {user.flameTokens != null ? user.flameTokens.toLocaleString() : "\u2014"}
                   </TableCell>
                   {/* Status */}
                   <TableCell>

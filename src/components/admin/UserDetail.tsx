@@ -489,7 +489,14 @@ function RecentCardsTable({
               {formatDateTime(card.resolvedAt)}
             </TableCell>
             <TableCell>
-              <span onClick={(e) => e.stopPropagation()}>
+              <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                <Link
+                  href={`/cards/${card.id}`}
+                  className="rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+                  target="_blank"
+                >
+                  View
+                </Link>
                 <InlineActionButton
                   icon={Trash2}
                   title="Delete this card?"
