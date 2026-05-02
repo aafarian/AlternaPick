@@ -10,6 +10,12 @@ import type {
   Challenge,
   NotificationPreferences,
 } from "@/lib/supabase/types";
+import {
+  CHALLENGE_WIN_BONUS,
+  CHALLENGE_TIE_BONUS,
+  STARTING_BALANCE,
+} from "@/lib/heatscore/constants";
+import { DEFAULT_LEADERBOARD_STATS } from "@/lib/leaderboard/defaults";
 
 export interface ChallengeResolutionResult {
   challenge_id: string;
@@ -38,6 +44,7 @@ interface GroupParticipantCard {
   user_id: string | null;
   card_id: string | null;
   card_score: number;
+  card_heat_score: number;
   card_status: string;
 }
 
@@ -117,12 +124,12 @@ export async function resolveEligibleChallenges(): Promise<
 
     const challengerScore = challengerCard.score;
     const opponentScore = opponentCard.score;
-    const isTie = challengerScore === opponentScore;
+    const scoresTied = challengerScore === opponentScore;
 
     let winnerId: string | null = null;
     let loserId: string | null = null;
 
-    if (!isTie) {
+    if (!scoresTied) {
       winnerId =
         challengerScore > opponentScore
           ? challenge.challenger_id
@@ -131,7 +138,25 @@ export async function resolveEligibleChallenges(): Promise<
         winnerId === challenge.challenger_id
           ? challenge.opponent_id
           : challenge.challenger_id;
+    } else {
+      // Tiebreaker: HeatScore (higher = better quality picks)
+      const challengerHS = challengerCard.heat_score ?? 0;
+      const opponentHS = opponentCard.heat_score ?? 0;
+      if (challengerHS !== opponentHS) {
+        winnerId =
+          challengerHS > opponentHS
+            ? challenge.challenger_id
+            : challenge.opponent_id;
+        loserId =
+          winnerId === challenge.challenger_id
+            ? challenge.opponent_id
+            : challenge.challenger_id;
+      }
+      // If HeatScore also tied, winnerId stays null (true draw)
     }
+
+    // For notifications: a "tie" means no winner was determined
+    const isTie = winnerId === null;
 
     // Update challenge row
     const updateResult = await (supabase.from("challenges") as any)
@@ -153,6 +178,21 @@ export async function resolveEligibleChallenges(): Promise<
     // Update leaderboard H2H stats (only when there is a winner)
     if (winnerId && loserId) {
       await updateH2HStats(supabase, winnerId, loserId);
+    }
+
+    // Award challenge token bonus (winner gets CHALLENGE_WIN_BONUS, tie gets CHALLENGE_TIE_BONUS each)
+    try {
+      if (winnerId) {
+        await awardChallengeTokens(supabase, winnerId, CHALLENGE_WIN_BONUS);
+      } else {
+        // True draw — both get tie bonus
+        await awardChallengeTokens(supabase, challenge.challenger_id, CHALLENGE_TIE_BONUS);
+        if (challenge.opponent_id) {
+          await awardChallengeTokens(supabase, challenge.opponent_id, CHALLENGE_TIE_BONUS);
+        }
+      }
+    } catch (tokenError) {
+      logError("challenge-resolution", "Failed to award challenge tokens", undefined, tokenError);
     }
 
     // Fire-and-forget: notify both participants about challenge result
@@ -309,14 +349,7 @@ export async function resolveEligibleChallenges(): Promise<
           .eq("user_id", participantId)
           .single();
 
-        const lb = (lbResult.data ?? {
-          total_cards: 0,
-          current_streak: 0,
-          best_streak: 0,
-          win_rate: 0,
-          h2h_wins: 0,
-          h2h_losses: 0,
-        }) as {
+        const lb = (lbResult.data ?? DEFAULT_LEADERBOARD_STATS) as {
           total_cards: number;
           current_streak: number;
           best_streak: number;
@@ -388,7 +421,7 @@ async function resolveGroupChallenge(
   // Fetch all cards for active participants
   const cardIds = participantsWithCards.map((p) => p.card_id as string);
   const { data: cardsData, error: cardsError } = await (supabase.from("cards") as any)
-    .select("id, user_id, score, status")
+    .select("id, user_id, score, heat_score, status")
     .in("id", cardIds);
 
   if (cardsError) {
@@ -403,6 +436,7 @@ async function resolveGroupChallenge(
     id: string;
     user_id: string | null;
     score: number;
+    heat_score: number | null;
     status: string;
   }>;
 
@@ -422,19 +456,23 @@ async function resolveGroupChallenge(
       user_id: p.user_id,
       card_id: p.card_id,
       card_score: card.score,
+      card_heat_score: card.heat_score ?? 0,
       card_status: card.status,
     });
   }
 
-  // Sort by score descending for ranking
-  participantCards.sort((a, b) => b.card_score - a.card_score);
+  // Sort by score descending, then HeatScore descending as tiebreaker
+  participantCards.sort((a, b) => {
+    if (b.card_score !== a.card_score) return b.card_score - a.card_score;
+    return b.card_heat_score - a.card_heat_score;
+  });
 
   // Assign placements with dense ranking (ties get same placement, next skips)
   const placements: Array<{ participant_id: string; user_id: string | null; placement: number; score: number }> = [];
   let currentPlacement = 1;
 
   for (let i = 0; i < participantCards.length; i++) {
-    if (i > 0 && participantCards[i].card_score < participantCards[i - 1].card_score) {
+    if (i > 0 && (participantCards[i].card_score < participantCards[i - 1].card_score || participantCards[i].card_heat_score < participantCards[i - 1].card_heat_score)) {
       currentPlacement = i + 1; // Standard competition ranking (1st, 1st, 3rd — not 1st, 1st, 2nd)
     }
     placements.push({
@@ -481,6 +519,23 @@ async function resolveGroupChallenge(
       `Failed to update group challenge ${challenge.id}: ${updateResult.error.message}`,
     );
     return null;
+  }
+
+  // Award challenge token bonuses for group challenges.
+  // Wrapped in try/catch so a token DB failure never blocks challenge resolution
+  // (same guard as the 1v1 path).
+  try {
+    if (hasFirstPlaceTie) {
+      for (const p of firstPlaceParticipants) {
+        if (p.user_id) {
+          await awardChallengeTokens(supabase, p.user_id, CHALLENGE_TIE_BONUS);
+        }
+      }
+    } else if (winnerId) {
+      await awardChallengeTokens(supabase, winnerId, CHALLENGE_WIN_BONUS);
+    }
+  } catch (tokenError) {
+    logError("challenge-resolution", "Failed to award group challenge tokens", undefined, tokenError);
   }
 
   // Skip H2H stats for group challenges (only tracked for 1v1)
@@ -605,14 +660,7 @@ async function resolveGroupChallenge(
         .eq("user_id", p.user_id)
         .single();
 
-      const lb = (lbResult.data ?? {
-        total_cards: 0,
-        current_streak: 0,
-        best_streak: 0,
-        win_rate: 0,
-        h2h_wins: 0,
-        h2h_losses: 0,
-      }) as {
+      const lb = (lbResult.data ?? DEFAULT_LEADERBOARD_STATS) as {
         total_cards: number;
         current_streak: number;
         best_streak: number;
@@ -783,5 +831,42 @@ async function updateH2HStats(
       current_streak: 0,
       best_streak: 0,
     });
+  }
+}
+
+/**
+ * Award flat token bonus to a user for challenge participation.
+ * Adds to both balance and lifetime. Creates leaderboard row if needed.
+ */
+async function awardChallengeTokens(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string,
+  amount: number,
+): Promise<void> {
+  if (amount <= 0) return;
+
+  // Try atomic credit via RPC first (prevents lost writes from concurrent ops)
+  const { data: rpcResult, error: rpcError } = await (supabase.rpc as any)(
+    "credit_fire_tokens",
+    { p_user_id: userId, p_amount: amount, p_include_lifetime: true },
+  );
+
+  if (!rpcError && rpcResult !== -1) return; // success
+
+  // Row doesn't exist — create it (new user's first challenge).
+  // If a concurrent call just created the row, retry via RPC.
+  const { error: insertErr } = await (supabase.from("leaderboard_entries") as any)
+    .insert({
+      user_id: userId,
+      fire_tokens_balance: STARTING_BALANCE + amount,
+      fire_tokens_lifetime: amount,
+    });
+
+  if (insertErr) {
+    // Row was created concurrently — retry credit via RPC
+    await (supabase.rpc as any)(
+      "credit_fire_tokens",
+      { p_user_id: userId, p_amount: amount, p_include_lifetime: true },
+    );
   }
 }

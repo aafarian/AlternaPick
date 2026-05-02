@@ -68,7 +68,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     const { data, error } = await (supabase.from("cards") as any)
       .select(
-        "id, user_id, status, score, total_picks, card_size, game_mode, locked_at, resolved_at, created_at, picks(id, prop_id, selection, result, actual_value, props(player_name, player_team, stat_category, line, games(home_team, away_team, commence_time, sport)))"
+        "id, user_id, status, score, total_picks, card_size, game_mode, locked_at, resolved_at, created_at, heat_score, fire_token_wager, fire_token_payout, picks(id, prop_id, selection, result, actual_value, notch, adjusted_line, heat_score, props(player_name, player_team, stat_category, line, games(home_team, away_team, commence_time, sport)))"
       )
       .eq("id", id)
       .single();

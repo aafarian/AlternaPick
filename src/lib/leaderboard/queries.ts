@@ -4,8 +4,9 @@ import type { Database } from "@/lib/supabase/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { getFriendIds } from "@/lib/friends/get-friend-ids";
+import { STARTING_BALANCE } from "@/lib/heatscore/constants";
 
-export type LeaderboardSort = "hit_rate" | "h2h";
+export type LeaderboardSort = "hit_rate" | "h2h" | "flame_tokens";
 
 export interface LeaderboardRow {
   id: string;
@@ -18,6 +19,8 @@ export interface LeaderboardRow {
   h2h_wins: number;
   h2h_losses: number;
   h2h_win_pct: number;
+  fire_tokens_balance: number;
+  fire_tokens_lifetime: number;
   updated_at: string;
   profile: {
     id: string;
@@ -46,6 +49,8 @@ function toLeaderboardRow(row: Record<string, unknown>): LeaderboardRow {
     h2h_wins: row.h2h_wins as number,
     h2h_losses: row.h2h_losses as number,
     h2h_win_pct: row.h2h_win_pct as number,
+    fire_tokens_balance: (row.fire_tokens_balance as number) ?? STARTING_BALANCE,
+    fire_tokens_lifetime: (row.fire_tokens_lifetime as number) ?? 0,
     updated_at: row.updated_at as string,
     profile: row.profiles as LeaderboardRow["profile"],
   };
@@ -56,6 +61,12 @@ function applySortOrder<T extends { order: (...args: any[]) => T }>(
   query: T,
   sort: LeaderboardSort
 ): T {
+  if (sort === "flame_tokens") {
+    return query
+      .order("fire_tokens_lifetime", { ascending: false })
+      .order("fire_tokens_balance", { ascending: false })
+      .order("total_cards", { ascending: false });
+  }
   if (sort === "h2h") {
     return query
       .order("h2h_win_pct", { ascending: false })

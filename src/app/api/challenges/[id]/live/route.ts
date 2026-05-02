@@ -89,7 +89,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     // Fetch all cards for this challenge using admin client (bypass RLS)
     const { data: cards } = await (admin.from("cards") as any)
       .select(
-        "id, user_id, status, score, total_picks, picks(id, selection, result, actual_value, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(external_event_id, sport, status, home_team, away_team, home_score, away_score, period, clock, commence_time)))"
+        "id, user_id, status, score, total_picks, picks(id, selection, result, actual_value, notch, adjusted_line, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(external_event_id, sport, status, home_team, away_team, home_score, away_score, period, clock, commence_time)))"
       )
       .eq("challenge_id", id);
 

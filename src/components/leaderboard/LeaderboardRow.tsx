@@ -22,7 +22,7 @@ interface LeaderboardRowProps {
   entry: LeaderboardEntryWithProfile;
   isCurrentUser: boolean;
   variant: "desktop" | "mobile";
-  sort: "hit_rate" | "h2h";
+  sort: "hit_rate" | "h2h" | "flame_tokens";
 }
 
 export default function LeaderboardRow({
@@ -171,6 +171,12 @@ export default function LeaderboardRow({
 
       <TableCell className={cn("text-sm", sort === "h2h" ? "font-bold" : "text-muted-foreground")}>
         {stats.h2h_wins}W - {stats.h2h_losses}L
+      </TableCell>
+
+      <TableCell className={cn("text-sm tabular-nums", sort === "flame_tokens" ? "font-bold text-orange-400" : "text-muted-foreground")}>
+        {(stats as Record<string, unknown>).fire_tokens_lifetime != null
+          ? ((stats as Record<string, unknown>).fire_tokens_lifetime as number).toLocaleString()
+          : "—"}
       </TableCell>
 
       <TableCell className="text-sm text-muted-foreground">

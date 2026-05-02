@@ -36,6 +36,10 @@ export interface LivePickData {
   current_value: number | null;
   trending: "hit" | "miss" | "push" | "dnp" | null;
   game_status: LiveGameStatus | null;
+  /** Notch tier (-2 to +3). 0 = Standard. */
+  notch?: number;
+  /** Per-pick HeatScore contribution (only set on resolved picks). */
+  heat_score?: number | null;
 }
 
 export interface LiveCardData {

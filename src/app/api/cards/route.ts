@@ -3,12 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { updateDailyStreak } from "@/lib/streaks/engine";
 import { unauthorized, badRequest, notFound, forbidden, conflict, serverError, handleApiError } from "@/lib/api/errors";
-import { logError } from "@/lib/logger";
+import { logError, logWarn } from "@/lib/logger";
 import { isValidGameMode } from "@/lib/modes/definitions";
+import { MIN_WAGER, MAX_EASY_NOTCH_PICKS, STARTING_BALANCE } from "@/lib/heatscore/constants";
+import { adjustLine, getAvailableNotches, selectionAllowedForNotch } from "@/lib/heatscore/compute";
 import { validatePicksForMode } from "@/lib/modes/validation";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE, DEFAULT_CARD_SIZE } from "@/lib/modes/types";
 import type { GameMode, PickValidationInput } from "@/lib/modes/types";
-import type { Card, Challenge, Pick, PickSelection } from "@/lib/supabase/types";
+import type { Card, Challenge, Pick, PickSelection, StatCategory } from "@/lib/supabase/types";
 import { CARD_SELECT } from "@/lib/cards/api";
 import { notifyChallengeOpponent } from "@/lib/challenges/notify-opponent";
 import { linkCardToParticipant } from "@/lib/challenges/queries";
@@ -16,6 +18,8 @@ import { linkCardToParticipant } from "@/lib/challenges/queries";
 interface CreatePickInput {
   prop_id: string;
   selection: PickSelection;
+  notch?: number;
+  adjusted_line?: number;
 }
 
 interface CreateCardBody {
@@ -24,6 +28,8 @@ interface CreateCardBody {
   challenge_id?: string;
   game_mode?: string;
   card_size?: number;
+  /** Flame Token wager for ranked solo play. Null/omitted for casual or challenges. */
+  fire_token_wager?: number | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -206,7 +212,7 @@ export async function POST(request: NextRequest) {
 
     // Verify all props exist (also fetch player_name and player_team for mode validation)
     const propsResult = await (supabase.from("props") as any)
-      .select("id, player_name, player_team")
+      .select("id, player_name, player_team, line, stat_category")
       .in("id", propIds);
 
     if (propsResult.error) {
@@ -217,6 +223,8 @@ export async function POST(request: NextRequest) {
       id: string;
       player_name: string;
       player_team: string | null;
+      line: number;
+      stat_category: string;
     }[];
 
     if (existingProps.length !== propIds.length) {
@@ -248,6 +256,108 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Validate notch picks — server-side verification prevents client tampering
+    const propLookupForNotch = new Map(existingProps.map((p) => [p.id, p]));
+    for (const pick of picks) {
+      const notch = pick.notch ?? 0;
+      if (notch === 0) continue;
+
+      const prop = propLookupForNotch.get(pick.prop_id);
+      if (!prop) continue;
+
+      const available = getAvailableNotches(prop.line, prop.stat_category as StatCategory);
+      if (!available.includes(notch)) {
+        return badRequest(`Notch ${notch} is not available for this prop`);
+      }
+
+      const allowed = selectionAllowedForNotch(notch);
+      if (!allowed.includes(pick.selection)) {
+        return badRequest("Only Over is allowed for shifted lines");
+      }
+
+      // Server always computes adjusted_line from notch — never trust client value.
+      // This prevents a client from claiming a high notch multiplier while using
+      // the easier base line for resolution.
+      if (notch !== 0) {
+        pick.adjusted_line = adjustLine(prop.line, prop.stat_category as StatCategory, notch);
+      } else {
+        pick.adjusted_line = undefined;
+      }
+    }
+
+    // Enforce easy notch pick limit
+    if (MAX_EASY_NOTCH_PICKS > 0) {
+      const easyCount = picks.filter((p) => (p.notch ?? 0) < 0).length;
+      if (easyCount > MAX_EASY_NOTCH_PICKS) {
+        return badRequest(`Maximum ${MAX_EASY_NOTCH_PICKS} Frosty/Chilled picks per card`);
+      }
+    }
+
+    // Validate and deduct Flame Token wager (solo ranked only)
+    const wager = body.fire_token_wager;
+    let validatedWager: number | null = null;
+
+    if (wager != null) {
+      // Wager only allowed on solo cards (no challenge) by authenticated users
+      if (challenge_id) {
+        return badRequest("Token wagering is not allowed on challenges");
+      }
+      if (!user) {
+        return badRequest("Token wagering requires authentication");
+      }
+      if (!Number.isInteger(wager) || wager < MIN_WAGER) {
+        return badRequest(`Minimum wager is ${MIN_WAGER} tokens`);
+      }
+
+      // Deduct wager from balance. The UPDATE uses a WHERE gte clause so
+      // Postgres checks the balance atomically — no race condition even if
+      // two requests arrive simultaneously.
+      const adminClient = createAdminClient();
+
+      // Ensure the leaderboard row exists (new users may not have one yet).
+      const { data: entry } = await (adminClient.from("leaderboard_entries") as any)
+        .select("fire_tokens_balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!entry) {
+        // Create leaderboard row for new user with starting balance minus wager
+        if (STARTING_BALANCE < wager) {
+          return badRequest("Insufficient Flame Token balance");
+        }
+        const { error: insertErr } = await (adminClient.from("leaderboard_entries") as any)
+          .insert({
+            user_id: user.id,
+            fire_tokens_balance: STARTING_BALANCE - wager,
+            fire_tokens_lifetime: 0,
+          });
+        if (insertErr) {
+          logWarn("cards", "Fire token leaderboard row creation failed", insertErr);
+          return badRequest("Failed to process wager");
+        }
+        validatedWager = wager;
+      } else {
+        // Atomic deduction: SET balance = balance - wager WHERE balance >= wager.
+        // Prevents double-spend from concurrent requests — the SQL expression
+        // ensures each request deducts independently.
+        const { data: rpcResult, error: deductError } = await (adminClient.rpc as any)(
+          "deduct_fire_tokens",
+          { p_user_id: user.id, p_wager: wager },
+        );
+
+        if (deductError) {
+          logWarn("cards", "Fire token deduction failed", deductError);
+          return badRequest("Failed to process wager");
+        }
+
+        if (rpcResult === -1) {
+          return badRequest("Insufficient Flame Token balance");
+        }
+
+        validatedWager = wager;
+      }
+    }
+
     // Create card with user_id if authenticated, anon_id if not
     const cardResult = await (supabase.from("cards") as any)
       .insert({
@@ -259,11 +369,13 @@ export async function POST(request: NextRequest) {
         card_size: cardSize,
         game_mode: gameMode,
         locked_at: new Date().toISOString(),
+        ...(validatedWager != null && { fire_token_wager: validatedWager }),
       })
       .select()
       .single();
 
     if (cardResult.error || !cardResult.data) {
+      logError("cards", `Failed to create card: ${cardResult.error?.message}`, "POST /api/cards", cardResult.error);
       return serverError("Failed to create card", cardResult.error?.message);
     }
 
@@ -275,6 +387,8 @@ export async function POST(request: NextRequest) {
       prop_id: p.prop_id,
       selection: p.selection,
       result: "pending" as const,
+      notch: p.notch ?? 0,
+      adjusted_line: p.adjusted_line ?? null,
     }));
 
     const picksResult = await (supabase.from("picks") as any)
@@ -282,6 +396,7 @@ export async function POST(request: NextRequest) {
       .select();
 
     if (picksResult.error) {
+      logError("cards", `Failed to create picks: ${picksResult.error.message}`, "POST /api/cards", picksResult.error);
       return serverError("Failed to create picks", picksResult.error.message);
     }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { createCard } from "@/lib/cards/api";
@@ -12,8 +12,10 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { X, Lock, Loader2, Swords } from "lucide-react";
+import { X, Lock, Loader2, Swords, Flame } from "lucide-react";
+import { logWarn } from "@/lib/logger";
 import { cn } from "@/lib/utils";
+import { getHeatScoreMultiplier, MIN_WAGER, STARTING_BALANCE } from "@/lib/heatscore/constants";
 import CardSuccessAnimation from "./CardSuccessAnimation";
 import AuthRequiredModal from "./AuthRequiredModal";
 import ModeSelector from "./ModeSelector";
@@ -49,6 +51,57 @@ export default function CardBuilderPanel() {
   // Auth gate for guest lock-in
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  // Wager Flame feature flag — gated by heatscore_enabled + heatscore_allowlist.
+  // Fetched once on mount; cached for 60s server-side.
+  const [heatModeAccess, setHeatModeAccess] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    fetch("/api/heatscore/access")
+      .then((r) => r.json())
+      .then((data) => { if (!cancelled) setHeatModeAccess(data.enabled === true); })
+      .catch((err) => { logWarn("card-builder", "Wager Flame access check failed", err); });
+    return () => { cancelled = true; };
+  }, [user]);
+
+  // Flame Token wager (solo ranked mode)
+  const [wager, setWager] = useState<number | null>(null);
+  const [showHeatPicker, setShowHeatPicker] = useState(false);
+  const [tokenBalance, setTokenBalance] = useState<number | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+
+  // Fetch token balance when ranked picker is opened
+  useEffect(() => {
+    if (!showHeatPicker || tokenBalance !== null) return;
+
+    let cancelled = false;
+    setBalanceLoading(true);
+
+    fetch("/api/fire-tokens/balance")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setTokenBalance(data.balance ?? STARTING_BALANCE);
+      })
+      .catch((err) => {
+        logWarn("card-builder", "Failed to fetch token balance", err);
+        if (!cancelled) setTokenBalance(STARTING_BALANCE);
+      })
+      .finally(() => {
+        if (!cancelled) setBalanceLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [showHeatPicker, tokenBalance]);
+
+  // Reset wager + balance when card is cleared so next card refetches
+  useEffect(() => {
+    if (picks.length === 0) {
+      setWager(null);
+      setShowHeatPicker(false);
+      setTokenBalance(null);
+    }
+  }, [picks.length]);
+
   // Challenge-a-friend state
   const [showChallengePicker, setShowChallengePicker] = useState(false);
   const [friends, setFriends] = useState<FriendProfile[]>([]);
@@ -67,8 +120,8 @@ export default function CardBuilderPanel() {
       const data = await res.json();
       const list = (data.friends ?? []).map((f: { friend_profile: FriendProfile }) => f.friend_profile);
       setFriends(list);
-    } catch {
-      // ignore
+    } catch (err) {
+      logWarn("card-builder", "Failed to fetch friends for challenge", err);
     } finally {
       setLoadingFriends(false);
     }
@@ -121,7 +174,7 @@ export default function CardBuilderPanel() {
 
         const anonId = getAnonymousId();
         await createCard(
-          picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
+          picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection, notch: p.notch, adjusted_line: p.adjusted_line })),
           anonId,
           newChallengeId,
           gameMode,
@@ -193,7 +246,7 @@ export default function CardBuilderPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token: guestToken,
-          picks: picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
+          picks: picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection, notch: p.notch, adjusted_line: p.adjusted_line })),
         }),
       });
 
@@ -218,12 +271,18 @@ export default function CardBuilderPanel() {
     // Guest users: save picks and show auth modal
     if (!user) {
       sessionStorage.setItem("pending_card_picks", JSON.stringify({
-        picks: picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
+        picks: picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection, notch: p.notch, adjusted_line: p.adjusted_line })),
         gameMode,
         cardSize: picks.length,
         challengeId: challengeId ?? undefined,
       }));
       setShowAuthModal(true);
+      return;
+    }
+
+    // Validate wager meets minimum before proceeding
+    if (wager != null && wager < MIN_WAGER) {
+      setError(`Minimum wager is ${MIN_WAGER} Flame Tokens`);
       return;
     }
 
@@ -268,11 +327,12 @@ export default function CardBuilderPanel() {
       }
 
       await createCard(
-        picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection })),
+        picks.map((p) => ({ prop_id: p.prop_id, selection: p.selection, notch: p.notch, adjusted_line: p.adjusted_line })),
         undefined,
         effectiveChallengeId,
         gameMode,
-        picks.length
+        picks.length,
+        effectiveChallengeId ? null : wager,
       );
       redirectRef.current = effectiveChallengeId
         ? `/challenges/${effectiveChallengeId}`
@@ -439,6 +499,156 @@ export default function CardBuilderPanel() {
           </div>
         )}
 
+        {/* Wager Flame wager picker panel — sits ABOVE the bar (like challenge picker) */}
+        {showHeatPicker && !isInChallengeMode && (
+          <div className="border-t border-orange-500/30 bg-surface/95 backdrop-blur-xl">
+            <div className="mx-auto max-w-6xl px-4 py-2.5">
+              {/* Row 1: Wager input + quick presets + balance */}
+              <div className="flex items-center gap-2">
+                <Flame className="h-4 w-4 shrink-0 text-orange-400" />
+
+                {balanceLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-20 animate-pulse rounded-md bg-secondary" />
+                    <div className="flex gap-1">
+                      <div className="h-6 w-8 animate-pulse rounded-md bg-secondary" />
+                      <div className="h-6 w-8 animate-pulse rounded-md bg-secondary" />
+                      <div className="h-6 w-8 animate-pulse rounded-md bg-secondary" />
+                      <div className="h-6 w-10 animate-pulse rounded-md bg-secondary" />
+                    </div>
+                    <div className="ml-auto h-4 w-20 animate-pulse rounded bg-secondary" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={MIN_WAGER}
+                        max={tokenBalance ?? STARTING_BALANCE}
+                        value={wager ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "") {
+                            setWager(null);
+                            return;
+                          }
+                          const num = parseInt(val, 10);
+                          if (!isNaN(num) && num >= 0) {
+                            setWager(Math.min(num, tokenBalance ?? STARTING_BALANCE));
+                          }
+                        }}
+                        placeholder="0"
+                        className="h-8 w-20 rounded-md border border-orange-500/40 bg-background px-2.5 text-sm font-bold tabular-nums text-orange-400 placeholder:text-muted-foreground/40 focus:border-orange-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="flex gap-1">
+                      {[25, 50, 100].map((amt) => {
+                        const isDisabled = tokenBalance !== null && tokenBalance < amt;
+                        return (
+                          <button
+                            key={amt}
+                            type="button"
+                            disabled={isDisabled}
+                            onClick={() => setWager(amt)}
+                            className={cn(
+                              "rounded-md px-2 py-1 text-[11px] font-bold transition-colors",
+                              wager === amt
+                                ? "bg-orange-500/20 text-orange-400"
+                                : isDisabled
+                                  ? "cursor-not-allowed text-muted-foreground/30"
+                                  : "bg-muted text-muted-foreground hover:bg-orange-500/10 hover:text-orange-400",
+                            )}
+                          >
+                            {amt}
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        disabled={!tokenBalance}
+                        onClick={() => setWager(tokenBalance ?? 0)}
+                        className={cn(
+                          "rounded-md px-2 py-1 text-[11px] font-bold transition-colors",
+                          wager === tokenBalance
+                            ? "bg-orange-500/20 text-orange-400"
+                            : !tokenBalance
+                              ? "cursor-not-allowed text-muted-foreground/30"
+                              : "bg-muted text-muted-foreground hover:bg-orange-500/10 hover:text-orange-400",
+                        )}
+                      >
+                        MAX
+                      </button>
+                    </div>
+
+                    <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                      <Flame className="h-3 w-3 text-orange-400" />
+                      {(tokenBalance ?? STARTING_BALANCE).toLocaleString()} remaining
+                    </span>
+
+                    {/* Payout preview — inline after the balance */}
+                    {wager != null && wager >= 10 && picks.length >= 2 && (
+                    <div className="flex gap-1.5">
+                  {Array.from({ length: picks.length + 1 }, (_, k) => picks.length - k)
+                    .map((hits) => {
+                      const mult = getHeatScoreMultiplier(hits, picks.length);
+                      const payout = Math.round(wager * mult);
+                      const net = payout - wager;
+                      const isPerfect = hits === picks.length;
+                      // Quality bonus is additive on top of the base multiplier,
+                      // so the displayed multiplier is a floor — append "+" to
+                      // indicate the actual payout may be higher.
+                      const hasQualityUpside = mult > 0;
+                      return (
+                        <div
+                          key={hits}
+                          className={cn(
+                            "flex shrink-0 flex-col items-center rounded-md border px-2 py-1",
+                            isPerfect
+                              ? "border-orange-500/40 bg-orange-500/10"
+                              : net > 0
+                                ? "border-emerald-500/20 bg-emerald-500/5"
+                                : mult === 0
+                                  ? "border-red-500/20 bg-red-500/5"
+                                  : "border-border bg-muted/30",
+                          )}
+                        >
+                          <span className="text-[10px] font-medium text-muted-foreground">
+                            {hits}/{picks.length}
+                          </span>
+                          <span className={cn(
+                            "text-xs font-bold tabular-nums",
+                            isPerfect
+                              ? "text-orange-400"
+                              : net > 0
+                                ? "text-emerald-500"
+                                : mult === 0
+                                  ? "text-red-400"
+                                  : "text-muted-foreground",
+                          )}>
+                            {mult > 0 ? `${mult}x${hasQualityUpside ? "+" : ""}` : "BUST"}
+                          </span>
+                          {mult > 0 && (
+                            <span className={cn(
+                              "text-[10px] tabular-nums",
+                              net > 0 ? "text-emerald-500" : net < 0 ? "text-red-400" : "text-muted-foreground",
+                            )}>
+                              {net >= 0 ? "+" : ""}{net}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                    </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Main bottom bar */}
         <div className="border-t border-border bg-surface/80 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl px-4 py-3">
@@ -502,7 +712,7 @@ export default function CardBuilderPanel() {
                     )}
                   </Button>
                 ) : (
-                  /* Regular card — Solo + Challenge split */
+                  /* Regular card — Solo lock-in + Wager Flame toggle + Challenge */
                   <>
                     <Button
                       onClick={handleLockIn}
@@ -510,16 +720,26 @@ export default function CardBuilderPanel() {
                       size="sm"
                       className={cn(
                         "font-bold",
-                        isLocking
-                          ? "opacity-70"
+                        wager != null
+                          ? "bg-orange-500 text-white hover:bg-orange-600"
                           : "",
-                        canLockIn && !isLocking && !creatingChallenge && "animate-pulse shadow-[0_0_20px_rgba(0,210,106,0.4)]",
+                        isLocking && "opacity-70",
+                        canLockIn && !isLocking && !creatingChallenge && (
+                          wager != null
+                            ? "animate-pulse shadow-[0_0_20px_rgba(249,115,22,0.4)]"
+                            : "animate-pulse shadow-[0_0_20px_rgba(0,210,106,0.4)]"
+                        ),
                       )}
                     >
                       {isLocking ? (
                         <>
                           <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                           Locking...
+                        </>
+                      ) : wager != null ? (
+                        <>
+                          <Flame className="mr-1.5 h-3.5 w-3.5" />
+                          Wager {wager} — Lock In
                         </>
                       ) : (
                         <>
@@ -528,7 +748,7 @@ export default function CardBuilderPanel() {
                         </>
                       )}
                     </Button>
-                    {user && (
+                    {user && !showHeatPicker && (
                       <>
                         <span className="text-xs text-muted-foreground">or</span>
                         <Button
@@ -537,6 +757,8 @@ export default function CardBuilderPanel() {
                               setShowChallengePicker(false);
                             } else {
                               setShowChallengePicker(true);
+                              setShowHeatPicker(false);
+                              setWager(null);
                               fetchFriendsForChallenge();
                             }
                           }}
@@ -545,11 +767,50 @@ export default function CardBuilderPanel() {
                           size="sm"
                           className={cn(
                             "font-bold border-orange-500/40 text-orange-400 hover:bg-orange-500/10",
-                            showChallengePicker && "bg-orange-500/10"
+                            showChallengePicker && "bg-orange-500/10",
                           )}
                         >
                           <Swords className="mr-1.5 h-3.5 w-3.5" />
                           Challenge
+                        </Button>
+                      </>
+                    )}
+                    {user && heatModeAccess && !showChallengePicker && (
+                      <>
+                        {!showHeatPicker && (
+                          <span className="text-xs text-muted-foreground">or</span>
+                        )}
+                        <Button
+                          onClick={() => {
+                            if (showHeatPicker) {
+                              setShowHeatPicker(false);
+                              setWager(null);
+                            } else {
+                              setShowHeatPicker(true);
+                              setShowChallengePicker(false);
+                            }
+                          }}
+                          disabled={isLocking}
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "font-bold",
+                            showHeatPicker
+                              ? "border-muted-foreground/40 text-muted-foreground hover:bg-muted/50"
+                              : "border-orange-500/40 text-orange-400 hover:bg-orange-500/10",
+                          )}
+                        >
+                          {showHeatPicker ? (
+                            <>
+                              <Lock className="mr-1.5 h-3.5 w-3.5" />
+                              Casual
+                            </>
+                          ) : (
+                            <>
+                              <Flame className="mr-1.5 h-3.5 w-3.5" />
+                              Wager Flame
+                            </>
+                          )}
                         </Button>
                       </>
                     )}
@@ -591,7 +852,7 @@ export default function CardBuilderPanel() {
                           pick.selection === "over" ? "text-neon-green" : "text-bold-red"
                         )}
                       >
-                        {pick.selection === "over" ? "O" : "U"} {pick.line}
+                        {pick.selection === "over" ? "O" : "U"} {pick.adjusted_line}
                       </span>
                       <button
                         onClick={() => removePick(pick.prop_id)}

@@ -13,11 +13,11 @@ import LivePickRow from "@/components/live/LivePickRow";
 import { teamTricode, teamLogoUrl, gameUrl } from "@/lib/constants";
 import {
   Card,
-  CardHeader,
   CardContent,
   CardFooter,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import CardHeatScoreBadge from "@/components/cards/CardHeatScoreBadge";
 import { Separator } from "@/components/ui/separator";
 import { SlideUp, ScaleIn, FadeIn, StaggerChildren, StaggerItem } from "@/components/motion";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
@@ -133,7 +133,7 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
     <Wrapper>
       <SlideUp offset={16} duration={0.4}>
         <Card className="border-border bg-card">
-      <CardHeader className="flex-row items-center justify-between space-y-0 px-4 py-3">
+      <div className="flex items-start justify-between px-4 py-3">
         <div className="flex items-center gap-3">
           <ScaleIn delay={0.1} duration={0.35}>
             <StatusBadge status={card.status} score={card.score} total={card.total_picks} />
@@ -164,13 +164,22 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
           )}
           <span className="text-xs text-muted-foreground">{date}</span>
         </div>
-        {liveData?.has_live_games && (
-          <div className="flex items-center gap-1">
-            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-foreground" />
-            <span className="text-xs font-bold text-foreground">LIVE</span>
-          </div>
-        )}
-      </CardHeader>
+        <div className="flex items-center gap-3">
+          {liveData?.has_live_games && (
+            <div className="flex items-center gap-1">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-foreground" />
+              <span className="text-xs font-bold text-foreground">LIVE</span>
+            </div>
+          )}
+          <CardHeatScoreBadge
+            heatScore={card.heat_score}
+            wager={card.fire_token_wager}
+            payout={card.fire_token_payout}
+            cardSize={card.card_size}
+            pickNotches={card.picks.map((p) => p.notch ?? 0)}
+          />
+        </div>
+      </div>
 
       <AnimatePresence>
         {(() => {
@@ -196,7 +205,7 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
         <StaggerChildren staggerDelay={0.07} className="flex flex-col gap-0">
           {card.picks.map((pick) => {
             // Use live data if available, otherwise convert the static pick
-            const livePick = livePickMap.get(pick.id) ?? toLivePickData({
+            const baseLivePick = livePickMap.get(pick.id) ?? toLivePickData({
               id: pick.id,
               selection: pick.selection,
               result: pick.result,
@@ -208,11 +217,12 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
                 player_team: pick.props.player_team,
                 player_position: pick.props.player_position,
                 stat_category: pick.props.stat_category,
-                line: pick.props.line,
+                line: pick.adjusted_line ?? pick.props.line,
                 game_id: pick.props.game_id,
                 games: pick.props.games,
               } : null,
             });
+            const livePick = { ...baseLivePick, notch: pick.notch ?? 0 };
 
             return (
               <StaggerItem key={pick.id}>

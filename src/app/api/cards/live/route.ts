@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     // Single query for all cards — include result, actual_value, and DB game status
     const cardsResult = await (supabase.from("cards") as any)
       .select(
-        "id, status, picks(id, selection, result, actual_value, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(external_event_id, sport, status, home_team, away_team, home_score, away_score, period, clock, commence_time)))"
+        "id, status, picks(id, selection, result, actual_value, notch, adjusted_line, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(external_event_id, sport, status, home_team, away_team, home_score, away_score, period, clock, commence_time)))"
       )
       .in("id", cardIds)
       .eq("user_id", user.id);

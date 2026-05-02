@@ -265,6 +265,9 @@ export interface Database {
           resolved_at: string | null;
           share_token: string | null;
           created_at: string;
+          heat_score: number | null;
+          fire_token_wager: number | null;
+          fire_token_payout: number | null;
         };
         Insert: {
           id?: string;
@@ -279,6 +282,8 @@ export interface Database {
           locked_at?: string | null;
           share_token?: string | null;
           created_at?: string;
+          heat_score?: number | null;
+          fire_token_wager?: number | null;
         };
         Update: {
           user_id?: string | null;
@@ -292,6 +297,8 @@ export interface Database {
           locked_at?: string | null;
           resolved_at?: string | null;
           share_token?: string | null;
+          heat_score?: number | null;
+          fire_token_payout?: number | null;
         };
       };
       picks: {
@@ -303,6 +310,9 @@ export interface Database {
           result: PickResult;
           actual_value: number | null;
           created_at: string;
+          notch: number;
+          adjusted_line: number | null;
+          heat_score: number | null;
         };
         Insert: {
           id?: string;
@@ -312,6 +322,9 @@ export interface Database {
           result?: PickResult;
           actual_value?: number | null;
           created_at?: string;
+          notch?: number;
+          adjusted_line?: number | null;
+          heat_score?: number | null;
         };
         Update: {
           card_id?: string;
@@ -319,6 +332,9 @@ export interface Database {
           selection?: PickSelection;
           result?: PickResult;
           actual_value?: number | null;
+          notch?: number;
+          adjusted_line?: number | null;
+          heat_score?: number | null;
         };
       };
       challenges: {
@@ -550,6 +566,9 @@ export interface Database {
           h2h_wins: number;
           h2h_losses: number;
           h2h_win_pct: number;
+          fire_tokens_balance: number;
+          fire_tokens_lifetime: number;
+          fire_tokens_last_claim: string | null;
           updated_at: string;
         };
         Insert: {
@@ -566,6 +585,9 @@ export interface Database {
           last_played_date?: string | null;
           h2h_wins?: number;
           h2h_losses?: number;
+          fire_tokens_balance?: number;
+          fire_tokens_lifetime?: number;
+          fire_tokens_last_claim?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -580,6 +602,9 @@ export interface Database {
           last_played_date?: string | null;
           h2h_wins?: number;
           h2h_losses?: number;
+          fire_tokens_balance?: number;
+          fire_tokens_lifetime?: number;
+          fire_tokens_last_claim?: string | null;
           updated_at?: string;
         };
       };

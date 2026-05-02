@@ -30,6 +30,14 @@ import type {
   NotificationPreferences,
 } from "@/lib/supabase/types";
 import { extractStatValue, fuzzyMatchPlayer } from "@/lib/cards/resolution-utils";
+import {
+  computeCardHeatScore,
+  computeFireTokenPayout,
+  computeQualityBonus,
+  getNotchTier,
+  HEATSCORE_HIT_BASE,
+} from "@/lib/heatscore/compute";
+import { DEFAULT_LEADERBOARD_STATS } from "@/lib/leaderboard/defaults";
 
 // Re-export pure functions so existing imports from resolution.ts continue to work
 export { extractStatValue, fuzzyMatchPlayer } from "@/lib/cards/resolution-utils";
@@ -43,6 +51,9 @@ export interface PickResolution {
   selection: "over" | "under";
   actual_value: number | null;
   result: PickResult;
+  notch: number;
+  /** Per-pick HeatScore contribution (base × notch + quality). */
+  heat_score: number;
 }
 
 export interface ResolutionResult {
@@ -52,11 +63,36 @@ export interface ResolutionResult {
   score: number;
   total: number;
   picks: PickResolution[];
+  /** HeatScore multiplier × 100 (e.g., 250 = 2.5x). Null if no scoreable picks. */
+  heat_score: number | null;
+  /** Flame Token payout. Null if card had no wager. */
+  fire_token_wager: number | null;
+  fire_token_payout: number | null;
+  /** Total quality bonus (flat tokens from margins). */
+  quality_bonus: number;
 }
 
 type PickWithProp = Pick & {
   props: Prop & { games: Game & { sport?: string } };
 };
+
+function buildPickResolution(
+  pick: PickWithProp,
+  overrides: { result: PickResult; actual_value: number | null; line?: number; heat_score?: number },
+): PickResolution {
+  return {
+    pick_id: pick.id,
+    prop_id: pick.prop_id,
+    player_name: pick.props?.player_name ?? "Unknown",
+    stat_category: pick.props?.stat_category ?? "points",
+    line: overrides.line ?? pick.props?.line ?? 0,
+    selection: pick.selection,
+    actual_value: overrides.actual_value,
+    result: overrides.result,
+    notch: pick.notch ?? 0,
+    heat_score: overrides.heat_score ?? 0,
+  };
+}
 
 /** Returns true when the game's commence_time is in the past (safe to treat as played). */
 function hasGameStarted(commenceTime: string | null | undefined): boolean {
@@ -163,7 +199,7 @@ export async function reResolveStaleCards(): Promise<{
   // Find picks that need re-evaluation:
   // 1. Picks with null actual_value (not yet resolved with real stats)
   // 2. Pending picks on resolved cards (may have been missed during resolution)
-  const selectFields = "id, card_id, selection, result, prop_id, props(player_name, stat_category, line, game_id, games(external_event_id, sport, status, commence_time, home_team, away_team)), cards(status)";
+  const selectFields = "id, card_id, selection, result, adjusted_line, prop_id, props(player_name, stat_category, line, game_id, games(external_event_id, sport, status, commence_time, home_team, away_team)), cards(status)";
 
   const [nullValueResult, pendingOnResolvedResult] = await Promise.all([
     (supabase.from("picks") as any)
@@ -199,6 +235,7 @@ export async function reResolveStaleCards(): Promise<{
     card_id: string;
     selection: "over" | "under";
     result: string;
+    adjusted_line: number | null;
     prop_id: string;
     props: {
       player_name: string;
@@ -247,7 +284,8 @@ export async function reResolveStaleCards(): Promise<{
             (g) => teamsMatch(homeTeam, g.home_team) && teamsMatch(awayTeam, g.away_team),
           );
           if (match) return match;
-        } catch {
+        } catch (err) {
+          logWarn("resolution", `Game rematch fetch failed for ${homeTeam} vs ${awayTeam}`, err);
           continue;
         }
       }
@@ -418,7 +456,8 @@ export async function reResolveStaleCards(): Promise<{
         const fetcher = getBoxscoreFetcher(sport);
         boxscore = await fetcher(eventId);
         boxscoreCache.set(eventId, boxscore);
-      } catch {
+      } catch (err) {
+        logWarn("resolution", `Boxscore fetch failed for event ${eventId}`, err);
         skipped.push({ ...pickMeta(pick), reason: "Boxscore fetch failed" });
         continue;
       }
@@ -458,8 +497,8 @@ export async function reResolveStaleCards(): Promise<{
           playerStats = fuzzyMatchPlayer(newBoxscore, pick.props.player_name);
           boxscore = newBoxscore;
           eventId = newEventId;
-        } catch {
-          // Fall through to skip below
+        } catch (err) {
+          logWarn("resolution", `Rematch boxscore fetch failed for ${pick.props.player_name}`, err);
         }
       }
     }
@@ -529,11 +568,14 @@ export async function reResolveStaleCards(): Promise<{
 
     // Player has stats — evaluate or reclassify
     const actualValue = extractStatValue(playerStats, pick.props.stat_category);
+    const effectiveLine = pick.adjusted_line ?? pick.props.line;
 
     let correctResult: PickResult;
-    if (
-      (pick.selection === "over" && actualValue > pick.props.line) ||
-      (pick.selection === "under" && actualValue < pick.props.line)
+    if (actualValue === effectiveLine) {
+      correctResult = "push";
+    } else if (
+      (pick.selection === "over" && actualValue > effectiveLine) ||
+      (pick.selection === "under" && actualValue < effectiveLine)
     ) {
       correctResult = "hit";
     } else {
@@ -569,7 +611,7 @@ export async function reResolveStaleCards(): Promise<{
   let cardsRescored = 0;
   for (const cardId of affectedCardIds) {
     const { data: cardPicks, error: fetchErr } = await (supabase.from("picks") as any)
-      .select("result, card_id, cards(user_id)")
+      .select("result, actual_value, notch, adjusted_line, selection, card_id, cards(user_id), props(line, stat_category)")
       .eq("card_id", cardId);
 
     if (fetchErr) {
@@ -578,12 +620,53 @@ export async function reResolveStaleCards(): Promise<{
     }
     if (!cardPicks) continue;
 
-    const typedPicks = cardPicks as { result: string; cards: { user_id: string | null } }[];
+    type RescoredPick = {
+      result: string;
+      actual_value: number | null;
+      notch: number | null;
+      adjusted_line: number | null;
+      selection: "over" | "under";
+      cards: { user_id: string | null };
+      props: { line: number; stat_category: string } | null;
+    };
+    const typedPicks = cardPicks as RescoredPick[];
     const newScore = typedPicks.filter((p) => p.result === "hit").length;
     const newTotal = typedPicks.filter((p) => p.result === "hit" || p.result === "miss").length;
 
+    // Recompute card-level HeatScore from current pick results
+    let newHeatScore: number | null = null;
+    if (newTotal > 0) {
+      try {
+        const qualityResult = computeQualityBonus(
+          typedPicks.map((p) => ({
+            actualValue: p.actual_value,
+            line: p.adjusted_line ?? p.props?.line ?? 0,
+            selection: p.selection,
+            result: p.result as PickResult,
+            notchMultiplier: getNotchTier(p.notch ?? 0).multiplier,
+          })),
+        );
+        newHeatScore = 0;
+        for (let i = 0; i < typedPicks.length; i++) {
+          const p = typedPicks[i];
+          const notchMult = getNotchTier(p.notch ?? 0).multiplier;
+          if (p.result === "hit") {
+            newHeatScore += Math.round(HEATSCORE_HIT_BASE * notchMult) + qualityResult.perPick[i];
+          } else if (p.result === "miss") {
+            newHeatScore += qualityResult.perPick[i];
+          }
+        }
+      } catch (err) {
+        logWarn("resolution", `HeatScore recomputation failed for card ${cardId}`, err);
+      }
+    }
+
     const { error: cardErr } = await (supabase.from("cards") as any)
-      .update({ score: newScore, total_picks: newTotal })
+      .update({
+        score: newScore,
+        total_picks: newTotal,
+        ...(newHeatScore !== null && { heat_score: newHeatScore }),
+      })
       .eq("id", cardId);
     if (cardErr) {
       logError("resolution", `Failed to rescore card ${cardId}`, undefined, cardErr);
@@ -619,16 +702,7 @@ export async function resolveCard(
     if (!eventId) {
       // Can't resolve without external event ID — mark as push (void)
       // since we genuinely can't verify the outcome
-      pickResolutions.push({
-        pick_id: pick.id,
-        prop_id: pick.prop_id,
-        player_name: pick.props?.player_name ?? "Unknown",
-        stat_category: pick.props?.stat_category ?? "points",
-        line: pick.props?.line ?? 0,
-        selection: pick.selection,
-        actual_value: null,
-        result: "push",
-      });
+      pickResolutions.push(buildPickResolution(pick, { result: "push", actual_value: null }));
       continue;
     }
 
@@ -639,7 +713,8 @@ export async function resolveCard(
         const fetcher = getBoxscoreFetcher(pick.props?.games?.sport);
         boxscore = await fetcher(eventId);
         boxscoreCache.set(eventId, boxscore);
-      } catch {
+      } catch (err) {
+        logWarn("resolution", `Boxscore fetch failed for event ${eventId} during resolve`, err);
         // Apply the same 48h safety valve as player-not-found. If the boxscore
         // endpoint is permanently broken for this event, void all remaining picks
         // as push so the card doesn't stay locked forever.
@@ -651,16 +726,7 @@ export async function resolveCard(
         if (hrsAgo !== null && hrsAgo > 48) {
           logWarn("resolution", `Boxscore fetch failed after ${Math.round(hrsAgo)}h for event ${eventId}, voiding remaining picks on card ${card.id}`);
           for (const remainingPick of card.picks.slice(card.picks.indexOf(pick))) {
-            pickResolutions.push({
-              pick_id: remainingPick.id,
-              prop_id: remainingPick.prop_id,
-              player_name: remainingPick.props.player_name,
-              stat_category: remainingPick.props.stat_category,
-              line: remainingPick.props?.line ?? 0,
-              selection: remainingPick.selection,
-              actual_value: null,
-              result: "push",
-            });
+            pickResolutions.push(buildPickResolution(remainingPick, { result: "push", actual_value: null }));
           }
           break; // exit pick loop, resolve the card with what we have
         }
@@ -686,16 +752,7 @@ export async function resolveCard(
         for (const remainingPick of card.picks) {
           const rEventId = remainingPick.props?.games?.external_event_id;
           if (rEventId !== eventId) continue;
-          pickResolutions.push({
-            pick_id: remainingPick.id,
-            prop_id: remainingPick.prop_id,
-            player_name: remainingPick.props.player_name,
-            stat_category: remainingPick.props.stat_category,
-            line: remainingPick.props?.line ?? 0,
-            selection: remainingPick.selection,
-            actual_value: null,
-            result: "push",
-          });
+          pickResolutions.push(buildPickResolution(remainingPick, { result: "push", actual_value: null }));
         }
         continue;
       }
@@ -719,31 +776,13 @@ export async function resolveCard(
       // exact, last-name, and substring matches, so a miss here is definitive
       // rather than a name-normalization gap.
       logWarn("resolution", `Player "${pick.props.player_name}" not in boxscore for card ${card.id} (event ${eventId}), marking as DNP`);
-      pickResolutions.push({
-        pick_id: pick.id,
-        prop_id: pick.prop_id,
-        player_name: pick.props.player_name,
-        stat_category: pick.props.stat_category,
-        line: pick.props.line,
-        selection: pick.selection,
-        actual_value: null,
-        result: "dnp",
-      });
+      pickResolutions.push(buildPickResolution(pick, { result: "dnp", actual_value: null }));
       continue;
     }
 
     // DNP detection — player is on the roster but didn't play
     if (playerStats.dnp) {
-      pickResolutions.push({
-        pick_id: pick.id,
-        prop_id: pick.prop_id,
-        player_name: pick.props.player_name,
-        stat_category: pick.props.stat_category,
-        line: pick.props.line,
-        selection: pick.selection,
-        actual_value: null,
-        result: "dnp",
-      });
+      pickResolutions.push(buildPickResolution(pick, { result: "dnp", actual_value: null }));
       continue;
     }
 
@@ -753,32 +792,84 @@ export async function resolveCard(
     );
     let result: PickResult;
 
-    if (
-      (pick.selection === "over" && actualValue > pick.props.line) ||
-      (pick.selection === "under" && actualValue < pick.props.line)
+    // Use the adjusted line (notch-shifted) if set, otherwise the original prop line.
+    // Existing picks with adjusted_line=NULL resolve against the original line.
+    const effectiveLine = pick.adjusted_line ?? pick.props.line;
+
+    if (actualValue === effectiveLine) {
+      // Push: actual value exactly equals the line. With notch-shifted lines
+      // landing on whole numbers, pushes are now possible. Treated as a void.
+      result = "push";
+    } else if (
+      (pick.selection === "over" && actualValue > effectiveLine) ||
+      (pick.selection === "under" && actualValue < effectiveLine)
     ) {
       result = "hit";
     } else {
-      // Push (actualValue === line) falls through to "miss". This is intentional:
-      // consensus lines are forced to half-point values (e.g. 18.0 → 18.5) making
-      // pushes against integer stat values impossible in practice.
       result = "miss";
     }
 
-    pickResolutions.push({
-      pick_id: pick.id,
-      prop_id: pick.prop_id,
-      player_name: pick.props.player_name,
-      stat_category: pick.props.stat_category,
-      line: pick.props.line,
-      selection: pick.selection,
-      actual_value: actualValue,
+    pickResolutions.push(buildPickResolution(pick, {
       result,
-    });
+      actual_value: actualValue,
+      line: effectiveLine,
+    }));
   }
 
   const score = pickResolutions.filter((p) => p.result === "hit").length;
-  const scoredTotal = pickResolutions.filter((p) => p.result === "hit" || p.result === "miss").length;
+  const misses = pickResolutions.filter((p) => p.result === "miss").length;
+  const scoredTotal = score + misses;
+
+  // Compute HeatScore multiplier + Flame Token payout.
+  // Wrapped defensively so a computation error never blocks card resolution.
+  let heatScoreInt: number | null = 0;
+  let qualityBonus = 0;
+  const wager = card.fire_token_wager as number | null;
+  let payout: number | null = wager != null ? 0 : null;
+
+  try {
+    // Quality bonus (shared by both scoring systems)
+    const qualityResult = computeQualityBonus(
+      pickResolutions.map((p) => ({
+        actualValue: p.actual_value,
+        line: p.line,
+        selection: p.selection,
+        result: p.result,
+        notchMultiplier: getNotchTier(p.notch ?? 0).multiplier,
+      })),
+    );
+    qualityBonus = qualityResult.total;
+
+    // HeatScore — per-pick additive (for challenges + display).
+    // No multiplier table, no bust. Each pick earns/loses based on
+    // hit/miss × notch difficulty + quality margin.
+    // Stamp per-pick heat_score for persistence.
+    for (let i = 0; i < pickResolutions.length; i++) {
+      const p = pickResolutions[i];
+      const notchMult = getNotchTier(p.notch ?? 0).multiplier;
+      const qt = qualityResult.perPick[i];
+      if (p.result === "hit") {
+        p.heat_score = Math.round(HEATSCORE_HIT_BASE * notchMult) + qt;
+      } else if (p.result === "miss") {
+        p.heat_score = qt; // quality penalty only
+      }
+      // DNP/push stays 0
+    }
+    if (scoredTotal > 0) {
+      heatScoreInt = pickResolutions.reduce((sum, p) => sum + p.heat_score, 0);
+    }
+
+    // Wager Flame payout — uses multiplier table (separate system)
+    if (wager != null) {
+      const hsResult = computeCardHeatScore(score, misses, card.card_size);
+      // All picks voided (DNP/push) — refund wager in full
+      payout = hsResult.effectiveSize === 0
+        ? wager
+        : computeFireTokenPayout(wager, hsResult.multiplier, qualityBonus);
+    }
+  } catch (hsError) {
+    logError("resolution", "HeatScore computation failed, resolving without HS", undefined, hsError);
+  }
 
   return {
     card_id: card.id,
@@ -787,6 +878,10 @@ export async function resolveCard(
     score,
     total: scoredTotal,
     picks: pickResolutions,
+    heat_score: heatScoreInt,
+    fire_token_wager: wager,
+    fire_token_payout: payout,
+    quality_bonus: qualityBonus,
   };
 }
 
@@ -804,13 +899,23 @@ export async function persistResolution(
       pick_id: p.pick_id,
       result: p.result,
       actual_value: p.actual_value,
+      heat_score: p.heat_score,
     })),
+    p_heat_score: result.heat_score,
+    p_fire_token_payout: result.fire_token_payout,
   });
 
   if (!error && success) {
-    // RPC succeeded — update leaderboard (skip for all-DNP/push cards)
-    if (result.user_id && result.total > 0) {
-      await updateLeaderboardStats(supabase, result.user_id, result.score, result.total);
+    // RPC succeeded — update leaderboard stats + fire token balance.
+    // Stats update requires scoreable picks (total > 0). Token balance
+    // update runs even for all-DNP cards so the wager is credited back.
+    const hasScoreablePicks = result.total > 0;
+    const hasTokenWager = result.fire_token_wager != null;
+    if (result.user_id && (hasScoreablePicks || hasTokenWager)) {
+      await updateLeaderboardStats(
+        supabase, result.user_id, result.score, result.total,
+        result.fire_token_wager, result.fire_token_payout,
+      );
     }
     return true;
   }
@@ -834,7 +939,7 @@ export async function persistResolution(
   // Write pick results
   for (const p of result.picks) {
     const { error: pickError } = await (supabase.from("picks") as any)
-      .update({ result: p.result, actual_value: p.actual_value })
+      .update({ result: p.result, actual_value: p.actual_value, heat_score: p.heat_score })
       .eq("id", p.pick_id);
     if (pickError) {
       logError("resolution", `Failed to write pick ${p.pick_id}`, undefined, pickError);
@@ -843,16 +948,28 @@ export async function persistResolution(
 
   // Mark card resolved (only if still locked — race protection)
   const { data: updated } = await (supabase.from("cards") as any)
-    .update({ status: "resolved", score: result.score, total_picks: result.total, resolved_at: new Date().toISOString() })
+    .update({
+      status: "resolved",
+      score: result.score,
+      total_picks: result.total,
+      heat_score: result.heat_score,
+      fire_token_payout: result.fire_token_payout,
+      resolved_at: new Date().toISOString(),
+    })
     .eq("id", result.card_id)
     .eq("status", "locked")
     .select("id");
 
   if (!updated?.length) return false;
 
-  // Update leaderboard stats (skip for all-DNP/push cards)
-  if (result.user_id && result.total > 0) {
-    await updateLeaderboardStats(supabase, result.user_id, result.score, result.total);
+  // Update leaderboard stats + fire token balance
+  const hasScoreablePicks = result.total > 0;
+  const hasTokenWager = result.fire_token_wager != null;
+  if (result.user_id && (hasScoreablePicks || hasTokenWager)) {
+    await updateLeaderboardStats(
+      supabase, result.user_id, result.score, result.total,
+      result.fire_token_wager, result.fire_token_payout,
+    );
   }
 
   return true;
@@ -918,14 +1035,7 @@ export async function handlePostResolution(
       .eq("user_id", result.user_id)
       .single();
 
-    const lb = (lbResult.data ?? {
-      total_cards: 0,
-      current_streak: 0,
-      best_streak: 0,
-      win_rate: 0,
-      h2h_wins: 0,
-      h2h_losses: 0,
-    }) as {
+    const lb = (lbResult.data ?? DEFAULT_LEADERBOARD_STATS) as {
       total_cards: number;
       current_streak: number;
       best_streak: number;
@@ -1053,6 +1163,11 @@ async function recalculateLeaderboard(
  * total_attempted_picks, recalculates win_rate, and updates
  * current_streak / best_streak.
  *
+ * NOTE: This uses read-modify-write without row-level locking. In theory,
+ * two concurrent resolutions for the same user could lose an update. In
+ * practice, cards resolve sequentially per user in the cron job. If this
+ * becomes an issue, move to a Postgres RPC with atomic increments.
+ *
  * A "winning" card requires >= 66% correct picks:
  *   threshold = Math.ceil(totalPicks * 0.66)
  *   2 picks -> need 2, 3 -> 2, 4 -> 3, 5 -> 4, 6 -> 4
@@ -1061,7 +1176,9 @@ async function updateLeaderboardStats(
   supabase: ReturnType<typeof createAdminClient>,
   userId: string,
   score: number,
-  totalPicks: number
+  totalPicks: number,
+  fireTokenWager?: number | null,
+  fireTokenPayout?: number | null,
 ): Promise<void> {
   const winThreshold = Math.ceil(totalPicks * 0.66);
   const isWin = totalPicks > 0 && score >= winThreshold;
@@ -1069,7 +1186,7 @@ async function updateLeaderboardStats(
   // Fetch existing entry
   const existingResult = await (supabase.from("leaderboard_entries") as any)
     .select(
-      "total_cards, total_correct_picks, total_attempted_picks, current_streak, best_streak, h2h_wins, h2h_losses"
+      "total_cards, total_correct_picks, total_attempted_picks, current_streak, best_streak, h2h_wins, h2h_losses, fire_tokens_balance, fire_tokens_lifetime"
     )
     .eq("user_id", userId)
     .single();
@@ -1090,6 +1207,8 @@ async function updateLeaderboardStats(
     best_streak: number;
     h2h_wins: number;
     h2h_losses: number;
+    fire_tokens_balance: number;
+    fire_tokens_lifetime: number;
   } | null;
 
   const totalCards = (existing?.total_cards ?? 0) + 1;
@@ -1104,6 +1223,22 @@ async function updateLeaderboardStats(
   const currentStreak = isWin ? (existing?.current_streak ?? 0) + 1 : 0;
   const previousBest = existing?.best_streak ?? 0;
   const bestStreak = Math.max(previousBest, currentStreak);
+
+  // Flame Token balance updates (only when a wager was placed).
+  // The wager was already deducted at card creation time, so the delta
+  // here is just the payout (which is 0 on bust). Lifetime tracks gross payouts.
+  // Token credit uses atomic RPC to prevent lost writes from concurrent operations.
+  const hasTokenWager = fireTokenWager != null && fireTokenPayout != null;
+
+  if (hasTokenWager && fireTokenPayout > 0) {
+    const { error: creditErr } = await (supabase.rpc as any)(
+      "credit_fire_tokens",
+      { p_user_id: userId, p_amount: fireTokenPayout, p_include_lifetime: true },
+    );
+    if (creditErr) {
+      logError("resolution", `Failed to credit fire tokens for user ${userId}`, undefined, creditErr);
+    }
+  }
 
   if (existing) {
     // Update existing entry -- preserve h2h stats

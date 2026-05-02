@@ -10,6 +10,8 @@ import PlayerAvatar from "@/components/players/PlayerAvatar";
 import { Badge } from "@/components/ui/badge";
 import { ChevronUp, ChevronDown, Check, X, CheckCircle2, XCircle, Minus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { notchNumberTint } from "@/components/props/NotchSelector";
+import NotchBadge from "@/components/props/NotchBadge";
 
 // SVG chevron patterns — fit within h-2 (8px) bar
 const CHEVRON_RIGHT = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpolyline points='2,1 6,4 2,7' fill='none' stroke='rgba(255,255,255,0.28)' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`;
@@ -87,10 +89,14 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
           </span>
         )}
 
-        {/* Line */}
-        <span className="text-sm font-bold tabular-nums">
+        {/* Line + notch tier */}
+        <span className={cn(
+          "text-sm font-bold tabular-nums",
+          notchNumberTint(pick.notch),
+        )}>
           {pick.line ?? "\u2014"}
         </span>
+        {pick.notch != null && pick.notch !== 0 && <NotchBadge notch={pick.notch} className="ml-1" />}
 
         {/* Over/Under badge */}
         <Badge
@@ -132,7 +138,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 border-l-2 px-4 py-3 transition-colors",
+        "flex flex-col gap-1.5 border-l-2 px-3 py-2 transition-colors",
         d.accentClass,
         d.isSettled && "opacity-75"
       )}
@@ -206,15 +212,23 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
                   {pick.current_value}
                 </span>
                 <span className="text-[10px] text-muted-foreground/40">/</span>
-                <span className="text-xs tabular-nums text-muted-foreground/60">
+                <span className={cn(
+                  "text-xs tabular-nums text-muted-foreground/60",
+                  notchNumberTint(pick.notch),
+                )}>
                   {pick.line}
                 </span>
+                {pick.notch != null && pick.notch !== 0 && <NotchBadge notch={pick.notch} className="ml-1" />}
               </span>
             ) : (
               <span className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                <span className={cn(
+                  "text-xs font-semibold tabular-nums text-muted-foreground",
+                  notchNumberTint(pick.notch),
+                )}>
                   {pick.line}
                 </span>
+                {pick.notch != null && pick.notch !== 0 && <NotchBadge notch={pick.notch} className="ml-1" />}
                 {d.isAwaitingLive && (
                   <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/50" />
                 )}
@@ -259,13 +273,23 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
             </span>
           )}
 
+          {/* Per-pick HeatScore (resolved picks only) */}
+          {d.isSettled && pick.heat_score != null && pick.heat_score !== 0 && (
+            <span className={cn(
+              "text-[10px] font-bold tabular-nums leading-none",
+              pick.heat_score > 0 ? "text-orange-400/70" : "text-orange-400/50",
+            )}>
+              {pick.heat_score > 0 ? "+" : ""}{pick.heat_score} HS
+            </span>
+          )}
+
           {d.isLive && pick.game_status && (
             <span className="flex items-center gap-1 text-[10px] font-semibold leading-none tabular-nums text-white/70 animate-value-in">
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
               {formatLiveStatus(pick.game_status.period, pick.game_status.clock, pick.sport, pick.game_status.home_score, pick.game_status.away_score)}
             </span>
           )}
-          {d.isFinal && (
+          {d.isFinal && !d.isSettled && (
             <span className="text-[10px] font-semibold leading-none text-white/50 animate-value-in">
               Final
             </span>

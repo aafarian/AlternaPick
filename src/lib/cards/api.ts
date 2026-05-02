@@ -2,7 +2,7 @@ import type { PickSelection, CardStatus } from "@/lib/supabase/types";
 
 /** Supabase select string for cards with picks, props, and game data.
  *  Superset of all card queries — includes card_size and game_mode. */
-export const CARD_SELECT = "id, user_id, status, score, total_picks, card_size, game_mode, locked_at, resolved_at, created_at, challenge_id, challenges(challenger_id, opponent_id, opponent_email, lobby_type, challenger:profiles!challenges_challenger_id_fkey(username), opponent:profiles!challenges_opponent_id_fkey(username)), picks(id, card_id, prop_id, selection, result, actual_value, created_at, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport, home_team, away_team, home_score, away_score, commence_time, external_event_id, status)))" as const;
+export const CARD_SELECT = "id, user_id, status, score, total_picks, card_size, game_mode, locked_at, resolved_at, created_at, challenge_id, heat_score, fire_token_wager, fire_token_payout, challenges(challenger_id, opponent_id, opponent_email, lobby_type, challenger:profiles!challenges_challenger_id_fkey(username), opponent:profiles!challenges_opponent_id_fkey(username)), picks(id, card_id, prop_id, selection, result, actual_value, created_at, notch, adjusted_line, heat_score, props(player_name, player_id, player_team, player_position, stat_category, line, game_id, games(sport, home_team, away_team, home_score, away_score, commence_time, external_event_id, status)))" as const;
 
 export interface CardWithPicks {
   id: string;
@@ -22,6 +22,10 @@ export interface CardWithPicks {
     opponent: { username: string } | null;
   } | null;
   created_at: string;
+  heat_score: number | null;
+  fire_token_wager: number | null;
+  fire_token_payout: number | null;
+  card_size: number;
   picks: {
     id: string;
     card_id: string;
@@ -30,6 +34,9 @@ export interface CardWithPicks {
     result: "pending" | "hit" | "miss" | "push" | "dnp";
     actual_value: number | null;
     created_at: string;
+    notch: number;
+    adjusted_line: number | null;
+    heat_score: number | null;
     props?: {
       player_name: string;
       player_id: string | null;
@@ -53,16 +60,18 @@ export interface CardWithPicks {
 }
 
 export async function createCard(
-  picks: { prop_id: string; selection: PickSelection }[],
+  picks: { prop_id: string; selection: PickSelection; notch?: number; adjusted_line?: number }[],
   anonId?: string,
   challengeId?: string | null,
   gameMode?: string,
-  cardSize?: number
+  cardSize?: number,
+  fireTokenWager?: number | null,
 ): Promise<CardWithPicks> {
   const body: Record<string, unknown> = { picks, anon_id: anonId };
   if (challengeId) body.challenge_id = challengeId;
   if (gameMode) body.game_mode = gameMode;
   if (cardSize !== undefined) body.card_size = cardSize;
+  if (fireTokenWager != null) body.fire_token_wager = fireTokenWager;
 
   const response = await fetch("/api/cards", {
     method: "POST",

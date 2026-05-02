@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { AnimatedList } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { Radio } from "lucide-react";
+import CardHeatScoreBadge from "@/components/cards/CardHeatScoreBadge";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
 
 function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
@@ -24,10 +25,12 @@ function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
       player_position: pick.props?.player_position ?? null,
       sport: pick.props?.games?.sport,
       stat_category: (pick.props?.stat_category ?? "points") as StatCategory,
-      line: pick.props?.line ?? 0,
+      line: pick.adjusted_line ?? pick.props?.line ?? 0,
+      notch: pick.notch ?? 0,
       selection: pick.selection as PickSelection,
       current_value: pick.actual_value,
       trending: hasResult ? (pick.result as "hit" | "miss" | "push" | "dnp") : null,
+      heat_score: pick.heat_score,
       game_status: hasResult
         ? {
             game_id: pick.props?.game_id ?? "",
@@ -107,6 +110,17 @@ function LiveCard({
           {card.picks.length} picks
         </span>
       }
+      wagerLabel={
+        (card.fire_token_wager != null || card.heat_score != null) ? (
+          <CardHeatScoreBadge
+            heatScore={card.heat_score}
+            wager={card.fire_token_wager}
+            payout={card.fire_token_payout}
+            cardSize={card.card_size}
+            pickNotches={card.picks.map((p) => p.notch ?? 0)}
+          />
+        ) : undefined
+      }
       loading={!hasFetched}
       pickCount={card.picks.length}
       error={hasError}
@@ -161,7 +175,7 @@ export default function LiveTracker({
   }
 
   return (
-    <AnimatedList className="grid grid-cols-1 gap-4" staggerDelay={0.06}>
+    <AnimatedList className="grid grid-cols-1 gap-4 lg:grid-cols-2" staggerDelay={0.06}>
       {initialCards.map((card) => (
         <LiveCard
           key={card.id}
