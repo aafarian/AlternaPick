@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Flame, Gift, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { cn } from "@/lib/utils";
@@ -28,27 +28,26 @@ export default function StreakBadge() {
   const [tokens, setTokens] = useState<TokenData | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [claiming, setClaiming] = useState(false);
-  const [fetched, setFetched] = useState(false);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Fetch on first render when user is available
-  const fetchRef = useRef(false);
-  if (user && !fetchRef.current) {
-    fetchRef.current = true;
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+
     Promise.all([
       fetch("/api/streaks").then((r) => r.ok ? r.json() : null),
       fetch("/api/fire-tokens/balance").then((r) => r.ok ? r.json() : null),
     ]).then(([streakData, tokenData]) => {
+      if (cancelled) return;
       if (streakData) setStreak(streakData);
-      setTokens(tokenData
-        ? { balance: tokenData.balance ?? 1000, lifetime: tokenData.lifetime ?? 0, can_claim: tokenData.can_claim ?? false }
-        : { balance: 1000, lifetime: 0, can_claim: true });
-      setFetched(true);
-    }).catch(() => {
-      setTokens({ balance: 1000, lifetime: 0, can_claim: true });
-      setFetched(true);
-    });
-  }
+      if (tokenData) {
+        setTokens({ balance: tokenData.balance ?? 1000, lifetime: tokenData.lifetime ?? 0, can_claim: tokenData.can_claim ?? false });
+      }
+    }).catch(() => { /* fail silently — badge stays hidden */ });
+
+    return () => { cancelled = true; };
+  }, [user]);
 
   const handleMouseEnter = useCallback(() => {
     clearTimeout(hideTimeoutRef.current);
@@ -60,7 +59,7 @@ export default function StreakBadge() {
     hideTimeoutRef.current = setTimeout(() => setShowDetails(false), 200);
   }, []);
 
-  if (!user || !fetched || !tokens) return null;
+  if (!user || !tokens) return null;
 
   const balance = tokens.balance;
   const canClaim = tokens.can_claim;

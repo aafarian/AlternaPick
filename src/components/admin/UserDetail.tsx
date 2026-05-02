@@ -126,16 +126,21 @@ function FireTokenAdjuster({ userId }: { userId: string }) {
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
+  const [lifetime, setLifetime] = useState<number | null>(null);
 
+  // Fetch current balance on mount
   useEffect(() => {
-    const supaFetch = async () => {
-      try {
-        const res = await fetch(`/api/admin/heatscore/user-cards?userId=${userId}`);
-        if (!res.ok) return;
-        // We just need the balance — fetch it from the leaderboard data
-      } catch { /* ignore */ }
-    };
-    supaFetch();
+    let cancelled = false;
+    fetch(`/api/admin/fire-tokens?user_id=${userId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!cancelled && data) {
+          setBalance(data.balance ?? null);
+          setLifetime(data.lifetime ?? null);
+        }
+      })
+      .catch(() => { /* ignore */ });
+    return () => { cancelled = true; };
   }, [userId]);
 
   async function handleAdjust() {
@@ -172,7 +177,14 @@ function FireTokenAdjuster({ userId }: { userId: string }) {
           <Flame className="h-4 w-4 text-orange-400" />
           Flame Tokens
           {balance != null && (
-            <span className="text-orange-400 font-bold tabular-nums">{balance}</span>
+            <span className="text-orange-400 font-bold tabular-nums">
+              {balance.toLocaleString()}
+            </span>
+          )}
+          {lifetime != null && (
+            <span className="text-muted-foreground text-xs font-normal">
+              (lifetime: {lifetime.toLocaleString()})
+            </span>
           )}
         </CardTitle>
       </CardHeader>
