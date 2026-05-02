@@ -23,11 +23,6 @@ interface CardHeatScoreBadgeProps {
   className?: string;
 }
 
-/**
- * Reusable badge for displaying card-level HeatScore + wager/payout.
- * Shows HeatScore for all cards, wager info only when wagered.
- * Hover reveals a scoring breakdown tooltip.
- */
 export default function CardHeatScoreBadge({
   heatScore,
   wager,
@@ -37,7 +32,6 @@ export default function CardHeatScoreBadge({
   className,
 }: CardHeatScoreBadgeProps) {
   const [showTooltip, setShowTooltip] = useState(false);
-  const [showMultiplierTip, setShowMultiplierTip] = useState(false);
   const [showHeatInfo, setShowHeatInfo] = useState(false);
   const hasWager = wager != null;
   const hasHS = heatScore != null;
@@ -48,12 +42,11 @@ export default function CardHeatScoreBadge({
   const wagerNotchScale = pickNotches && pickNotches.length > 0
     ? computeWagerNotchScale(pickNotches)
     : 1;
-  // Effective multiplier shown to user = base × notch scale
   const effectiveMultiplier = baseMultiplier != null
     ? Math.round(baseMultiplier * wagerNotchScale * 10) / 10
     : baseMultiplier;
 
-  // Build base multiplier rows (raw table values, no notch baked in)
+  // Build base multiplier rows (raw table values)
   const baseRows = cardSize
     ? Array.from({ length: cardSize + 1 }, (_, i) => cardSize - i).map((hits) => ({
         hits,
@@ -61,7 +54,7 @@ export default function CardHeatScoreBadge({
       }))
     : [];
 
-  // Build notch line items: group by tier, show count × multiplier
+  // Build notch line items for tooltip
   const notchLineItems = (() => {
     if (!pickNotches) return [];
     const tierCounts = new Map<number, number>();
@@ -69,91 +62,175 @@ export default function CardHeatScoreBadge({
       tierCounts.set(n, (tierCounts.get(n) ?? 0) + 1);
     }
     const total = pickNotches.length;
-    // Only show non-standard tiers
     return Array.from(tierCounts.entries())
       .filter(([n]) => n !== 0)
-      .sort(([a], [b]) => b - a) // highest notch first
+      .sort(([a], [b]) => b - a)
       .map(([notch, count]) => {
         const tier = getNotchTier(notch);
         const wagerScale = WAGER_NOTCH_SCALE[notch] ?? 1;
-        // Per-tier card impact: what these picks contribute to the geometric mean
-        // e.g., 1 Volcanic in a 6-pick card: 82.3^(1/6) = 2.09x boost
         const cardImpact = Math.round(Math.pow(wagerScale, count / total) * 100) / 100;
         return { label: tier.label, cardImpact, isHarder: wagerScale > 1, count };
       });
   })();
 
   const hasNotchBonus = notchLineItems.length > 0;
+  const isResolved = payout != null || (hasHS && !hasWager);
 
   if (!hasWager && !hasHS) return null;
 
   return (
-    <span
-      className={cn("relative inline-flex items-center gap-2 text-[10px] font-bold tabular-nums", className)}
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
-      onFocus={() => setShowTooltip(true)}
-      onBlur={() => setShowTooltip(false)}
-      tabIndex={0}
-      role="group"
-      aria-label={`HeatScore: ${heatScore ?? "N/A"}${hasWager ? `, wagered ${wager}` : ""}`}
-    >
-      {/* HeatScore value (only for non-wagered cards) */}
+    <span className={cn("relative inline-flex items-center gap-3", className)}>
+      {/* HeatScore badge (non-wagered cards only) */}
       {hasHS && !hasWager && (
-        <Badge variant="outline" className="border-orange-500/30 text-orange-400 text-[10px] px-1.5 py-0 gap-0.5">
-          <Flame className="h-2.5 w-2.5" />
-          {heatScore}
-        </Badge>
+        <span
+          className="relative inline-flex items-center"
+          onMouseEnter={() => setShowTooltip(true)}
+          onMouseLeave={() => setShowTooltip(false)}
+          onFocus={() => setShowTooltip(true)}
+          onBlur={() => setShowTooltip(false)}
+          tabIndex={0}
+          role="group"
+          aria-label={`HeatScore: ${heatScore}`}
+        >
+          <Badge variant="outline" className="border-orange-500/30 text-orange-400 text-xs px-2 py-0.5 gap-1">
+            <Flame className="h-3 w-3" />
+            {heatScore}
+          </Badge>
+
+          {/* HeatScore tooltip */}
+          {showTooltip && (
+            <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border border-border bg-card p-2 shadow-lg text-[10px] font-normal">
+              <p className="font-semibold text-foreground mb-1">HeatScore</p>
+              <p className="text-muted-foreground">Each hit: +130 × notch multiplier</p>
+              <p className="text-muted-foreground">Quality bonus from margins</p>
+              <div className="border-t border-border mt-1 pt-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowHeatInfo(true);
+                    setShowTooltip(false);
+                  }}
+                  className="flex w-full items-center justify-center gap-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <HelpCircle className="h-2.5 w-2.5" />
+                  What is HeatScore?
+                </button>
+              </div>
+            </div>
+          )}
+        </span>
       )}
 
-      {/* Wager/payout (only for wagered cards) */}
+      {/* Wager display (wagered cards only) */}
       {hasWager && (
-        <span className="inline-flex items-center gap-1.5 text-xs font-black">
-          <FlameTokenIcon className="h-3 w-3 text-orange-400" />
-          <span className="text-orange-400">-{wager}</span>
-          {payout != null && (
-            <span className={payout > 0 ? "text-emerald-500" : "text-muted-foreground"}>
-              +{payout}
+        <span
+          className="relative inline-flex items-center"
+          onMouseEnter={() => setShowTooltip(true)}
+          onMouseLeave={() => setShowTooltip(false)}
+        >
+          {/* Live card: wager + "up to Xx" */}
+          {!isResolved && (
+            <span className="inline-flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-orange-400">
+                <FlameTokenIcon className="h-3.5 w-3.5" />
+                -{wager}
+              </span>
+              {effectiveMultiplier != null && effectiveMultiplier > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  <span className="text-sm font-black text-emerald-500">up to {effectiveMultiplier}x</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setShowTooltip((prev) => !prev);
+                    }}
+                    className="text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+                    aria-label="View payout multipliers"
+                  >
+                    <HelpCircle className="h-3.5 w-3.5" />
+                  </button>
+                </span>
+              )}
             </span>
           )}
-          {payout == null && effectiveMultiplier != null && effectiveMultiplier > 0 && (
-            <span className="relative inline-flex items-center gap-1">
-              <span className="text-xs font-black text-orange-400">{effectiveMultiplier}x</span>
+
+          {/* Resolved card: wager + payout with breakdown */}
+          {isResolved && (
+            <span className="inline-flex items-center gap-2 text-sm font-black">
+              <FlameTokenIcon className="h-3.5 w-3.5 text-orange-400" />
+              <span className="text-orange-400">-{wager}</span>
+              <span className={payout != null && payout > 0 ? "text-emerald-500" : "text-muted-foreground"}>
+                +{payout ?? 0}
+              </span>
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
-                  setShowMultiplierTip((prev) => !prev);
+                  setShowTooltip((prev) => !prev);
                 }}
                 className="text-muted-foreground/60 transition-colors hover:text-muted-foreground"
-                aria-label="View payout multipliers"
+                aria-label="View payout breakdown"
               >
-                <HelpCircle className="h-3 w-3" />
+                <HelpCircle className="h-3.5 w-3.5" />
               </button>
-              {showMultiplierTip && (
-                <div
-                  className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-md border border-border bg-card p-2.5 shadow-lg text-[10px] font-normal"
-                  onMouseLeave={() => setShowMultiplierTip(false)}
-                >
-                  {/* Standard payout rates */}
+            </span>
+          )}
+
+          {/* Tooltip: payout rates (live) or payout breakdown (resolved) */}
+          {showTooltip && (
+            <div
+              className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-md border border-border bg-card p-2.5 shadow-lg text-[10px] font-normal"
+              onMouseLeave={() => setShowTooltip(false)}
+            >
+              {/* Resolved: show payout breakdown */}
+              {isResolved && payout != null && (
+                <>
+                  <p className="mb-1.5 font-semibold text-foreground">Payout Breakdown</p>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Wagered</span>
+                      <span className="font-bold text-orange-400">{wager}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Payout</span>
+                      <span className={cn("font-bold", payout > 0 ? "text-emerald-500" : "text-muted-foreground")}>
+                        {payout}
+                      </span>
+                    </div>
+                    <div className="border-t border-border mt-0.5 pt-1 flex items-center justify-between">
+                      <span className="font-semibold text-foreground">Net</span>
+                      <span className={cn(
+                        "font-black",
+                        payout > wager ? "text-emerald-500" : payout < wager ? "text-red-400" : "text-muted-foreground",
+                      )}>
+                        {payout - wager >= 0 ? "+" : ""}{payout - wager}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="mt-1.5 text-[9px] text-muted-foreground/60">
+                    Payout = wager × hit multiplier × difficulty + quality bonus
+                  </p>
+                </>
+              )}
+
+              {/* Live: show payout rates + difficulty + max */}
+              {!isResolved && (
+                <>
                   <p className="mb-1.5 font-semibold text-foreground">Payout Rates</p>
                   <div className="flex flex-col gap-0.5">
                     {baseRows.map(({ hits, multiplier }) => (
                       <div key={hits} className="flex items-center justify-between">
-                        <span className="text-muted-foreground">
-                          {hits}/{cardSize} picks
-                        </span>
-                        <span className={cn(
-                          "font-bold",
-                          multiplier > 0 ? "text-emerald-500" : "text-red-400",
-                        )}>
+                        <span className="text-muted-foreground">{hits}/{cardSize} picks</span>
+                        <span className={cn("font-bold", multiplier > 0 ? "text-emerald-500" : "text-red-400")}>
                           {multiplier > 0 ? `${multiplier}x` : "Bust"}
                         </span>
                       </div>
                     ))}
                   </div>
-                  {/* Difficulty bonus breakdown */}
+
                   {hasNotchBonus && (
                     <>
                       <div className="my-1.5 border-t border-border" />
@@ -161,36 +238,26 @@ export default function CardHeatScoreBadge({
                       <div className="flex flex-col gap-0.5">
                         {notchLineItems.map(({ label, cardImpact, isHarder, count }) => (
                           <div key={label} className="flex items-center justify-between">
-                            <span className="text-muted-foreground">
-                              {label}{count > 1 ? ` ×${count}` : ""}
-                            </span>
-                            <span className={cn(
-                              "font-bold",
-                              isHarder ? "text-orange-400" : "text-sky-400",
-                            )}>
+                            <span className="text-muted-foreground">{label}{count > 1 ? ` ×${count}` : ""}</span>
+                            <span className={cn("font-bold", isHarder ? "text-orange-400" : "text-sky-400")}>
                               {cardImpact}x
                             </span>
                           </div>
                         ))}
                         <div className="mt-0.5 flex items-center justify-between border-t border-border/50 pt-0.5">
                           <span className="font-semibold text-foreground">Total</span>
-                          <span className="font-bold text-orange-400">
-                            {Math.round(wagerNotchScale * 100) / 100}x
-                          </span>
+                          <span className="font-bold text-orange-400">{Math.round(wagerNotchScale * 100) / 100}x</span>
                         </div>
                       </div>
                     </>
                   )}
 
-                  {/* Max payout */}
                   {wager != null && effectiveMultiplier != null && (
                     <>
                       <div className="my-1.5 border-t border-border" />
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-foreground">Max payout</span>
-                        <span className="font-black text-emerald-500">
-                          {Math.round(wager * effectiveMultiplier).toLocaleString()}
-                        </span>
+                        <span className="font-black text-emerald-500">{Math.round(wager * effectiveMultiplier).toLocaleString()}</span>
                       </div>
                       {hasNotchBonus && (
                         <p className="mt-0.5 text-[9px] text-muted-foreground/60">
@@ -199,52 +266,11 @@ export default function CardHeatScoreBadge({
                       )}
                     </>
                   )}
-                </div>
+                </>
               )}
-            </span>
+            </div>
           )}
         </span>
-      )}
-
-      {/* Scoring tooltip */}
-      {showTooltip && hasHS && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-48 rounded-md border border-border bg-card p-2 shadow-lg text-[10px] font-normal">
-          <p className="font-semibold text-foreground mb-1">HeatScore Breakdown</p>
-          <p className="text-muted-foreground">
-            Each hit: +130 × notch multiplier
-          </p>
-          <p className="text-muted-foreground">
-            Quality bonus from margins
-          </p>
-          {hasWager && payout != null && (
-            <>
-              <div className="border-t border-border my-1" />
-              <p className="text-muted-foreground">
-                Wagered: {wager} · Payout: {payout}
-              </p>
-              <p className={cn(
-                "font-semibold",
-                payout > wager ? "text-emerald-500" : payout < wager ? "text-red-400" : "text-muted-foreground",
-              )}>
-                Net: {payout - wager >= 0 ? "+" : ""}{payout - wager}
-              </p>
-            </>
-          )}
-          <div className="border-t border-border mt-1 pt-1">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowHeatInfo(true);
-                setShowTooltip(false);
-              }}
-              className="flex w-full items-center justify-center gap-0.5 text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <HelpCircle className="h-2.5 w-2.5" />
-              What is HeatScore?
-            </button>
-          </div>
-        </div>
       )}
 
       <HeatScoreModal open={showHeatInfo} onClose={() => setShowHeatInfo(false)} />
