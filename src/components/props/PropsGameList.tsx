@@ -55,7 +55,7 @@ export default function PropsGameList({
 
   return (
     <>
-      <div className="sticky top-[7.5rem] z-20 -mx-4 border-b border-border bg-background px-4 pb-2 pt-1 shadow-sm sm:top-[8rem]">
+      <div className="sticky top-[6.75rem] z-20 -mx-4 border-b border-border bg-background px-4 pb-2 pt-1">
         <GameSelector
           games={games.map((g) => ({
             id: g.id,
