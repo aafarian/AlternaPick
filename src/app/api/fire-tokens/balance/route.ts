@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { unauthorized, handleApiError } from "@/lib/api/errors";
-import { logWarn } from "@/lib/logger";
 
 /**
  * GET /api/fire-tokens/balance
@@ -21,21 +20,33 @@ export async function GET() {
 
     // Use admin client to bypass RLS — auth is already verified above
     const admin = createAdminClient();
+
+    // Query balance fields — fire_tokens_last_claim may not exist yet
+    // (migration 059), so query it separately to avoid breaking the main query
     const { data, error } = await (admin.from("leaderboard_entries") as any)
-      .select("fire_tokens_balance, fire_tokens_lifetime, fire_tokens_last_claim")
+      .select("fire_tokens_balance, fire_tokens_lifetime")
       .eq("user_id", user.id)
       .maybeSingle();
-
-    // TODO: remove debug logging
-    logWarn("fire-tokens", `Balance query: user=${user.id} data=${JSON.stringify(data)} error=${error?.message ?? "none"}`);
 
     if (error) {
       return handleApiError(error, "fire-tokens/balance");
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-    const lastClaim = (data as { fire_tokens_last_claim: string | null } | null)?.fire_tokens_last_claim;
-    const canClaim = lastClaim !== today;
+    // Try to get last claim date (column may not exist pre-migration)
+    let canClaim = true;
+    try {
+      const { data: claimData } = await (admin.from("leaderboard_entries") as any)
+        .select("fire_tokens_last_claim")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (claimData) {
+        const today = new Date().toISOString().slice(0, 10);
+        canClaim = (claimData as { fire_tokens_last_claim: string | null }).fire_tokens_last_claim !== today;
+      }
+    } catch {
+      // Column doesn't exist yet — claim is available
+    }
 
     return NextResponse.json({
       balance: data?.fire_tokens_balance ?? 1000,
