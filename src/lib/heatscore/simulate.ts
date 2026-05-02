@@ -3,6 +3,7 @@ import type { PickResult, PickSelection, StatCategory } from "@/lib/supabase/typ
 import {
   computeCardHeatScore,
   computeFireTokenPayout,
+  computeWagerNotchScale,
   computeQualityBonus,
 } from "./compute";
 
@@ -56,6 +57,7 @@ type SimPickRow = {
   selection: PickSelection;
   result: PickResult;
   actual_value: number | null;
+  notch: number | null;
   prop: {
     player_name: string;
     stat_category: StatCategory;
@@ -100,7 +102,7 @@ export async function simulateCardHeatScore(
     supabase.from("picks") as any
   )
     .select(
-      "id, selection, result, actual_value, prop:props!inner(player_name, stat_category, line)",
+      "id, selection, result, actual_value, notch, prop:props!inner(player_name, stat_category, line)",
     )
     .eq("card_id", cardId);
 
@@ -140,10 +142,13 @@ export async function simulateCardHeatScore(
     card.card_size,
   );
 
+  const notchScale = computeWagerNotchScale(picks.map((p) => p.notch ?? 0));
+
   const simulatedPayout = computeFireTokenPayout(
     DEMO_WAGER,
     cardResult.multiplier,
     qualityResult.total,
+    notchScale,
   );
 
   return {

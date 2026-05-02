@@ -92,8 +92,25 @@ const HEATSCORE_TABLE: Record<number, Record<number, number>> = {
   2: { 2: 2.8, 1: 0, 0: 0 },
   3: { 3: 3.0, 2: 0.9, 1: 0, 0: 0 },
   4: { 4: 5.0, 3: 1.5, 2: 0, 1: 0, 0: 0 },
-  5: { 5: 10.0, 4: 1.8, 3: 0.4, 2: 0, 1: 0, 0: 0 },
-  6: { 6: 25.0, 5: 2.0, 4: 0.5, 3: 0, 2: 0, 1: 0, 0: 0 },
+  5: { 5: 10.0, 4: 3, 3: 0.5, 2: 0, 1: 0, 0: 0 },
+  6: { 6: 25.0, 5: 3.0, 4: 0.8, 3: 0, 2: 0, 1: 0, 0: 0 },
+};
+
+/**
+ * Per-tier wager payout scale, calibrated so every notch tier has
+ * E[return] ≈ 0.85 at its actual hit rate (50% for Standard).
+ *
+ * When a card mixes tiers, the geometric mean of the per-pick scales
+ * is used — this prevents the exploit where one Volcanic pick inflates
+ * the whole card's payout.
+ */
+export const WAGER_NOTCH_SCALE: Record<number, number> = {
+  [-2]: 0.27,   // Frosty  — easy picks, low payout
+  [-1]: 0.56,   // Chilled
+  [0]:  0.99,   // Standard (≈1.0)
+  [1]:  4.36,   // Heated
+  [2]:  14.68,  // Scorched
+  [3]:  82.3,   // Volcanic — lottery ticket
 };
 
 /**
@@ -185,7 +202,7 @@ export const DAILY_CLAIM = 50;
  * Prevents the exploit of picking all easy lines for guaranteed hits.
  * Set to 0 to disable the limit.
  */
-export const MAX_EASY_NOTCH_PICKS = 2;
+export const MAX_EASY_NOTCH_PICKS = 0; // disabled — allow unlimited Frosty/Chilled for testing
 
 // ---------------------------------------------------------------------------
 // Challenge token rewards (no wager — flat bonuses)

@@ -83,21 +83,21 @@ export default function NotchSelector({
         disabled={!canGoLeft}
         aria-label="Easier line"
         className={cn(
-          "flex h-8 w-7 items-center justify-center rounded-full transition-colors",
+          "flex h-6 w-5 items-center justify-center rounded-full transition-colors sm:h-8 sm:w-7",
           canGoLeft
             ? "text-muted-foreground/70 hover:bg-muted hover:text-foreground"
             : "pointer-events-none text-transparent",
         )}
       >
-        <ChevronLeft className="h-5 w-5" />
+        <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
       </button>
 
-      <div className="relative flex w-[3.5rem] items-baseline justify-center overflow-hidden sm:w-[4rem]">
+      <div className="relative flex min-w-[2.75rem] items-baseline justify-center overflow-hidden sm:min-w-[4rem]">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span
             key={currentLine}
             className={cn(
-              "text-2xl font-black tabular-nums tracking-tight sm:text-3xl",
+              "text-xl font-black tabular-nums tracking-tight sm:text-3xl",
               notch !== 0 && colors.numberTint,
             )}
             {...(prefersReduced
@@ -120,13 +120,13 @@ export default function NotchSelector({
         disabled={!canGoRight}
         aria-label="Harder line"
         className={cn(
-          "flex h-8 w-7 items-center justify-center rounded-full transition-colors",
+          "flex h-6 w-5 items-center justify-center rounded-full transition-colors sm:h-8 sm:w-7",
           canGoRight
             ? "text-muted-foreground/70 hover:bg-muted hover:text-foreground"
             : "pointer-events-none text-transparent",
         )}
       >
-        <ChevronRight className="h-5 w-5" />
+        <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
       </button>
     </div>
   );

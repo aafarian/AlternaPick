@@ -21,6 +21,7 @@ import {
   computeQualityBonus,
   computeCardHeatScore,
   computeFireTokenPayout,
+  computeWagerNotchScale,
   HEATSCORE_HIT_BASE,
   getNotchTier,
 } from "@/lib/heatscore/compute";
@@ -166,11 +167,17 @@ async function main() {
         let payout: number | null = null;
         if (card.fire_token_wager != null) {
           const hsResult = computeCardHeatScore(hits, misses, card.card_size);
-          payout = computeFireTokenPayout(
-            card.fire_token_wager,
-            hsResult.multiplier,
-            qualityResult.total,
-          );
+          if (hsResult.effectiveSize === 0) {
+            payout = card.fire_token_wager; // all DNP/push — full refund
+          } else {
+            const notchScale = computeWagerNotchScale(typedPicks.map((p) => p.notch ?? 0));
+            payout = computeFireTokenPayout(
+              card.fire_token_wager,
+              hsResult.multiplier,
+              qualityResult.total,
+              notchScale,
+            );
+          }
         }
 
         // Update the card

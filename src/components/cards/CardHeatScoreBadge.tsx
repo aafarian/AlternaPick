@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Flame, HelpCircle } from "lucide-react";
 import HeatScoreModal from "@/components/onboarding/HeatScoreModal";
-import { getHeatScoreMultiplier } from "@/lib/heatscore/constants";
-import { getNotchTier } from "@/lib/heatscore/compute";
+import { getHeatScoreMultiplier, WAGER_NOTCH_SCALE } from "@/lib/heatscore/constants";
+import { getNotchTier, computeWagerNotchScale } from "@/lib/heatscore/compute";
 import { cn } from "@/lib/utils";
 
 interface CardHeatScoreBadgeProps {
@@ -43,9 +43,16 @@ export default function CardHeatScoreBadge({
 
   const baseMultiplier = cardSize ? getHeatScoreMultiplier(cardSize, cardSize) : null;
 
-  const hasNotchPicks = pickNotches ? pickNotches.some((n) => n !== 0) : false;
+  // Wager notch scale: geometric mean of per-pick scales (matches payout formula)
+  const wagerNotchScale = pickNotches && pickNotches.length > 0
+    ? computeWagerNotchScale(pickNotches)
+    : 1;
+  // Effective multiplier shown to user = base × notch scale
+  const effectiveMultiplier = baseMultiplier != null
+    ? Math.round(baseMultiplier * wagerNotchScale * 10) / 10
+    : baseMultiplier;
 
-  // Build base multiplier rows (raw table values)
+  // Build base multiplier rows (raw table values, no notch baked in)
   const baseRows = cardSize
     ? Array.from({ length: cardSize + 1 }, (_, i) => cardSize - i).map((hits) => ({
         hits,
@@ -66,7 +73,8 @@ export default function CardHeatScoreBadge({
       .sort(([a], [b]) => b - a) // highest notch first
       .map(([notch, count]) => {
         const tier = getNotchTier(notch);
-        return { label: tier.label, multiplier: tier.multiplier, count };
+        const wagerScale = WAGER_NOTCH_SCALE[notch] ?? 1;
+        return { label: tier.label, multiplier: tier.multiplier, wagerScale, count };
       });
   })();
 
@@ -103,9 +111,9 @@ export default function CardHeatScoreBadge({
               +{payout}
             </span>
           )}
-          {payout == null && baseMultiplier != null && baseMultiplier > 0 && (
+          {payout == null && effectiveMultiplier != null && effectiveMultiplier > 0 && (
             <span className="relative inline-flex items-center gap-1">
-              <span className="text-xs font-black text-orange-400">{baseMultiplier}x{hasNotchPicks ? "+" : ""}</span>
+              <span className="text-xs font-black text-orange-400">{effectiveMultiplier}x</span>
               <button
                 type="button"
                 onClick={(e) => {
@@ -123,8 +131,8 @@ export default function CardHeatScoreBadge({
                   className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-md border border-border bg-card p-2.5 shadow-lg text-[10px] font-normal"
                   onMouseLeave={() => setShowMultiplierTip(false)}
                 >
-                  {/* Base payout table */}
-                  <p className="mb-1.5 font-semibold text-foreground">Base Payout</p>
+                  {/* Standard payout rates */}
+                  <p className="mb-1.5 font-semibold text-foreground">Payout Rates</p>
                   <div className="flex flex-col gap-0.5">
                     {baseRows.map(({ hits, multiplier }) => (
                       <div key={hits} className="flex items-center justify-between">
@@ -140,45 +148,47 @@ export default function CardHeatScoreBadge({
                       </div>
                     ))}
                   </div>
-
-                  {/* Notch difficulty line items */}
+                  {/* Difficulty bonus breakdown */}
                   {hasNotchBonus && (
                     <>
                       <div className="my-1.5 border-t border-border" />
                       <p className="mb-1 font-semibold text-foreground">Difficulty Bonus</p>
                       <div className="flex flex-col gap-0.5">
-                        {notchLineItems.map(({ label, multiplier, count }) => (
+                        {notchLineItems.map(({ label, wagerScale, count }) => (
                           <div key={label} className="flex items-center justify-between">
                             <span className="text-muted-foreground">
-                              {label} line{count > 1 ? ` ×${count}` : ""}
+                              {label}{count > 1 ? ` ×${count}` : ""}
                             </span>
                             <span className={cn(
                               "font-bold",
-                              multiplier > 1 ? "text-orange-400" : "text-sky-400",
+                              wagerScale > 1 ? "text-orange-400" : "text-sky-400",
                             )}>
-                              {multiplier}x
+                              {Math.round(wagerScale * 100) / 100}x
                             </span>
                           </div>
                         ))}
+                        <div className="mt-0.5 flex items-center justify-between border-t border-border/50 pt-0.5">
+                          <span className="font-semibold text-foreground">Combined</span>
+                          <span className="font-bold text-orange-400">
+                            {Math.round(wagerNotchScale * 100) / 100}x
+                          </span>
+                        </div>
                       </div>
-                      <p className="mt-1 text-[9px] text-muted-foreground/60">
-                        Harder lines earn bigger quality bonuses
-                      </p>
                     </>
                   )}
 
-                  {/* Grand total */}
-                  {wager != null && baseMultiplier != null && (
+                  {/* Max payout */}
+                  {wager != null && effectiveMultiplier != null && (
                     <>
                       <div className="my-1.5 border-t border-border" />
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-foreground">Base payout</span>
+                        <span className="font-semibold text-foreground">Max payout</span>
                         <span className="font-black text-emerald-500">
-                          {Math.round(wager * baseMultiplier).toLocaleString()}
+                          {Math.round(wager * effectiveMultiplier).toLocaleString()}
                         </span>
                       </div>
                       <p className="mt-0.5 text-[9px] text-muted-foreground/60">
-                        {wager} × {baseMultiplier}x{hasNotchPicks ? " + quality bonus" : ""}
+                        {wager} × {baseMultiplier}x × {Math.round(wagerNotchScale * 100) / 100}x
                       </p>
                     </>
                   )}

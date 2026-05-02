@@ -9,6 +9,7 @@ import {
   getHeatScoreMultiplier,
   HIT_QUALITY_TIERS,
   MISS_QUALITY_TIERS,
+  WAGER_NOTCH_SCALE,
 } from "./constants";
 
 // ---------------------------------------------------------------------------
@@ -240,15 +241,31 @@ export function computeHeatScore(picks: HeatScorePickInput[]): number {
 }
 
 /**
+ * Compute the geometric mean of wager notch scales for a set of picks.
+ * Used to scale wager payouts — geometric mean prevents the exploit
+ * where one Volcanic pick inflates the whole card's payout.
+ */
+export function computeWagerNotchScale(notches: number[]): number {
+  if (notches.length === 0) return 1;
+  const product = notches.reduce((p, n) => p * (WAGER_NOTCH_SCALE[n] ?? 1), 1);
+  return Math.pow(product, 1 / notches.length);
+}
+
+/**
  * Compute the Flame Token payout for a given wager and HeatScore multiplier.
+ *
+ * The payout is scaled by the wager notch scale (geometric mean of per-pick
+ * scales), so easier picks reduce the payout and harder picks increase it.
  * Includes an optional quality bonus (from hit/miss margins). Floored at 0.
  */
 export function computeFireTokenPayout(
   wager: number,
   multiplier: number,
   qualityBonus?: number,
+  wagerNotchScale?: number,
 ): number {
-  return Math.max(0, Math.round(wager * multiplier + (qualityBonus ?? 0)));
+  const notchScale = wagerNotchScale ?? 1;
+  return Math.max(0, Math.round(wager * multiplier * notchScale + (qualityBonus ?? 0)));
 }
 
 // ---------------------------------------------------------------------------
