@@ -273,7 +273,7 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
             </span>
           )}
 
-          {/* Per-pick HeatScore (resolved picks only) */}
+          {/* Per-pick score (resolved picks only) */}
           {d.isSettled && pick.heat_score != null && pick.heat_score !== 0 && (
             <span className={cn(
               "inline-flex items-center gap-0.5 text-xs font-bold tabular-nums leading-none",
@@ -282,6 +282,9 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
               <Flame className="h-3 w-3 text-orange-400/70" />
               {pick.heat_score > 0 ? "+" : ""}{pick.heat_score}
             </span>
+          )}
+          {d.isSettled && (pick.heat_score == null || pick.heat_score === 0) && pick.trending === "hit" && (
+            <span className="text-[10px] font-semibold text-emerald-500/60">Hit</span>
           )}
 
           {d.isLive && pick.game_status && (
