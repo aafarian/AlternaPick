@@ -10,6 +10,7 @@ import PlayerAvatar from "@/components/players/PlayerAvatar";
 import { Badge } from "@/components/ui/badge";
 import { ChevronUp, ChevronDown, Check, X, CheckCircle2, XCircle, Minus, Loader2, Flame } from "lucide-react";
 import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
+import { HEATSCORE_HIT_BASE, getNotchTier } from "@/lib/heatscore/compute";
 import { cn } from "@/lib/utils";
 import { notchNumberTint } from "@/components/props/NotchSelector";
 import NotchBadge from "@/components/props/NotchBadge";
@@ -280,11 +281,10 @@ export default function LivePickRow({ pick, variant = "full", showQualityTokens 
           {d.isSettled && pick.heat_score != null && pick.heat_score !== 0 && (() => {
             // For wagered cards, show quality tokens (what contributed to payout)
             // For non-wagered, show full heatscore
-            const HEATSCORE_BASE = 130;
             const notchMult = pick.notch != null && pick.notch !== 0
-              ? ({ [-2]: 0.25, [-1]: 0.5, 0: 1, 1: 1.75, 2: 2.75, 3: 4 } as Record<number, number>)[pick.notch] ?? 1
+              ? getNotchTier(pick.notch).multiplier
               : 1;
-            const baseHitValue = pick.trending === "hit" ? Math.round(HEATSCORE_BASE * notchMult) : 0;
+            const baseHitValue = pick.trending === "hit" ? Math.round(HEATSCORE_HIT_BASE * notchMult) : 0;
             const qualityTokens = pick.heat_score - baseHitValue;
             const displayValue = showQualityTokens ? qualityTokens : pick.heat_score;
 

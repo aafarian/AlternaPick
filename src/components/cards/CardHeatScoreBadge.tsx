@@ -86,11 +86,13 @@ export default function CardHeatScoreBadge({
   const actualMultiplier = (score != null && totalPicks != null && totalPicks > 0)
     ? getHeatScoreMultiplier(score, totalPicks)
     : null;
+  // Display value (rounded for UI)
   const actualEffective = actualMultiplier != null
     ? Math.round(actualMultiplier * wagerNotchScale * 10) / 10
     : null;
-  const basePayout = (wager != null && actualEffective != null)
-    ? Math.round(wager * actualEffective)
+  // Use unrounded value for payout computation to match server-side math
+  const basePayout = (wager != null && actualMultiplier != null)
+    ? Math.round(wager * actualMultiplier * wagerNotchScale)
     : null;
   const qualityBonus = (payout != null && basePayout != null)
     ? payout - basePayout

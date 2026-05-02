@@ -100,13 +100,16 @@ export default function GameCard({
 
         const awayProps = game.props.filter((p) => p.player_team === awayCode).sort(sortByStat);
         const homeProps = game.props.filter((p) => p.player_team === homeCode).sort(sortByStat);
+        // Players with unrecognized teams get appended to the away side
+        const otherProps = game.props.filter((p) => p.player_team !== awayCode && p.player_team !== homeCode).sort(sortByStat);
+        const allAway = [...awayProps, ...otherProps];
 
         // Interleave in chunks so left half of grid = away, right half = home.
-        // 2-col (mobile): 1 away, 1 home per row → left=away, right=home
         // 4-col (desktop): 2 away, 2 home per row → left half=away, right half=home
+        // 2-col (mobile): each chunk of 4 wraps to 2 rows (away pair, then home pair)
         const COLS_DESKTOP = 4;
         const HALF = COLS_DESKTOP / 2; // 2 away slots, then 2 home slots per row
-        const maxLen = Math.max(awayProps.length, homeProps.length);
+        const maxLen = Math.max(allAway.length, homeProps.length);
         const rows = Math.ceil(maxLen / HALF);
         const interleaved: (Prop | null)[] = [];
 
@@ -114,7 +117,7 @@ export default function GameCard({
           // Away chunk (left half)
           for (let col = 0; col < HALF; col++) {
             const idx = row * HALF + col;
-            interleaved.push(idx < awayProps.length ? awayProps[idx] : null);
+            interleaved.push(idx < allAway.length ? allAway[idx] : null);
           }
           // Home chunk (right half)
           for (let col = 0; col < HALF; col++) {
