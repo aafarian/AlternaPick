@@ -521,17 +521,21 @@ async function resolveGroupChallenge(
     return null;
   }
 
-  // Award challenge token bonuses for group challenges
-  if (hasFirstPlaceTie) {
-    // Tie for 1st: each 1st-place participant gets tie bonus
-    for (const p of firstPlaceParticipants) {
-      if (p.user_id) {
-        await awardChallengeTokens(supabase, p.user_id, CHALLENGE_TIE_BONUS);
+  // Award challenge token bonuses for group challenges.
+  // Wrapped in try/catch so a token DB failure never blocks challenge resolution
+  // (same guard as the 1v1 path).
+  try {
+    if (hasFirstPlaceTie) {
+      for (const p of firstPlaceParticipants) {
+        if (p.user_id) {
+          await awardChallengeTokens(supabase, p.user_id, CHALLENGE_TIE_BONUS);
+        }
       }
+    } else if (winnerId) {
+      await awardChallengeTokens(supabase, winnerId, CHALLENGE_WIN_BONUS);
     }
-  } else if (winnerId) {
-    // Solo winner gets win bonus
-    await awardChallengeTokens(supabase, winnerId, CHALLENGE_WIN_BONUS);
+  } catch (tokenError) {
+    logError("challenge-resolution", "Failed to award group challenge tokens", undefined, tokenError);
   }
 
   // Skip H2H stats for group challenges (only tracked for 1v1)
