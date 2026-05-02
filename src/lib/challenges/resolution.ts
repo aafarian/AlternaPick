@@ -853,11 +853,20 @@ async function awardChallengeTokens(
 
   if (!rpcError && rpcResult !== -1) return; // success
 
-  // Row doesn't exist — create it (new user's first challenge)
-  await (supabase.from("leaderboard_entries") as any)
+  // Row doesn't exist — create it (new user's first challenge).
+  // If a concurrent call just created the row, retry via RPC.
+  const { error: insertErr } = await (supabase.from("leaderboard_entries") as any)
     .insert({
       user_id: userId,
       fire_tokens_balance: STARTING_BALANCE + amount,
       fire_tokens_lifetime: amount,
     });
+
+  if (insertErr) {
+    // Row was created concurrently — retry credit via RPC
+    await (supabase.rpc as any)(
+      "credit_fire_tokens",
+      { p_user_id: userId, p_amount: amount, p_include_lifetime: true },
+    );
+  }
 }
