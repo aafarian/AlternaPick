@@ -20,6 +20,10 @@ interface CardHeatScoreBadgeProps {
   cardSize?: number;
   /** Notch values for each pick on the card (for difficulty-adjusted multiplier display). */
   pickNotches?: number[];
+  /** Card score (hits) — used to compute actual multiplier on resolved cards. */
+  score?: number;
+  /** Total scoreable picks — used with score to compute multiplier. */
+  totalPicks?: number;
   className?: string;
 }
 
@@ -29,6 +33,8 @@ export default function CardHeatScoreBadge({
   payout,
   cardSize,
   pickNotches,
+  score,
+  totalPicks,
   className,
 }: CardHeatScoreBadgeProps) {
   const [showTooltip, setShowTooltip] = useState(false);
@@ -75,6 +81,20 @@ export default function CardHeatScoreBadge({
 
   const hasNotchBonus = notchLineItems.length > 0;
   const isResolved = payout != null || (hasHS && !hasWager);
+
+  // For resolved wagered cards: compute the base payout and quality bonus
+  const actualMultiplier = (score != null && totalPicks != null && totalPicks > 0)
+    ? getHeatScoreMultiplier(score, totalPicks)
+    : null;
+  const actualEffective = actualMultiplier != null
+    ? Math.round(actualMultiplier * wagerNotchScale * 10) / 10
+    : null;
+  const basePayout = (wager != null && actualEffective != null)
+    ? Math.round(wager * actualEffective)
+    : null;
+  const qualityBonus = (payout != null && basePayout != null)
+    ? payout - basePayout
+    : null;
 
   if (!hasWager && !hasHS) return null;
 
@@ -185,34 +205,57 @@ export default function CardHeatScoreBadge({
               className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-md border border-border bg-card p-2.5 shadow-lg text-[10px] font-normal"
               onMouseLeave={() => setShowTooltip(false)}
             >
-              {/* Resolved: show payout breakdown */}
-              {isResolved && payout != null && (
+              {/* Resolved: show full payout breakdown */}
+              {isResolved && payout != null && wager != null && (
                 <>
                   <p className="mb-1.5 font-semibold text-foreground">Payout Breakdown</p>
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Wagered</span>
-                      <span className="font-bold text-orange-400">{wager}</span>
+                      <span className="text-muted-foreground">Result</span>
+                      <span className="font-bold text-foreground">{score ?? 0}/{totalPicks ?? 0} hits</span>
                     </div>
+                    {actualMultiplier != null && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Base multiplier</span>
+                        <span className={cn("font-bold", actualMultiplier > 0 ? "text-emerald-500" : "text-red-400")}>
+                          {actualMultiplier > 0 ? `${actualMultiplier}x` : "Bust"}
+                        </span>
+                      </div>
+                    )}
+                    {hasNotchBonus && actualEffective != null && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">× difficulty</span>
+                        <span className="font-bold text-orange-400">{actualEffective}x</span>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Payout</span>
-                      <span className={cn("font-bold", payout > 0 ? "text-emerald-500" : "text-muted-foreground")}>
+                      <span className="text-muted-foreground">Base payout</span>
+                      <span className="font-bold text-foreground">{basePayout ?? 0}</span>
+                    </div>
+                    {qualityBonus != null && qualityBonus !== 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Quality bonus</span>
+                        <span className={cn("font-bold", qualityBonus > 0 ? "text-emerald-500" : "text-red-400")}>
+                          {qualityBonus > 0 ? "+" : ""}{qualityBonus}
+                        </span>
+                      </div>
+                    )}
+                    <div className="border-t border-border mt-0.5 pt-1 flex items-center justify-between">
+                      <span className="font-semibold text-foreground">Total payout</span>
+                      <span className={cn("font-black", payout > 0 ? "text-emerald-500" : "text-muted-foreground")}>
                         {payout}
                       </span>
                     </div>
-                    <div className="border-t border-border mt-0.5 pt-1 flex items-center justify-between">
-                      <span className="font-semibold text-foreground">Net</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Net</span>
                       <span className={cn(
-                        "font-black",
+                        "font-bold",
                         payout > wager ? "text-emerald-500" : payout < wager ? "text-red-400" : "text-muted-foreground",
                       )}>
                         {payout - wager >= 0 ? "+" : ""}{payout - wager}
                       </span>
                     </div>
                   </div>
-                  <p className="mt-1.5 text-[9px] text-muted-foreground/60">
-                    Payout = wager × hit multiplier × difficulty + quality bonus
-                  </p>
                 </>
               )}
 

@@ -177,6 +177,8 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
             payout={card.fire_token_payout}
             cardSize={card.card_size}
             pickNotches={card.picks.map((p) => p.notch ?? 0)}
+            score={card.score}
+            totalPicks={card.total_picks}
           />
         </div>
       </div>

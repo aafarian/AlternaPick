@@ -118,6 +118,8 @@ function LiveCard({
             payout={card.fire_token_payout}
             cardSize={card.card_size}
             pickNotches={card.picks.map((p) => p.notch ?? 0)}
+            score={card.score}
+            totalPicks={card.total_picks}
           />
         ) : undefined
       }
