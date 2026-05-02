@@ -142,7 +142,9 @@ export async function simulateCardHeatScore(
     card.card_size,
   );
 
-  const notchScale = computeWagerNotchScale(picks.map((p) => p.notch ?? 0));
+  const notchScale = computeWagerNotchScale(
+    picks.filter((p) => p.result === "hit" || p.result === "miss").map((p) => p.notch ?? 0),
+  );
 
   const simulatedPayout = computeFireTokenPayout(
     DEMO_WAGER,
