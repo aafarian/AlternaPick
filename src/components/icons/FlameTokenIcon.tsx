@@ -21,16 +21,17 @@ export default function FlameTokenIcon({ className }: FlameTokenIconProps) {
       <circle cx="12" cy="12" r="10" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.5" />
       {/* Inner ring */}
       <circle cx="12" cy="12" r="7.5" stroke="currentColor" strokeWidth="0.75" strokeOpacity="0.4" />
-      {/* Flame emblem */}
+      {/* Flame emblem — asymmetric with flickering tip */}
       <path
-        d="M12 6C12 6 9 9.5 9 12.5C9 14.5 10.3 16 12 16C13.7 16 15 14.5 15 12.5C15 9.5 12 6 12 6Z"
+        d="M12 5.5C12 5.5 8.5 9 8.5 12.5C8.5 14.8 10 16.5 12 16.5C14 16.5 15.5 14.8 15.5 12.5C15.5 11 14.5 9.5 14 8.5C13.5 9.5 13 10 12.5 10C12.5 10 13.5 7.5 12 5.5Z"
         fill="currentColor"
         fillOpacity="0.9"
       />
+      {/* Inner bright core */}
       <path
-        d="M12 10C12 10 10.8 11.5 10.8 13C10.8 14 11.3 14.8 12 14.8C12.7 14.8 13.2 14 13.2 13C13.2 11.5 12 10 12 10Z"
+        d="M12 11C12 11 10.5 12.5 10.5 13.8C10.5 14.8 11.2 15.5 12 15.5C12.8 15.5 13.5 14.8 13.5 13.8C13.5 12.5 12 11 12 11Z"
         fill="currentColor"
-        fillOpacity="0.3"
+        fillOpacity="0.25"
       />
     </svg>
   );
