@@ -176,11 +176,14 @@ export default function CardHeatScoreBadge({
             </span>
           )}
 
-          {/* Resolved card: wager + payout with breakdown */}
+          {/* Resolved card: wager + multiplier + payout with breakdown */}
           {isResolved && (
             <span className="inline-flex items-center gap-2 text-sm font-black">
               <FlameTokenIcon className="h-3.5 w-3.5 text-orange-400" />
               <span className="text-orange-400">-{wager}</span>
+              {actualEffective != null && actualEffective > 0 && (
+                <span className="text-xs font-bold text-emerald-500/70">{actualEffective}x</span>
+              )}
               <span className={payout != null && payout > 0 ? "text-emerald-500" : "text-muted-foreground"}>
                 +{payout ?? 0}
               </span>
