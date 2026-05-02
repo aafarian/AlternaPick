@@ -148,10 +148,33 @@ export default function CardHeatScoreBadge({
                       </div>
                     ))}
                   </div>
+                  {/* Difficulty bonus breakdown */}
                   {hasNotchBonus && (
-                    <p className="mt-1 text-[9px] text-muted-foreground/60">
-                      Notched lines scale your payout higher or lower
-                    </p>
+                    <>
+                      <div className="my-1.5 border-t border-border" />
+                      <p className="mb-1 font-semibold text-foreground">Difficulty Bonus</p>
+                      <div className="flex flex-col gap-0.5">
+                        {notchLineItems.map(({ label, wagerScale, count }) => (
+                          <div key={label} className="flex items-center justify-between">
+                            <span className="text-muted-foreground">
+                              {label}{count > 1 ? ` ×${count}` : ""}
+                            </span>
+                            <span className={cn(
+                              "font-bold",
+                              wagerScale > 1 ? "text-orange-400" : "text-sky-400",
+                            )}>
+                              {Math.round(wagerScale * 100) / 100}x
+                            </span>
+                          </div>
+                        ))}
+                        <div className="mt-0.5 flex items-center justify-between border-t border-border/50 pt-0.5">
+                          <span className="font-semibold text-foreground">Combined</span>
+                          <span className="font-bold text-orange-400">
+                            {Math.round(wagerNotchScale * 100) / 100}x
+                          </span>
+                        </div>
+                      </div>
+                    </>
                   )}
 
                   {/* Max payout */}
@@ -164,6 +187,9 @@ export default function CardHeatScoreBadge({
                           {Math.round(wager * effectiveMultiplier).toLocaleString()}
                         </span>
                       </div>
+                      <p className="mt-0.5 text-[9px] text-muted-foreground/60">
+                        {wager} × {baseMultiplier}x × {Math.round(wagerNotchScale * 100) / 100}x
+                      </p>
                     </>
                   )}
                 </div>
