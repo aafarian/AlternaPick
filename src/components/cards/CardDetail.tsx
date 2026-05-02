@@ -96,12 +96,15 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
     }
   }, [cardResolved, router]);
 
-  const livePickMap = new Map<string, LivePickData>();
-  if (liveData) {
-    for (const lp of liveData.picks) {
-      livePickMap.set(lp.pick_id, lp);
+  const livePickMap = useMemo(() => {
+    const map = new Map<string, LivePickData>();
+    if (liveData) {
+      for (const lp of liveData.picks) {
+        map.set(lp.pick_id, lp);
+      }
     }
-  }
+    return map;
+  }, [liveData]);
 
   const fallbackGames = useMemo(
     () => (card.status === "resolved" ? buildGamesFromPicks(card.picks) : []),
@@ -187,10 +190,19 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
         </div>
       </div>
 
-      <AnimatePresence>
-        {(() => {
-          const gamesToShow = liveData?.games ?? (fallbackGames.length > 0 ? fallbackGames : undefined);
-          return gamesToShow && gamesToShow.length > 0 ? (
+      {(() => {
+        const gamesToShow = liveData?.games ?? (fallbackGames.length > 0 ? fallbackGames : undefined);
+        if (!gamesToShow || gamesToShow.length === 0) return null;
+        if (!animate) {
+          // Standalone page: render immediately, no animation
+          return (
+            <div className="px-3 pb-2">
+              <GameScoreBanner games={gamesToShow} />
+            </div>
+          );
+        }
+        return (
+          <AnimatePresence>
             <motion.div
               key="game-score-banner"
               className="px-3 pb-2"
@@ -201,9 +213,9 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
             >
               <GameScoreBanner games={gamesToShow} />
             </motion.div>
-          ) : null;
-        })()}
-      </AnimatePresence>
+          </AnimatePresence>
+        );
+      })()}
 
       <Separator />
 
