@@ -55,16 +55,18 @@ export default function PropsGameList({
 
   return (
     <>
-      <GameSelector
-        games={games.map((g) => ({
-          id: g.id,
-          away_team: g.away_team,
-          home_team: g.home_team,
-          commence_time: g.commence_time,
-        }))}
-        activeId={activeChip}
-        onSelect={handleChipSelect}
-      />
+      <div className="sticky top-[7.5rem] z-20 -mx-4 border-b border-border bg-background px-4 pb-2 pt-1 shadow-sm sm:top-[8rem]">
+        <GameSelector
+          games={games.map((g) => ({
+            id: g.id,
+            away_team: g.away_team,
+            home_team: g.home_team,
+            commence_time: g.commence_time,
+          }))}
+          activeId={activeChip}
+          onSelect={handleChipSelect}
+        />
+      </div>
 
       <StaggerChildren staggerDelay={0.06} className="mt-4 flex flex-col gap-3">
         {games.map((game) => (
