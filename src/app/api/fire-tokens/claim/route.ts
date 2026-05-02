@@ -54,15 +54,9 @@ export async function POST() {
       return badRequest("Already claimed today");
     }
 
-    // Atomic update: the .neq guard ensures only one concurrent request wins.
-    // If a parallel request already set last_claim to today, this returns 0 rows.
-    const newBalance = (entry.fire_tokens_balance ?? STARTING_BALANCE) + DAILY_CLAIM;
-
+    // Step 1: Set last_claim to today with .neq guard (idempotency — only one request wins)
     const { data: claimResult, error: claimError } = await (admin.from("leaderboard_entries") as any)
-      .update({
-        fire_tokens_balance: newBalance,
-        fire_tokens_last_claim: today,
-      })
+      .update({ fire_tokens_last_claim: today })
       .eq("user_id", user.id)
       .neq("fire_tokens_last_claim", today)
       .select("id");
@@ -73,9 +67,17 @@ export async function POST() {
       return badRequest("Already claimed today");
     }
 
+    // Step 2: Atomic credit via RPC — prevents lost writes from concurrent payouts
+    const { data: newBalance, error: creditError } = await (admin.rpc as any)(
+      "credit_fire_tokens",
+      { p_user_id: user.id, p_amount: DAILY_CLAIM, p_include_lifetime: false },
+    );
+
+    if (creditError) return handleApiError(creditError, "fire-tokens/claim");
+
     return NextResponse.json({
       claimed: DAILY_CLAIM,
-      balance: newBalance,
+      balance: newBalance ?? (entry.fire_tokens_balance ?? STARTING_BALANCE) + DAILY_CLAIM,
       next_claim: "tomorrow",
     });
   } catch (error) {

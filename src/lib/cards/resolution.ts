@@ -37,7 +37,6 @@ import {
   getNotchTier,
   HEATSCORE_HIT_BASE,
 } from "@/lib/heatscore/compute";
-import { STARTING_BALANCE } from "@/lib/heatscore/constants";
 import { DEFAULT_LEADERBOARD_STATS } from "@/lib/leaderboard/defaults";
 
 // Re-export pure functions so existing imports from resolution.ts continue to work
@@ -1225,12 +1224,18 @@ async function updateLeaderboardStats(
   // Flame Token balance updates (only when a wager was placed).
   // The wager was already deducted at card creation time, so the delta
   // here is just the payout (which is 0 on bust). Lifetime tracks gross payouts.
+  // Token credit uses atomic RPC to prevent lost writes from concurrent operations.
   const hasTokenWager = fireTokenWager != null && fireTokenPayout != null;
-  const tokenBalanceDelta = hasTokenWager ? fireTokenPayout : 0;
-  const tokenLifetimeDelta = hasTokenWager && fireTokenPayout > 0 ? fireTokenPayout : 0;
 
-  const fireTokensBalance = Math.max(0, (existing?.fire_tokens_balance ?? STARTING_BALANCE) + tokenBalanceDelta);
-  const fireTokensLifetime = (existing?.fire_tokens_lifetime ?? 0) + tokenLifetimeDelta;
+  if (hasTokenWager && fireTokenPayout > 0) {
+    const { error: creditErr } = await (supabase.rpc as any)(
+      "credit_fire_tokens",
+      { p_user_id: userId, p_amount: fireTokenPayout, p_include_lifetime: true },
+    );
+    if (creditErr) {
+      logError("resolution", `Failed to credit fire tokens for user ${userId}`, undefined, creditErr);
+    }
+  }
 
   if (existing) {
     // Update existing entry -- preserve h2h stats
@@ -1242,10 +1247,6 @@ async function updateLeaderboardStats(
         win_rate: winRate,
         current_streak: currentStreak,
         best_streak: bestStreak,
-        ...(hasTokenWager && {
-          fire_tokens_balance: fireTokensBalance,
-          fire_tokens_lifetime: fireTokensLifetime,
-        }),
         updated_at: new Date().toISOString(),
       })
       .eq("user_id", userId);
@@ -1264,8 +1265,6 @@ async function updateLeaderboardStats(
       best_streak: bestStreak,
       h2h_wins: 0,
       h2h_losses: 0,
-      fire_tokens_balance: fireTokensBalance,
-      fire_tokens_lifetime: fireTokensLifetime,
     });
     if (insertErr) {
       logError("resolution", `updateLeaderboardStats: insert failed for user ${userId}`, undefined, insertErr);

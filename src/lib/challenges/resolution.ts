@@ -845,25 +845,19 @@ async function awardChallengeTokens(
 ): Promise<void> {
   if (amount <= 0) return;
 
-  const { data: entry } = await (supabase.from("leaderboard_entries") as any)
-    .select("fire_tokens_balance, fire_tokens_lifetime")
-    .eq("user_id", userId)
-    .maybeSingle();
+  // Try atomic credit via RPC first (prevents lost writes from concurrent ops)
+  const { data: rpcResult, error: rpcError } = await (supabase.rpc as any)(
+    "credit_fire_tokens",
+    { p_user_id: userId, p_amount: amount, p_include_lifetime: true },
+  );
 
-  if (entry) {
-    const existing = entry as { fire_tokens_balance: number; fire_tokens_lifetime: number };
-    await (supabase.from("leaderboard_entries") as any)
-      .update({
-        fire_tokens_balance: existing.fire_tokens_balance + amount,
-        fire_tokens_lifetime: existing.fire_tokens_lifetime + amount,
-      })
-      .eq("user_id", userId);
-  } else {
-    await (supabase.from("leaderboard_entries") as any)
-      .insert({
-        user_id: userId,
-        fire_tokens_balance: STARTING_BALANCE + amount,
-        fire_tokens_lifetime: amount,
-      });
-  }
+  if (!rpcError && rpcResult !== -1) return; // success
+
+  // Row doesn't exist — create it (new user's first challenge)
+  await (supabase.from("leaderboard_entries") as any)
+    .insert({
+      user_id: userId,
+      fire_tokens_balance: STARTING_BALANCE + amount,
+      fire_tokens_lifetime: amount,
+    });
 }

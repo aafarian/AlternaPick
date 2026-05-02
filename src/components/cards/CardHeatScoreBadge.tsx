@@ -43,13 +43,7 @@ export default function CardHeatScoreBadge({
 
   const baseMultiplier = cardSize ? getHeatScoreMultiplier(cardSize, cardSize) : null;
 
-  // Compute effective multiplier scaled by average notch difficulty
-  const avgNotchMult = pickNotches && pickNotches.length > 0
-    ? pickNotches.reduce((sum, n) => sum + getNotchTier(n).multiplier, 0) / pickNotches.length
-    : 1;
-  const effectiveMultiplier = baseMultiplier != null
-    ? Math.round(baseMultiplier * avgNotchMult * 10) / 10
-    : null;
+  const hasNotchPicks = pickNotches ? pickNotches.some((n) => n !== 0) : false;
 
   // Build base multiplier rows (raw table values)
   const baseRows = cardSize
@@ -109,9 +103,9 @@ export default function CardHeatScoreBadge({
               +{payout}
             </span>
           )}
-          {payout == null && effectiveMultiplier != null && effectiveMultiplier > 0 && (
+          {payout == null && baseMultiplier != null && baseMultiplier > 0 && (
             <span className="relative inline-flex items-center gap-1">
-              <span className="text-xs font-black text-orange-400">{effectiveMultiplier}x</span>
+              <span className="text-xs font-black text-orange-400">{baseMultiplier}x{hasNotchPicks ? "+" : ""}</span>
               <button
                 type="button"
                 onClick={(e) => {
@@ -166,13 +160,10 @@ export default function CardHeatScoreBadge({
                             </span>
                           </div>
                         ))}
-                        <div className="mt-0.5 flex items-center justify-between border-t border-border/50 pt-0.5">
-                          <span className="font-semibold text-foreground">Total</span>
-                          <span className="font-bold text-orange-400">
-                            {Math.round(avgNotchMult * 100) / 100}x
-                          </span>
-                        </div>
                       </div>
+                      <p className="mt-1 text-[9px] text-muted-foreground/60">
+                        Harder lines earn bigger quality bonuses
+                      </p>
                     </>
                   )}
 
@@ -181,13 +172,13 @@ export default function CardHeatScoreBadge({
                     <>
                       <div className="my-1.5 border-t border-border" />
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-foreground">Max payout</span>
+                        <span className="font-semibold text-foreground">Base payout</span>
                         <span className="font-black text-emerald-500">
-                          {Math.round(wager * (effectiveMultiplier ?? baseMultiplier)).toLocaleString()}
+                          {Math.round(wager * baseMultiplier).toLocaleString()}
                         </span>
                       </div>
                       <p className="mt-0.5 text-[9px] text-muted-foreground/60">
-                        {wager} × {baseMultiplier}x{hasNotchBonus ? ` × ${Math.round(avgNotchMult * 100) / 100}x` : ""}
+                        {wager} × {baseMultiplier}x{hasNotchPicks ? " + quality bonus" : ""}
                       </p>
                     </>
                   )}
