@@ -50,7 +50,7 @@ export default function CardBuilderPanel() {
   // Auth gate for guest lock-in
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // Heat Mode feature flag — gated by heatscore_enabled + heatscore_allowlist.
+  // Wager Flame feature flag — gated by heatscore_enabled + heatscore_allowlist.
   // Fetched once on mount; cached for 60s server-side.
   const [heatModeAccess, setHeatModeAccess] = useState(false);
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function CardBuilderPanel() {
     fetch("/api/heatscore/access")
       .then((r) => r.json())
       .then((data) => { if (!cancelled) setHeatModeAccess(data.enabled === true); })
-      .catch(() => { /* fail closed — Heat Mode stays hidden */ });
+      .catch(() => { /* fail closed — Wager Flame stays hidden */ });
     return () => { cancelled = true; };
   }, [user]);
 
@@ -491,7 +491,7 @@ export default function CardBuilderPanel() {
           </div>
         )}
 
-        {/* Heat Mode wager picker panel — sits ABOVE the bar (like challenge picker) */}
+        {/* Wager Flame wager picker panel — sits ABOVE the bar (like challenge picker) */}
         {showHeatPicker && !isInChallengeMode && (
           <div className="border-t border-orange-500/30 bg-surface/95 backdrop-blur-xl">
             <div className="mx-auto max-w-6xl px-4 py-2.5">
@@ -694,7 +694,7 @@ export default function CardBuilderPanel() {
                     )}
                   </Button>
                 ) : (
-                  /* Regular card — Solo lock-in + Heat Mode toggle + Challenge */
+                  /* Regular card — Solo lock-in + Wager Flame toggle + Challenge */
                   <>
                     <Button
                       onClick={handleLockIn}
@@ -790,7 +790,7 @@ export default function CardBuilderPanel() {
                           ) : (
                             <>
                               <Flame className="mr-1.5 h-3.5 w-3.5" />
-                              Heat Mode
+                              Wager Flame
                             </>
                           )}
                         </Button>

@@ -118,7 +118,7 @@ const statCards: StatCardConfig[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Fire Token Adjuster
+// Flame Token Adjuster
 // ---------------------------------------------------------------------------
 
 function FireTokenAdjuster({ userId }: { userId: string }) {
@@ -170,7 +170,7 @@ function FireTokenAdjuster({ userId }: { userId: string }) {
       <CardHeader className="pb-2 pt-0 px-4">
         <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <Flame className="h-4 w-4 text-orange-400" />
-          Fire Tokens
+          Flame Tokens
           {balance != null && (
             <span className="text-orange-400 font-bold tabular-nums">{balance}</span>
           )}
@@ -739,7 +739,7 @@ export default function UserDetail({ userId }: { userId: string }) {
       {/* Header */}
       <UserHeader profile={detail.profile} />
 
-      {/* Fire Token Adjustment */}
+      {/* Flame Token Adjustment */}
       <FireTokenAdjuster userId={detail.profile.id} />
 
       {/* Moderation Actions */}

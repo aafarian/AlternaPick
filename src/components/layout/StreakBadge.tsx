@@ -17,7 +17,7 @@ interface TokenData {
 }
 
 /**
- * Combined Fire Token + Streak badge for the header.
+ * Combined Flame Token + Streak badge for the header.
  * Shows fire token balance prominently, with streak info on hover.
  */
 export default function StreakBadge() {
@@ -55,9 +55,10 @@ export default function StreakBadge() {
     return () => { cancelled = true; };
   }, []);
 
-  if (!tokens && (!streak || streak.daily_streak <= 0)) return null;
+  // Don't render until we have token data
+  if (!tokens) return null;
 
-  const balance = tokens?.balance ?? 0;
+  const balance = tokens.balance;
 
   return (
     <div
@@ -81,7 +82,7 @@ export default function StreakBadge() {
         <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-border bg-card p-3 shadow-lg">
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">Fire Tokens</span>
+              <span className="text-xs font-medium text-muted-foreground">Flame Tokens</span>
               <span className="text-sm font-bold tabular-nums text-orange-400">{balance}</span>
             </div>
             <div className="flex items-center justify-between">

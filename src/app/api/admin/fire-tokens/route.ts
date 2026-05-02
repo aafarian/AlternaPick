@@ -7,7 +7,7 @@ import { logWarn } from "@/lib/logger";
 /**
  * POST /api/admin/fire-tokens
  *
- * Adjust a user's Fire Token balance. Admin only.
+ * Adjust a user's Flame Token balance. Admin only.
  * Body: { user_id: string, amount: number, reason?: string }
  *
  * Positive amount = give tokens, negative = take tokens.

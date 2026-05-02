@@ -7,7 +7,7 @@ import { DAILY_CLAIM } from "@/lib/heatscore/constants";
 /**
  * POST /api/fire-tokens/claim
  *
- * Claim the daily Fire Token bonus. Can be claimed once per UTC day.
+ * Claim the daily Flame Token bonus. Can be claimed once per UTC day.
  * Requires authentication. Returns the new balance.
  */
 export async function POST() {

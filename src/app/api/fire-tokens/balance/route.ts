@@ -5,7 +5,7 @@ import { unauthorized, handleApiError } from "@/lib/api/errors";
 /**
  * GET /api/fire-tokens/balance
  *
- * Returns the authenticated user's Fire Token balance, lifetime earnings,
+ * Returns the authenticated user's Flame Token balance, lifetime earnings,
  * and whether they can claim today's daily bonus.
  */
 export async function GET() {
