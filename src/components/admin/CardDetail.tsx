@@ -42,6 +42,7 @@ import {
   Clock,
   Lock,
   CheckCircle2,
+  ExternalLink,
 } from "lucide-react";
 import type { AdminCardDetail, AdminCardPickDetail } from "@/lib/admin/types";
 import type { ChallengeStatus } from "@/lib/supabase/types";
@@ -242,6 +243,12 @@ function CardHeaderSection({ data, onResync }: { data: CardDetailResponse; onRes
 
           {/* Right: meta badges + actions */}
           <div className="flex flex-wrap items-center gap-2">
+            <Link href={`/cards/${data.id}`} target="_blank">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ExternalLink className="h-4 w-4" />
+                View Card
+              </Button>
+            </Link>
             {data.status === "locked" && (
               <ResyncButton cardId={data.id} onComplete={onResync} />
             )}

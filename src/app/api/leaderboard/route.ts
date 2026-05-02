@@ -26,6 +26,7 @@ export interface LeaderboardEntryWithProfile {
     best_streak: number;
     h2h_wins: number;
     h2h_losses: number;
+    fire_tokens_lifetime: number;
   };
 }
 
@@ -50,6 +51,7 @@ function rowToEntry(row: LeaderboardRow): LeaderboardEntryWithProfile["stats"] {
     best_streak: row.best_streak,
     h2h_wins: row.h2h_wins,
     h2h_losses: row.h2h_losses,
+    fire_tokens_lifetime: row.fire_tokens_lifetime,
   };
 }
 

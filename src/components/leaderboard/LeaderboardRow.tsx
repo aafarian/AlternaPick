@@ -174,9 +174,7 @@ export default function LeaderboardRow({
       </TableCell>
 
       <TableCell className={cn("text-sm tabular-nums", sort === "flame_tokens" ? "font-bold text-orange-400" : "text-muted-foreground")}>
-        {(stats as Record<string, unknown>).fire_tokens_lifetime != null
-          ? ((stats as Record<string, unknown>).fire_tokens_lifetime as number).toLocaleString()
-          : "—"}
+        {stats.fire_tokens_lifetime.toLocaleString()}
       </TableCell>
 
       <TableCell className="text-sm text-muted-foreground">
