@@ -62,7 +62,11 @@ export function useLiveStats(cardId: string, enabled: boolean, onAllSettled?: ()
       // Don't update state if this request was aborted or hook was stopped
       if (controller.signal.aborted || stoppedRef.current) return;
 
-      setData(result);
+      // Only update state if data actually changed (prevents unnecessary re-renders)
+      setData((prev) => {
+        if (prev && JSON.stringify(prev) === JSON.stringify(result)) return prev;
+        return result;
+      });
       setError(null);
 
       // Only stop when the server confirms ALL games are final.
