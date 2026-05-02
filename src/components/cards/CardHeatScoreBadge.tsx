@@ -52,15 +52,12 @@ export default function CardHeatScoreBadge({
     ? Math.round(baseMultiplier * wagerNotchScale * 10) / 10
     : baseMultiplier;
 
-  // Build multiplier rows scaled by notch
+  // Build base multiplier rows (raw table values, no notch baked in)
   const baseRows = cardSize
-    ? Array.from({ length: cardSize + 1 }, (_, i) => cardSize - i).map((hits) => {
-        const rawMult = getHeatScoreMultiplier(hits, cardSize);
-        return {
-          hits,
-          multiplier: Math.round(rawMult * wagerNotchScale * 10) / 10,
-        };
-      })
+    ? Array.from({ length: cardSize + 1 }, (_, i) => cardSize - i).map((hits) => ({
+        hits,
+        multiplier: getHeatScoreMultiplier(hits, cardSize),
+      }))
     : [];
 
   // Build notch line items: group by tier, show count × multiplier
@@ -134,8 +131,8 @@ export default function CardHeatScoreBadge({
                   className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-md border border-border bg-card p-2.5 shadow-lg text-[10px] font-normal"
                   onMouseLeave={() => setShowMultiplierTip(false)}
                 >
-                  {/* Base payout table */}
-                  <p className="mb-1.5 font-semibold text-foreground">Base Payout</p>
+                  {/* Standard payout rates */}
+                  <p className="mb-1.5 font-semibold text-foreground">Payout Rates</p>
                   <div className="flex flex-col gap-0.5">
                     {baseRows.map(({ hits, multiplier }) => (
                       <div key={hits} className="flex items-center justify-between">
@@ -151,34 +148,13 @@ export default function CardHeatScoreBadge({
                       </div>
                     ))}
                   </div>
-
-                  {/* Notch difficulty line items */}
                   {hasNotchBonus && (
-                    <>
-                      <div className="my-1.5 border-t border-border" />
-                      <p className="mb-1 font-semibold text-foreground">Difficulty Bonus</p>
-                      <div className="flex flex-col gap-0.5">
-                        {notchLineItems.map(({ label, wagerScale, count }) => (
-                          <div key={label} className="flex items-center justify-between">
-                            <span className="text-muted-foreground">
-                              {label}{count > 1 ? ` ×${count}` : ""}
-                            </span>
-                            <span className={cn(
-                              "font-bold",
-                              wagerScale > 1 ? "text-orange-400" : "text-sky-400",
-                            )}>
-                              {wagerScale}x
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      <p className="mt-1 text-[9px] text-muted-foreground/60">
-                        Harder lines earn bigger quality bonuses
-                      </p>
-                    </>
+                    <p className="mt-1 text-[9px] text-muted-foreground/60">
+                      Notched lines scale your payout higher or lower
+                    </p>
                   )}
 
-                  {/* Grand total */}
+                  {/* Max payout */}
                   {wager != null && effectiveMultiplier != null && (
                     <>
                       <div className="my-1.5 border-t border-border" />
@@ -188,9 +164,6 @@ export default function CardHeatScoreBadge({
                           {Math.round(wager * effectiveMultiplier).toLocaleString()}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-[9px] text-muted-foreground/60">
-                        {wager} × {effectiveMultiplier}x + quality
-                      </p>
                     </>
                   )}
                 </div>
