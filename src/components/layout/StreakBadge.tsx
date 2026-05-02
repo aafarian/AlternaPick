@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Flame, Gift, Loader2 } from "lucide-react";
+import { useAuth } from "@/lib/auth/auth-context";
 
 interface StreakData {
   daily_streak: number;
@@ -18,15 +19,18 @@ interface TokenData {
 
 /**
  * Combined Flame Token + Streak badge for the header.
- * Shows fire token balance prominently, with streak info on hover.
+ * Shows flame token balance prominently, with streak info on hover.
  */
 export default function StreakBadge() {
+  const { user } = useAuth();
   const [streak, setStreak] = useState<StreakData | null>(null);
   const [tokens, setTokens] = useState<TokenData | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {
+    if (!user) return;
+
     let cancelled = false;
 
     async function fetchData() {
@@ -44,19 +48,23 @@ export default function StreakBadge() {
           if (tokenRes.ok) {
             const data = await tokenRes.json();
             setTokens({ balance: data.balance ?? 1000, lifetime: data.lifetime ?? 0, can_claim: data.can_claim ?? false });
+          } else {
+            // API returned non-OK (maybe 401 race) — show defaults
+            setTokens({ balance: 1000, lifetime: 0, can_claim: true });
           }
         }
       } catch {
-        // Fail closed — badge stays hidden
+        // Network error — show defaults so badge isn't invisible
+        if (!cancelled) setTokens({ balance: 1000, lifetime: 0, can_claim: true });
       }
     }
 
     fetchData();
     return () => { cancelled = true; };
-  }, []);
+  }, [user]);
 
-  // Don't render until we have token data
-  if (!tokens) return null;
+  // Don't render until authenticated and we have data
+  if (!user || !tokens) return null;
 
   const balance = tokens.balance;
 
@@ -71,7 +79,7 @@ export default function StreakBadge() {
         type="button"
         className="flex items-center gap-1 rounded-full bg-orange-500/10 px-2.5 py-1 text-sm font-semibold text-orange-400 transition-colors hover:bg-orange-500/20 cursor-default select-none"
         role="status"
-        aria-label={`${balance} fire tokens`}
+        aria-label={`${balance} flame tokens`}
       >
         <Flame className="h-4 w-4" aria-hidden="true" />
         <span className="tabular-nums">{balance}</span>
@@ -87,7 +95,7 @@ export default function StreakBadge() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-muted-foreground">Lifetime Earned</span>
-              <span className="text-sm font-bold tabular-nums text-muted-foreground">{tokens?.lifetime ?? 0}</span>
+              <span className="text-sm font-bold tabular-nums text-muted-foreground">{tokens.lifetime}</span>
             </div>
             {streak && streak.daily_streak > 0 && (
               <>
@@ -108,7 +116,7 @@ export default function StreakBadge() {
                 )}
               </>
             )}
-            {tokens?.can_claim && (
+            {tokens.can_claim && (
               <>
                 <div className="border-t border-border" />
                 <button
@@ -139,7 +147,7 @@ export default function StreakBadge() {
                 </button>
               </>
             )}
-            {!tokens?.can_claim && (
+            {!tokens.can_claim && (
               <div className="border-t border-border pt-1">
                 <p className="text-[10px] text-muted-foreground text-center">
                   Daily claim used — come back tomorrow!

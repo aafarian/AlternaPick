@@ -500,7 +500,16 @@ export default function CardBuilderPanel() {
                 <Flame className="h-4 w-4 shrink-0 text-orange-400" />
 
                 {balanceLoading ? (
-                  <div className="h-8 w-20 animate-pulse rounded-md bg-secondary" />
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-20 animate-pulse rounded-md bg-secondary" />
+                    <div className="flex gap-1">
+                      <div className="h-6 w-8 animate-pulse rounded-md bg-secondary" />
+                      <div className="h-6 w-8 animate-pulse rounded-md bg-secondary" />
+                      <div className="h-6 w-8 animate-pulse rounded-md bg-secondary" />
+                      <div className="h-6 w-10 animate-pulse rounded-md bg-secondary" />
+                    </div>
+                    <div className="ml-auto h-4 w-20 animate-pulse rounded bg-secondary" />
+                  </div>
                 ) : (
                   <>
                     <div className="relative">
