@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Flame, HelpCircle } from "lucide-react";
 import HeatScoreModal from "@/components/onboarding/HeatScoreModal";
-import { getHeatScoreMultiplier } from "@/lib/heatscore/constants";
-import { getNotchTier } from "@/lib/heatscore/compute";
+import { getHeatScoreMultiplier, WAGER_NOTCH_SCALE } from "@/lib/heatscore/constants";
+import { getNotchTier, computeWagerNotchScale } from "@/lib/heatscore/compute";
 import { cn } from "@/lib/utils";
 
 interface CardHeatScoreBadgeProps {
@@ -43,24 +43,22 @@ export default function CardHeatScoreBadge({
 
   const baseMultiplier = cardSize ? getHeatScoreMultiplier(cardSize, cardSize) : null;
 
-  const hasNotchPicks = pickNotches ? pickNotches.some((n) => n !== 0) : false;
-
-  // Average notch multiplier — now scales the actual wager payout
-  const avgNotchMult = pickNotches && pickNotches.length > 0
-    ? pickNotches.reduce((sum, n) => sum + getNotchTier(n).multiplier, 0) / pickNotches.length
+  // Wager notch scale: geometric mean of per-pick scales (matches payout formula)
+  const wagerNotchScale = pickNotches && pickNotches.length > 0
+    ? computeWagerNotchScale(pickNotches)
     : 1;
-  // Effective multiplier shown to user = base × notch (matches actual payout formula)
+  // Effective multiplier shown to user = base × notch scale
   const effectiveMultiplier = baseMultiplier != null
-    ? Math.round(baseMultiplier * avgNotchMult * 10) / 10
+    ? Math.round(baseMultiplier * wagerNotchScale * 10) / 10
     : baseMultiplier;
 
-  // Build base multiplier rows (raw table values)
+  // Build multiplier rows scaled by notch
   const baseRows = cardSize
     ? Array.from({ length: cardSize + 1 }, (_, i) => cardSize - i).map((hits) => {
         const rawMult = getHeatScoreMultiplier(hits, cardSize);
         return {
           hits,
-          multiplier: Math.round(rawMult * avgNotchMult * 10) / 10,
+          multiplier: Math.round(rawMult * wagerNotchScale * 10) / 10,
         };
       })
     : [];
@@ -78,7 +76,8 @@ export default function CardHeatScoreBadge({
       .sort(([a], [b]) => b - a) // highest notch first
       .map(([notch, count]) => {
         const tier = getNotchTier(notch);
-        return { label: tier.label, multiplier: tier.multiplier, count };
+        const wagerScale = WAGER_NOTCH_SCALE[notch] ?? 1;
+        return { label: tier.label, multiplier: tier.multiplier, wagerScale, count };
       });
   })();
 
@@ -159,16 +158,16 @@ export default function CardHeatScoreBadge({
                       <div className="my-1.5 border-t border-border" />
                       <p className="mb-1 font-semibold text-foreground">Difficulty Bonus</p>
                       <div className="flex flex-col gap-0.5">
-                        {notchLineItems.map(({ label, multiplier, count }) => (
+                        {notchLineItems.map(({ label, wagerScale, count }) => (
                           <div key={label} className="flex items-center justify-between">
                             <span className="text-muted-foreground">
-                              {label} line{count > 1 ? ` ×${count}` : ""}
+                              {label}{count > 1 ? ` ×${count}` : ""}
                             </span>
                             <span className={cn(
                               "font-bold",
-                              multiplier > 1 ? "text-orange-400" : "text-sky-400",
+                              wagerScale > 1 ? "text-orange-400" : "text-sky-400",
                             )}>
-                              {multiplier}x
+                              {wagerScale}x
                             </span>
                           </div>
                         ))}
@@ -190,7 +189,7 @@ export default function CardHeatScoreBadge({
                         </span>
                       </div>
                       <p className="mt-0.5 text-[9px] text-muted-foreground/60">
-                        {wager} × {baseMultiplier}x{hasNotchPicks ? ` × ${Math.round(avgNotchMult * 100) / 100}x` : ""} + quality
+                        {wager} × {effectiveMultiplier}x + quality
                       </p>
                     </>
                   )}

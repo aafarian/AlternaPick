@@ -21,6 +21,7 @@ import {
   computeQualityBonus,
   computeCardHeatScore,
   computeFireTokenPayout,
+  computeWagerNotchScale,
   HEATSCORE_HIT_BASE,
   getNotchTier,
 } from "@/lib/heatscore/compute";
@@ -169,14 +170,12 @@ async function main() {
           if (hsResult.effectiveSize === 0) {
             payout = card.fire_token_wager; // all DNP/push — full refund
           } else {
-            const avgNotch = typedPicks.length > 0
-              ? typedPicks.reduce((sum, p) => sum + getNotchTier(p.notch ?? 0).multiplier, 0) / typedPicks.length
-              : 1;
+            const notchScale = computeWagerNotchScale(typedPicks.map((p) => p.notch ?? 0));
             payout = computeFireTokenPayout(
               card.fire_token_wager,
               hsResult.multiplier,
               qualityResult.total,
-              avgNotch,
+              notchScale,
             );
           }
         }

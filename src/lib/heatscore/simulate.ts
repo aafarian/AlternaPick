@@ -3,8 +3,8 @@ import type { PickResult, PickSelection, StatCategory } from "@/lib/supabase/typ
 import {
   computeCardHeatScore,
   computeFireTokenPayout,
+  computeWagerNotchScale,
   computeQualityBonus,
-  getNotchTier,
 } from "./compute";
 
 // ---------------------------------------------------------------------------
@@ -142,16 +142,13 @@ export async function simulateCardHeatScore(
     card.card_size,
   );
 
-  // Average notch multiplier across picks (defaults to 1.0 for pre-notch cards)
-  const avgNotchMult = picks.length > 0
-    ? picks.reduce((sum, p) => sum + getNotchTier(p.notch ?? 0).multiplier, 0) / picks.length
-    : 1;
+  const notchScale = computeWagerNotchScale(picks.map((p) => p.notch ?? 0));
 
   const simulatedPayout = computeFireTokenPayout(
     DEMO_WAGER,
     cardResult.multiplier,
     qualityResult.total,
-    avgNotchMult,
+    notchScale,
   );
 
   return {

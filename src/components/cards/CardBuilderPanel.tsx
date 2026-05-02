@@ -16,7 +16,7 @@ import { X, Lock, Loader2, Swords, Flame } from "lucide-react";
 import { logWarn } from "@/lib/logger";
 import { cn } from "@/lib/utils";
 import { getHeatScoreMultiplier, MIN_WAGER, STARTING_BALANCE } from "@/lib/heatscore/constants";
-import { getNotchTier } from "@/lib/heatscore/compute";
+import { computeWagerNotchScale } from "@/lib/heatscore/compute";
 import CardSuccessAnimation from "./CardSuccessAnimation";
 import AuthRequiredModal from "./AuthRequiredModal";
 import ModeSelector from "./ModeSelector";
@@ -594,10 +594,8 @@ export default function CardBuilderPanel() {
                   {Array.from({ length: picks.length + 1 }, (_, k) => picks.length - k)
                     .map((hits) => {
                       const baseMult = getHeatScoreMultiplier(hits, picks.length);
-                      const avgNotch = picks.length > 0
-                        ? picks.reduce((sum, p) => sum + getNotchTier(p.notch ?? 0).multiplier, 0) / picks.length
-                        : 1;
-                      const mult = Math.round(baseMult * avgNotch * 10) / 10;
+                      const notchScale = computeWagerNotchScale(picks.map((p) => p.notch ?? 0));
+                      const mult = Math.round(baseMult * notchScale * 10) / 10;
                       const payout = Math.round(wager * mult);
                       const net = payout - wager;
                       const isPerfect = hits === picks.length;

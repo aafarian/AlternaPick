@@ -33,6 +33,7 @@ import { extractStatValue, fuzzyMatchPlayer } from "@/lib/cards/resolution-utils
 import {
   computeCardHeatScore,
   computeFireTokenPayout,
+  computeWagerNotchScale,
   computeQualityBonus,
   getNotchTier,
   HEATSCORE_HIT_BASE,
@@ -860,17 +861,15 @@ export async function resolveCard(
     }
 
     // Wager Flame payout — uses multiplier table, scaled by notch difficulty.
-    // Frosty picks reduce payout, Volcanic picks increase it.
+    // Uses geometric mean of per-pick wager scales to prevent mixed-card exploits.
     if (wager != null) {
       const hsResult = computeCardHeatScore(score, misses, card.card_size);
       if (hsResult.effectiveSize === 0) {
         // All picks voided (DNP/push) — refund wager in full
         payout = wager;
       } else {
-        const avgNotch = pickResolutions.length > 0
-          ? pickResolutions.reduce((sum, p) => sum + getNotchTier(p.notch ?? 0).multiplier, 0) / pickResolutions.length
-          : 1;
-        payout = computeFireTokenPayout(wager, hsResult.multiplier, qualityBonus, avgNotch);
+        const notchScale = computeWagerNotchScale(pickResolutions.map((p) => p.notch ?? 0));
+        payout = computeFireTokenPayout(wager, hsResult.multiplier, qualityBonus, notchScale);
       }
     }
   } catch (hsError) {
