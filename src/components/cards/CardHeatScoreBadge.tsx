@@ -205,54 +205,74 @@ export default function CardHeatScoreBadge({
           {/* Tooltip: payout rates (live) or payout breakdown (resolved) */}
           {showTooltip && (
             <div
-              className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-md border border-border bg-card p-2.5 shadow-lg text-[10px] font-normal"
+              className="absolute right-0 top-full z-50 mt-1.5 w-60 rounded-lg border border-border bg-card p-3 shadow-lg text-[10px] font-normal"
               onMouseLeave={() => setShowTooltip(false)}
             >
-              {/* Resolved: show full payout breakdown */}
+              {/* Resolved: show payout rates + breakdown */}
               {isResolved && payout != null && wager != null && (
                 <>
-                  <p className="mb-1.5 font-semibold text-foreground">Payout Breakdown</p>
+                  {/* Payout rates table with user's result highlighted */}
+                  <p className="mb-1.5 text-xs font-semibold text-foreground">Payout Rates</p>
+                  <div className="flex flex-col gap-0.5">
+                    {baseRows.map(({ hits, multiplier }) => {
+                      const isActual = hits === (score ?? -1);
+                      return (
+                        <div key={hits} className={cn(
+                          "flex items-center justify-between rounded px-1 py-0.5",
+                          isActual && "bg-primary/10",
+                        )}>
+                          <span className={cn("text-[11px]", isActual ? "font-bold text-foreground" : "text-muted-foreground")}>
+                            {hits}/{cardSize ?? totalPicks ?? 0} picks {isActual ? "← you" : ""}
+                          </span>
+                          <span className={cn(
+                            "text-[11px] font-bold",
+                            isActual ? (multiplier > 0 ? "text-emerald-500" : "text-red-400") : multiplier > 0 ? "text-emerald-500/60" : "text-red-400/60",
+                          )}>
+                            {multiplier > 0 ? `${multiplier}x` : "Bust"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Breakdown */}
+                  <div className="my-2 border-t border-border" />
+                  <p className="mb-1.5 text-xs font-semibold text-foreground">Your Payout</p>
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Result</span>
-                      <span className="font-bold text-foreground">{score ?? 0}/{totalPicks ?? 0} hits</span>
+                      <span className="text-[11px] text-muted-foreground">Wager</span>
+                      <span className="text-[11px] font-bold text-orange-400">{wager}</span>
                     </div>
-                    {actualMultiplier != null && (
+                    {actualEffective != null && (
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Base multiplier</span>
-                        <span className={cn("font-bold", actualMultiplier > 0 ? "text-emerald-500" : "text-red-400")}>
-                          {actualMultiplier > 0 ? `${actualMultiplier}x` : "Bust"}
+                        <span className="text-[11px] text-muted-foreground">Multiplier{hasNotchBonus ? " (w/ difficulty)" : ""}</span>
+                        <span className={cn("text-[11px] font-bold", actualEffective > 0 ? "text-emerald-500" : "text-red-400")}>
+                          {actualEffective > 0 ? `${actualEffective}x` : "Bust"}
                         </span>
                       </div>
                     )}
-                    {hasNotchBonus && actualEffective != null && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">× difficulty</span>
-                        <span className="font-bold text-orange-400">{actualEffective}x</span>
-                      </div>
-                    )}
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Base payout</span>
-                      <span className="font-bold text-foreground">{basePayout ?? 0}</span>
+                      <span className="text-[11px] text-muted-foreground">Base payout</span>
+                      <span className="text-[11px] font-bold text-foreground">{basePayout ?? 0}</span>
                     </div>
                     {qualityBonus != null && qualityBonus !== 0 && (
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Quality bonus</span>
-                        <span className={cn("font-bold", qualityBonus > 0 ? "text-emerald-500" : "text-red-400")}>
+                        <span className="text-[11px] text-muted-foreground">Quality bonus</span>
+                        <span className={cn("text-[11px] font-bold", qualityBonus > 0 ? "text-emerald-500" : "text-red-400")}>
                           {qualityBonus > 0 ? "+" : ""}{qualityBonus}
                         </span>
                       </div>
                     )}
                     <div className="border-t border-border mt-0.5 pt-1 flex items-center justify-between">
-                      <span className="font-semibold text-foreground">Total payout</span>
-                      <span className={cn("font-black", payout > 0 ? "text-emerald-500" : "text-muted-foreground")}>
+                      <span className="text-xs font-semibold text-foreground">Total payout</span>
+                      <span className={cn("text-xs font-black", payout > 0 ? "text-emerald-500" : "text-muted-foreground")}>
                         {payout}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Net</span>
+                      <span className="text-[11px] text-muted-foreground">Net</span>
                       <span className={cn(
-                        "font-bold",
+                        "text-[11px] font-bold",
                         payout > wager ? "text-emerald-500" : payout < wager ? "text-red-400" : "text-muted-foreground",
                       )}>
                         {payout - wager >= 0 ? "+" : ""}{payout - wager}
