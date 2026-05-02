@@ -221,7 +221,7 @@ export default function CardListWithLoadMore({
 
   return (
     <div className="flex flex-col gap-4">
-      <AnimatedList className="grid grid-cols-1 gap-4" staggerDelay={0.05}>
+      <AnimatedList className="grid grid-cols-1 gap-4 lg:grid-cols-2" staggerDelay={0.05}>
         {cards.map((card) => (
           <div key={card.id} className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 rounded-xl">
             <CardDetail card={card} />

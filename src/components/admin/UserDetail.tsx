@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { logWarn } from "@/lib/logger";
 import {
   Card,
   CardContent,
@@ -139,7 +140,7 @@ function FireTokenAdjuster({ userId }: { userId: string }) {
           setLifetime(data.lifetime ?? null);
         }
       })
-      .catch(() => { /* ignore */ });
+      .catch((err) => { logWarn("user-detail", "Failed to fetch flame token balance", err); });
     return () => { cancelled = true; };
   }, [userId]);
 

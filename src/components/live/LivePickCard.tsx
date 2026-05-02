@@ -33,6 +33,8 @@ interface LivePickCardProps {
   hasLiveGames?: boolean;
   games?: LiveGameStatus[];
   statusLabel?: React.ReactNode;
+  /** Wager/multiplier info displayed on the right side of the header. */
+  wagerLabel?: React.ReactNode;
   loading?: boolean;
   pickCount?: number;
   error?: boolean;
@@ -45,6 +47,7 @@ export default function LivePickCard({
   hasLiveGames = false,
   games,
   statusLabel,
+  wagerLabel,
   loading = false,
   pickCount = 0,
   error = false,
@@ -69,23 +72,26 @@ export default function LivePickCard({
           )}
         </div>
 
-        {/* Dot scoreboard */}
-        {picks.length > 0 && (
-          <div className="flex items-center gap-1">
-            {picks.map((pick) => (
-              <div
-                key={pick.pick_id}
-                className={cn(
-                  "h-2 w-2 rounded-full transition-colors",
-                  pick.trending === "hit" && "bg-neon-green",
-                  pick.trending === "miss" && "bg-bold-red",
-                  pick.trending === "push" && "bg-amber-400",
-                  !pick.trending && "bg-secondary"
-                )}
-              />
-            ))}
-          </div>
-        )}
+        {/* Right side: wager info + dot scoreboard */}
+        <div className="flex items-center gap-3">
+          {wagerLabel}
+          {picks.length > 0 && (
+            <div className="flex items-center gap-1">
+              {picks.map((pick) => (
+                <div
+                  key={pick.pick_id}
+                  className={cn(
+                    "h-2 w-2 rounded-full transition-colors",
+                    pick.trending === "hit" && "bg-neon-green",
+                    pick.trending === "miss" && "bg-bold-red",
+                    pick.trending === "push" && "bg-amber-400",
+                    !pick.trending && "bg-secondary"
+                  )}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {error && (

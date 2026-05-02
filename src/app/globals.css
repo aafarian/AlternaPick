@@ -442,6 +442,16 @@ input:-webkit-autofill:active {
   50%      { box-shadow: 0 0 16px rgba(168, 85, 247, 0.16), 0 0 32px rgba(168, 85, 247, 0.08); }
 }
 
+/* StreakBadge — gentle background pulse when daily claim is available */
+@keyframes flame-claim-pulse {
+  0%, 100% { background-color: rgba(249, 115, 22, 0.1); }
+  50%      { background-color: rgba(249, 115, 22, 0.25); }
+}
+
+@utility animate-flame-claim {
+  animation: flame-claim-pulse 3s ease-in-out infinite;
+}
+
 /* ChallengeMatchup — winner-side celebratory glow pulse (green, 2 cycles) */
 @keyframes winner-side-glow {
   0%, 100% { box-shadow: 0 0 8px rgba(0, 210, 106, 0.08); }

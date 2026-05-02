@@ -81,6 +81,7 @@ export default function NotchSelector({
         type="button"
         onClick={(e) => { e.stopPropagation(); shift(-1); }}
         disabled={!canGoLeft}
+        aria-label="Easier line"
         className={cn(
           "flex h-8 w-7 items-center justify-center rounded-full transition-colors",
           canGoLeft
@@ -117,6 +118,7 @@ export default function NotchSelector({
         type="button"
         onClick={(e) => { e.stopPropagation(); shift(1); }}
         disabled={!canGoRight}
+        aria-label="Harder line"
         className={cn(
           "flex h-8 w-7 items-center justify-center rounded-full transition-colors",
           canGoRight

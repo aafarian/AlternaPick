@@ -4,6 +4,7 @@ import type { Database } from "@/lib/supabase/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { typedFrom } from "@/lib/supabase/typed-queries";
 import { getFriendIds } from "@/lib/friends/get-friend-ids";
+import { STARTING_BALANCE } from "@/lib/heatscore/constants";
 
 export type LeaderboardSort = "hit_rate" | "h2h" | "flame_tokens";
 
@@ -48,7 +49,7 @@ function toLeaderboardRow(row: Record<string, unknown>): LeaderboardRow {
     h2h_wins: row.h2h_wins as number,
     h2h_losses: row.h2h_losses as number,
     h2h_win_pct: row.h2h_win_pct as number,
-    fire_tokens_balance: (row.fire_tokens_balance as number) ?? 1000,
+    fire_tokens_balance: (row.fire_tokens_balance as number) ?? STARTING_BALANCE,
     fire_tokens_lifetime: (row.fire_tokens_lifetime as number) ?? 0,
     updated_at: row.updated_at as string,
     profile: row.profiles as LeaderboardRow["profile"],

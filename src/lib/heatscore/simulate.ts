@@ -33,7 +33,7 @@ export interface SimulationResult {
   heatScoreMultiplier: number;
   /** Total quality bonus (flat tokens) from hit/miss margins. */
   qualityBonus: number;
-  /** Simulated wager for demo purposes (100 tokens). */
+  /** Simulated wager for demo purposes (50 tokens). */
   simulatedWager: number;
   /** Simulated payout: simulatedWager x heatScoreMultiplier + qualityBonus. */
   simulatedPayout: number;
@@ -71,7 +71,7 @@ const DEMO_WAGER = 50;
 
 /**
  * Simulate the HeatScore multiplier and Flame Token payout for an existing
- * resolved card. Uses a demo wager of 100 tokens to show what the payout
+ * resolved card. Uses a demo wager of 50 tokens to show what the payout
  * would have been.
  */
 export async function simulateCardHeatScore(

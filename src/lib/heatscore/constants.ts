@@ -177,21 +177,6 @@ export const STARTING_BALANCE = 1000;
 /** Minimum wager per card. */
 export const MIN_WAGER = 10;
 
-/** Weekly free token refill amount. */
-export const WEEKLY_REFILL = 500;
-
-/** Tokens earned per ad watched. */
-export const AD_REFILL = 50;
-
-/** Max ad refills per day. */
-export const AD_REFILL_CAP = 3;
-
-/** Bonus tokens for inviting a friend. */
-export const INVITE_BONUS = 200;
-
-/** Bonus tokens for challenging 3 different people in a week. */
-export const CHALLENGE_WEEKLY_BONUS = 100;
-
 /** Daily login claim amount. */
 export const DAILY_CLAIM = 50;
 

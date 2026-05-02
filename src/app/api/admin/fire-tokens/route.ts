@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth/admin";
 import { badRequest, handleApiError } from "@/lib/api/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logWarn } from "@/lib/logger";
+import { STARTING_BALANCE } from "@/lib/heatscore/constants";
 
 /**
  * POST /api/admin/fire-tokens
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
       return handleApiError(fetchError, "admin/fire-tokens");
     }
 
-    const currentBalance = (entry as { fire_tokens_balance: number } | null)?.fire_tokens_balance ?? 1000;
+    const currentBalance = (entry as { fire_tokens_balance: number } | null)?.fire_tokens_balance ?? STARTING_BALANCE;
     const newBalance = Math.max(0, currentBalance + amount);
 
     if (entry) {
@@ -104,7 +105,7 @@ export async function GET(request: Request) {
       .maybeSingle();
 
     return NextResponse.json({
-      balance: (data as { fire_tokens_balance: number } | null)?.fire_tokens_balance ?? 1000,
+      balance: (data as { fire_tokens_balance: number } | null)?.fire_tokens_balance ?? STARTING_BALANCE,
       lifetime: (data as { fire_tokens_lifetime: number } | null)?.fire_tokens_lifetime ?? 0,
     });
   } catch (error) {

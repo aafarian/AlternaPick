@@ -13,8 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { X, Lock, Loader2, Swords, Flame } from "lucide-react";
+import { logWarn } from "@/lib/logger";
 import { cn } from "@/lib/utils";
-import { getHeatScoreMultiplier } from "@/lib/heatscore/constants";
+import { getHeatScoreMultiplier, MIN_WAGER, STARTING_BALANCE } from "@/lib/heatscore/constants";
 import CardSuccessAnimation from "./CardSuccessAnimation";
 import AuthRequiredModal from "./AuthRequiredModal";
 import ModeSelector from "./ModeSelector";
@@ -59,13 +60,13 @@ export default function CardBuilderPanel() {
     fetch("/api/heatscore/access")
       .then((r) => r.json())
       .then((data) => { if (!cancelled) setHeatModeAccess(data.enabled === true); })
-      .catch(() => { /* fail closed — Wager Flame stays hidden */ });
+      .catch((err) => { logWarn("card-builder", "Wager Flame access check failed", err); });
     return () => { cancelled = true; };
   }, [user]);
 
   // Flame Token wager (solo ranked mode)
   const [wager, setWager] = useState<number | null>(null);
-  const [showHeatPicker, setShowRankedPicker] = useState(false);
+  const [showHeatPicker, setShowHeatPicker] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
 
@@ -79,10 +80,11 @@ export default function CardBuilderPanel() {
     fetch("/api/fire-tokens/balance")
       .then((r) => r.json())
       .then((data) => {
-        if (!cancelled) setTokenBalance(data.balance ?? 1000);
+        if (!cancelled) setTokenBalance(data.balance ?? STARTING_BALANCE);
       })
-      .catch(() => {
-        if (!cancelled) setTokenBalance(1000);
+      .catch((err) => {
+        logWarn("card-builder", "Failed to fetch token balance", err);
+        if (!cancelled) setTokenBalance(STARTING_BALANCE);
       })
       .finally(() => {
         if (!cancelled) setBalanceLoading(false);
@@ -95,7 +97,7 @@ export default function CardBuilderPanel() {
   useEffect(() => {
     if (picks.length === 0) {
       setWager(null);
-      setShowRankedPicker(false);
+      setShowHeatPicker(false);
       setTokenBalance(null);
     }
   }, [picks.length]);
@@ -118,8 +120,8 @@ export default function CardBuilderPanel() {
       const data = await res.json();
       const list = (data.friends ?? []).map((f: { friend_profile: FriendProfile }) => f.friend_profile);
       setFriends(list);
-    } catch {
-      // ignore
+    } catch (err) {
+      logWarn("card-builder", "Failed to fetch friends for challenge", err);
     } finally {
       setLoadingFriends(false);
     }
@@ -275,6 +277,12 @@ export default function CardBuilderPanel() {
         challengeId: challengeId ?? undefined,
       }));
       setShowAuthModal(true);
+      return;
+    }
+
+    // Validate wager meets minimum before proceeding
+    if (wager != null && wager < MIN_WAGER) {
+      setError(`Minimum wager is ${MIN_WAGER} Flame Tokens`);
       return;
     }
 
@@ -516,8 +524,8 @@ export default function CardBuilderPanel() {
                       <input
                         type="number"
                         inputMode="numeric"
-                        min={10}
-                        max={tokenBalance ?? 1000}
+                        min={MIN_WAGER}
+                        max={tokenBalance ?? STARTING_BALANCE}
                         value={wager ?? ""}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -527,7 +535,7 @@ export default function CardBuilderPanel() {
                           }
                           const num = parseInt(val, 10);
                           if (!isNaN(num) && num >= 0) {
-                            setWager(Math.min(num, tokenBalance ?? 1000));
+                            setWager(Math.min(num, tokenBalance ?? STARTING_BALANCE));
                           }
                         }}
                         placeholder="0"
@@ -574,8 +582,9 @@ export default function CardBuilderPanel() {
                       </button>
                     </div>
 
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      🔥 {tokenBalance ?? 1000}
+                    <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                      <Flame className="h-3 w-3 text-orange-400" />
+                      {(tokenBalance ?? STARTING_BALANCE).toLocaleString()} remaining
                     </span>
 
                     {/* Payout preview — inline after the balance */}
@@ -748,7 +757,7 @@ export default function CardBuilderPanel() {
                               setShowChallengePicker(false);
                             } else {
                               setShowChallengePicker(true);
-                              setShowRankedPicker(false);
+                              setShowHeatPicker(false);
                               setWager(null);
                               fetchFriendsForChallenge();
                             }
@@ -774,10 +783,10 @@ export default function CardBuilderPanel() {
                         <Button
                           onClick={() => {
                             if (showHeatPicker) {
-                              setShowRankedPicker(false);
+                              setShowHeatPicker(false);
                               setWager(null);
                             } else {
-                              setShowRankedPicker(true);
+                              setShowHeatPicker(true);
                               setShowChallengePicker(false);
                             }
                           }}

@@ -13,7 +13,6 @@ import LivePickRow from "@/components/live/LivePickRow";
 import { teamTricode, teamLogoUrl, gameUrl } from "@/lib/constants";
 import {
   Card,
-  CardHeader,
   CardContent,
   CardFooter,
 } from "@/components/ui/card";
@@ -134,7 +133,7 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
     <Wrapper>
       <SlideUp offset={16} duration={0.4}>
         <Card className="border-border bg-card">
-      <CardHeader className="flex-row items-center justify-between space-y-0 px-4 py-3">
+      <div className="flex items-start justify-between px-4 py-3">
         <div className="flex items-center gap-3">
           <ScaleIn delay={0.1} duration={0.35}>
             <StatusBadge status={card.status} score={card.score} total={card.total_picks} />
@@ -165,20 +164,22 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
           )}
           <span className="text-xs text-muted-foreground">{date}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <CardHeatScoreBadge
-            heatScore={card.heat_score}
-            wager={card.fire_token_wager}
-            payout={card.fire_token_payout}
-          />
+        <div className="flex items-center gap-3">
           {liveData?.has_live_games && (
             <div className="flex items-center gap-1">
               <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-foreground" />
               <span className="text-xs font-bold text-foreground">LIVE</span>
             </div>
           )}
+          <CardHeatScoreBadge
+            heatScore={card.heat_score}
+            wager={card.fire_token_wager}
+            payout={card.fire_token_payout}
+            cardSize={card.card_size}
+            pickNotches={card.picks.map((p) => p.notch ?? 0)}
+          />
         </div>
-      </CardHeader>
+      </div>
 
       <AnimatePresence>
         {(() => {

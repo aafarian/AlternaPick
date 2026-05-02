@@ -21,6 +21,7 @@ import {
 import type { PickResult } from "@/lib/supabase/types";
 import type { SimulationResult } from "@/lib/heatscore/simulate";
 import { CATEGORY_SHORT_LABELS } from "@/lib/constants";
+import { logWarn } from "@/lib/logger";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -106,7 +107,7 @@ export default function HeatScoreAdmin() {
       const res = await fetch(`/api/admin/heatscore/user-cards?q=${encodeURIComponent(q)}`);
       const data = await res.json();
       if (res.ok && data.users) setSuggestions(data.users as UserSuggestion[]);
-    } catch { /* ignore */ }
+    } catch (err) { logWarn("heatscore-admin", "User search failed", err); }
     finally { setSuggestionsLoading(false); }
   }, []);
 
@@ -129,7 +130,7 @@ export default function HeatScoreAdmin() {
       const res = await fetch(`/api/admin/heatscore/user-cards?userId=${user.userId}`);
       const data = await res.json();
       if (res.ok) setUserData(data as UserData);
-    } catch { /* ignore */ }
+    } catch (err) { logWarn("heatscore-admin", "User data fetch failed", err); }
     finally { setUserLoading(false); }
   }
 
@@ -156,7 +157,7 @@ export default function HeatScoreAdmin() {
       const data = await res.json();
       if (!res.ok) { setSimError(data.error ?? `Error ${res.status}`); return; }
       setCardResult(data as SimulationResult);
-    } catch { setSimError("Network error"); }
+    } catch (err) { logWarn("heatscore-admin", "Card simulation failed", err); setSimError("Network error"); }
     finally { setSimLoading(false); }
   }
 
@@ -175,7 +176,7 @@ export default function HeatScoreAdmin() {
       const data = await res.json();
       if (!res.ok) { setSimError(data.error ?? `Error ${res.status}`); return; }
       setChallengeResult(data as ChallengeSimResult);
-    } catch { setSimError("Network error"); }
+    } catch (err) { logWarn("heatscore-admin", "Challenge simulation failed", err); setSimError("Network error"); }
     finally { setSimLoading(false); }
   }
 
@@ -293,8 +294,15 @@ export default function HeatScoreAdmin() {
         {/* Direct ID input */}
         <div className="flex gap-2">
           <Input
-            value={simMode ? simId : ""}
-            onChange={(e) => { setSimId(e.target.value); clearSim(); }}
+            value={simId}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSimId(val);
+              // Clear previous results but don't null simMode — that clears the input
+              setSimError(null);
+              setCardResult(null);
+              setChallengeResult(null);
+            }}
             placeholder="Or paste a Card / Challenge UUID"
             className="font-mono text-sm"
             onKeyDown={(e) => {
