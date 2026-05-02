@@ -612,7 +612,7 @@ export async function reResolveStaleCards(): Promise<{
   let cardsRescored = 0;
   for (const cardId of affectedCardIds) {
     const { data: cardPicks, error: fetchErr } = await (supabase.from("picks") as any)
-      .select("result, actual_value, notch, adjusted_line, card_id, cards(user_id), props(line, stat_category)")
+      .select("result, actual_value, notch, adjusted_line, selection, card_id, cards(user_id), props(line, stat_category)")
       .eq("card_id", cardId);
 
     if (fetchErr) {
@@ -626,6 +626,7 @@ export async function reResolveStaleCards(): Promise<{
       actual_value: number | null;
       notch: number | null;
       adjusted_line: number | null;
+      selection: "over" | "under";
       cards: { user_id: string | null };
       props: { line: number; stat_category: string } | null;
     };
@@ -641,7 +642,7 @@ export async function reResolveStaleCards(): Promise<{
           typedPicks.map((p) => ({
             actualValue: p.actual_value,
             line: p.adjusted_line ?? p.props?.line ?? 0,
-            selection: "over" as const, // direction doesn't affect quality calc for resolved picks
+            selection: p.selection,
             result: p.result as PickResult,
             notchMultiplier: getNotchTier(p.notch ?? 0).multiplier,
           })),
