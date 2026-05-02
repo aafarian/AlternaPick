@@ -40,16 +40,16 @@ const slides: SlideshowSlide[] = [
     description:
       "Toggle Wager Flame when building a card to put tokens on the line. Hit all your picks for up to 25x your wager. Miss too many and you bust — but the upside is huge.",
     example: (
-      <div className="mt-3 flex flex-col gap-1.5 rounded-lg bg-card border border-border px-4 py-3 text-xs">
-        <div className="flex items-center justify-between">
+      <div className="mt-3 flex w-full max-w-[14rem] flex-col gap-1.5 rounded-lg bg-card border border-border px-5 py-3 text-xs">
+        <div className="flex items-center justify-between gap-4">
           <span className="text-muted-foreground">6/6 picks</span>
           <span className="font-bold text-emerald-500">25x payout</span>
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <span className="text-muted-foreground">5/6 picks</span>
-          <span className="font-bold text-emerald-500">5x payout</span>
+          <span className="font-bold text-emerald-500">3x payout</span>
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <span className="text-muted-foreground">3/6 or fewer</span>
           <span className="font-bold text-red-400">Bust</span>
         </div>

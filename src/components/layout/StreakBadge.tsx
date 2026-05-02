@@ -90,10 +90,11 @@ export default function StreakBadge() {
     hideTimeoutRef.current = setTimeout(() => setShowDetails(false), 200);
   }, []);
 
-  if (!user || !tokens) return null;
+  if (!user) return null;
 
-  const balance = tokens.balance;
-  const canClaim = tokens.can_claim;
+  const loading = !tokens;
+  const balance = tokens?.balance ?? 0;
+  const canClaim = tokens?.can_claim ?? false;
 
   return (
     <div
@@ -114,11 +115,15 @@ export default function StreakBadge() {
         aria-label={`${balance.toLocaleString()} flame tokens${canClaim ? " — daily claim available" : ""}`}
       >
         <FlameTokenIcon className="relative h-4 w-4" aria-hidden="true" />
-        <span className="relative tabular-nums">{balance.toLocaleString()}</span>
+        {loading ? (
+          <Loader2 className="relative h-3 w-3 animate-spin" />
+        ) : (
+          <span className="relative tabular-nums">{balance.toLocaleString()}</span>
+        )}
       </button>
 
       {/* Hover detail card — with invisible bridge to prevent gap */}
-      {showDetails && (
+      {showDetails && !loading && (
         <>
           {/* Invisible bridge between badge and card */}
           <div className="absolute right-0 top-full z-50 h-2 w-full" />
