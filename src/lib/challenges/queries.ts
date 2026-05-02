@@ -94,6 +94,7 @@ interface ChallengePick {
   actual_value: number | null;
   notch?: number;
   adjusted_line?: number | null;
+  heat_score?: number | null;
   prop: {
     id: string;
     player_name: string;
