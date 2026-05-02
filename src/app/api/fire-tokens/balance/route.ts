@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { unauthorized, handleApiError } from "@/lib/api/errors";
+import { logWarn } from "@/lib/logger";
 
 /**
  * GET /api/fire-tokens/balance
@@ -27,6 +28,9 @@ export async function GET() {
       .select("fire_tokens_balance, fire_tokens_lifetime")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    // TODO: remove debug logging
+    logWarn("fire-tokens", `Balance query: user=${user.id} data=${JSON.stringify(data)} error=${error?.message ?? "none"}`);
 
     if (error) {
       return handleApiError(error, "fire-tokens/balance");
