@@ -185,7 +185,7 @@ export const DAILY_CLAIM = 50;
  * Prevents the exploit of picking all easy lines for guaranteed hits.
  * Set to 0 to disable the limit.
  */
-export const MAX_EASY_NOTCH_PICKS = 2;
+export const MAX_EASY_NOTCH_PICKS = 0; // disabled — allow unlimited Frosty/Chilled for testing
 
 // ---------------------------------------------------------------------------
 // Challenge token rewards (no wager — flat bonuses)
