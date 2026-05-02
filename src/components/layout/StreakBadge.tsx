@@ -59,6 +59,26 @@ export default function StreakBadge() {
     return () => { cancelled = true; };
   }, [user]);
 
+  // Re-fetch balance when a wager is placed or tokens change
+  useEffect(() => {
+    function refreshBalance() {
+      fetch("/api/fire-tokens/balance")
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => {
+          if (data) {
+            setTokens((prev) => prev ? {
+              ...prev,
+              balance: data.balance ?? prev.balance,
+              can_claim: data.can_claim ?? prev.can_claim,
+            } : prev);
+          }
+        })
+        .catch((err) => logWarn("streak-badge", "Failed to refresh balance", err));
+    }
+    window.addEventListener("flame-tokens-changed", refreshBalance);
+    return () => window.removeEventListener("flame-tokens-changed", refreshBalance);
+  }, []);
+
   const handleMouseEnter = useCallback(() => {
     clearTimeout(hideTimeoutRef.current);
     setShowDetails(true);

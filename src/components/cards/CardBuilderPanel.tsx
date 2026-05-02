@@ -338,6 +338,10 @@ export default function CardBuilderPanel() {
       redirectRef.current = effectiveChallengeId
         ? `/challenges/${effectiveChallengeId}`
         : "/picks";
+      // Notify header badge to refresh token balance
+      if (wager != null) {
+        window.dispatchEvent(new Event("flame-tokens-changed"));
+      }
       showSuccess();
     } catch (err) {
       setError(
