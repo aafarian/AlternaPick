@@ -228,12 +228,14 @@ export default function ChallengeMatchup({
   const [showInvite, setShowInvite] = useState(false);
   const prefersReduced = useReducedMotion();
 
-  // Live stats — enabled when cards are locked (polling) or challenge is
-  // resolved (single fetch for final scores so users can see results)
+  // Live stats — only enabled when cards are locked (games still in progress).
+  // Resolved challenges use the server-rendered data which includes heat_score
+  // and correct final scores — live polling would overwrite those with incomplete data.
   const shouldFetchLive =
-    challenge.challenger_card?.status === "locked" ||
-    challenge.opponent_card?.status === "locked" ||
-    challenge.status === "resolved";
+    challenge.status !== "resolved" && (
+      challenge.challenger_card?.status === "locked" ||
+      challenge.opponent_card?.status === "locked"
+    );
 
   const { data: liveData, isLoading: liveLoading, error: liveError, challengeResolved } = useLiveChallenge(
     challenge.id,
