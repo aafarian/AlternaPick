@@ -5,7 +5,7 @@ import { updateDailyStreak } from "@/lib/streaks/engine";
 import { unauthorized, badRequest, notFound, forbidden, conflict, serverError, handleApiError } from "@/lib/api/errors";
 import { logError, logWarn } from "@/lib/logger";
 import { isValidGameMode } from "@/lib/modes/definitions";
-import { MIN_WAGER, MAX_EASY_NOTCH_PICKS } from "@/lib/heatscore/constants";
+import { MIN_WAGER, MAX_EASY_NOTCH_PICKS, STARTING_BALANCE } from "@/lib/heatscore/constants";
 import { adjustLine, getAvailableNotches, selectionAllowedForNotch } from "@/lib/heatscore/compute";
 import { validatePicksForMode } from "@/lib/modes/validation";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE, DEFAULT_CARD_SIZE } from "@/lib/modes/types";
@@ -275,11 +275,13 @@ export async function POST(request: NextRequest) {
         return badRequest("Only Over is allowed for shifted lines");
       }
 
-      if (pick.adjusted_line != null) {
-        const expected = adjustLine(prop.line, prop.stat_category as StatCategory, notch);
-        if (Math.abs(pick.adjusted_line - expected) > 0.01) {
-          return badRequest("Adjusted line does not match expected value");
-        }
+      // Server always computes adjusted_line from notch — never trust client value.
+      // This prevents a client from claiming a high notch multiplier while using
+      // the easier base line for resolution.
+      if (notch !== 0) {
+        pick.adjusted_line = adjustLine(prop.line, prop.stat_category as StatCategory, notch);
+      } else {
+        pick.adjusted_line = undefined;
       }
     }
 
@@ -313,7 +315,6 @@ export async function POST(request: NextRequest) {
       const adminClient = createAdminClient();
 
       // Ensure the leaderboard row exists (new users may not have one yet).
-      // The row is normally created on auth signup, but we guard defensively.
       const { data: entry } = await (adminClient.from("leaderboard_entries") as any)
         .select("fire_tokens_balance")
         .eq("user_id", user.id)
@@ -321,13 +322,13 @@ export async function POST(request: NextRequest) {
 
       if (!entry) {
         // Create leaderboard row for new user with starting balance minus wager
-        if (1000 < wager) {
+        if (STARTING_BALANCE < wager) {
           return badRequest("Insufficient Flame Token balance");
         }
         const { error: insertErr } = await (adminClient.from("leaderboard_entries") as any)
           .insert({
             user_id: user.id,
-            fire_tokens_balance: 1000 - wager,
+            fire_tokens_balance: STARTING_BALANCE - wager,
             fire_tokens_lifetime: 0,
           });
         if (insertErr) {
@@ -336,23 +337,20 @@ export async function POST(request: NextRequest) {
         }
         validatedWager = wager;
       } else {
-        const currentBalance = (entry as { fire_tokens_balance: number }).fire_tokens_balance;
-        if (currentBalance < wager) {
-          return badRequest("Insufficient Flame Token balance");
-        }
-
-        const { data: updated, error: deductError } = await (adminClient.from("leaderboard_entries") as any)
-          .update({ fire_tokens_balance: currentBalance - wager })
-          .eq("user_id", user.id)
-          .gte("fire_tokens_balance", wager)
-          .select("fire_tokens_balance");
+        // Atomic deduction: SET balance = balance - wager WHERE balance >= wager.
+        // Prevents double-spend from concurrent requests — the SQL expression
+        // ensures each request deducts independently.
+        const { data: rpcResult, error: deductError } = await (adminClient.rpc as any)(
+          "deduct_fire_tokens",
+          { p_user_id: user.id, p_wager: wager },
+        );
 
         if (deductError) {
           logWarn("cards", "Fire token deduction failed", deductError);
           return badRequest("Failed to process wager");
         }
 
-        if (!updated || (updated as { fire_tokens_balance: number }[]).length === 0) {
+        if (rpcResult === -1) {
           return badRequest("Insufficient Flame Token balance");
         }
 

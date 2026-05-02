@@ -48,6 +48,9 @@ export async function POST(request: Request) {
     const newBalance = Math.max(0, currentBalance + amount);
 
     if (entry) {
+      // Intentionally does NOT update fire_tokens_lifetime — admin adjustments
+      // are manual corrections, not earned tokens. Lifetime tracks organic earnings
+      // (wager payouts, challenge bonuses, daily claims) for leaderboard ranking.
       const { error: updateError } = await (supabase.from("leaderboard_entries") as any)
         .update({ fire_tokens_balance: newBalance })
         .eq("user_id", user_id);
