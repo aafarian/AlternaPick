@@ -170,7 +170,10 @@ async function main() {
           if (hsResult.effectiveSize === 0) {
             payout = card.fire_token_wager; // all DNP/push — full refund
           } else {
-            const notchScale = computeWagerNotchScale(typedPicks.map((p) => p.notch ?? 0));
+            const scoreableNotches = typedPicks
+              .filter((p) => p.result === "hit" || p.result === "miss")
+              .map((p) => p.notch ?? 0);
+            const notchScale = computeWagerNotchScale(scoreableNotches);
             payout = computeFireTokenPayout(
               card.fire_token_wager,
               hsResult.multiplier,

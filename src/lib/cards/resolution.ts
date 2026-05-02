@@ -868,7 +868,12 @@ export async function resolveCard(
         // All picks voided (DNP/push) — refund wager in full
         payout = wager;
       } else {
-        const notchScale = computeWagerNotchScale(pickResolutions.map((p) => p.notch ?? 0));
+        // Only include scoreable picks (hit/miss) — voided picks (DNP/push)
+        // are excluded from the multiplier table and shouldn't skew the scale.
+        const scoreableNotches = pickResolutions
+          .filter((p) => p.result === "hit" || p.result === "miss")
+          .map((p) => p.notch ?? 0);
+        const notchScale = computeWagerNotchScale(scoreableNotches);
         payout = computeFireTokenPayout(wager, hsResult.multiplier, qualityBonus, notchScale);
       }
     }

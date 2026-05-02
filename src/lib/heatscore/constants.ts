@@ -199,8 +199,11 @@ export const DAILY_CLAIM = 50;
 
 /**
  * Maximum number of "easy" notch picks (Frosty + Chilled) per card.
- * Prevents the exploit of picking all easy lines for guaranteed hits.
  * Set to 0 to disable the limit.
+ *
+ * Currently disabled: the calibrated WAGER_NOTCH_SCALE already penalizes
+ * easy picks (Frosty = 0.27x payout), so the exploit is addressed by the
+ * payout math rather than a hard cap. Re-enable if needed for game-feel.
  */
 export const MAX_EASY_NOTCH_PICKS = 0; // disabled — allow unlimited Frosty/Chilled for testing
 
