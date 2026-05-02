@@ -221,7 +221,7 @@ export default function PropLine({
           />
           <span
             className={cn(
-              "text-xs font-bold uppercase",
+              "max-w-[4.5rem] truncate text-[10px] font-bold uppercase sm:max-w-none sm:text-xs",
               CATEGORY_TEXT_COLORS[statCategory]
             )}
           >

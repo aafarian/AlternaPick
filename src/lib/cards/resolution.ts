@@ -33,6 +33,7 @@ import { extractStatValue, fuzzyMatchPlayer } from "@/lib/cards/resolution-utils
 import {
   computeCardHeatScore,
   computeFireTokenPayout,
+  computeWagerNotchScale,
   computeQualityBonus,
   getNotchTier,
   HEATSCORE_HIT_BASE,
@@ -859,13 +860,22 @@ export async function resolveCard(
       heatScoreInt = pickResolutions.reduce((sum, p) => sum + p.heat_score, 0);
     }
 
-    // Wager Flame payout — uses multiplier table (separate system)
+    // Wager Flame payout — uses multiplier table, scaled by notch difficulty.
+    // Uses geometric mean of per-pick wager scales to prevent mixed-card exploits.
     if (wager != null) {
       const hsResult = computeCardHeatScore(score, misses, card.card_size);
-      // All picks voided (DNP/push) — refund wager in full
-      payout = hsResult.effectiveSize === 0
-        ? wager
-        : computeFireTokenPayout(wager, hsResult.multiplier, qualityBonus);
+      if (hsResult.effectiveSize === 0) {
+        // All picks voided (DNP/push) — refund wager in full
+        payout = wager;
+      } else {
+        // Only include scoreable picks (hit/miss) — voided picks (DNP/push)
+        // are excluded from the multiplier table and shouldn't skew the scale.
+        const scoreableNotches = pickResolutions
+          .filter((p) => p.result === "hit" || p.result === "miss")
+          .map((p) => p.notch ?? 0);
+        const notchScale = computeWagerNotchScale(scoreableNotches);
+        payout = computeFireTokenPayout(wager, hsResult.multiplier, qualityBonus, notchScale);
+      }
     }
   } catch (hsError) {
     logError("resolution", "HeatScore computation failed, resolving without HS", undefined, hsError);
