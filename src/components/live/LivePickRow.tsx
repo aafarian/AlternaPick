@@ -276,10 +276,10 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
           {/* Per-pick HeatScore (resolved picks only) */}
           {d.isSettled && pick.heat_score != null && pick.heat_score !== 0 && (
             <span className={cn(
-              "inline-flex items-center gap-0.5 text-[10px] font-bold tabular-nums leading-none",
-              pick.heat_score > 0 ? "text-emerald-500/70" : "text-red-400/60",
+              "inline-flex items-center gap-0.5 text-xs font-bold tabular-nums leading-none",
+              pick.heat_score > 0 ? "text-emerald-500/80" : "text-red-400/70",
             )}>
-              <Flame className="h-2.5 w-2.5 text-orange-400/60" />
+              <Flame className="h-3 w-3 text-orange-400/70" />
               {pick.heat_score > 0 ? "+" : ""}{pick.heat_score}
             </span>
           )}
