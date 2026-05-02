@@ -104,27 +104,78 @@ export default function GameCard({
         </div>
       </CardHeader>
 
-      {expanded && (
-        <CardContent className="p-3">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-            {sortedProps.map((prop) => (
-              <PropLine
-                key={prop.id}
-                propId={prop.id}
-                gameId={game.id}
-                playerName={prop.player_name}
-                playerId={prop.player_id}
-                playerTeam={prop.player_team}
-                playerPosition={prop.player_position}
-                statCategory={prop.stat_category}
-                line={prop.line}
-                lineHistory={prop.line_history}
-                sport={game.sport}
-              />
-            ))}
-          </div>
-        </CardContent>
-      )}
+      {expanded && (() => {
+        // Split props by team: away (left) and home (right)
+        const sortByStat = (a: Prop, b: Prop) =>
+          (STAT_SORT_ORDER[a.stat_category] ?? 99) - (STAT_SORT_ORDER[b.stat_category] ?? 99);
+
+        const awayProps = sortedProps.filter((p) => p.player_team === awayCode).sort(sortByStat);
+        const homeProps = sortedProps.filter((p) => p.player_team === homeCode).sort(sortByStat);
+        const otherProps = sortedProps.filter((p) => p.player_team !== awayCode && p.player_team !== homeCode).sort(sortByStat);
+
+        return (
+          <CardContent className="p-3">
+            <div className="grid grid-cols-2 gap-4">
+              {/* Away team — left side */}
+              <div className="flex flex-col gap-3">
+                {awayProps.map((prop) => (
+                  <PropLine
+                    key={prop.id}
+                    propId={prop.id}
+                    gameId={game.id}
+                    playerName={prop.player_name}
+                    playerId={prop.player_id}
+                    playerTeam={prop.player_team}
+                    playerPosition={prop.player_position}
+                    statCategory={prop.stat_category}
+                    line={prop.line}
+                    lineHistory={prop.line_history}
+                    sport={game.sport}
+                  />
+                ))}
+              </div>
+              {/* Home team — right side */}
+              <div className="flex flex-col gap-3">
+                {homeProps.map((prop) => (
+                  <PropLine
+                    key={prop.id}
+                    propId={prop.id}
+                    gameId={game.id}
+                    playerName={prop.player_name}
+                    playerId={prop.player_id}
+                    playerTeam={prop.player_team}
+                    playerPosition={prop.player_position}
+                    statCategory={prop.stat_category}
+                    line={prop.line}
+                    lineHistory={prop.line_history}
+                    sport={game.sport}
+                  />
+                ))}
+              </div>
+            </div>
+            {/* Other team props (if any — e.g. unknown team) */}
+            {otherProps.length > 0 && (
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                {otherProps.map((prop) => (
+                  <PropLine
+                    key={prop.id}
+                    propId={prop.id}
+                    gameId={game.id}
+                    playerName={prop.player_name}
+                    playerId={prop.player_id}
+                    playerTeam={prop.player_team}
+                    playerPosition={prop.player_position}
+                    statCategory={prop.stat_category}
+                    line={prop.line}
+                    lineHistory={prop.line_history}
+                    sport={game.sport}
+                  />
+                ))}
+              </div>
+            )}
+          </CardContent>
+        );
+      })()}
     </Card>
   );
 }
