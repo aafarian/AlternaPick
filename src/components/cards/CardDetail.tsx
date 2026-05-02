@@ -129,13 +129,17 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
 
   const prefersReduced = useReducedMotion();
 
+  // Skip entrance animations on standalone card page (linked=false)
+  // to prevent the "flicker" of multiple staggered animations
+  const animate = linked;
+
   return (
     <Wrapper>
-      <SlideUp offset={16} duration={0.4}>
+      <SlideUp offset={animate ? 16 : 0} duration={animate ? 0.4 : 0}>
         <Card className="border-border bg-card">
       <div className="flex items-start justify-between px-4 py-3">
         <div className="flex items-center gap-3">
-          <ScaleIn delay={0.1} duration={0.35}>
+          <ScaleIn delay={animate ? 0.1 : 0} duration={animate ? 0.35 : 0}>
             <StatusBadge status={card.status} score={card.score} total={card.total_picks} />
           </ScaleIn>
           {card.challenge_id && card.challenges ? (
@@ -204,7 +208,7 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
       <Separator />
 
       <CardContent className="flex flex-col gap-0 p-0">
-        <StaggerChildren staggerDelay={0.07} className="flex flex-col gap-0">
+        <StaggerChildren staggerDelay={animate ? 0.07 : 0} className="flex flex-col gap-0">
           {card.picks.map((pick) => {
             // Use live data if available, otherwise convert the static pick
             const baseLivePick = livePickMap.get(pick.id) ?? toLivePickData({
@@ -239,7 +243,7 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
       </CardContent>
 
       {card.status === "resolved" && (
-        <FadeIn delay={0.3}>
+        <FadeIn delay={animate ? 0.3 : 0}>
           <CardFooter className="justify-end px-4 py-3">
             <ShareButton cardId={card.id} />
           </CardFooter>
