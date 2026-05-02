@@ -8,7 +8,7 @@ import { formatLiveStatus, formatGameTime } from "@/lib/format";
 import type { StatCategory } from "@/lib/supabase/types";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
 import { Badge } from "@/components/ui/badge";
-import { ChevronUp, ChevronDown, Check, X, CheckCircle2, XCircle, Minus, Loader2 } from "lucide-react";
+import { ChevronUp, ChevronDown, Check, X, CheckCircle2, XCircle, Minus, Loader2, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { notchNumberTint } from "@/components/props/NotchSelector";
 import NotchBadge from "@/components/props/NotchBadge";
@@ -276,10 +276,11 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
           {/* Per-pick HeatScore (resolved picks only) */}
           {d.isSettled && pick.heat_score != null && pick.heat_score !== 0 && (
             <span className={cn(
-              "text-[10px] font-bold tabular-nums leading-none",
-              pick.heat_score > 0 ? "text-orange-400/70" : "text-orange-400/50",
+              "inline-flex items-center gap-0.5 text-[10px] font-bold tabular-nums leading-none",
+              pick.heat_score > 0 ? "text-emerald-500/70" : "text-red-400/60",
             )}>
-              {pick.heat_score > 0 ? "+" : ""}{pick.heat_score} HS
+              <Flame className="h-2.5 w-2.5 text-orange-400/60" />
+              {pick.heat_score > 0 ? "+" : ""}{pick.heat_score}
             </span>
           )}
 
