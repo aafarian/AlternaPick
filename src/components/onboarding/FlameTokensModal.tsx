@@ -9,6 +9,7 @@ const slides: SlideshowSlide[] = [
   {
     icon: <FlameTokenIcon className="size-12 text-orange-400" />,
     title: "Flame Tokens",
+    badge: "New",
     description:
       "Flame Tokens are your in-app currency. You start with 1,000 and earn more by playing. Use them to wager on your cards for bigger payouts.",
     example: (

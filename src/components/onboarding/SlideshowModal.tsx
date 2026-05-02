@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 export interface SlideshowSlide {
   icon: React.ReactNode;
   title: string;
+  /** Small badge rendered next to the title (e.g., "New") */
+  badge?: string;
   description: string;
   example?: React.ReactNode;
 }
@@ -114,8 +116,13 @@ export default function SlideshowModal({
           >
             {slide.icon}
           </div>
-          <h2 className={`text-xl font-bold ${theme.titleColor} mb-3`}>
+          <h2 className={`text-xl font-bold ${theme.titleColor} mb-3 flex items-center justify-center gap-2`}>
             {slide.title}
+            {slide.badge && (
+              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-500">
+                {slide.badge}
+              </span>
+            )}
           </h2>
           <p className="text-muted-foreground text-sm leading-relaxed max-w-xs">
             {slide.description}
