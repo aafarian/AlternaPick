@@ -19,7 +19,7 @@ import OpponentAvatar from "@/components/challenges/OpponentAvatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, AlertCircle, Loader2, Crown, UserPlus } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Crown, UserPlus, Flame } from "lucide-react";
 import InvitePanel from "@/components/challenges/InvitePanel";
 import ReactionBar from "@/components/challenges/ReactionBar";
 import TrashTalkBubble from "@/components/challenges/TrashTalkBubble";
@@ -153,6 +153,14 @@ function PlayerSide({
           picks={picks}
           hasLiveGames={hasLiveGames}
           statusLabel={statusBadge}
+          wagerLabel={
+            card.heat_score != null ? (
+              <span className="flex items-center gap-1 text-xs font-bold tabular-nums text-orange-400">
+                <Flame className="h-3 w-3" />
+                {card.heat_score}
+              </span>
+            ) : undefined
+          }
           loading={liveLoading}
           pickCount={card.picks.length}
           showGameScores={false}
@@ -601,8 +609,9 @@ export default function ChallengeMatchup({
                 {challenge.status === "resolved" &&
                   challenge.challenger_card.heat_score != null &&
                   challenge.opponent_card.heat_score != null && (
-                  <span className="text-[10px] font-semibold tabular-nums text-orange-400">
-                    HS {challenge.challenger_card.heat_score} &ndash; {challenge.opponent_card.heat_score}
+                  <span className="flex items-center gap-1 text-xs font-bold tabular-nums text-orange-400">
+                    <Flame className="h-3 w-3" />
+                    {challenge.challenger_card.heat_score} &ndash; {challenge.opponent_card.heat_score}
                   </span>
                 )}
               </>
