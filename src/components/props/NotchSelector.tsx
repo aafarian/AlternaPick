@@ -85,7 +85,7 @@ export default function NotchSelector({
         className={cn(
           "flex h-6 w-5 items-center justify-center rounded-full transition-colors sm:h-8 sm:w-7",
           canGoLeft
-            ? "text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+            ? "text-muted-foreground/50 hover:bg-muted/50 hover:text-muted-foreground"
             : "pointer-events-none text-transparent",
         )}
       >
@@ -122,7 +122,7 @@ export default function NotchSelector({
         className={cn(
           "flex h-6 w-5 items-center justify-center rounded-full transition-colors sm:h-8 sm:w-7",
           canGoRight
-            ? "text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+            ? "text-muted-foreground/50 hover:bg-muted/50 hover:text-muted-foreground"
             : "pointer-events-none text-transparent",
         )}
       >
