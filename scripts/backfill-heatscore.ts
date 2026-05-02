@@ -22,8 +22,8 @@ import {
   computeCardHeatScore,
   computeFireTokenPayout,
   HEATSCORE_HIT_BASE,
+  getNotchTier,
 } from "@/lib/heatscore/compute";
-import { getNotchTier } from "@/lib/heatscore/compute";
 import type { StatCategory } from "@/lib/supabase/types";
 
 const BATCH_SIZE = 50;
@@ -57,12 +57,18 @@ async function main() {
   let totalCards = 0;
   let totalUpdated = 0;
   let totalErrors = 0;
+  const failedCardIds = new Set<string>();
+  const MAX_BATCHES = 500;
+  let batchCount = 0;
 
   // Process in batches until no more cards are returned.
   // Since we filter by heat_score IS NULL, successfully updated cards
   // drop out of subsequent queries — no offset increment needed.
-  // eslint-disable-next-line no-constant-condition
   while (true) {
+    if (++batchCount > MAX_BATCHES) {
+      logError("backfill-hs", `Exceeded ${MAX_BATCHES} batches — aborting to prevent infinite loop`);
+      break;
+    }
     // Fetch resolved cards where heat_score is NULL (idempotent — skip already-computed)
     const { data: cards, error: cardsError } = await supabase
       .from("cards")
@@ -85,6 +91,7 @@ async function main() {
     logInfo("backfill-hs", `Processing batch of ${cards.length} cards (${totalCards} total so far)`);
 
     for (const card of cards as BackfillCard[]) {
+      if (failedCardIds.has(card.id)) continue;
       try {
         // Fetch picks for this card
         const { data: picks, error: picksError } = await supabase
@@ -94,6 +101,7 @@ async function main() {
 
         if (picksError || !picks) {
           logError("backfill-hs", `Failed to fetch picks for card ${card.id}`, undefined, picksError);
+          failedCardIds.add(card.id);
           totalErrors++;
           continue;
         }
@@ -136,6 +144,7 @@ async function main() {
 
         // Update each pick's heat_score
         for (const { pickId, heatScore } of perPickScores) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types don't include heatscore columns
           const { error: pickUpdateError } = await (supabase.from("picks") as any)
             .update({ heat_score: heatScore })
             .eq("id", pickId);
@@ -165,6 +174,7 @@ async function main() {
         }
 
         // Update the card
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types don't include heatscore columns
         const { error: cardUpdateError } = await (supabase.from("cards") as any)
           .update({
             heat_score: cardHeatScore,
@@ -174,6 +184,7 @@ async function main() {
 
         if (cardUpdateError) {
           logError("backfill-hs", `Failed to update card ${card.id}`, undefined, cardUpdateError);
+          failedCardIds.add(card.id);
           totalErrors++;
           continue;
         }
@@ -185,6 +196,7 @@ async function main() {
         );
       } catch (err) {
         logError("backfill-hs", `Error processing card ${card.id}`, undefined, err);
+        failedCardIds.add(card.id);
         totalErrors++;
       }
     }
