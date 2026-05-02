@@ -70,7 +70,7 @@ type SimPickRow = {
 const DEMO_WAGER = 50;
 
 /**
- * Simulate the HeatScore multiplier and Fire Token payout for an existing
+ * Simulate the HeatScore multiplier and Flame Token payout for an existing
  * resolved card. Uses a demo wager of 100 tokens to show what the payout
  * would have been.
  */
