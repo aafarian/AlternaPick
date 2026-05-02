@@ -147,13 +147,11 @@ export default function PropLine({
       )}
     >
       {/* Notch tier badge — top-left overlay, only when shifted */}
-      {notch !== 0 && (() => {
-        return (
-          <div className="absolute left-2 top-2 z-20">
-            <NotchBadge notch={notch} />
-          </div>
-        );
-      })()}
+      {notch !== 0 && (
+        <div className="absolute left-2 top-2 z-20">
+          <NotchBadge notch={notch} />
+        </div>
+      )}
 
       {/* Center: player headshot with team logo background */}
       <div className="relative flex flex-col items-center px-2 pt-3 pb-2 sm:px-4 sm:pt-4">

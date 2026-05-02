@@ -13,7 +13,9 @@ import type {
 import {
   CHALLENGE_WIN_BONUS,
   CHALLENGE_TIE_BONUS,
+  STARTING_BALANCE,
 } from "@/lib/heatscore/constants";
+import { DEFAULT_LEADERBOARD_STATS } from "@/lib/leaderboard/defaults";
 
 export interface ChallengeResolutionResult {
   challenge_id: string;
@@ -347,14 +349,7 @@ export async function resolveEligibleChallenges(): Promise<
           .eq("user_id", participantId)
           .single();
 
-        const lb = (lbResult.data ?? {
-          total_cards: 0,
-          current_streak: 0,
-          best_streak: 0,
-          win_rate: 0,
-          h2h_wins: 0,
-          h2h_losses: 0,
-        }) as {
+        const lb = (lbResult.data ?? DEFAULT_LEADERBOARD_STATS) as {
           total_cards: number;
           current_streak: number;
           best_streak: number;
@@ -526,6 +521,19 @@ async function resolveGroupChallenge(
     return null;
   }
 
+  // Award challenge token bonuses for group challenges
+  if (hasFirstPlaceTie) {
+    // Tie for 1st: each 1st-place participant gets tie bonus
+    for (const p of firstPlaceParticipants) {
+      if (p.user_id) {
+        await awardChallengeTokens(supabase, p.user_id, CHALLENGE_TIE_BONUS);
+      }
+    }
+  } else if (winnerId) {
+    // Solo winner gets win bonus
+    await awardChallengeTokens(supabase, winnerId, CHALLENGE_WIN_BONUS);
+  }
+
   // Skip H2H stats for group challenges (only tracked for 1v1)
 
   const totalParticipants = placements.length;
@@ -648,14 +656,7 @@ async function resolveGroupChallenge(
         .eq("user_id", p.user_id)
         .single();
 
-      const lb = (lbResult.data ?? {
-        total_cards: 0,
-        current_streak: 0,
-        best_streak: 0,
-        win_rate: 0,
-        h2h_wins: 0,
-        h2h_losses: 0,
-      }) as {
+      const lb = (lbResult.data ?? DEFAULT_LEADERBOARD_STATS) as {
         total_cards: number;
         current_streak: number;
         best_streak: number;
@@ -857,7 +858,7 @@ async function awardChallengeTokens(
     await (supabase.from("leaderboard_entries") as any)
       .insert({
         user_id: userId,
-        fire_tokens_balance: 1000 + amount,
+        fire_tokens_balance: STARTING_BALANCE + amount,
         fire_tokens_lifetime: amount,
       });
   }

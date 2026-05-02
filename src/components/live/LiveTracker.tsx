@@ -30,6 +30,7 @@ function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
       selection: pick.selection as PickSelection,
       current_value: pick.actual_value,
       trending: hasResult ? (pick.result as "hit" | "miss" | "push" | "dnp") : null,
+      heat_score: pick.heat_score,
       game_status: hasResult
         ? {
             game_id: pick.props?.game_id ?? "",
@@ -107,12 +108,18 @@ function LiveCard({
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <CardTypeBadge card={card} />
           {card.picks.length} picks
+        </span>
+      }
+      wagerLabel={
+        (card.fire_token_wager != null || card.heat_score != null) ? (
           <CardHeatScoreBadge
             heatScore={card.heat_score}
             wager={card.fire_token_wager}
             payout={card.fire_token_payout}
+            cardSize={card.card_size}
+            pickNotches={card.picks.map((p) => p.notch ?? 0)}
           />
-        </span>
+        ) : undefined
       }
       loading={!hasFetched}
       pickCount={card.picks.length}
@@ -168,7 +175,7 @@ export default function LiveTracker({
   }
 
   return (
-    <AnimatedList className="grid grid-cols-1 gap-4" staggerDelay={0.06}>
+    <AnimatedList className="grid grid-cols-1 gap-4 lg:grid-cols-2" staggerDelay={0.06}>
       {initialCards.map((card) => (
         <LiveCard
           key={card.id}

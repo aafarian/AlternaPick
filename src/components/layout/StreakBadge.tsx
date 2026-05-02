@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Flame, Gift, Loader2 } from "lucide-react";
+import { Flame, Gift, HelpCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
+import FlameTokensModal from "@/components/onboarding/FlameTokensModal";
+import { logWarn } from "@/lib/logger";
 import { cn } from "@/lib/utils";
 
 interface StreakData {
@@ -28,6 +30,7 @@ export default function StreakBadge() {
   const [tokens, setTokens] = useState<TokenData | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [showFlameInfo, setShowFlameInfo] = useState(false);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -47,7 +50,8 @@ export default function StreakBadge() {
         lifetime: tokenData?.lifetime ?? 0,
         can_claim: tokenData?.can_claim ?? false,
       });
-    }).catch(() => {
+    }).catch((err) => {
+      logWarn("streak-badge", "Failed to fetch streak/token data", err);
       // Network error — show badge with 0 so it's never invisible
       if (!cancelled) setTokens({ balance: 0, lifetime: 0, can_claim: false });
     });
@@ -80,16 +84,16 @@ export default function StreakBadge() {
       <button
         type="button"
         className={cn(
-          "flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold transition-colors cursor-default select-none",
+          "flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold cursor-default select-none text-orange-400",
           canClaim
-            ? "bg-orange-500/15 text-orange-400 animate-pulse"
-            : "bg-orange-500/10 text-orange-400 hover:bg-orange-500/20",
+            ? "animate-flame-claim"
+            : "bg-orange-500/10 hover:bg-orange-500/20",
         )}
         role="status"
-        aria-label={`${balance} flame tokens${canClaim ? " — daily claim available" : ""}`}
+        aria-label={`${balance.toLocaleString()} flame tokens${canClaim ? " — daily claim available" : ""}`}
       >
-        <Flame className="h-4 w-4" aria-hidden="true" />
-        <span className="tabular-nums">{balance}</span>
+        <Flame className="relative h-4 w-4" aria-hidden="true" />
+        <span className="relative tabular-nums">{balance.toLocaleString()}</span>
       </button>
 
       {/* Hover detail card — with invisible bridge to prevent gap */}
@@ -141,7 +145,7 @@ export default function StreakBadge() {
                         if (res.ok) {
                           setTokens((prev) => prev ? { ...prev, balance: data.balance, can_claim: false } : prev);
                         }
-                      } catch { /* ignore */ }
+                      } catch (err) { logWarn("streak-badge", "Daily claim failed", err); }
                       finally { setClaiming(false); }
                     }}
                     className="flex w-full items-center justify-center gap-1.5 rounded-md bg-orange-500/15 px-2 py-1.5 text-xs font-bold text-orange-400 transition-colors hover:bg-orange-500/25"
@@ -164,10 +168,26 @@ export default function StreakBadge() {
                   </p>
                 </div>
               )}
+              <div className="border-t border-border pt-1.5">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowFlameInfo(true);
+                    setShowDetails(false);
+                  }}
+                  className="flex w-full items-center justify-center gap-1 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <HelpCircle className="h-3 w-3" />
+                  What are Flame Tokens?
+                </button>
+              </div>
             </div>
           </div>
         </>
       )}
+
+      <FlameTokensModal open={showFlameInfo} onClose={() => setShowFlameInfo(false)} />
     </div>
   );
 }

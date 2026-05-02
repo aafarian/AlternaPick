@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
-import { DAILY_CLAIM } from "@/lib/heatscore/constants";
+import { DAILY_CLAIM, STARTING_BALANCE } from "@/lib/heatscore/constants";
 
 /**
  * POST /api/fire-tokens/claim
  *
  * Claim the daily Flame Token bonus. Can be claimed once per UTC day.
- * Requires authentication. Returns the new balance.
+ * Uses `.neq("fire_tokens_last_claim", today)` in the UPDATE to prevent
+ * double-spend from concurrent requests — if two requests race, only the
+ * first one matches the WHERE clause and mutates the row.
  */
 export async function POST() {
   try {
@@ -22,64 +24,58 @@ export async function POST() {
     const admin = createAdminClient();
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
 
-    // Fetch current entry — fire_tokens_last_claim may not exist (pre-migration 059)
+    // Fetch current state
     const { data: entry } = await (admin.from("leaderboard_entries") as any)
-      .select("fire_tokens_balance")
+      .select("fire_tokens_balance, fire_tokens_last_claim")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    // Check last claim date separately (column may not exist)
-    let lastClaim: string | null = null;
-    try {
-      const { data: claimData } = await (admin.from("leaderboard_entries") as any)
-        .select("fire_tokens_last_claim")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      lastClaim = (claimData as { fire_tokens_last_claim: string | null } | null)?.fire_tokens_last_claim ?? null;
-    } catch {
-      // Column doesn't exist — treat as never claimed
-    }
-
-    if (lastClaim === today) {
-      return badRequest("Already claimed today");
-    }
-
-    const currentBalance = (entry as { fire_tokens_balance: number } | null)?.fire_tokens_balance ?? 1000;
-    const newBalance = currentBalance + DAILY_CLAIM;
-
-    // Build update — only include last_claim if column exists
-    const updateFields: Record<string, unknown> = { fire_tokens_balance: newBalance };
-    try {
-      // Test if column exists by trying a harmless query
-      await (admin.from("leaderboard_entries") as any)
-        .select("fire_tokens_last_claim")
-        .limit(0);
-      updateFields.fire_tokens_last_claim = today;
-    } catch {
-      // Column doesn't exist — skip setting it
-    }
-
-    if (entry) {
-      const { error } = await (admin.from("leaderboard_entries") as any)
-        .update(updateFields)
-        .eq("user_id", user.id);
-
-      if (error) return handleApiError(error, "fire-tokens/claim");
-    } else {
-      const { error } = await (admin.from("leaderboard_entries") as any)
+    if (!entry) {
+      // New user — create entry with first claim
+      const { error: insertError } = await (admin.from("leaderboard_entries") as any)
         .insert({
           user_id: user.id,
-          fire_tokens_balance: 1000 + DAILY_CLAIM,
+          fire_tokens_balance: STARTING_BALANCE + DAILY_CLAIM,
           fire_tokens_lifetime: 0,
           fire_tokens_last_claim: today,
         });
 
-      if (error) return handleApiError(error, "fire-tokens/claim");
+      if (insertError) return handleApiError(insertError, "fire-tokens/claim");
+
+      return NextResponse.json({
+        claimed: DAILY_CLAIM,
+        balance: STARTING_BALANCE + DAILY_CLAIM,
+        next_claim: "tomorrow",
+      });
+    }
+
+    // Early rejection for obvious duplicate (avoids unnecessary UPDATE)
+    if (entry.fire_tokens_last_claim === today) {
+      return badRequest("Already claimed today");
+    }
+
+    // Atomic update: the .neq guard ensures only one concurrent request wins.
+    // If a parallel request already set last_claim to today, this returns 0 rows.
+    const newBalance = (entry.fire_tokens_balance ?? STARTING_BALANCE) + DAILY_CLAIM;
+
+    const { data: claimResult, error: claimError } = await (admin.from("leaderboard_entries") as any)
+      .update({
+        fire_tokens_balance: newBalance,
+        fire_tokens_last_claim: today,
+      })
+      .eq("user_id", user.id)
+      .neq("fire_tokens_last_claim", today)
+      .select("id");
+
+    if (claimError) return handleApiError(claimError, "fire-tokens/claim");
+
+    if (!claimResult || claimResult.length === 0) {
+      return badRequest("Already claimed today");
     }
 
     return NextResponse.json({
       claimed: DAILY_CLAIM,
-      balance: entry ? newBalance : 1000 + DAILY_CLAIM,
+      balance: newBalance,
       next_claim: "tomorrow",
     });
   } catch (error) {

@@ -25,6 +25,7 @@ export interface CardWithPicks {
   heat_score: number | null;
   fire_token_wager: number | null;
   fire_token_payout: number | null;
+  card_size: number;
   picks: {
     id: string;
     card_id: string;

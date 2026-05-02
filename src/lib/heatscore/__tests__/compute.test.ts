@@ -332,6 +332,20 @@ describe("computeCardHeatScore", () => {
     expect(result.multiplier).toBe(0);
   });
 
+  it("returns 0x for effective size 1 (not in table)", () => {
+    // 2-pick card with 1 DNP → effectiveSize = 1, not in multiplier table
+    const result = computeCardHeatScore(1, 0, 2);
+    expect(result.effectiveSize).toBe(1);
+    expect(result.multiplier).toBe(0);
+  });
+
+  it("handles all-push card gracefully", () => {
+    // 0 hits, 0 misses → effectiveSize = 0, multiplier = 0
+    const result = computeCardHeatScore(0, 0, 4);
+    expect(result.effectiveSize).toBe(0);
+    expect(result.multiplier).toBe(0);
+  });
+
   it("handles ≤50% hit cards as bust across all sizes", () => {
     expect(computeCardHeatScore(1, 1, 2).multiplier).toBe(0);  // 1/2 = 50% = bust
     expect(computeCardHeatScore(1, 2, 3).multiplier).toBe(0);  // 1/3 = 33% = bust
@@ -377,6 +391,16 @@ describe("computeFireTokenPayout", () => {
 
   it("floors payout at 0 when quality penalty exceeds base", () => {
     expect(computeFireTokenPayout(100, 0.25, -50)).toBe(0);
+  });
+
+  it("floors at 0 for bust", () => {
+    // wager=100, multiplier=0, qualityBonus=-50 → max(0, 0 + -50) = 0
+    expect(computeFireTokenPayout(100, 0, -50)).toBe(0);
+  });
+
+  it("includes quality bonus in payout", () => {
+    // wager=100, multiplier=2.5, qualityBonus=20 → round(250 + 20) = 270
+    expect(computeFireTokenPayout(100, 2.5, 20)).toBe(270);
   });
 });
 
@@ -482,6 +506,11 @@ describe("pickMarginRatio", () => {
     // Over 0.5, scored 3 → hit by 2.5, denom = 5
     // margin = (3 - 0.5) / 5 = 0.5 (not 5.0 like without floor)
     expect(pickMarginRatio(3, 0.5, "over")).toBeCloseTo(0.5, 2);
+  });
+
+  it("applies MARGIN_DENOM_FLOOR for under selection", () => {
+    // Under 0.5, scored 4 → (0.5 - 4) / max(0.5, 5) = -3.5 / 5 = -0.7
+    expect(pickMarginRatio(4, 0.5, "under")).toBeCloseTo(-0.7, 2);
   });
 
   it("high-line stats unaffected by floor", () => {
@@ -596,6 +625,47 @@ describe("computeQualityBonus", () => {
     ]);
     expect(result.total).toBe(20); // +45 - 25
   });
+
+  it("amplifies quality tokens by notchMultiplier", () => {
+    // Volcanic (4x) hit with 33% margin → base 15, amplified to 60
+    const result = computeQualityBonus([
+      { actualValue: 30, line: 22.5, selection: "over", result: "hit", notchMultiplier: 4.0 },
+    ]);
+    expect(result.perPick).toEqual([60]);
+    expect(result.total).toBe(60);
+  });
+
+  it("amplifies miss penalties by notchMultiplier", () => {
+    // Heated (1.75x) miss with -11% margin → base -3, amplified to -5
+    const result = computeQualityBonus([
+      { actualValue: 20, line: 22.5, selection: "over", result: "miss", notchMultiplier: 1.75 },
+    ]);
+    expect(result.perPick).toEqual([-5]);
+    expect(result.total).toBe(-5);
+  });
+
+  it("does not amplify when notchMultiplier is 1.0 (standard)", () => {
+    const result = computeQualityBonus([
+      { actualValue: 30, line: 22.5, selection: "over", result: "hit", notchMultiplier: 1.0 },
+    ]);
+    expect(result.perPick).toEqual([15]); // same as without multiplier
+  });
+
+  it("returns empty result for empty picks array", () => {
+    const result = computeQualityBonus([]);
+    expect(result.total).toBe(0);
+    expect(result.perPick).toEqual([]);
+  });
+
+  it("defaults to 1.0 when notchMultiplier is omitted", () => {
+    const withMult = computeQualityBonus([
+      { actualValue: 30, line: 22.5, selection: "over", result: "hit", notchMultiplier: 1.0 },
+    ]);
+    const withoutMult = computeQualityBonus([
+      { actualValue: 30, line: 22.5, selection: "over", result: "hit" },
+    ]);
+    expect(withMult.perPick).toEqual(withoutMult.perPick);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -684,6 +754,42 @@ describe("computeHeatScore", () => {
       { result: "miss", notchMultiplier: 1.0, qualityTokens: -8 },
     ]);
     expect(volcanic).toBeGreaterThan(standard);
+  });
+
+  it("returns 0 for all-DNP picks", () => {
+    const hs = computeHeatScore([
+      { result: "dnp", notchMultiplier: 1.0, qualityTokens: 0 },
+      { result: "dnp", notchMultiplier: 1.0, qualityTokens: 0 },
+      { result: "dnp", notchMultiplier: 1.0, qualityTokens: 0 },
+    ]);
+    expect(hs).toBe(0);
+  });
+
+  it("returns 0 for all-push picks", () => {
+    const hs = computeHeatScore([
+      { result: "push", notchMultiplier: 1.0, qualityTokens: 0 },
+      { result: "push", notchMultiplier: 1.0, qualityTokens: 0 },
+      { result: "push", notchMultiplier: 1.0, qualityTokens: 0 },
+    ]);
+    expect(hs).toBe(0);
+  });
+
+  it("handles mixed notch multipliers on same card", () => {
+    const hs = computeHeatScore([
+      { result: "hit", notchMultiplier: 0.25, qualityTokens: 0 }, // Frosty: round(130 × 0.25) = 33
+      { result: "hit", notchMultiplier: 1.0, qualityTokens: 0 },  // Standard: 130
+      { result: "hit", notchMultiplier: 4.0, qualityTokens: 0 },  // Volcanic: 520
+    ]);
+    expect(hs).toBe(683); // 33 + 130 + 520
+  });
+
+  it("can produce negative total with bad misses", () => {
+    const hs = computeHeatScore([
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: -15 },
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: -15 },
+      { result: "miss", notchMultiplier: 1.0, qualityTokens: -15 },
+    ]);
+    expect(hs).toBe(-45);
   });
 
   it("same hits = same score regardless of card size", () => {

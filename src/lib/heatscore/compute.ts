@@ -31,7 +31,7 @@ export function getNotchTier(notch: number) {
 }
 
 // ---------------------------------------------------------------------------
-// Line adjustment (deferred to Phase 2 — notch tiers)
+// Line adjustment — percentage-based notch shifts
 // ---------------------------------------------------------------------------
 
 /**
@@ -109,7 +109,7 @@ export function selectionAllowedForNotch(
 }
 
 // ---------------------------------------------------------------------------
-// Odds → probability (kept for future notch phase)
+// Odds → probability (used by analysis scripts, may be used for UI odds display)
 // ---------------------------------------------------------------------------
 
 /** Default probability used when odds are missing or degenerate. */
@@ -155,7 +155,7 @@ export interface CardHeatScoreResult {
 /**
  * Compute the HeatScore multiplier for a resolved card.
  *
- * HeatScore is a multiplier (0x to 12x) based on how many picks hit
+ * HeatScore is a multiplier (0x to 25x) based on how many picks hit
  * relative to the effective card size. DNP and push picks are excluded —
  * only pass hits and misses (not DNP/push counts).
  *
@@ -197,7 +197,7 @@ export function computeCardHeatScore(
 
 /** Base points for a correct pick. Scaled by notch multiplier.
  * Hit = +130 × notchMult. Standard hit = +130, Volcanic hit = +520. */
-const HEATSCORE_HIT_BASE = 130;
+export const HEATSCORE_HIT_BASE = 130;
 
 /** Input for a single pick when computing challenge HeatScore. */
 export interface HeatScorePickInput {
