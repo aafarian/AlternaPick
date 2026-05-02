@@ -129,30 +129,30 @@ export async function resolveEligibleChallenges(): Promise<
     let winnerId: string | null = null;
     let loserId: string | null = null;
 
-    if (!scoresTied) {
+    // Primary: HeatScore (reflects pick quality including notch difficulty)
+    // Secondary: hit count (tiebreaker if HeatScore is equal)
+    const challengerHS = challengerCard.heat_score ?? 0;
+    const opponentHS = opponentCard.heat_score ?? 0;
+
+    if (challengerHS !== opponentHS) {
+      winnerId =
+        challengerHS > opponentHS
+          ? challenge.challenger_id
+          : challenge.opponent_id;
+    } else if (!scoresTied) {
+      // HeatScore tied — fall back to hit count
       winnerId =
         challengerScore > opponentScore
           ? challenge.challenger_id
           : challenge.opponent_id;
+    }
+    // If both HeatScore and score are tied, winnerId stays null (true draw)
+
+    if (winnerId) {
       loserId =
         winnerId === challenge.challenger_id
           ? challenge.opponent_id
           : challenge.challenger_id;
-    } else {
-      // Tiebreaker: HeatScore (higher = better quality picks)
-      const challengerHS = challengerCard.heat_score ?? 0;
-      const opponentHS = opponentCard.heat_score ?? 0;
-      if (challengerHS !== opponentHS) {
-        winnerId =
-          challengerHS > opponentHS
-            ? challenge.challenger_id
-            : challenge.opponent_id;
-        loserId =
-          winnerId === challenge.challenger_id
-            ? challenge.opponent_id
-            : challenge.challenger_id;
-      }
-      // If HeatScore also tied, winnerId stays null (true draw)
     }
 
     // For notifications: a "tie" means no winner was determined
@@ -461,10 +461,10 @@ async function resolveGroupChallenge(
     });
   }
 
-  // Sort by score descending, then HeatScore descending as tiebreaker
+  // Sort by HeatScore descending (primary), then score descending (secondary)
   participantCards.sort((a, b) => {
-    if (b.card_score !== a.card_score) return b.card_score - a.card_score;
-    return b.card_heat_score - a.card_heat_score;
+    if (b.card_heat_score !== a.card_heat_score) return b.card_heat_score - a.card_heat_score;
+    return b.card_score - a.card_score;
   });
 
   // Assign placements with dense ranking (ties get same placement, next skips)

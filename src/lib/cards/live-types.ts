@@ -62,6 +62,9 @@ export function toLivePickData(pick: {
   selection: string;
   result: string;
   actual_value: number | null;
+  notch?: number;
+  adjusted_line?: number | null;
+  heat_score?: number | null;
   prop: {
     id: string;
     player_name: string;
@@ -124,10 +127,12 @@ export function toLivePickData(pick: {
     player_position: pick.prop?.player_position ?? null,
     sport: pick.prop?.games?.sport,
     stat_category: (pick.prop?.stat_category ?? "points") as StatCategory,
-    line: pick.prop?.line ?? 0,
+    line: pick.adjusted_line ?? pick.prop?.line ?? 0,
     selection: pick.selection as PickSelection,
     current_value: pick.actual_value,
     trending: hasResult ? (pick.result as "hit" | "miss" | "push" | "dnp") : null,
+    notch: pick.notch ?? 0,
+    heat_score: pick.heat_score ?? null,
     game_status: gameStatus,
   };
 }

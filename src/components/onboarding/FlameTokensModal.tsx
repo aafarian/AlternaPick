@@ -1,18 +1,19 @@
 "use client";
 
-import { Flame, Gift, Swords, TrendingUp } from "lucide-react";
+import { Gift, Swords, TrendingUp } from "lucide-react";
+import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
 import SlideshowModal from "./SlideshowModal";
 import type { SlideshowSlide } from "./SlideshowModal";
 
 const slides: SlideshowSlide[] = [
   {
-    icon: <Flame className="size-12 text-orange-400" />,
+    icon: <FlameTokenIcon className="size-12 text-orange-400" />,
     title: "Flame Tokens",
     description:
       "Flame Tokens are your in-app currency. You start with 1,000 and earn more by playing. Use them to wager on your cards for bigger payouts.",
     example: (
       <div className="mt-3 flex items-center justify-center gap-3 rounded-lg bg-orange-500/10 px-4 py-2.5">
-        <Flame className="size-5 text-orange-400" />
+        <FlameTokenIcon className="size-5 text-orange-400" />
         <span className="text-lg font-black tabular-nums text-orange-400">1,000</span>
         <span className="text-xs text-muted-foreground">Starting balance</span>
       </div>
@@ -39,16 +40,16 @@ const slides: SlideshowSlide[] = [
     description:
       "Toggle Wager Flame when building a card to put tokens on the line. Hit all your picks for up to 25x your wager. Miss too many and you bust — but the upside is huge.",
     example: (
-      <div className="mt-3 flex flex-col gap-1.5 rounded-lg bg-card border border-border px-4 py-3 text-xs">
-        <div className="flex items-center justify-between">
+      <div className="mt-3 flex w-full max-w-[14rem] flex-col gap-1.5 rounded-lg bg-card border border-border px-5 py-3 text-xs">
+        <div className="flex items-center justify-between gap-4">
           <span className="text-muted-foreground">6/6 picks</span>
           <span className="font-bold text-emerald-500">25x payout</span>
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <span className="text-muted-foreground">5/6 picks</span>
-          <span className="font-bold text-emerald-500">5x payout</span>
+          <span className="font-bold text-emerald-500">3x payout</span>
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <span className="text-muted-foreground">3/6 or fewer</span>
           <span className="font-bold text-red-400">Bust</span>
         </div>

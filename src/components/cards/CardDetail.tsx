@@ -177,6 +177,8 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
             payout={card.fire_token_payout}
             cardSize={card.card_size}
             pickNotches={card.picks.map((p) => p.notch ?? 0)}
+            score={card.score}
+            totalPicks={card.total_picks}
           />
         </div>
       </div>
@@ -210,6 +212,9 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
               selection: pick.selection,
               result: pick.result,
               actual_value: pick.actual_value,
+              notch: pick.notch ?? 0,
+              adjusted_line: pick.adjusted_line,
+              heat_score: pick.heat_score,
               prop: pick.props ? {
                 id: pick.prop_id,
                 player_name: pick.props.player_name,
@@ -217,16 +222,16 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
                 player_team: pick.props.player_team,
                 player_position: pick.props.player_position,
                 stat_category: pick.props.stat_category,
-                line: pick.adjusted_line ?? pick.props.line,
+                line: pick.props.line,
                 game_id: pick.props.game_id,
                 games: pick.props.games,
               } : null,
             });
-            const livePick = { ...baseLivePick, notch: pick.notch ?? 0 };
+            const livePick = baseLivePick;
 
             return (
               <StaggerItem key={pick.id}>
-                <LivePickRow pick={livePick} />
+                <LivePickRow pick={livePick} showQualityTokens={card.fire_token_wager != null} />
               </StaggerItem>
             );
           })}

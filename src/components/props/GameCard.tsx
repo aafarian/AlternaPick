@@ -58,20 +58,8 @@ export default function GameCard({
   expanded,
   onToggle,
 }: GameCardProps) {
-  // Sort props: group by team (away first, then home), then by stat category within each team
   const awayCode = teamTricode(game.away_team);
   const homeCode = teamTricode(game.home_team);
-  const sortedProps = [...game.props].sort((a, b) => {
-    const teamOrder = (p: Prop) =>
-      p.player_team === awayCode ? 0
-        : p.player_team === homeCode ? 1
-        : 2;
-    const teamDiff = teamOrder(a) - teamOrder(b);
-    if (teamDiff !== 0) return teamDiff;
-
-    // Within same team, sort by stat category
-    return (STAT_SORT_ORDER[a.stat_category] ?? 99) - (STAT_SORT_ORDER[b.stat_category] ?? 99);
-  });
 
   return (
     <Card id={`game-${game.id}`} className="scroll-mt-40 border-border bg-card">
@@ -104,27 +92,66 @@ export default function GameCard({
         </div>
       </CardHeader>
 
-      {expanded && (
-        <CardContent className="p-3">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-            {sortedProps.map((prop) => (
-              <PropLine
-                key={prop.id}
-                propId={prop.id}
-                gameId={game.id}
-                playerName={prop.player_name}
-                playerId={prop.player_id}
-                playerTeam={prop.player_team}
-                playerPosition={prop.player_position}
-                statCategory={prop.stat_category}
-                line={prop.line}
-                lineHistory={prop.line_history}
-                sport={game.sport}
-              />
-            ))}
-          </div>
-        </CardContent>
-      )}
+      {expanded && (() => {
+        // Interleave teams: away fills the left half of the grid, home fills the right half.
+        // For a 4-column grid: cols 1-2 = away, cols 3-4 = home.
+        const sortByStat = (a: Prop, b: Prop) =>
+          (STAT_SORT_ORDER[a.stat_category] ?? 99) - (STAT_SORT_ORDER[b.stat_category] ?? 99);
+
+        const awayProps = game.props.filter((p) => p.player_team === awayCode).sort(sortByStat);
+        const homeProps = game.props.filter((p) => p.player_team === homeCode).sort(sortByStat);
+        // Players with unrecognized teams get appended to the away side
+        const otherProps = game.props.filter((p) => p.player_team !== awayCode && p.player_team !== homeCode).sort(sortByStat);
+        const allAway = [...awayProps, ...otherProps];
+
+        // Interleave in chunks so left half of grid = away, right half = home.
+        // 4-col (desktop): 2 away, 2 home per row → left half=away, right half=home
+        // 2-col (mobile): each chunk of 4 wraps to 2 rows (away pair, then home pair)
+        const COLS_DESKTOP = 4;
+        const HALF = COLS_DESKTOP / 2; // 2 away slots, then 2 home slots per row
+        const maxLen = Math.max(allAway.length, homeProps.length);
+        const rows = Math.ceil(maxLen / HALF);
+        const interleaved: (Prop | null)[] = [];
+
+        for (let row = 0; row < rows; row++) {
+          // Away chunk (left half)
+          for (let col = 0; col < HALF; col++) {
+            const idx = row * HALF + col;
+            interleaved.push(idx < allAway.length ? allAway[idx] : null);
+          }
+          // Home chunk (right half)
+          for (let col = 0; col < HALF; col++) {
+            const idx = row * HALF + col;
+            interleaved.push(idx < homeProps.length ? homeProps[idx] : null);
+          }
+        }
+
+        return (
+          <CardContent className="p-3">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {interleaved.map((prop, idx) =>
+                prop ? (
+                  <PropLine
+                    key={prop.id}
+                    propId={prop.id}
+                    gameId={game.id}
+                    playerName={prop.player_name}
+                    playerId={prop.player_id}
+                    playerTeam={prop.player_team}
+                    playerPosition={prop.player_position}
+                    statCategory={prop.stat_category}
+                    line={prop.line}
+                    lineHistory={prop.line_history}
+                    sport={game.sport}
+                  />
+                ) : (
+                  <div key={`empty-${idx}`} />
+                ),
+              )}
+            </div>
+          </CardContent>
+        );
+      })()}
     </Card>
   );
 }

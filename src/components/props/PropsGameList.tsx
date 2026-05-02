@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState, useCallback } from "react";
 import type { Game, Prop } from "@/lib/supabase/types";
 import { StaggerChildren, StaggerItem } from "@/components/motion";
@@ -10,10 +11,13 @@ type GameWithProps = Game & { props: Prop[] };
 
 interface PropsGameListProps {
   games: GameWithProps[];
+  /** Filter controls rendered inside the sticky header above the game selector */
+  children?: ReactNode;
 }
 
 export default function PropsGameList({
   games,
+  children,
 }: PropsGameListProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(
     () => new Set(games.map((g) => g.id))
@@ -55,16 +59,19 @@ export default function PropsGameList({
 
   return (
     <>
-      <GameSelector
-        games={games.map((g) => ({
-          id: g.id,
-          away_team: g.away_team,
-          home_team: g.home_team,
-          commence_time: g.commence_time,
-        }))}
-        activeId={activeChip}
-        onSelect={handleChipSelect}
-      />
+      <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-2 overflow-x-hidden border-b border-border bg-background px-4 pb-2 pt-1.5 shadow-sm">
+        {children}
+        <GameSelector
+          games={games.map((g) => ({
+            id: g.id,
+            away_team: g.away_team,
+            home_team: g.home_team,
+            commence_time: g.commence_time,
+          }))}
+          activeId={activeChip}
+          onSelect={handleChipSelect}
+        />
+      </div>
 
       <StaggerChildren staggerDelay={0.06} className="mt-4 flex flex-col gap-3">
         {games.map((game) => (

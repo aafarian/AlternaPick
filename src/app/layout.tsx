@@ -96,7 +96,7 @@ export default function RootLayout({
           <OnboardingProvider>
             <PlayerProfileProvider>
             <Header />
-            <main className="mx-auto min-h-screen max-w-6xl px-4 pt-20 pb-20 md:pb-12 xl:max-w-7xl 2xl:max-w-[1400px]">
+            <main className="mx-auto min-h-screen max-w-6xl px-4 pt-20 pb-20 md:pb-12">
               <PageTransitionShell>
                 {children}
               </PageTransitionShell>

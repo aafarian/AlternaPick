@@ -8,7 +8,10 @@ import { formatLiveStatus, formatGameTime } from "@/lib/format";
 import type { StatCategory } from "@/lib/supabase/types";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
 import { Badge } from "@/components/ui/badge";
-import { ChevronUp, ChevronDown, Check, X, CheckCircle2, XCircle, Minus, Loader2 } from "lucide-react";
+import { ChevronUp, ChevronDown, Check, X, CheckCircle2, XCircle, Minus, Loader2, Flame } from "lucide-react";
+import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
+import { HEATSCORE_HIT_BASE } from "@/lib/heatscore/compute";
+import { NOTCH_TIERS } from "@/lib/heatscore/constants";
 import { cn } from "@/lib/utils";
 import { notchNumberTint } from "@/components/props/NotchSelector";
 import NotchBadge from "@/components/props/NotchBadge";
@@ -20,9 +23,11 @@ const CHEVRON_LEFT = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/20
 interface LivePickRowProps {
   pick: LivePickData;
   variant?: "full" | "compact";
+  /** When true, show quality bonus tokens instead of full heatscore */
+  showQualityTokens?: boolean;
 }
 
-export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps) {
+export default function LivePickRow({ pick, variant = "full", showQualityTokens = false }: LivePickRowProps) {
   // Mount at 0% width, then animate to target after browser paints the initial frame
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -273,14 +278,35 @@ export default function LivePickRow({ pick, variant = "full" }: LivePickRowProps
             </span>
           )}
 
-          {/* Per-pick HeatScore (resolved picks only) */}
-          {d.isSettled && pick.heat_score != null && pick.heat_score !== 0 && (
-            <span className={cn(
-              "text-[10px] font-bold tabular-nums leading-none",
-              pick.heat_score > 0 ? "text-orange-400/70" : "text-orange-400/50",
-            )}>
-              {pick.heat_score > 0 ? "+" : ""}{pick.heat_score} HS
-            </span>
+          {/* Per-pick score (resolved picks only) */}
+          {d.isSettled && pick.heat_score != null && pick.heat_score !== 0 && (() => {
+            // For wagered cards, show quality tokens (what contributed to payout)
+            // For non-wagered, show full heatscore
+            const notchMult = (pick.notch != null && pick.notch !== 0)
+              ? (NOTCH_TIERS.find((t) => t.notch === pick.notch)?.multiplier ?? 1)
+              : 1;
+            const baseHitValue = pick.trending === "hit" ? Math.round(HEATSCORE_HIT_BASE * notchMult) : 0;
+            const qualityTokens = pick.heat_score - baseHitValue;
+            const displayValue = showQualityTokens ? qualityTokens : pick.heat_score;
+
+            if (showQualityTokens && qualityTokens === 0) return null;
+
+            return (
+              <span className={cn(
+                "inline-flex items-center gap-0.5 text-xs font-bold tabular-nums leading-none",
+                displayValue > 0 ? "text-emerald-500/80" : "text-red-400/70",
+              )}>
+                {showQualityTokens ? (
+                  <FlameTokenIcon className="h-3 w-3 text-orange-400/70" />
+                ) : (
+                  <Flame className="h-3 w-3 text-orange-400/70" />
+                )}
+                {displayValue > 0 ? "+" : ""}{displayValue}
+              </span>
+            );
+          })()}
+          {d.isSettled && (pick.heat_score == null || pick.heat_score === 0) && pick.trending === "hit" && (
+            <span className="text-[10px] font-semibold text-emerald-500/60">Hit</span>
           )}
 
           {d.isLive && pick.game_status && (

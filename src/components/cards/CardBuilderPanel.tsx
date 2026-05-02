@@ -12,7 +12,8 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { X, Lock, Loader2, Swords, Flame } from "lucide-react";
+import { X, Lock, Loader2, Swords } from "lucide-react";
+import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
 import { logWarn } from "@/lib/logger";
 import { cn } from "@/lib/utils";
 import { getHeatScoreMultiplier, MIN_WAGER, STARTING_BALANCE } from "@/lib/heatscore/constants";
@@ -338,6 +339,10 @@ export default function CardBuilderPanel() {
       redirectRef.current = effectiveChallengeId
         ? `/challenges/${effectiveChallengeId}`
         : "/picks";
+      // Notify header badge to refresh token balance
+      if (wager != null) {
+        window.dispatchEvent(new Event("flame-tokens-changed"));
+      }
       showSuccess();
     } catch (err) {
       setError(
@@ -506,7 +511,7 @@ export default function CardBuilderPanel() {
             <div className="mx-auto max-w-6xl px-4 py-2.5">
               {/* Row 1: Wager input + quick presets + balance */}
               <div className="flex flex-wrap items-center gap-2">
-                <Flame className="hidden h-4 w-4 shrink-0 text-orange-400 sm:block" />
+                <FlameTokenIcon className="hidden h-4 w-4 shrink-0 text-orange-400 sm:block" />
 
                 {balanceLoading ? (
                   <div className="flex items-center gap-2">
@@ -584,7 +589,7 @@ export default function CardBuilderPanel() {
                     </div>
 
                     <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                      <Flame className="h-3 w-3 text-orange-400" />
+                      <FlameTokenIcon className="h-3 w-3 text-orange-400" />
                       {(tokenBalance ?? STARTING_BALANCE).toLocaleString()} left
                     </span>
 
@@ -741,7 +746,7 @@ export default function CardBuilderPanel() {
                         </>
                       ) : wager != null ? (
                         <>
-                          <Flame className="mr-1.5 h-3.5 w-3.5" />
+                          <FlameTokenIcon className="mr-1.5 h-3.5 w-3.5" />
                           <span className="hidden sm:inline">Wager {wager} —&nbsp;</span>Lock In
                         </>
                       ) : (
@@ -806,7 +811,7 @@ export default function CardBuilderPanel() {
                             </>
                           ) : (
                             <>
-                              <Flame className="mr-1.5 h-3.5 w-3.5" />
+                              <FlameTokenIcon className="mr-1.5 h-3.5 w-3.5" />
                               <span className="hidden sm:inline">Wager</span>
                             </>
                           )}

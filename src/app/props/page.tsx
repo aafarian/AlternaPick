@@ -11,7 +11,7 @@ import CategoryFilter from "@/components/props/CategoryFilter";
 import PlayerSearch from "@/components/props/PlayerSearch";
 import PropsGameList from "@/components/props/PropsGameList";
 import NcaabTeamRegistrar from "@/components/props/NcaabTeamRegistrar";
-import { SlideUp, FadeIn } from "@/components/motion";
+import { SlideUp } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { buildPageMetadata } from "@/lib/seo/page-metadata";
 import { logWarn } from "@/lib/logger";
@@ -112,43 +112,32 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
         <PropsHeader gameCount={withProps.length} />
       </SlideUp>
 
-      <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-3 overflow-x-hidden border-b border-border bg-background px-4 pb-3 pt-2 shadow-sm">
-        <FadeIn delay={0.1}>
-          <Suspense fallback={null}>
-            <SportSelector counts={propCounts} activeSport={sport} />
-          </Suspense>
-        </FadeIn>
-
-        <FadeIn delay={0.15}>
-          <Suspense fallback={null}>
-            <PlayerSearch />
-          </Suspense>
-        </FadeIn>
-
-        <FadeIn delay={0.2}>
-          <Suspense fallback={null}>
-            <CategoryFilter sport={sport} />
-          </Suspense>
-        </FadeIn>
-      </div>
-
       {withProps.length === 0 ? (
-        <AnimatedEmptyState
-          icon={emptyEmoji}
-          title={playerQuery || !isAll ? "No props found" : "No games available"}
-          description={
-            playerQuery || !isAll
-              ? "Try adjusting your search or filters."
-              : "Check back later for upcoming player props!"
-          }
-        />
+        <>
+          <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-2 overflow-x-hidden border-b border-border bg-background px-4 pb-2 pt-1.5 shadow-sm">
+            <Suspense fallback={null}><SportSelector counts={propCounts} activeSport={sport} /></Suspense>
+            <Suspense fallback={null}><PlayerSearch /></Suspense>
+            <Suspense fallback={null}><CategoryFilter sport={sport} /></Suspense>
+          </div>
+          <AnimatedEmptyState
+            icon={emptyEmoji}
+            title={playerQuery || !isAll ? "No props found" : "No games available"}
+            description={
+              playerQuery || !isAll
+                ? "Try adjusting your search or filters."
+                : "Check back later for upcoming player props!"
+            }
+          />
+        </>
       ) : (
-        <FadeIn delay={0.25}>
         <PropsGameList
           key={`${sport}-${category}`}
           games={withProps}
-        />
-        </FadeIn>
+        >
+          <Suspense fallback={null}><SportSelector counts={propCounts} activeSport={sport} /></Suspense>
+          <Suspense fallback={null}><PlayerSearch /></Suspense>
+          <Suspense fallback={null}><CategoryFilter sport={sport} /></Suspense>
+        </PropsGameList>
       )}
     </div>
   );

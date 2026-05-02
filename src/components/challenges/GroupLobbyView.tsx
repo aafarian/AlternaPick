@@ -18,7 +18,7 @@ import OpponentAvatar from "@/components/challenges/OpponentAvatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, AlertCircle, Loader2, Crown, Trophy, Check, Clock, Lock, X, UserPlus } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Crown, Trophy, Check, Clock, Lock, X, UserPlus, Flame } from "lucide-react";
 import InvitePanel from "@/components/challenges/InvitePanel";
 import TrashTalkBubble from "@/components/challenges/TrashTalkBubble";
 import GameModeBadge from "@/components/challenges/GameModeBadge";
@@ -345,6 +345,14 @@ function ParticipantPickSection({
         picks={picks}
         hasLiveGames={hasLiveGames}
         statusLabel={statusLabel}
+        wagerLabel={
+          card.heat_score != null ? (
+            <span className="flex items-center gap-1 text-xs font-bold tabular-nums text-orange-400">
+              <Flame className="h-3 w-3" />
+              {card.heat_score}
+            </span>
+          ) : undefined
+        }
         loading={liveLoading}
         pickCount={card.picks.length}
         showGameScores={false}
@@ -403,11 +411,10 @@ export default function GroupLobbyView({
   const showOtherPicks =
     hasLockedCard || challenge.status === "active" || challenge.status === "resolved";
 
-  // Live stats — poll when the current user has locked their card OR the challenge
-  // is resolved. This lets users see live scores as soon as they lock in, even if
-  // other participants haven't locked in yet (AP-007).
+  // Live stats — poll when cards are locked (games in progress).
+  // Resolved challenges use server-rendered data (includes heat_score).
   const shouldFetchLive =
-    hasLockedCard || challenge.status === "resolved";
+    challenge.status !== "resolved" && hasLockedCard;
 
   const { data: liveData, isLoading: liveLoading, error: liveError, challengeResolved } = useLiveChallenge(
     challenge.id,
