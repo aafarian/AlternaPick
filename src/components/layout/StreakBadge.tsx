@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Flame, Gift, HelpCircle, Loader2 } from "lucide-react";
+import { Gift, HelpCircle, Loader2 } from "lucide-react";
+import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
 import { useAuth } from "@/lib/auth/auth-context";
 import FlameTokensModal from "@/components/onboarding/FlameTokensModal";
 import { logWarn } from "@/lib/logger";
@@ -112,7 +113,7 @@ export default function StreakBadge() {
         role="status"
         aria-label={`${balance.toLocaleString()} flame tokens${canClaim ? " — daily claim available" : ""}`}
       >
-        <Flame className="relative h-4 w-4" aria-hidden="true" />
+        <FlameTokenIcon className="relative h-4 w-4" aria-hidden="true" />
         <span className="relative tabular-nums">{balance.toLocaleString()}</span>
       </button>
 

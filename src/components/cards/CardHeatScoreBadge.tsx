@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Flame, HelpCircle } from "lucide-react";
+import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
 import HeatScoreModal from "@/components/onboarding/HeatScoreModal";
 import { getHeatScoreMultiplier, WAGER_NOTCH_SCALE } from "@/lib/heatscore/constants";
 import { getNotchTier, computeWagerNotchScale } from "@/lib/heatscore/compute";
@@ -108,7 +109,7 @@ export default function CardHeatScoreBadge({
       {/* Wager/payout (only for wagered cards) */}
       {hasWager && (
         <span className="inline-flex items-center gap-1.5 text-xs font-black">
-          <Flame className="h-3 w-3 text-orange-400" />
+          <FlameTokenIcon className="h-3 w-3 text-orange-400" />
           <span className="text-orange-400">-{wager}</span>
           {payout != null && (
             <span className={payout > 0 ? "text-emerald-500" : "text-muted-foreground"}>

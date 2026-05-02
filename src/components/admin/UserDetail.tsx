@@ -49,6 +49,7 @@ import {
   XCircle,
   Loader2,
 } from "lucide-react";
+import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
 import ModerationActions from "@/components/admin/ModerationActions";
 import NotificationPreferencesPanel from "@/components/admin/NotificationPreferencesPanel";
 import type { AdminUserDetail } from "@/lib/admin/types";
@@ -175,7 +176,7 @@ function FireTokenAdjuster({ userId }: { userId: string }) {
     <Card className="py-4">
       <CardHeader className="pb-2 pt-0 px-4">
         <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <Flame className="h-4 w-4 text-orange-400" />
+          <FlameTokenIcon className="h-4 w-4 text-orange-400" />
           Flame Tokens
           {balance != null && (
             <span className="text-orange-400 font-bold tabular-nums">
