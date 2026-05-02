@@ -231,7 +231,7 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
 
             return (
               <StaggerItem key={pick.id}>
-                <LivePickRow pick={livePick} />
+                <LivePickRow pick={livePick} showQualityTokens={card.fire_token_wager != null} />
               </StaggerItem>
             );
           })}
