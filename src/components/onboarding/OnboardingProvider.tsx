@@ -4,9 +4,12 @@ import { useEffect, useState, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import OnboardingModal from "./OnboardingModal";
+import FlameTokensModal from "./FlameTokensModal";
 import UsernameSetupModal from "./UsernameSetupModal";
 
-type Phase = "idle" | "username_setup" | "onboarding" | "done";
+type Phase = "idle" | "username_setup" | "onboarding" | "flame_tokens" | "done";
+
+const FLAME_TOKENS_SEEN_KEY = "flame_tokens_onboarding_seen";
 
 const MAX_RETRIES = 5;
 const RETRY_INTERVAL_MS = 1_000;
@@ -64,6 +67,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
       if (!profile.onboarding_completed) {
         setPhase("onboarding");
+      } else if (typeof window !== "undefined" && !localStorage.getItem(FLAME_TOKENS_SEEN_KEY)) {
+        setPhase("flame_tokens");
       } else {
         setPhase("done");
       }
@@ -85,14 +90,25 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   }
 
   async function handleOnboardingDismiss() {
-    setPhase("done");
-
     if (userId && supabase) {
-       
       await (supabase.from("profiles") as any)
         .update({ onboarding_completed: true })
         .eq("id", userId);
     }
+
+    // Show flame tokens onboarding next if not seen
+    if (typeof window !== "undefined" && !localStorage.getItem(FLAME_TOKENS_SEEN_KEY)) {
+      setPhase("flame_tokens");
+    } else {
+      setPhase("done");
+    }
+  }
+
+  function handleFlameTokensDismiss() {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(FLAME_TOKENS_SEEN_KEY, "1");
+    }
+    setPhase("done");
   }
 
   return (
@@ -105,6 +121,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       <OnboardingModal
         open={phase === "onboarding"}
         onDismiss={handleOnboardingDismiss}
+      />
+      <FlameTokensModal
+        open={phase === "flame_tokens"}
+        onClose={handleFlameTokensDismiss}
       />
     </>
   );
