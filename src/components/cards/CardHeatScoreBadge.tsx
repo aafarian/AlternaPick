@@ -187,9 +187,11 @@ export default function CardHeatScoreBadge({
                           {Math.round(wager * effectiveMultiplier).toLocaleString()}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-[9px] text-muted-foreground/60">
-                        {wager} × {baseMultiplier}x × {Math.round(wagerNotchScale * 100) / 100}x
-                      </p>
+                      {hasNotchBonus && (
+                        <p className="mt-0.5 text-[9px] text-muted-foreground/60">
+                          {wager} × {baseMultiplier}x × {Math.round(wagerNotchScale * 100) / 100}x
+                        </p>
+                      )}
                     </>
                   )}
                 </div>

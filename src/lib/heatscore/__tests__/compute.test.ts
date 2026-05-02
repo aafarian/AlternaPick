@@ -453,8 +453,8 @@ describe("EV balance verification", () => {
   });
 
   it("6-pick E[return] × standard wager scale ≈ 0.85", () => {
-    // With wager notch scale of 0.99 for standard, effective return is ~0.85
-    expect(expectedReturn(6, 0.5) * 0.99).toBeCloseTo(0.85, 1);
+    // With wager notch scale of 1.0 for standard, effective return is ~0.86
+    expect(expectedReturn(6, 0.5) * 1.0).toBeCloseTo(0.86, 1);
   });
 
   it("all card sizes have E[return] > 0.65 at 50% hit rate", () => {

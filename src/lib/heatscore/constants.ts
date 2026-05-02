@@ -107,7 +107,7 @@ const HEATSCORE_TABLE: Record<number, Record<number, number>> = {
 export const WAGER_NOTCH_SCALE: Record<number, number> = {
   [-2]: 0.27,   // Frosty  — easy picks, low payout
   [-1]: 0.56,   // Chilled
-  [0]:  0.99,   // Standard (≈1.0)
+  [0]:  1.0,    // Standard
   [1]:  4.36,   // Heated
   [2]:  14.68,  // Scorched
   [3]:  82.3,   // Volcanic — lottery ticket
