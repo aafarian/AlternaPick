@@ -28,7 +28,7 @@ interface CreateCardBody {
   challenge_id?: string;
   game_mode?: string;
   card_size?: number;
-  /** Fire Token wager for ranked solo play. Null/omitted for casual or challenges. */
+  /** Flame Token wager for ranked solo play. Null/omitted for casual or challenges. */
   fire_token_wager?: number | null;
 }
 
@@ -291,7 +291,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validate and deduct Fire Token wager (solo ranked only)
+    // Validate and deduct Flame Token wager (solo ranked only)
     const wager = body.fire_token_wager;
     let validatedWager: number | null = null;
 
@@ -322,7 +322,7 @@ export async function POST(request: NextRequest) {
       if (!entry) {
         // Create leaderboard row for new user with starting balance minus wager
         if (1000 < wager) {
-          return badRequest("Insufficient Fire Token balance");
+          return badRequest("Insufficient Flame Token balance");
         }
         const { error: insertErr } = await (adminClient.from("leaderboard_entries") as any)
           .insert({
@@ -338,7 +338,7 @@ export async function POST(request: NextRequest) {
       } else {
         const currentBalance = (entry as { fire_tokens_balance: number }).fire_tokens_balance;
         if (currentBalance < wager) {
-          return badRequest("Insufficient Fire Token balance");
+          return badRequest("Insufficient Flame Token balance");
         }
 
         const { data: updated, error: deductError } = await (adminClient.from("leaderboard_entries") as any)
@@ -353,7 +353,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (!updated || (updated as { fire_tokens_balance: number }[]).length === 0) {
-          return badRequest("Insufficient Fire Token balance");
+          return badRequest("Insufficient Flame Token balance");
         }
 
         validatedWager = wager;

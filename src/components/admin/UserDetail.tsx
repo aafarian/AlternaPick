@@ -118,7 +118,7 @@ const statCards: StatCardConfig[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Fire Token Adjuster
+// Flame Token Adjuster
 // ---------------------------------------------------------------------------
 
 function FireTokenAdjuster({ userId }: { userId: string }) {
@@ -126,16 +126,21 @@ function FireTokenAdjuster({ userId }: { userId: string }) {
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
+  const [lifetime, setLifetime] = useState<number | null>(null);
 
+  // Fetch current balance on mount
   useEffect(() => {
-    const supaFetch = async () => {
-      try {
-        const res = await fetch(`/api/admin/heatscore/user-cards?userId=${userId}`);
-        if (!res.ok) return;
-        // We just need the balance — fetch it from the leaderboard data
-      } catch { /* ignore */ }
-    };
-    supaFetch();
+    let cancelled = false;
+    fetch(`/api/admin/fire-tokens?user_id=${userId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!cancelled && data) {
+          setBalance(data.balance ?? null);
+          setLifetime(data.lifetime ?? null);
+        }
+      })
+      .catch(() => { /* ignore */ });
+    return () => { cancelled = true; };
   }, [userId]);
 
   async function handleAdjust() {
@@ -170,9 +175,16 @@ function FireTokenAdjuster({ userId }: { userId: string }) {
       <CardHeader className="pb-2 pt-0 px-4">
         <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <Flame className="h-4 w-4 text-orange-400" />
-          Fire Tokens
+          Flame Tokens
           {balance != null && (
-            <span className="text-orange-400 font-bold tabular-nums">{balance}</span>
+            <span className="text-orange-400 font-bold tabular-nums">
+              {balance.toLocaleString()}
+            </span>
+          )}
+          {lifetime != null && (
+            <span className="text-muted-foreground text-xs font-normal">
+              (lifetime: {lifetime.toLocaleString()})
+            </span>
           )}
         </CardTitle>
       </CardHeader>
@@ -739,7 +751,7 @@ export default function UserDetail({ userId }: { userId: string }) {
       {/* Header */}
       <UserHeader profile={detail.profile} />
 
-      {/* Fire Token Adjustment */}
+      {/* Flame Token Adjustment */}
       <FireTokenAdjuster userId={detail.profile.id} />
 
       {/* Moderation Actions */}

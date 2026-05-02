@@ -7,7 +7,7 @@ import { logWarn } from "@/lib/logger";
 /**
  * POST /api/admin/fire-tokens
  *
- * Adjust a user's Fire Token balance. Admin only.
+ * Adjust a user's Flame Token balance. Admin only.
  * Body: { user_id: string, amount: number, reason?: string }
  *
  * Positive amount = give tokens, negative = take tokens.
@@ -74,6 +74,38 @@ export async function POST(request: Request) {
       previous_balance: currentBalance,
       new_balance: newBalance,
       amount,
+    });
+  } catch (error) {
+    return handleApiError(error, "admin/fire-tokens");
+  }
+}
+
+/**
+ * GET /api/admin/fire-tokens?user_id=<id>
+ *
+ * Get a user's current Flame Token balance. Admin only.
+ */
+export async function GET(request: Request) {
+  try {
+    const auth = await requireAdmin();
+    if (!auth.isAdmin) return auth.response;
+
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("user_id");
+
+    if (!userId) {
+      return badRequest("user_id is required");
+    }
+
+    const supabase = createAdminClient();
+    const { data } = await (supabase.from("leaderboard_entries") as any)
+      .select("fire_tokens_balance, fire_tokens_lifetime")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    return NextResponse.json({
+      balance: (data as { fire_tokens_balance: number } | null)?.fire_tokens_balance ?? 1000,
+      lifetime: (data as { fire_tokens_lifetime: number } | null)?.fire_tokens_lifetime ?? 0,
     });
   } catch (error) {
     return handleApiError(error, "admin/fire-tokens");

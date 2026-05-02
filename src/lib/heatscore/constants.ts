@@ -72,7 +72,7 @@ export const MIN_STEP = 1.0;
 // ---------------------------------------------------------------------------
 // HeatScore multiplier table
 //
-// HeatScore is a multiplier (0x to 8x) applied to the user's Fire Token
+// HeatScore is a multiplier (0x to 8x) applied to the user's Flame Token
 // wager. Payout = wager × HeatScore.
 //
 // The table is balanced so that E[return] ≈ 0.70 at a 50% per-pick hit
@@ -168,10 +168,10 @@ export const MISS_QUALITY_TIERS: QualityTier[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Fire Token economy constants
+// Flame Token economy constants
 // ---------------------------------------------------------------------------
 
-/** Starting Fire Token balance for new users. */
+/** Starting Flame Token balance for new users. */
 export const STARTING_BALANCE = 1000;
 
 /** Minimum wager per card. */

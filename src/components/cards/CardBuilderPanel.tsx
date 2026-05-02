@@ -50,7 +50,7 @@ export default function CardBuilderPanel() {
   // Auth gate for guest lock-in
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // Heat Mode feature flag — gated by heatscore_enabled + heatscore_allowlist.
+  // Wager Flame feature flag — gated by heatscore_enabled + heatscore_allowlist.
   // Fetched once on mount; cached for 60s server-side.
   const [heatModeAccess, setHeatModeAccess] = useState(false);
   useEffect(() => {
@@ -59,11 +59,11 @@ export default function CardBuilderPanel() {
     fetch("/api/heatscore/access")
       .then((r) => r.json())
       .then((data) => { if (!cancelled) setHeatModeAccess(data.enabled === true); })
-      .catch(() => { /* fail closed — Heat Mode stays hidden */ });
+      .catch(() => { /* fail closed — Wager Flame stays hidden */ });
     return () => { cancelled = true; };
   }, [user]);
 
-  // Fire Token wager (solo ranked mode)
+  // Flame Token wager (solo ranked mode)
   const [wager, setWager] = useState<number | null>(null);
   const [showHeatPicker, setShowRankedPicker] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
@@ -491,7 +491,7 @@ export default function CardBuilderPanel() {
           </div>
         )}
 
-        {/* Heat Mode wager picker panel — sits ABOVE the bar (like challenge picker) */}
+        {/* Wager Flame wager picker panel — sits ABOVE the bar (like challenge picker) */}
         {showHeatPicker && !isInChallengeMode && (
           <div className="border-t border-orange-500/30 bg-surface/95 backdrop-blur-xl">
             <div className="mx-auto max-w-6xl px-4 py-2.5">
@@ -500,7 +500,16 @@ export default function CardBuilderPanel() {
                 <Flame className="h-4 w-4 shrink-0 text-orange-400" />
 
                 {balanceLoading ? (
-                  <div className="h-8 w-20 animate-pulse rounded-md bg-secondary" />
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-20 animate-pulse rounded-md bg-secondary" />
+                    <div className="flex gap-1">
+                      <div className="h-6 w-8 animate-pulse rounded-md bg-secondary" />
+                      <div className="h-6 w-8 animate-pulse rounded-md bg-secondary" />
+                      <div className="h-6 w-8 animate-pulse rounded-md bg-secondary" />
+                      <div className="h-6 w-10 animate-pulse rounded-md bg-secondary" />
+                    </div>
+                    <div className="ml-auto h-4 w-20 animate-pulse rounded bg-secondary" />
+                  </div>
                 ) : (
                   <>
                     <div className="relative">
@@ -694,7 +703,7 @@ export default function CardBuilderPanel() {
                     )}
                   </Button>
                 ) : (
-                  /* Regular card — Solo lock-in + Heat Mode toggle + Challenge */
+                  /* Regular card — Solo lock-in + Wager Flame toggle + Challenge */
                   <>
                     <Button
                       onClick={handleLockIn}
@@ -790,7 +799,7 @@ export default function CardBuilderPanel() {
                           ) : (
                             <>
                               <Flame className="mr-1.5 h-3.5 w-3.5" />
-                              Heat Mode
+                              Wager Flame
                             </>
                           )}
                         </Button>

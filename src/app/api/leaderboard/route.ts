@@ -85,8 +85,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Validate sort
-    if (sortParam !== "hit_rate" && sortParam !== "h2h") {
-      return badRequest("Invalid sort. Must be 'hit_rate' or 'h2h'.");
+    if (sortParam !== "hit_rate" && sortParam !== "h2h" && sortParam !== "flame_tokens") {
+      return badRequest("Invalid sort. Must be 'hit_rate', 'h2h', or 'flame_tokens'.");
     }
     const sort: LeaderboardSort = sortParam;
 

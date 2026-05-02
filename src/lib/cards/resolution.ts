@@ -62,7 +62,7 @@ export interface ResolutionResult {
   picks: PickResolution[];
   /** HeatScore multiplier × 100 (e.g., 250 = 2.5x). Null if no scoreable picks. */
   heat_score: number | null;
-  /** Fire Token payout. Null if card had no wager. */
+  /** Flame Token payout. Null if card had no wager. */
   fire_token_wager: number | null;
   fire_token_payout: number | null;
   /** Total quality bonus (flat tokens from margins). */
@@ -807,7 +807,7 @@ export async function resolveCard(
   const misses = pickResolutions.filter((p) => p.result === "miss").length;
   const scoredTotal = score + misses;
 
-  // Compute HeatScore multiplier + Fire Token payout.
+  // Compute HeatScore multiplier + Flame Token payout.
   // Wrapped defensively so a computation error never blocks card resolution.
   let heatScoreInt: number | null = null;
   let qualityBonus = 0;
@@ -1203,7 +1203,7 @@ async function updateLeaderboardStats(
   const previousBest = existing?.best_streak ?? 0;
   const bestStreak = Math.max(previousBest, currentStreak);
 
-  // Fire Token balance updates (only when a wager was placed)
+  // Flame Token balance updates (only when a wager was placed)
   const hasTokenWager = fireTokenWager != null && fireTokenPayout != null;
   const tokenBalanceDelta = hasTokenWager ? fireTokenPayout - fireTokenWager : 0;
   const tokenLifetimeDelta = hasTokenWager ? fireTokenPayout : 0;

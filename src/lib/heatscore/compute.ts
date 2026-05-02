@@ -140,7 +140,7 @@ export function impliedProbFromAmericanOdds(americanOdds: number): number {
 }
 
 // ---------------------------------------------------------------------------
-// HeatScore multiplier + Fire Token payout
+// HeatScore multiplier + Flame Token payout
 // ---------------------------------------------------------------------------
 
 export interface CardHeatScoreResult {
@@ -240,7 +240,7 @@ export function computeHeatScore(picks: HeatScorePickInput[]): number {
 }
 
 /**
- * Compute the Fire Token payout for a given wager and HeatScore multiplier.
+ * Compute the Flame Token payout for a given wager and HeatScore multiplier.
  * Includes an optional quality bonus (from hit/miss margins). Floored at 0.
  */
 export function computeFireTokenPayout(

@@ -7,7 +7,7 @@ import { handleApiError } from "@/lib/api/errors";
  * GET /api/heatscore/access
  *
  * Returns { enabled: boolean } indicating whether the authenticated user
- * has access to Heat Mode. Two flags, independent of each other:
+ * has access to Wager Flame. Two flags, independent of each other:
  *
  *   1. `heatscore_allowlist` — comma-separated emails that ALWAYS have
  *      access regardless of the global toggle. Use this to whitelist
@@ -15,7 +15,7 @@ import { handleApiError } from "@/lib/api/errors";
  *      everyone else.
  *   2. `heatscore_enabled` — global toggle. When ON, ALL authenticated
  *      users have access (the allowlist is irrelevant). When OFF, only
- *      allowlisted users see Heat Mode.
+ *      allowlisted users see Wager Flame.
  *
  * Priority: allowlist is checked first. If the user is on it, they're in
  * regardless of the global toggle. If not, the global toggle decides.

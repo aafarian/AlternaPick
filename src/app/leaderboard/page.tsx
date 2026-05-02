@@ -20,13 +20,13 @@ import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { AnimatedSkeleton } from "@/components/ui/animated-skeleton";
 
 type TabKey = "global" | "friends";
-type SortKey = "hit_rate" | "h2h";
+type SortKey = "hit_rate" | "h2h" | "flame_tokens";
 
 function isValidTab(v: string | null): v is TabKey {
   return v === "global" || v === "friends";
 }
 function isValidSort(v: string | null): v is SortKey {
-  return v === "hit_rate" || v === "h2h";
+  return v === "hit_rate" || v === "h2h" || v === "flame_tokens";
 }
 
 export default function LeaderboardPage() {
@@ -183,6 +183,24 @@ export default function LeaderboardPage() {
               />
             )}
             <span className="relative z-10">H2H</span>
+          </button>
+          <button
+            onClick={() => updateParams({ sort: "flame_tokens" })}
+            className={cn(
+              "relative rounded-md px-3 py-1.5 text-xs font-semibold transition-colors z-10",
+              sortBy === "flame_tokens"
+                ? "text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {sortBy === "flame_tokens" && (
+              <motion.div
+                layoutId="leaderboard-sort-indicator"
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+                transition={springTransition}
+              />
+            )}
+            <span className="relative z-10">🔥 Flame</span>
           </button>
         </div>
       </FadeIn>
