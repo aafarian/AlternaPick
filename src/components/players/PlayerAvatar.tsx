@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, memo } from "react";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/format/name-utils";
 import { getPlayerHeadshotUrl } from "@/lib/sports";
@@ -22,7 +22,7 @@ const SIZE_CLASSES = {
   xl: "h-14 w-14 text-sm",
 } as const;
 
-export default function PlayerAvatar({
+function PlayerAvatarInner({
   playerId,
   playerName,
   sport,
@@ -65,3 +65,6 @@ export default function PlayerAvatar({
     </div>
   );
 }
+
+const PlayerAvatar = memo(PlayerAvatarInner);
+export default PlayerAvatar;
