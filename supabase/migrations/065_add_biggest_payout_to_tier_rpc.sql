@@ -37,7 +37,8 @@ AS $$
     COUNT(*) FILTER (WHERE p.result = 'hit' AND p.notch = 3)::INT AS volcanic_hits,
     COUNT(*) FILTER (WHERE p.result IN ('hit', 'miss') AND p.notch = 3)::INT AS volcanic_total,
     BOOL_OR(c.fire_token_wager IS NOT NULL) AS has_wagered,
-    COALESCE(MAX(c.fire_token_payout) FILTER (WHERE c.fire_token_payout > 0), 0)::INT AS biggest_payout
+    -- Biggest payout excluding refunds (total_picks > 0 means at least one scoreable pick)
+    COALESCE(MAX(c.fire_token_payout) FILTER (WHERE c.fire_token_payout > 0 AND c.total_picks > 0), 0)::INT AS biggest_payout
   FROM cards c
   JOIN picks p ON p.card_id = c.id
   WHERE c.status = 'resolved'
