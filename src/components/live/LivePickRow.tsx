@@ -151,27 +151,29 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
     >
       {/* Main row */}
       <div className="flex items-center gap-3">
-        {/* Settled icon */}
-        {d.isSettled && (
-          <div
-            className={cn(
-              "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
-              d.isDnp || d.isVoid
+        {/* Settled icon — always reserves space to prevent layout shift */}
+        <div
+          className={cn(
+            "flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors duration-300",
+            d.isSettled
+              ? d.isDnp || d.isVoid
                 ? "bg-muted text-muted-foreground"
                 : d.settledWon
                   ? "bg-neon-green/15 text-neon-green"
                   : "bg-bold-red/15 text-bold-red"
-            )}
-          >
-            {d.isDnp || d.isVoid ? (
+              : "bg-transparent text-transparent"
+          )}
+        >
+          {d.isSettled && (
+            d.isDnp || d.isVoid ? (
               <Minus className="h-3 w-3" strokeWidth={3} />
             ) : d.settledWon ? (
               <Check className="h-3 w-3" strokeWidth={3} />
             ) : (
               <X className="h-3 w-3" strokeWidth={3} />
-            )}
-          </div>
-        )}
+            )
+          )}
+        </div>
 
         {/* Avatar — always shown */}
         <PlayerAvatar
@@ -357,7 +359,7 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
         {/* Colored fill */}
         <div
           className={cn(
-            "relative h-full overflow-hidden rounded-full transition-[width] duration-700 ease-out",
+            "relative h-full overflow-hidden rounded-full transition-[width,background-color] duration-700 ease-out",
             d.barColor
           )}
           style={{
