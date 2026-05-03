@@ -356,7 +356,7 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
         {/* Colored fill */}
         <div
           className={cn(
-            "relative h-full overflow-hidden rounded-full transition-all duration-700 ease-out",
+            "relative h-full overflow-hidden rounded-full transition-[width] duration-700 ease-out",
             d.barColor
           )}
           style={{
@@ -393,5 +393,24 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
   );
 }
 
-const LivePickRow = memo(LivePickRowInner);
+const LivePickRow = memo(LivePickRowInner, (prev, next) => {
+  // Only re-render if the pick data actually changed
+  if (prev.variant !== next.variant) return false;
+  if (prev.showQualityTokens !== next.showQualityTokens) return false;
+  const p = prev.pick;
+  const n = next.pick;
+  return (
+    p.pick_id === n.pick_id &&
+    p.current_value === n.current_value &&
+    p.trending === n.trending &&
+    p.heat_score === n.heat_score &&
+    p.line === n.line &&
+    p.notch === n.notch &&
+    p.game_status?.status === n.game_status?.status &&
+    p.game_status?.period === n.game_status?.period &&
+    p.game_status?.clock === n.game_status?.clock &&
+    p.game_status?.home_score === n.game_status?.home_score &&
+    p.game_status?.away_score === n.game_status?.away_score
+  );
+});
 export default LivePickRow;
