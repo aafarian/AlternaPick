@@ -98,6 +98,28 @@ async function getGlobalLeaderboardInternal(
   sort: LeaderboardSort
 ): Promise<LeaderboardRow[]> {
   const supabase = createAdminClient();
+
+  // For flame_tokens sort, only include users who have wagered at least once
+  if (sort === "flame_tokens") {
+    // Get user IDs that have wagered
+    const { data: wageredCards } = await (supabase.from("cards") as any)
+      .select("user_id")
+      .not("fire_token_wager", "is", null)
+      .not("user_id", "is", null);
+
+    const wageredUserIds = [...new Set((wageredCards ?? []).map((c: { user_id: string }) => c.user_id))];
+
+    if (wageredUserIds.length === 0) return [];
+
+    const query = typedFrom(supabase, "leaderboard_entries")
+      .select("*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url, icon_config)")
+      .in("user_id", wageredUserIds as string[]);
+
+    const { data, error } = await applySortOrder(query, sort).range(offset, offset + limit - 1);
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as Record<string, unknown>[]).map(toLeaderboardRow);
+  }
+
   const query = typedFrom(supabase, "leaderboard_entries").select(
     "*, profiles!leaderboard_entries_user_id_fkey(id, username, display_name, avatar_url, icon_config)"
   );
