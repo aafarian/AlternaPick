@@ -167,8 +167,8 @@ async function main() {
         let payout: number | null = null;
         if (card.fire_token_wager != null) {
           const hsResult = computeCardHeatScore(hits, misses, card.card_size);
-          if (hsResult.effectiveSize === 0) {
-            payout = card.fire_token_wager; // all DNP/push — full refund
+          if (hsResult.effectiveSize <= 1) {
+            payout = card.fire_token_wager; // all voided or only 1 pick left — full refund
           } else {
             const scoreableNotches = typedPicks
               .filter((p) => p.result === "hit" || p.result === "miss")

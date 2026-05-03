@@ -1,5 +1,8 @@
 -- Add biggest_payout to get_tier_hit_rates (was added to migration 062
 -- after it was already deployed, so the DB function is missing it).
+-- Must DROP first because return type is changing (added column).
+
+DROP FUNCTION IF EXISTS get_tier_hit_rates();
 
 CREATE OR REPLACE FUNCTION get_tier_hit_rates()
 RETURNS TABLE (

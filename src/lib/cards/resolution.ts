@@ -864,8 +864,9 @@ export async function resolveCard(
     // Uses geometric mean of per-pick wager scales to prevent mixed-card exploits.
     if (wager != null) {
       const hsResult = computeCardHeatScore(score, misses, card.card_size);
-      if (hsResult.effectiveSize === 0) {
-        // All picks voided (DNP/push) — refund wager in full
+      if (hsResult.effectiveSize <= 1) {
+        // All picks voided OR reduced to 1 scoreable pick (no 1-pick multiplier
+        // exists) — refund wager in full so users aren't penalized for DNPs
         payout = wager;
       } else {
         // Only include scoreable picks (hit/miss) — voided picks (DNP/push)
