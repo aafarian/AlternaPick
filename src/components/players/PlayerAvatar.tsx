@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState, memo } from "react";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/format/name-utils";
@@ -14,7 +13,6 @@ interface PlayerAvatarProps {
   className?: string;
 }
 
-const SIZE_PX = { sm: 24, default: 32, lg: 40, xl: 56 } as const;
 const SIZE_CLASSES = {
   sm: "h-6 w-6 text-[8px]",
   default: "h-8 w-8 text-[10px]",
@@ -30,7 +28,6 @@ function PlayerAvatarInner({
   className,
 }: PlayerAvatarProps) {
   const [imgError, setImgError] = useState(false);
-  const px = SIZE_PX[size];
 
   if (!playerId || imgError) {
     return (
@@ -54,12 +51,12 @@ function PlayerAvatarInner({
         className
       )}
     >
-      <Image
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src={getPlayerHeadshotUrl(playerId, sport)}
         alt={playerName}
-        width={px}
-        height={px}
         className="absolute inset-0 h-full w-full object-cover"
+        loading="eager"
         onError={() => setImgError(true)}
       />
     </div>
