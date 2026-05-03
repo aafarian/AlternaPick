@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, memo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CardWithPicks } from "@/lib/cards/api";
@@ -30,31 +30,31 @@ function buildGamesFromPicks(picks: CardWithPicks["picks"]): LiveGameStatus[] {
 
   for (const pick of picks) {
     const g = pick.props?.games;
-    if (!g) continue;
-    const gameId = pick.props!.game_id;
-    if (seen.has(gameId)) continue;
+    const gameId = pick.props?.game_id;
+    if (!g || !gameId || seen.has(gameId)) continue;
     seen.add(gameId);
 
-    const homeTeam = g.home_team ?? "";
-    const awayTeam = g.away_team ?? "";
+    const sport = g.sport ?? "";
+    const home = pick.props?.games?.home_team ?? "";
+    const away = pick.props?.games?.away_team ?? "";
 
     games.push({
       game_id: gameId,
-      external_event_id: g.external_event_id ?? gameId,
-      status: (g.status as "scheduled" | "live" | "final") ?? "final",
-      period: g.status === "final" ? 4 : 0,
-      clock: g.status === "final" ? "0:00" : "",
-      sport: g.sport ?? undefined,
-      home_team: homeTeam,
-      away_team: awayTeam,
-      home_tricode: teamTricode(homeTeam),
-      away_tricode: teamTricode(awayTeam),
-      home_score: g.home_score ?? 0,
-      away_score: g.away_score ?? 0,
-      home_logo: teamLogoUrl(homeTeam) || teamLogoUrl(teamTricode(homeTeam)),
-      away_logo: teamLogoUrl(awayTeam) || teamLogoUrl(teamTricode(awayTeam)),
+      external_event_id: gameId,
+      status: "final",
+      period: sport === "soccer" ? 2 : 4,
+      clock: "0:00",
+      sport,
+      home_team: home,
+      away_team: away,
+      home_tricode: teamTricode(home),
+      away_tricode: teamTricode(away),
+      home_score: 0,
+      away_score: 0,
+      home_logo: teamLogoUrl(home) ?? undefined,
+      away_logo: teamLogoUrl(away) ?? undefined,
       commence_time: g.commence_time ?? null,
-      game_url: gameUrl(g.sport ?? undefined, g.external_event_id ?? ""),
+      game_url: gameUrl(sport, gameId) ?? undefined,
     });
   }
 
@@ -62,39 +62,38 @@ function buildGamesFromPicks(picks: CardWithPicks["picks"]): LiveGameStatus[] {
 }
 
 function StatusBadge({ status, score, total }: { status: string; score: number; total: number }) {
-  if (status === "locked") {
-    return (
-      <Badge variant="secondary" className="border-amber-500/30 bg-amber-500/15 text-amber-400">
-        Locked
-      </Badge>
-    );
-  }
+  const label = status === "resolved" ? `${score}/${total} Correct` : status === "locked" ? "Locked" : "Draft";
+  const variant = status === "resolved"
+    ? score > 0 && score === total ? "bg-neon-green/15 text-neon-green border-neon-green/30"
+      : score > 0 ? "bg-orange-500/15 text-orange-400 border-orange-500/30"
+      : "bg-bold-red/15 text-bold-red border-bold-red/30"
+    : status === "locked" ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+    : "bg-muted/15 text-muted-foreground border-border";
 
-  const isGoodScore = score >= total / 2;
   return (
-    <Badge
-      variant="secondary"
-      className={
-        isGoodScore
-          ? "border-neon-green/30 bg-neon-green/15 text-neon-green"
-          : "border-bold-red/30 bg-bold-red/15 text-bold-red"
-      }
-    >
-      {score}/{total} Correct
-    </Badge>
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${variant}`}>
+      {label}
+    </span>
   );
 }
 
-export default function CardDetail({ card, linked = true }: { card: CardWithPicks; linked?: boolean }) {
+// ---------------------------------------------------------------------------
+// LiveCardContent — owns the live data hook, isolates re-renders from header
+// ---------------------------------------------------------------------------
+
+const LiveCardContent = memo(function LiveCardContent({
+  card,
+  animate,
+}: {
+  card: CardWithPicks;
+  animate: boolean;
+}) {
   const isLocked = card.status === "locked";
   const router = useRouter();
   const { data: liveData, cardResolved } = useLiveStats(card.id, isLocked);
 
-  // Refresh page data when the backend resolves the card during live polling
   useEffect(() => {
-    if (cardResolved) {
-      router.refresh();
-    }
+    if (cardResolved) router.refresh();
   }, [cardResolved, router]);
 
   const livePickMap = useMemo(() => {
@@ -112,89 +111,21 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
     [card.status, card.picks],
   );
 
-  const date = new Date(card.created_at).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-
-  const href = card.challenge_id
-    ? `/challenges/${card.challenge_id}`
-    : `/cards/${card.id}`;
-
-  const Wrapper = linked
-    ? ({ children }: { children: React.ReactNode }) => (
-        <Link href={href} className="block">
-          {children}
-        </Link>
-      )
-    : ({ children }: { children: React.ReactNode }) => <>{children}</>;
-
   const prefersReduced = useReducedMotion();
-
-  // Skip entrance animations on standalone card page (linked=false)
-  // to prevent the "flicker" of multiple staggered animations
-  const animate = linked;
+  const gamesToShow = liveData?.games ?? (fallbackGames.length > 0 ? fallbackGames : undefined);
 
   return (
-    <Wrapper>
-      <SlideUp offset={animate ? 16 : 0} duration={animate ? 0.4 : 0}>
-        <Card className="border-border bg-card">
-      <div className="flex items-start justify-between px-4 py-3">
-        <div className="flex items-center gap-3">
-          <ScaleIn delay={animate ? 0.1 : 0} duration={animate ? 0.35 : 0}>
-            <StatusBadge status={card.status} score={card.score} total={card.total_picks} />
-          </ScaleIn>
-          {card.challenge_id && card.challenges ? (
-            card.challenges.lobby_type === "group" ? (
-              <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
-                Group
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
-                H2H{(() => {
-                  const c = card.challenges;
-                  const opponent = card.user_id === c.challenger_id ? c.opponent : c.challenger;
-                  const name = opponent?.username ?? (c.opponent_email ? "Invited" : null);
-                  return name ? ` · ${name}` : "";
-                })()}
-              </Badge>
-            )
-          ) : card.challenge_id ? (
-            <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
-              H2H
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="text-muted-foreground text-[10px] px-1.5 py-0">
-              Solo
-            </Badge>
-          )}
-          <span className="text-xs text-muted-foreground">{date}</span>
+    <>
+      {/* LIVE indicator — only when live games are active */}
+      {liveData?.has_live_games && (
+        <div className="absolute right-4 top-3 flex items-center gap-1">
+          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-foreground" />
+          <span className="text-xs font-bold text-foreground">LIVE</span>
         </div>
-        <div className="flex items-center gap-3">
-          {liveData?.has_live_games && (
-            <div className="flex items-center gap-1">
-              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-foreground" />
-              <span className="text-xs font-bold text-foreground">LIVE</span>
-            </div>
-          )}
-          <CardHeatScoreBadge
-            heatScore={card.heat_score}
-            wager={card.fire_token_wager}
-            payout={card.fire_token_payout}
-            cardSize={card.card_size}
-            pickNotches={card.picks.map((p) => p.notch ?? 0)}
-            score={card.score}
-            totalPicks={card.total_picks}
-          />
-        </div>
-      </div>
+      )}
 
+      {/* Game score banner */}
       {(() => {
-        const gamesToShow = liveData?.games ?? (fallbackGames.length > 0 ? fallbackGames : undefined);
-
-        // Locked card waiting for live data — show skeleton to reserve space
         if (isLocked && !gamesToShow) {
           return (
             <div className="flex gap-2 px-3 pb-2">
@@ -202,9 +133,7 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
             </div>
           );
         }
-
         if (!gamesToShow || gamesToShow.length === 0) return null;
-
         if (!animate) {
           return (
             <div className="px-3 pb-2">
@@ -230,6 +159,7 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
 
       <Separator />
 
+      {/* Pick rows */}
       <CardContent className="flex flex-col gap-0 p-0">
         {animate ? (
           <StaggerChildren staggerDelay={0.07} className="flex flex-col gap-0">
@@ -274,6 +204,7 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
         )}
       </CardContent>
 
+      {/* Share button (resolved only) */}
       {card.status === "resolved" && (
         <FadeIn delay={animate ? 0.3 : 0}>
           <CardFooter className="justify-end px-4 py-3">
@@ -281,6 +212,87 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
           </CardFooter>
         </FadeIn>
       )}
+    </>
+  );
+});
+
+// ---------------------------------------------------------------------------
+// CardDetail — static header + LiveCardContent child
+// ---------------------------------------------------------------------------
+
+export default function CardDetail({ card, linked = true }: { card: CardWithPicks; linked?: boolean }) {
+  const date = new Date(card.created_at).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  const href = card.challenge_id
+    ? `/challenges/${card.challenge_id}`
+    : `/cards/${card.id}`;
+
+  const Wrapper = linked
+    ? ({ children }: { children: React.ReactNode }) => (
+        <Link href={href} className="block">
+          {children}
+        </Link>
+      )
+    : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
+  const animate = linked;
+
+  return (
+    <Wrapper>
+      <SlideUp offset={animate ? 16 : 0} duration={animate ? 0.4 : 0}>
+        <Card className="relative border-border bg-card">
+          {/* Static header — never re-renders from live data */}
+          <div className="flex items-start justify-between px-4 py-3">
+            <div className="flex items-center gap-3">
+              <ScaleIn delay={animate ? 0.1 : 0} duration={animate ? 0.35 : 0}>
+                <StatusBadge status={card.status} score={card.score} total={card.total_picks} />
+              </ScaleIn>
+              {card.challenge_id && card.challenges ? (
+                card.challenges.lobby_type === "group" ? (
+                  <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
+                    Group
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
+                    H2H{(() => {
+                      const c = card.challenges;
+                      const opponent = card.user_id === c.challenger_id ? c.opponent : c.challenger;
+                      const name = opponent?.username ?? (c.opponent_email ? "Invited" : null);
+                      return name ? ` · ${name}` : "";
+                    })()}
+                  </Badge>
+                )
+              ) : card.challenge_id ? (
+                <Badge variant="outline" className="border-primary/30 text-primary text-[10px] px-1.5 py-0">
+                  H2H
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-muted-foreground text-[10px] px-1.5 py-0">
+                  Solo
+                </Badge>
+              )}
+              <span className="text-xs text-muted-foreground">{date}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <CardHeatScoreBadge
+                heatScore={card.heat_score}
+                wager={card.fire_token_wager}
+                payout={card.fire_token_payout}
+                cardSize={card.card_size}
+                pickNotches={card.picks.map((p) => p.notch ?? 0)}
+                score={card.score}
+                totalPicks={card.total_picks}
+              />
+            </div>
+          </div>
+
+          {/* Live content — isolated re-renders */}
+          <LiveCardContent card={card} animate={animate} />
         </Card>
       </SlideUp>
     </Wrapper>
