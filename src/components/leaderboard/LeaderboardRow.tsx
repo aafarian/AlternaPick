@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import RankBadge from "./RankBadge";
 import type { LeaderboardEntryWithProfile } from "@/app/api/leaderboard/route";
 import { parseIconConfig } from "@/lib/icons/parse";
@@ -11,12 +10,6 @@ import { cn } from "@/lib/utils";
 import { useReducedMotion } from "@/lib/motion";
 import UserProfilePopover from "@/components/user/UserProfilePopover";
 
-/** Glow colors for top-3 ranks */
-const TOP3_GLOW: Record<number, string> = {
-  1: "rgba(251,191,36,0.35)", // gold
-  2: "rgba(148,163,184,0.30)", // silver
-  3: "rgba(217,119,6,0.30)", // bronze
-};
 
 function TierRate({ rate, color }: { rate: number | null; color: string }) {
   if (rate == null) return <span className="text-muted-foreground/40">—</span>;
@@ -38,30 +31,13 @@ export default function LeaderboardRow({
 }: LeaderboardRowProps) {
   const { rank, user, stats } = entry;
   const prefersReduced = useReducedMotion();
-  const rowRef = useRef<HTMLDivElement | null>(null);
-  const trRef = useRef<HTMLTableRowElement | null>(null);
   const isFlame = sort === "flame_tokens";
-
-  // Top-3 glow flash on mount
-  const glowColor = TOP3_GLOW[rank];
-  useEffect(() => {
-    if (prefersReduced || !glowColor) return;
-    const el = variant === "mobile" ? rowRef.current : trRef.current;
-    if (!el) return;
-    el.style.boxShadow = `0 0 16px 4px ${glowColor}`;
-    const timer = setTimeout(() => {
-      el.style.transition = "box-shadow 0.8s ease-out";
-      el.style.boxShadow = "none";
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [prefersReduced, glowColor, variant]);
 
   if (variant === "mobile") {
     return (
       <div
-        ref={rowRef}
         className={cn(
-          "rounded-xl transition-[transform,box-shadow] duration-200",
+          "rounded-xl transition-transform duration-200",
           !prefersReduced && "hover:-translate-y-0.5 hover:shadow-md"
         )}
       >
@@ -140,9 +116,8 @@ export default function LeaderboardRow({
 
   return (
     <TableRow
-      ref={trRef}
       className={cn(
-        "border-border transition-[transform,box-shadow] duration-200",
+        "border-border",
         isCurrentUser && "bg-primary/5 border-primary/20",
         !prefersReduced && "hover:bg-muted/40"
       )}

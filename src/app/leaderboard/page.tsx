@@ -38,7 +38,7 @@ export default function LeaderboardPage() {
   const tabParam = searchParams.get("tab");
   const sortParam = searchParams.get("sort");
   const activeTab: TabKey = isValidTab(tabParam) ? tabParam : "global";
-  const sortBy: SortKey = isValidSort(sortParam) ? sortParam : "hit_rate";
+  const sortBy: SortKey = isValidSort(sortParam) ? sortParam : "flame_tokens";
 
   const updateParams = useCallback(
     (updates: { tab?: TabKey; sort?: SortKey }) => {
@@ -200,7 +200,7 @@ export default function LeaderboardPage() {
                 transition={springTransition}
               />
             )}
-            <span className="relative z-10">🔥 Flame</span>
+            <span className="relative z-10">Flame</span>
           </button>
         </div>
       </FadeIn>

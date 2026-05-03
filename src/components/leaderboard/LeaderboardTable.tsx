@@ -3,6 +3,7 @@
 import LeaderboardRow from "./LeaderboardRow";
 import type { LeaderboardEntryWithProfile } from "@/app/api/leaderboard/route";
 import { AnimatedList } from "@/components/motion";
+import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
 import {
   Table,
   TableBody,
@@ -47,7 +48,7 @@ export default function LeaderboardTable({
                   <TableHead className={TH}>Heated</TableHead>
                   <TableHead className={TH}>Scorched</TableHead>
                   <TableHead className={TH}>Volcanic</TableHead>
-                  <TableHead className={TH}>🔥 Flame</TableHead>
+                  <TableHead className={TH}><span className="inline-flex items-center gap-1"><FlameTokenIcon className="h-3 w-3" /> Flame</span></TableHead>
                   <TableHead className={TH}>Best Payout</TableHead>
                 </>
               ) : (
@@ -55,7 +56,7 @@ export default function LeaderboardTable({
                   <TableHead className={TH}>Correct</TableHead>
                   <TableHead className={TH}>Streak</TableHead>
                   <TableHead className={TH}>H2H</TableHead>
-                  <TableHead className={TH}>🔥 Flame</TableHead>
+                  <TableHead className={TH}><span className="inline-flex items-center gap-1"><FlameTokenIcon className="h-3 w-3" /> Flame</span></TableHead>
                   <TableHead className={TH}>Cards</TableHead>
                 </>
               )}

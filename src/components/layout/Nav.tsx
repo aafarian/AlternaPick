@@ -116,13 +116,7 @@ const authenticatedItems: NavItem[] = [
   { href: "/challenges", label: "Challenges", icon: Swords, badgeKey: "challenges" },
   { href: "/analytics", label: "Analytics", icon: TrendingUp, dotKey: "analytics" },
   { href: "/recap", label: "Wrapped", icon: Newspaper, dotKey: "wrapped" },
-  {
-    label: "Social",
-    children: [
-      { href: "/friends", label: "Friends", icon: UserPlus, badgeKey: "friends" },
-      { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
-    ],
-  },
+  { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
 ];
 
 /** Flat list of all authenticated links (used for mobile drawer) */
@@ -168,7 +162,7 @@ export default function Nav({
     : baseLinks;
   const desktopItems = user ? authenticatedItems : publicLinks;
   const isProfileActive =
-    activePath === "/profile" || activePath === "/settings";
+    activePath === "/profile" || activePath === "/settings" || activePath === "/friends";
   const isAdminActive = activePath.startsWith("/admin");
 
   function renderStandaloneLink(link: NavLink, context: "mobile" | "desktop" = "desktop") {
@@ -346,6 +340,21 @@ export default function Nav({
               >
                 <User className="h-4 w-4" />
                 My Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link
+                href="/friends"
+                onClick={() => { setPendingPath("/friends"); onNavigate?.(); }}
+                className={`gap-2 ${activePath === "/friends" ? activeChildStyle : ""}`}
+              >
+                <UserPlus className="h-4 w-4" />
+                Friends
+                {(notificationCounts?.friends ?? 0) > 0 && (
+                  <span className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+                    {notificationCounts?.friends}
+                  </span>
+                )}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
