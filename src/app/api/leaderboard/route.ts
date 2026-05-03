@@ -27,6 +27,16 @@ export interface LeaderboardEntryWithProfile {
     h2h_wins: number;
     h2h_losses: number;
     fire_tokens_balance: number;
+    /** Standard-only hit rate (excludes notched picks) */
+    standard_hit_rate: number | null;
+    /** Per-tier hit rates */
+    tier_hit_rates: {
+      frosty: number | null;
+      chilled: number | null;
+      heated: number | null;
+      scorched: number | null;
+      volcanic: number | null;
+    };
   };
 }
 
@@ -52,6 +62,14 @@ function rowToEntry(row: LeaderboardRow): LeaderboardEntryWithProfile["stats"] {
     h2h_wins: row.h2h_wins,
     h2h_losses: row.h2h_losses,
     fire_tokens_balance: row.fire_tokens_balance,
+    standard_hit_rate: null,
+    tier_hit_rates: {
+      frosty: null,
+      chilled: null,
+      heated: null,
+      scorched: null,
+      volcanic: null,
+    },
   };
 }
 
@@ -129,6 +147,39 @@ export async function GET(request: NextRequest) {
       },
       stats: rowToEntry(row),
     }));
+
+    // Fetch tier hit rates and merge into entries
+    const userIds = entries.map((e) => e.user.id);
+    if (userIds.length > 0) {
+      const { data: tierData } = await (supabase.rpc as any)("get_tier_hit_rates");
+      if (tierData) {
+        const tierMap = new Map<string, Record<string, number>>();
+        for (const row of tierData as Array<Record<string, unknown>>) {
+          tierMap.set(row.user_id as string, row as Record<string, number>);
+        }
+        for (const entry of entries) {
+          const t = tierMap.get(entry.user.id);
+          if (!t) continue;
+          const stdTotal = (t.standard_total as number) ?? 0;
+          const stdHits = (t.standard_hits as number) ?? 0;
+          entry.stats.standard_hit_rate = stdTotal > 0
+            ? Math.round((stdHits / stdTotal) * 1000) / 10
+            : null;
+          entry.stats.tier_hit_rates = {
+            frosty: (t.frosty_total as number) > 0
+              ? Math.round(((t.frosty_hits as number) / (t.frosty_total as number)) * 1000) / 10 : null,
+            chilled: (t.chilled_total as number) > 0
+              ? Math.round(((t.chilled_hits as number) / (t.chilled_total as number)) * 1000) / 10 : null,
+            heated: (t.heated_total as number) > 0
+              ? Math.round(((t.heated_hits as number) / (t.heated_total as number)) * 1000) / 10 : null,
+            scorched: (t.scorched_total as number) > 0
+              ? Math.round(((t.scorched_hits as number) / (t.scorched_total as number)) * 1000) / 10 : null,
+            volcanic: (t.volcanic_total as number) > 0
+              ? Math.round(((t.volcanic_hits as number) / (t.volcanic_total as number)) * 1000) / 10 : null,
+          };
+        }
+      }
+    }
 
     // Get total count for pagination
     // Fetch count separately to support pagination metadata

@@ -157,7 +157,30 @@ export default function LeaderboardRow({
       </TableCell>
 
       <TableCell className={cn("text-sm", sort === "hit_rate" ? "font-bold" : "text-muted-foreground")}>
-        {stats.win_rate.toFixed(1)}%
+        {(stats.standard_hit_rate ?? stats.win_rate).toFixed(1)}%
+      </TableCell>
+
+      <TableCell className="text-[10px] text-muted-foreground">
+        {(() => {
+          const t = stats.tier_hit_rates;
+          const tiers = [
+            { label: "🔥", rate: t?.volcanic, color: "text-red-400" },
+            { label: "🟠", rate: t?.scorched, color: "text-orange-400" },
+            { label: "🟡", rate: t?.heated, color: "text-yellow-400" },
+            { label: "🔵", rate: t?.frosty, color: "text-blue-400" },
+          ];
+          const active = tiers.filter((x) => x.rate != null);
+          if (active.length === 0) return "—";
+          return (
+            <span className="flex flex-col gap-0.5">
+              {active.map((x) => (
+                <span key={x.label} className={x.color}>
+                  {x.label} {x.rate?.toFixed(0)}%
+                </span>
+              ))}
+            </span>
+          );
+        })()}
       </TableCell>
 
       <TableCell className="text-sm text-muted-foreground">

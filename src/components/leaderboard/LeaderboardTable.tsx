@@ -36,6 +36,7 @@ export default function LeaderboardTable({
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Rank</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Player</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Hit Rate</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tiers</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Correct</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Streak</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">H2H</TableHead>
