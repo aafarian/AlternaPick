@@ -154,7 +154,8 @@ export async function GET(request: NextRequest) {
     // Fetch tier hit rates and merge into entries
     const userIds = entries.map((e) => e.user.id);
     if (userIds.length > 0) {
-      const { data: tierData } = await (supabase.rpc as any)("get_tier_hit_rates");
+      const admin = (await import("@/lib/supabase/admin")).createAdminClient();
+      const { data: tierData } = await (admin.rpc as any)("get_tier_hit_rates");
       if (tierData) {
         const tierMap = new Map<string, Record<string, number>>();
         for (const row of tierData as Array<Record<string, unknown>>) {
@@ -207,7 +208,8 @@ export async function GET(request: NextRequest) {
       if (rankResult) {
         const userStats = rowToEntry(rankResult.entry);
         // Enrich user rank with tier data if available
-        const { data: userTierData } = await (supabase.rpc as any)("get_tier_hit_rates");
+        const adminForRank = (await import("@/lib/supabase/admin")).createAdminClient();
+        const { data: userTierData } = await (adminForRank.rpc as any)("get_tier_hit_rates");
         if (userTierData) {
           const userTier = (userTierData as Array<Record<string, unknown>>).find(
             (r) => r.user_id === user.id,
