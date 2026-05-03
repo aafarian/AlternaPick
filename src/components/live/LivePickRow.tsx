@@ -208,7 +208,7 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
             )}
             {d.hasValue ? (
-              <span className="flex items-baseline gap-0.5 animate-value-in">
+              <span className="flex items-baseline gap-0.5">
                 <span
                   className={cn(
                     "text-xs font-bold tabular-nums",
@@ -252,7 +252,7 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
           ) : d.hasValue ? (
             <span
               className={cn(
-                "text-xl font-black tabular-nums leading-none animate-value-in",
+                "text-xl font-black tabular-nums leading-none",
                 d.isWinning ? "text-neon-green" : "text-bold-red"
               )}
             >
@@ -311,13 +311,13 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
           )}
 
           {d.isLive && pick.game_status && (
-            <span className="flex items-center gap-1 text-[10px] font-semibold leading-none tabular-nums text-white/70 animate-value-in">
+            <span className="flex items-center gap-1 text-[10px] font-semibold leading-none tabular-nums text-white/70">
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
               {formatLiveStatus(pick.game_status.period, pick.game_status.clock, pick.sport, pick.game_status.home_score, pick.game_status.away_score)}
             </span>
           )}
           {d.isFinal && !d.isSettled && (
-            <span className="text-[10px] font-semibold leading-none text-white/50 animate-value-in">
+            <span className="text-[10px] font-semibold leading-none text-white/50">
               Final
             </span>
           )}
