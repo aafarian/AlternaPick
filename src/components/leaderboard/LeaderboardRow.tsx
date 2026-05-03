@@ -18,6 +18,11 @@ const TOP3_GLOW: Record<number, string> = {
   3: "rgba(217,119,6,0.30)", // bronze
 };
 
+function TierRate({ rate, color }: { rate: number | null; color: string }) {
+  if (rate == null) return <span className="text-muted-foreground/40">—</span>;
+  return <span className={cn("tabular-nums", color)}>{rate.toFixed(0)}%</span>;
+}
+
 interface LeaderboardRowProps {
   entry: LeaderboardEntryWithProfile;
   isCurrentUser: boolean;
@@ -35,6 +40,7 @@ export default function LeaderboardRow({
   const prefersReduced = useReducedMotion();
   const rowRef = useRef<HTMLDivElement | null>(null);
   const trRef = useRef<HTMLTableRowElement | null>(null);
+  const isFlame = sort === "flame_tokens";
 
   // Top-3 glow flash on mount
   const glowColor = TOP3_GLOW[rank];
@@ -96,15 +102,30 @@ export default function LeaderboardRow({
                   </p>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                     <span className={cn(sort === "hit_rate" ? "font-bold text-foreground" : "")}>
-                      {stats.win_rate.toFixed(1)}%
+                      {(stats.standard_hit_rate ?? stats.win_rate).toFixed(1)}%
                     </span>
-                    <span>
-                      {stats.current_streak}/{stats.best_streak} streak
-                    </span>
-                    <span className={cn(sort === "h2h" ? "font-bold text-foreground" : "")}>
-                      {stats.h2h_wins}W-{stats.h2h_losses}L
-                    </span>
-                    <span>{stats.total_cards} cards</span>
+                    {isFlame ? (
+                      <>
+                        <span className="font-bold text-orange-400">
+                          {stats.fire_tokens_balance.toLocaleString()} 🔥
+                        </span>
+                        {stats.biggest_payout > 0 && (
+                          <span className="text-emerald-500">
+                            best: +{stats.biggest_payout.toLocaleString()}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <span>
+                          {stats.current_streak}/{stats.best_streak} streak
+                        </span>
+                        <span className={cn(sort === "h2h" ? "font-bold text-foreground" : "")}>
+                          {stats.h2h_wins}W-{stats.h2h_losses}L
+                        </span>
+                        <span>{stats.total_cards} cards</span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -114,6 +135,8 @@ export default function LeaderboardRow({
       </div>
     );
   }
+
+  const t = stats.tier_hit_rates;
 
   return (
     <TableRow
@@ -160,49 +183,46 @@ export default function LeaderboardRow({
         {(stats.standard_hit_rate ?? stats.win_rate).toFixed(1)}%
       </TableCell>
 
-      <TableCell className="text-[10px] text-muted-foreground">
-        {(() => {
-          const t = stats.tier_hit_rates;
-          const tiers = [
-            { label: "🔥", rate: t?.volcanic, color: "text-red-400" },
-            { label: "🟠", rate: t?.scorched, color: "text-orange-400" },
-            { label: "🟡", rate: t?.heated, color: "text-yellow-400" },
-            { label: "🔵", rate: t?.frosty, color: "text-blue-400" },
-          ];
-          const active = tiers.filter((x) => x.rate != null);
-          if (active.length === 0) return "—";
-          return (
-            <span className="flex flex-col gap-0.5">
-              {active.map((x) => (
-                <span key={x.label} className={x.color}>
-                  {x.label} {x.rate?.toFixed(0)}%
-                </span>
-              ))}
-            </span>
-          );
-        })()}
-      </TableCell>
+      {isFlame ? (
+        <>
+          <TableCell className="text-sm"><TierRate rate={t?.frosty} color="text-blue-400" /></TableCell>
+          <TableCell className="text-sm"><TierRate rate={t?.chilled} color="text-sky-400" /></TableCell>
+          <TableCell className="text-sm"><TierRate rate={t?.heated} color="text-yellow-400" /></TableCell>
+          <TableCell className="text-sm"><TierRate rate={t?.scorched} color="text-orange-400" /></TableCell>
+          <TableCell className="text-sm"><TierRate rate={t?.volcanic} color="text-red-400" /></TableCell>
 
-      <TableCell className="text-sm text-muted-foreground">
-        {stats.total_correct_picks}
-      </TableCell>
+          <TableCell className="text-sm font-bold tabular-nums text-orange-400">
+            {stats.fire_tokens_balance.toLocaleString()}
+          </TableCell>
 
-      <TableCell className="text-sm">
-        <span className="font-bold">{stats.current_streak}</span>
-        <span className="text-muted-foreground"> / {stats.best_streak}</span>
-      </TableCell>
+          <TableCell className="text-sm tabular-nums text-emerald-500">
+            {stats.biggest_payout > 0 ? `+${stats.biggest_payout.toLocaleString()}` : "—"}
+          </TableCell>
+        </>
+      ) : (
+        <>
+          <TableCell className="text-sm text-muted-foreground">
+            {stats.total_correct_picks}
+          </TableCell>
 
-      <TableCell className={cn("text-sm", sort === "h2h" ? "font-bold" : "text-muted-foreground")}>
-        {stats.h2h_wins}W - {stats.h2h_losses}L
-      </TableCell>
+          <TableCell className="text-sm">
+            <span className="font-bold">{stats.current_streak}</span>
+            <span className="text-muted-foreground"> / {stats.best_streak}</span>
+          </TableCell>
 
-      <TableCell className={cn("text-sm tabular-nums", sort === "flame_tokens" ? "font-bold text-orange-400" : "text-muted-foreground")}>
-        {stats.fire_tokens_balance.toLocaleString()}
-      </TableCell>
+          <TableCell className={cn("text-sm", sort === "h2h" ? "font-bold" : "text-muted-foreground")}>
+            {stats.h2h_wins}W - {stats.h2h_losses}L
+          </TableCell>
 
-      <TableCell className="text-sm text-muted-foreground">
-        {stats.total_cards}
-      </TableCell>
+          <TableCell className="text-sm tabular-nums text-orange-400">
+            {stats.fire_tokens_balance.toLocaleString()}
+          </TableCell>
+
+          <TableCell className="text-sm text-muted-foreground">
+            {stats.total_cards}
+          </TableCell>
+        </>
+      )}
     </TableRow>
   );
 }

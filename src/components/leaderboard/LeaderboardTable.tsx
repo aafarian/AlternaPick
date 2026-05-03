@@ -17,6 +17,8 @@ interface LeaderboardTableProps {
   sort: "hit_rate" | "h2h" | "flame_tokens";
 }
 
+const TH = "text-[10px] font-bold uppercase tracking-widest text-muted-foreground";
+
 export default function LeaderboardTable({
   entries,
   currentUserId,
@@ -26,6 +28,8 @@ export default function LeaderboardTable({
     return null;
   }
 
+  const isFlame = sort === "flame_tokens";
+
   return (
     <>
       {/* Desktop table */}
@@ -33,15 +37,28 @@ export default function LeaderboardTable({
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Rank</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Player</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Hit Rate</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tiers</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Correct</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Streak</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">H2H</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">🔥 Flame</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cards</TableHead>
+              <TableHead className={TH}>Rank</TableHead>
+              <TableHead className={TH}>Player</TableHead>
+              <TableHead className={TH}>Hit Rate</TableHead>
+              {isFlame ? (
+                <>
+                  <TableHead className={TH}>Frosty</TableHead>
+                  <TableHead className={TH}>Chilled</TableHead>
+                  <TableHead className={TH}>Heated</TableHead>
+                  <TableHead className={TH}>Scorched</TableHead>
+                  <TableHead className={TH}>Volcanic</TableHead>
+                  <TableHead className={TH}>🔥 Flame</TableHead>
+                  <TableHead className={TH}>Best Payout</TableHead>
+                </>
+              ) : (
+                <>
+                  <TableHead className={TH}>Correct</TableHead>
+                  <TableHead className={TH}>Streak</TableHead>
+                  <TableHead className={TH}>H2H</TableHead>
+                  <TableHead className={TH}>🔥 Flame</TableHead>
+                  <TableHead className={TH}>Cards</TableHead>
+                </>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>

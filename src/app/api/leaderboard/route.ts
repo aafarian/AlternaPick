@@ -37,6 +37,8 @@ export interface LeaderboardEntryWithProfile {
       scorched: number | null;
       volcanic: number | null;
     };
+    /** Biggest single payout from a wagered card */
+    biggest_payout: number;
   };
 }
 
@@ -70,6 +72,7 @@ function rowToEntry(row: LeaderboardRow): LeaderboardEntryWithProfile["stats"] {
       scorched: null,
       volcanic: null,
     },
+    biggest_payout: 0,
   };
 }
 
@@ -177,6 +180,7 @@ export async function GET(request: NextRequest) {
             volcanic: (t.volcanic_total as number) > 0
               ? Math.round(((t.volcanic_hits as number) / (t.volcanic_total as number)) * 1000) / 10 : null,
           };
+          entry.stats.biggest_payout = (t.biggest_payout as number) ?? 0;
         }
       }
     }

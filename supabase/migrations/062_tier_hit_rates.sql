@@ -17,7 +17,8 @@ RETURNS TABLE (
   scorched_total INT,
   volcanic_hits INT,
   volcanic_total INT,
-  has_wagered BOOLEAN
+  has_wagered BOOLEAN,
+  biggest_payout INT
 )
 LANGUAGE sql
 STABLE
@@ -43,7 +44,9 @@ AS $$
     COUNT(*) FILTER (WHERE p.result = 'hit' AND p.notch = 3)::INT AS volcanic_hits,
     COUNT(*) FILTER (WHERE p.result IN ('hit', 'miss') AND p.notch = 3)::INT AS volcanic_total,
     -- Has at least one wagered card
-    BOOL_OR(c.fire_token_wager IS NOT NULL) AS has_wagered
+    BOOL_OR(c.fire_token_wager IS NOT NULL) AS has_wagered,
+    -- Biggest single payout
+    COALESCE(MAX(c.fire_token_payout) FILTER (WHERE c.fire_token_payout > 0), 0)::INT AS biggest_payout
   FROM cards c
   JOIN picks p ON p.card_id = c.id
   WHERE c.status = 'resolved'
