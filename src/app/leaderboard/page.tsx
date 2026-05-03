@@ -240,31 +240,48 @@ export default function LeaderboardPage() {
                   </motion.p>
                 </div>
                 <div className="flex flex-wrap gap-4 sm:gap-6 sm:text-right">
-                  {sortBy === "hit_rate" ? (
+                  {sortBy === "flame_tokens" ? (
                     <>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Flame</p>
+                        <p className="text-sm font-bold text-orange-400">
+                          {userRank.stats.fire_tokens_balance.toLocaleString()}
+                        </p>
+                      </div>
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Hit Rate</p>
                         <p className="text-sm font-bold">
-                          {userRank.stats.win_rate.toFixed(1)}%
+                          {(userRank.stats.standard_hit_rate ?? userRank.stats.win_rate).toFixed(1)}%
                         </p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Streak</p>
-                        <p className="text-sm font-bold">
-                          {userRank.stats.current_streak}
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Best Payout</p>
+                        <p className="text-sm font-bold text-emerald-500">
+                          {userRank.stats.biggest_payout > 0 ? `+${userRank.stats.biggest_payout.toLocaleString()}` : "—"}
                         </p>
                       </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cards</p>
-                        <p className="text-sm font-bold">
-                          {userRank.stats.total_cards}
-                        </p>
-                      </div>
+                    </>
+                  ) : sortBy === "h2h" ? (
+                    <>
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">H2H</p>
                         <p className="text-sm font-bold">
                           {userRank.stats.h2h_wins}W-{userRank.stats.h2h_losses}L
                         </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Hit Rate</p>
+                        <p className="text-sm font-bold">
+                          {(userRank.stats.standard_hit_rate ?? userRank.stats.win_rate).toFixed(1)}%
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Streak</p>
+                        <p className="text-sm font-bold">{userRank.stats.current_streak}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cards</p>
+                        <p className="text-sm font-bold">{userRank.stats.total_cards}</p>
                       </div>
                     </>
                   ) : (
@@ -278,20 +295,16 @@ export default function LeaderboardPage() {
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Hit Rate</p>
                         <p className="text-sm font-bold">
-                          {userRank.stats.win_rate.toFixed(1)}%
+                          {(userRank.stats.standard_hit_rate ?? userRank.stats.win_rate).toFixed(1)}%
                         </p>
                       </div>
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Streak</p>
-                        <p className="text-sm font-bold">
-                          {userRank.stats.current_streak}
-                        </p>
+                        <p className="text-sm font-bold">{userRank.stats.current_streak}</p>
                       </div>
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cards</p>
-                        <p className="text-sm font-bold">
-                          {userRank.stats.total_cards}
-                        </p>
+                        <p className="text-sm font-bold">{userRank.stats.total_cards}</p>
                       </div>
                     </>
                   )}

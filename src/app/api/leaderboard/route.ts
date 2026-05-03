@@ -205,9 +205,25 @@ export async function GET(request: NextRequest) {
     if (user) {
       const rankResult = await getUserRank(supabase, user.id, sort);
       if (rankResult) {
+        const userStats = rowToEntry(rankResult.entry);
+        // Enrich user rank with tier data if available
+        const { data: userTierData } = await (supabase.rpc as any)("get_tier_hit_rates");
+        if (userTierData) {
+          const userTier = (userTierData as Array<Record<string, unknown>>).find(
+            (r) => r.user_id === user.id,
+          );
+          if (userTier) {
+            const stdTotal = (userTier.standard_total as number) ?? 0;
+            const stdHits = (userTier.standard_hits as number) ?? 0;
+            userStats.standard_hit_rate = stdTotal > 0
+              ? Math.round((stdHits / stdTotal) * 1000) / 10
+              : null;
+            userStats.biggest_payout = (userTier.biggest_payout as number) ?? 0;
+          }
+        }
         userRank = {
           rank: rankResult.rank,
-          stats: rowToEntry(rankResult.entry),
+          stats: userStats,
         };
       }
     }
