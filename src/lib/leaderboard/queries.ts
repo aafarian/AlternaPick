@@ -63,8 +63,8 @@ function applySortOrder<T extends { order: (...args: any[]) => T }>(
 ): T {
   if (sort === "flame_tokens") {
     return query
-      .order("fire_tokens_lifetime", { ascending: false })
       .order("fire_tokens_balance", { ascending: false })
+      .order("fire_tokens_lifetime", { ascending: false })
       .order("total_cards", { ascending: false });
   }
   if (sort === "h2h") {
