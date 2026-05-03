@@ -31,6 +31,7 @@ export default function StreakBadge() {
   const [tokens, setTokens] = useState<TokenData | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [claimAnimation, setClaimAnimation] = useState<number | null>(null);
   const [showFlameInfo, setShowFlameInfo] = useState(false);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -122,6 +123,15 @@ export default function StreakBadge() {
         )}
       </button>
 
+      {/* Claim animation — floating +50 */}
+      {claimAnimation != null && (
+        <span
+          className="absolute -top-1 left-1/2 -translate-x-1/2 text-sm font-black text-emerald-500 animate-[claim-float_1.5s_ease-out_forwards] pointer-events-none"
+        >
+          +{claimAnimation}
+        </span>
+      )}
+
       {/* Hover detail card — with invisible bridge to prevent gap */}
       {showDetails && !loading && (
         <>
@@ -169,7 +179,12 @@ export default function StreakBadge() {
                         const res = await fetch("/api/fire-tokens/claim", { method: "POST" });
                         const data = await res.json();
                         if (res.ok) {
-                          setTokens((prev) => prev ? { ...prev, balance: data.balance, can_claim: false } : prev);
+                          const newBalance = data.balance;
+                          // Animate the count-up
+                          setClaimAnimation(data.claimed ?? 50);
+                          setTokens((prev) => prev ? { ...prev, balance: newBalance, can_claim: false } : prev);
+                          // Clear the animation after it plays
+                          setTimeout(() => setClaimAnimation(null), 2000);
                         }
                       } catch (err) { logWarn("streak-badge", "Daily claim failed", err); }
                       finally { setClaiming(false); }
