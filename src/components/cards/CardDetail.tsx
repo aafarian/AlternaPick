@@ -231,38 +231,47 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
       <Separator />
 
       <CardContent className="flex flex-col gap-0 p-0">
-        <StaggerChildren staggerDelay={animate ? 0.07 : 0} className="flex flex-col gap-0">
-          {card.picks.map((pick) => {
-            // Use live data if available, otherwise convert the static pick
-            const baseLivePick = livePickMap.get(pick.id) ?? toLivePickData({
-              id: pick.id,
-              selection: pick.selection,
-              result: pick.result,
-              actual_value: pick.actual_value,
-              notch: pick.notch ?? 0,
-              adjusted_line: pick.adjusted_line,
-              heat_score: pick.heat_score,
-              prop: pick.props ? {
-                id: pick.prop_id,
-                player_name: pick.props.player_name,
-                player_id: pick.props.player_id,
-                player_team: pick.props.player_team,
-                player_position: pick.props.player_position,
-                stat_category: pick.props.stat_category,
-                line: pick.props.line,
-                game_id: pick.props.game_id,
-                games: pick.props.games,
-              } : null,
-            });
-            const livePick = baseLivePick;
-
-            return (
-              <StaggerItem key={pick.id}>
-                <LivePickRow pick={livePick} showQualityTokens={card.fire_token_wager != null} />
-              </StaggerItem>
-            );
-          })}
-        </StaggerChildren>
+        {animate ? (
+          <StaggerChildren staggerDelay={0.07} className="flex flex-col gap-0">
+            {card.picks.map((pick) => {
+              const livePick = livePickMap.get(pick.id) ?? toLivePickData({
+                id: pick.id, selection: pick.selection, result: pick.result,
+                actual_value: pick.actual_value, notch: pick.notch ?? 0,
+                adjusted_line: pick.adjusted_line, heat_score: pick.heat_score,
+                prop: pick.props ? {
+                  id: pick.prop_id, player_name: pick.props.player_name,
+                  player_id: pick.props.player_id, player_team: pick.props.player_team,
+                  player_position: pick.props.player_position,
+                  stat_category: pick.props.stat_category, line: pick.props.line,
+                  game_id: pick.props.game_id, games: pick.props.games,
+                } : null,
+              });
+              return (
+                <StaggerItem key={pick.id}>
+                  <LivePickRow pick={livePick} showQualityTokens={card.fire_token_wager != null} />
+                </StaggerItem>
+              );
+            })}
+          </StaggerChildren>
+        ) : (
+          <div className="flex flex-col gap-0">
+            {card.picks.map((pick) => {
+              const livePick = livePickMap.get(pick.id) ?? toLivePickData({
+                id: pick.id, selection: pick.selection, result: pick.result,
+                actual_value: pick.actual_value, notch: pick.notch ?? 0,
+                adjusted_line: pick.adjusted_line, heat_score: pick.heat_score,
+                prop: pick.props ? {
+                  id: pick.prop_id, player_name: pick.props.player_name,
+                  player_id: pick.props.player_id, player_team: pick.props.player_team,
+                  player_position: pick.props.player_position,
+                  stat_category: pick.props.stat_category, line: pick.props.line,
+                  game_id: pick.props.game_id, games: pick.props.games,
+                } : null,
+              });
+              return <LivePickRow key={pick.id} pick={livePick} showQualityTokens={card.fire_token_wager != null} />;
+            })}
+          </div>
+        )}
       </CardContent>
 
       {card.status === "resolved" && (
