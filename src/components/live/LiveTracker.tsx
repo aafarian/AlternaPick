@@ -123,6 +123,7 @@ function LiveCard({
           />
         ) : undefined
       }
+      isWagered={card.fire_token_wager != null}
       loading={!hasFetched}
       pickCount={card.picks.length}
       error={hasError}

@@ -245,10 +245,10 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
   return (
     <Wrapper>
       <SlideUp offset={animate ? 16 : 0} duration={animate ? 0.4 : 0}>
-        <Card className="relative border-border bg-card">
+        <Card className="relative border-border">
           {/* Static header — never re-renders from live data */}
-          <div className="flex items-start justify-between px-4 py-3">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+            <div className="flex items-center gap-2">
               <ScaleIn delay={animate ? 0.1 : 0} duration={animate ? 0.35 : 0}>
                 <StatusBadge status={card.status} score={card.score} total={card.total_picks} />
               </ScaleIn>
@@ -278,7 +278,7 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
               )}
               <span className="text-xs text-muted-foreground">{date}</span>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <CardHeatScoreBadge
                 heatScore={card.heat_score}
                 wager={card.fire_token_wager}

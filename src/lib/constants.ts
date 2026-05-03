@@ -127,7 +127,7 @@ export const CONFIRMATION_DELAY_MS = 5_000;
 
 /** Max toasts shown at once in the Sonner <Toaster>. Also used to decide
  *  whether to collapse catch-up notifications into a single summary toast. */
-export const MAX_VISIBLE_TOASTS = 3;
+export const MAX_VISIBLE_TOASTS = 1;
 
 /* ---------- Team data ---------- */
 

@@ -35,6 +35,8 @@ interface LivePickCardProps {
   statusLabel?: React.ReactNode;
   /** Wager/multiplier info displayed on the right side of the header. */
   wagerLabel?: React.ReactNode;
+  /** True when the card has an actual token wager (shows WAGER badge + orange border) */
+  isWagered?: boolean;
   loading?: boolean;
   pickCount?: number;
   error?: boolean;
@@ -48,13 +50,17 @@ export default function LivePickCard({
   games,
   statusLabel,
   wagerLabel,
+  isWagered = false,
   loading = false,
   pickCount = 0,
   error = false,
   showGameScores = true,
 }: LivePickCardProps) {
   return (
-    <Card className="overflow-hidden border-border bg-card">
+    <Card className={cn(
+      "overflow-hidden bg-card border-border",
+      isWagered && "border-t-2 border-t-orange-500",
+    )}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2.5">
@@ -67,6 +73,11 @@ export default function LivePickCard({
             </div>
           )}
           {statusLabel}
+          {isWagered && (
+            <span className="rounded bg-orange-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-orange-400">
+              Wager
+            </span>
+          )}
           {loading && picks.length > 0 && (
             <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/50" />
           )}

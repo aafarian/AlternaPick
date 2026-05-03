@@ -52,11 +52,13 @@ export default function CardHeatScoreBadge({
     ? Math.round(baseMultiplier * wagerNotchScale * 10) / 10
     : baseMultiplier;
 
-  // Build base multiplier rows (raw table values)
-  const baseRows = cardSize
-    ? Array.from({ length: cardSize + 1 }, (_, i) => cardSize - i).map((hits) => ({
+  // Build base multiplier rows — use effective size (totalPicks) for resolved cards,
+  // original cardSize for live cards (DNPs haven't happened yet)
+  const effectiveSize = (payout != null && totalPicks != null && totalPicks > 0) ? totalPicks : cardSize;
+  const baseRows = effectiveSize
+    ? Array.from({ length: effectiveSize + 1 }, (_, i) => effectiveSize - i).map((hits) => ({
         hits,
-        multiplier: getHeatScoreMultiplier(hits, cardSize),
+        multiplier: getHeatScoreMultiplier(hits, effectiveSize),
       }))
     : [];
 
@@ -153,14 +155,14 @@ export default function CardHeatScoreBadge({
         >
           {/* Live card: wager + "up to Xx" */}
           {!isResolved && (
-            <span className="inline-flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-orange-400">
+            <span className="inline-flex items-center gap-2 text-sm font-bold">
+              <span className="inline-flex items-center gap-1 text-orange-400">
                 <FlameTokenIcon className="h-3.5 w-3.5" />
                 -{wager}
               </span>
               {effectiveMultiplier != null && effectiveMultiplier > 0 && (
                 <span className="inline-flex items-center gap-1">
-                  <span className="text-sm font-black text-emerald-500">up to {effectiveMultiplier}x</span>
+                  <span className="font-black text-emerald-500">up to {effectiveMultiplier}x</span>
                   <button
                     type="button"
                     onClick={(e) => {
@@ -224,7 +226,7 @@ export default function CardHeatScoreBadge({
                           isActual && "bg-primary/10",
                         )}>
                           <span className={cn("text-[11px]", isActual ? "font-bold text-foreground" : "text-muted-foreground")}>
-                            {hits}/{cardSize ?? totalPicks ?? 0} picks {isActual ? "← you" : ""}
+                            {hits}/{effectiveSize ?? 0} picks {isActual ? "← you" : ""}
                           </span>
                           <span className={cn(
                             "text-[11px] font-bold",
