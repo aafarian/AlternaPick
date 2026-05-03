@@ -89,6 +89,11 @@ export async function getGlobalLeaderboard(
   offset: number = 0,
   sort: LeaderboardSort = "hit_rate"
 ): Promise<LeaderboardRow[]> {
+  // Flame tab bypasses cache — small filtered dataset that needs
+  // real-time accuracy (wagered users, payouts, balances change often)
+  if (sort === "flame_tokens") {
+    return getGlobalLeaderboardInternal(limit, offset, sort);
+  }
   return getCachedGlobalLeaderboard(limit, offset, sort);
 }
 
