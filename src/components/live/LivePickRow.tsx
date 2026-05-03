@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, memo } from "react";
+import { useEffect, useRef, memo } from "react";
 import type { LivePickData } from "@/lib/cards/live-types";
 import { computePickDisplay } from "@/lib/cards/pick-display";
 import { CATEGORY_LABELS, CATEGORY_COLORS, formatPlayerSubtitle } from "@/lib/constants";
@@ -28,11 +28,12 @@ interface LivePickRowProps {
 }
 
 function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }: LivePickRowProps) {
-  // Mount at 0% width, then animate to target after browser paints the initial frame
-  const [mounted, setMounted] = useState(false);
+  // Track whether this is the initial render (for the bar grow animation).
+  // Once the bar has grown, subsequent renders just set the width directly.
+  const initialRenderRef = useRef(true);
   useEffect(() => {
-    const id = setTimeout(() => setMounted(true), 50);
-    return () => clearTimeout(id);
+    // Mark as no longer initial after first paint
+    initialRenderRef.current = false;
   }, []);
 
   const statCat = pick.stat_category as StatCategory;
@@ -360,7 +361,7 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
             d.barColor
           )}
           style={{
-            width: mounted ? `${d.barWidth}%` : "0%",
+            width: `${d.barWidth}%`,
           }}
         >
           {/* Chevron pattern — only when in play */}
