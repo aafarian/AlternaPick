@@ -227,11 +227,10 @@ export async function GET(request: NextRequest) {
         // wagered users. Compute rank by counting wagered users with higher balance.
         let finalRank = rankResult.rank;
         if (sort === "flame_tokens") {
-          const adminRank = (await import("@/lib/supabase/admin")).createAdminClient();
           const userBalance = rankResult.entry.fire_tokens_balance;
 
           // Get all user IDs that have wagered
-          const { data: wageredCards } = await (adminRank.from("cards") as any)
+          const { data: wageredCards } = await (adminForRank.from("cards") as any)
             .select("user_id")
             .not("fire_token_wager", "is", null)
             .not("user_id", "is", null);
@@ -242,11 +241,11 @@ export async function GET(request: NextRequest) {
 
           if (wageredUserIds.includes(user.id)) {
             // Count wagered users with strictly higher balance
-            const { count } = await (adminRank.from("leaderboard_entries") as any)
+            const { count, error: countErr } = await (adminForRank.from("leaderboard_entries") as any)
               .select("id", { count: "exact", head: true })
               .in("user_id", wageredUserIds)
               .gt("fire_tokens_balance", userBalance);
-            finalRank = (count ?? 0) + 1;
+            if (!countErr) finalRank = (count ?? 0) + 1;
           }
         }
         userRank = {
