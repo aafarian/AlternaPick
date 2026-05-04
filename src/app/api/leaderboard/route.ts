@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { unauthorized, badRequest, handleApiError } from "@/lib/api/errors";
+import { logWarn } from "@/lib/logger";
 import {
   getGlobalLeaderboard,
   getFriendsLeaderboard,
@@ -230,10 +231,14 @@ export async function GET(request: NextRequest) {
           const userBalance = rankResult.entry.fire_tokens_balance;
 
           // Get all user IDs that have wagered
-          const { data: wageredCards } = await (adminForRank.from("cards") as any)
+          const { data: wageredCards, error: wageredErr } = await (adminForRank.from("cards") as any)
             .select("user_id")
             .not("fire_token_wager", "is", null)
             .not("user_id", "is", null);
+
+          if (wageredErr) {
+            logWarn("leaderboard", `Failed to fetch wagered cards for flame rank: ${wageredErr.message}`);
+          }
 
           const wageredUserIds = [...new Set(
             (wageredCards ?? []).map((c: { user_id: string }) => c.user_id),
