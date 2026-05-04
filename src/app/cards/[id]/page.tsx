@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import CardDetail from "@/components/cards/CardDetail";
+import BackButton from "@/components/ui/BackButton";
 import { CARD_SELECT, type CardWithPicks } from "@/lib/cards/api";
 import { FadeIn } from "@/components/motion";
 
@@ -37,6 +38,7 @@ export default async function CardDetailPage({
   return (
     <FadeIn>
       <div className="mx-auto flex max-w-2xl flex-col gap-8 py-8">
+        <BackButton />
         <CardDetail card={card} linked={false} />
       </div>
     </FadeIn>
