@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import OverviewStats from "@/components/admin/OverviewStats";
+import DetailedOverview from "@/components/admin/DetailedOverview";
 
 export const metadata: Metadata = {
   title: "Admin - Overview",
@@ -14,6 +15,9 @@ export default function AdminOverviewPage() {
       </p>
       <div className="mt-6">
         <OverviewStats />
+      </div>
+      <div className="mt-8">
+        <DetailedOverview />
       </div>
     </div>
   );
