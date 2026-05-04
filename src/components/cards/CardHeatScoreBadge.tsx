@@ -209,7 +209,7 @@ export default function CardHeatScoreBadge({
           {/* Tooltip: payout rates (live) or payout breakdown (resolved) */}
           {showTooltip && (
             <div
-              className="absolute right-0 top-full z-50 mt-1.5 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-card p-3 shadow-lg text-[10px] font-normal"
+              className="absolute left-0 top-full z-50 mt-1.5 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-card p-3 shadow-lg text-[10px] font-normal sm:left-auto sm:right-0"
               onMouseLeave={() => setShowTooltip(false)}
             >
               {/* Resolved: show payout rates + breakdown */}
