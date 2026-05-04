@@ -366,6 +366,62 @@ export interface AdminOverviewStats {
 }
 
 // ---------------------------------------------------------------------------
+// Detailed Overview (GET /api/admin/overview/detailed)
+// ---------------------------------------------------------------------------
+
+export interface SignupTrendPoint {
+  date: string;
+  signups: number;
+}
+
+export interface EngagementMetrics {
+  day7Retention: number;
+  day7RetentionCohortSize: number;
+  avgCardsPerActiveUser: number;
+  avgPicksPerActiveUser: number;
+  dauMauRatio: number;
+  dauTrend: { date: string; count: number }[];
+}
+
+export interface ActiveUser {
+  id: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  lastActiveAt: string;
+  isOnline: boolean;
+}
+
+export interface ActiveUsersData {
+  onlineCount: number;
+  activeToday: ActiveUser[];
+}
+
+export interface HourlyActivity {
+  hour: number;
+  cards: number;
+  picks: number;
+  signups: number;
+}
+
+export interface TokenEconomyStats {
+  totalWageredToday: number;
+  totalPayoutsToday: number;
+  netTokenFlow: number;
+  avgWagerSize: number;
+  totalCirculatingTokens: number;
+  topWagerers: { username: string; wageredToday: number }[];
+}
+
+export interface AdminDetailedOverview {
+  signupTrend: SignupTrendPoint[];
+  engagement: EngagementMetrics;
+  activeUsers: ActiveUsersData;
+  hourlyActivity: HourlyActivity[];
+  tokenEconomy: TokenEconomyStats;
+}
+
+// ---------------------------------------------------------------------------
 // Moderation Actions
 // ---------------------------------------------------------------------------
 
