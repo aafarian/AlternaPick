@@ -9,7 +9,13 @@ export default function BackButton() {
   return (
     <button
       type="button"
-      onClick={() => router.back()}
+      onClick={() => {
+        if (window.history.length > 1) {
+          router.back();
+        } else {
+          router.push("/picks");
+        }
+      }}
       className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground w-fit"
     >
       <ArrowLeft className="h-4 w-4" />
