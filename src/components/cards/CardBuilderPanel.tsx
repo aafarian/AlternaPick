@@ -515,7 +515,8 @@ export default function CardBuilderPanel() {
                   Wager
                 </span>
                 {!balanceLoading && (
-                  <span className="text-[11px] tabular-nums text-muted-foreground">
+                  <span className="flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground">
+                    <FlameTokenIcon className="h-3 w-3 text-orange-400" />
                     {(tokenBalance ?? STARTING_BALANCE).toLocaleString()} available
                   </span>
                 )}
