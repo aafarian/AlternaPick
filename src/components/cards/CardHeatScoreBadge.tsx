@@ -170,7 +170,7 @@ export default function CardHeatScoreBadge({
                       e.preventDefault();
                       setShowTooltip((prev) => !prev);
                     }}
-                    className="text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+                    className="p-1.5 -m-1.5 text-muted-foreground/60 transition-colors hover:text-muted-foreground"
                     aria-label="View payout multipliers"
                   >
                     <HelpCircle className="h-3.5 w-3.5" />
@@ -198,7 +198,7 @@ export default function CardHeatScoreBadge({
                   e.preventDefault();
                   setShowTooltip((prev) => !prev);
                 }}
-                className="text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+                className="p-1.5 -m-1.5 text-muted-foreground/60 transition-colors hover:text-muted-foreground"
                 aria-label="View payout breakdown"
               >
                 <HelpCircle className="h-3.5 w-3.5" />
@@ -209,7 +209,7 @@ export default function CardHeatScoreBadge({
           {/* Tooltip: payout rates (live) or payout breakdown (resolved) */}
           {showTooltip && (
             <div
-              className="absolute right-0 top-full z-50 mt-1.5 w-60 rounded-lg border border-border bg-card p-3 shadow-lg text-[10px] font-normal"
+              className="fixed left-4 right-4 bottom-20 z-50 sm:absolute sm:left-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-1.5 sm:w-60 rounded-lg border border-border bg-card p-3 shadow-lg text-[10px] font-normal"
               onMouseLeave={() => setShowTooltip(false)}
             >
               {/* Resolved: show payout rates + breakdown */}

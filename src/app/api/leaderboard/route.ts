@@ -223,8 +223,13 @@ export async function GET(request: NextRequest) {
             userStats.biggest_payout = (userTier.biggest_payout as number) ?? 0;
           }
         }
+        // For flame_tokens, derive rank from the filtered entries list
+        // since the RPC ranks ALL users but the table only shows wagered users
+        const flameRank = sort === "flame_tokens"
+          ? entries.findIndex((e) => e.user.id === user.id) + 1
+          : 0;
         userRank = {
-          rank: rankResult.rank,
+          rank: (sort === "flame_tokens" && flameRank > 0) ? flameRank : rankResult.rank,
           stats: userStats,
         };
       }
