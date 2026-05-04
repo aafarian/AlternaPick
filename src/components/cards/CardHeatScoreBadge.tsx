@@ -208,6 +208,13 @@ export default function CardHeatScoreBadge({
 
           {/* Tooltip: payout rates (live) or payout breakdown (resolved) */}
           {showTooltip && (
+            <>
+            {/* Backdrop to dismiss on mobile tap-away */}
+            <div
+              className="fixed inset-0 z-40 sm:hidden"
+              onClick={() => setShowTooltip(false)}
+              aria-hidden="true"
+            />
             <div
               className="absolute left-0 top-full z-50 mt-1.5 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-card p-3 shadow-lg text-[10px] font-normal sm:left-auto sm:right-0"
               onMouseLeave={() => setShowTooltip(false)}
@@ -337,6 +344,7 @@ export default function CardHeatScoreBadge({
                 </>
               )}
             </div>
+            </>
           )}
         </span>
       )}

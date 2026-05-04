@@ -223,13 +223,34 @@ export async function GET(request: NextRequest) {
             userStats.biggest_payout = (userTier.biggest_payout as number) ?? 0;
           }
         }
-        // For flame_tokens, derive rank from the filtered entries list
-        // since the RPC ranks ALL users but the table only shows wagered users
-        const flameRank = sort === "flame_tokens"
-          ? entries.findIndex((e) => e.user.id === user.id) + 1
-          : 0;
+        // For flame_tokens, the RPC ranks ALL users but the table only shows
+        // wagered users. Compute rank by counting wagered users with higher balance.
+        let finalRank = rankResult.rank;
+        if (sort === "flame_tokens") {
+          const adminRank = (await import("@/lib/supabase/admin")).createAdminClient();
+          const userBalance = rankResult.entry.fire_tokens_balance;
+
+          // Get all user IDs that have wagered
+          const { data: wageredCards } = await (adminRank.from("cards") as any)
+            .select("user_id")
+            .not("fire_token_wager", "is", null)
+            .not("user_id", "is", null);
+
+          const wageredUserIds = [...new Set(
+            (wageredCards ?? []).map((c: { user_id: string }) => c.user_id),
+          )] as string[];
+
+          if (wageredUserIds.includes(user.id)) {
+            // Count wagered users with strictly higher balance
+            const { count } = await (adminRank.from("leaderboard_entries") as any)
+              .select("id", { count: "exact", head: true })
+              .in("user_id", wageredUserIds)
+              .gt("fire_tokens_balance", userBalance);
+            finalRank = (count ?? 0) + 1;
+          }
+        }
         userRank = {
-          rank: (sort === "flame_tokens" && flameRank > 0) ? flameRank : rankResult.rank,
+          rank: finalRank,
           stats: userStats,
         };
       }
