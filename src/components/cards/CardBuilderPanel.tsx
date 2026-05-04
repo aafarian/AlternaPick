@@ -594,9 +594,9 @@ export default function CardBuilderPanel() {
 
                     {/* Payout preview — wraps to next line on mobile */}
                     {wager != null && wager >= 10 && picks.length >= 2 && (
-                    <div className="flex w-full gap-1.5 sm:w-auto">
+                    <div className="flex w-full overflow-x-auto rounded-md border border-border/60 sm:w-auto">
                   {Array.from({ length: picks.length + 1 }, (_, k) => picks.length - k)
-                    .map((hits) => {
+                    .map((hits, idx) => {
                       const baseMult = getHeatScoreMultiplier(hits, picks.length);
                       const notchScale = computeWagerNotchScale(picks.map((p) => p.notch ?? 0));
                       const mult = Math.round(baseMult * notchScale * 10) / 10;
@@ -611,14 +611,8 @@ export default function CardBuilderPanel() {
                         <div
                           key={hits}
                           className={cn(
-                            "flex shrink-0 flex-col items-center rounded-md border px-2 py-1",
-                            isPerfect
-                              ? "border-orange-500/40 bg-orange-500/10"
-                              : net > 0
-                                ? "border-emerald-500/20 bg-emerald-500/5"
-                                : mult === 0
-                                  ? "border-red-500/20 bg-red-500/5"
-                                  : "border-border bg-muted/30",
+                            "flex shrink-0 flex-col items-center px-2.5 py-1",
+                            idx > 0 && "border-l border-border/40",
                           )}
                         >
                           <span className="text-[10px] font-medium text-muted-foreground">
@@ -634,7 +628,7 @@ export default function CardBuilderPanel() {
                                   ? "text-red-400"
                                   : "text-muted-foreground",
                           )}>
-                            {mult > 0 ? `${mult}x${hasQualityUpside ? "+" : ""}` : "BUST"}
+                            {mult > 0 ? `${mult}x${hasQualityUpside ? "+" : ""}` : "Bust"}
                           </span>
                           {mult > 0 && (
                             <span className={cn(
