@@ -508,10 +508,21 @@ export default function CardBuilderPanel() {
         {user && heatModeAccess && !isInChallengeMode && !showChallengePicker && (
           <div className="border-t border-orange-500/30 bg-surface/95 backdrop-blur-xl">
             <div className="mx-auto max-w-6xl px-4 py-2.5">
-              {/* Row 1: Wager input + quick presets + balance */}
-              <div className="flex flex-wrap items-center gap-2">
-                <FlameTokenIcon className="hidden h-4 w-4 shrink-0 text-orange-400 sm:block" />
+              {/* Label row: "Wager" + balance */}
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-orange-400">
+                  <FlameTokenIcon className="h-3.5 w-3.5" />
+                  Wager
+                </span>
+                {!balanceLoading && (
+                  <span className="text-[11px] tabular-nums text-muted-foreground">
+                    {(tokenBalance ?? STARTING_BALANCE).toLocaleString()} available
+                  </span>
+                )}
+              </div>
 
+              {/* Input row: amount + presets */}
+              <div className="flex flex-wrap items-center gap-2">
                 {balanceLoading ? (
                   <div className="flex items-center gap-2">
                     <div className="h-8 w-20 animate-pulse rounded-md bg-secondary" />
@@ -521,7 +532,6 @@ export default function CardBuilderPanel() {
                       <div className="h-6 w-8 animate-pulse rounded-md bg-secondary" />
                       <div className="h-6 w-10 animate-pulse rounded-md bg-secondary" />
                     </div>
-                    <div className="ml-auto h-4 w-20 animate-pulse rounded bg-secondary" />
                   </div>
                 ) : (
                   <>
@@ -586,11 +596,6 @@ export default function CardBuilderPanel() {
                         MAX
                       </button>
                     </div>
-
-                    <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                      <FlameTokenIcon className="h-3 w-3 text-orange-400" />
-                      {(tokenBalance ?? STARTING_BALANCE).toLocaleString()} left
-                    </span>
 
                     {/* Payout preview — wraps to next line on mobile */}
                     {wager != null && wager >= 10 && picks.length >= 2 && (
