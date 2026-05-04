@@ -594,7 +594,7 @@ export default function CardBuilderPanel() {
 
                     {/* Payout preview — wraps to next line on mobile */}
                     {wager != null && wager >= 10 && picks.length >= 2 && (
-                    <div className="flex w-full overflow-x-auto rounded-md border border-border/60 sm:w-auto">
+                    <div className="inline-flex overflow-x-auto rounded-md border border-border/60">
                   {Array.from({ length: picks.length + 1 }, (_, k) => picks.length - k)
                     .map((hits, idx) => {
                       const baseMult = getHeatScoreMultiplier(hits, picks.length);
