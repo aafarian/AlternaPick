@@ -97,11 +97,12 @@ async function buildEngagement(
       (supabase.from("picks") as any)
         .select("*", { count: "exact", head: true })
         .gte("created_at", todayStart),
+      // Signup trend (14 days) for sparkline — uses created_at which is
+      // accurate per-user (unlike last_active_at which only stores the most
+      // recent visit and can't reconstruct historical DAU).
       (supabase.from("profiles") as any)
-        .select("last_active_at")
-        .gte("last_active_at", startOfDayInTimezone(now, ADMIN_TIMEZONE, -14))
-        .eq("is_deactivated", false)
-        .not("last_active_at", "is", null)
+        .select("created_at")
+        .gte("created_at", startOfDayInTimezone(now, ADMIN_TIMEZONE, -14))
         .limit(ROW_LIMIT),
     ]);
 
@@ -112,11 +113,11 @@ async function buildEngagement(
   const cardsTodayCount = cardsToday.count ?? 0;
   const picksTodayCount = picksToday.count ?? 0;
 
-  // DAU trend: bucket profiles by date of last_active_at
-  const dauBuckets = new Map<string, number>();
-  for (const row of (dauTrendRows.data ?? []) as { last_active_at: string }[]) {
-    const day = dateInTimezone(row.last_active_at, ADMIN_TIMEZONE);
-    dauBuckets.set(day, (dauBuckets.get(day) ?? 0) + 1);
+  // Signup trend sparkline (14 days) — bucket by created_at date
+  const signupBuckets = new Map<string, number>();
+  for (const row of (dauTrendRows.data ?? []) as { created_at: string }[]) {
+    const day = dateInTimezone(row.created_at, ADMIN_TIMEZONE);
+    signupBuckets.set(day, (signupBuckets.get(day) ?? 0) + 1);
   }
   const dauTrend: { date: string; count: number }[] = [];
   for (let i = 13; i >= 0; i--) {
@@ -124,7 +125,7 @@ async function buildEngagement(
       startOfDayInTimezone(now, ADMIN_TIMEZONE, -i),
       ADMIN_TIMEZONE,
     );
-    dauTrend.push({ date: day, count: dauBuckets.get(day) ?? 0 });
+    dauTrend.push({ date: day, count: signupBuckets.get(day) ?? 0 });
   }
 
   return {

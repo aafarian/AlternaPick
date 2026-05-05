@@ -56,7 +56,7 @@ export default function EngagementMetrics({ data }: EngagementMetricsProps) {
     {
       label: "DAU / MAU",
       value: `${data.dauMauRatio}%`,
-      subtitle: "Stickiness ratio",
+      subtitle: "Signups (14d)",
       icon: BarChart3,
       sparkline: true,
     },
