@@ -21,7 +21,10 @@ export const colors = {
   zinc50: "#fafafa",
   green600: "#16a34a",
   green50: "#f0fdf4",
+  red500: "#ef4444",
   red50: "#fef2f2",
+  orange500: "#f97316",
+  orange50: "#fff7ed",
   sky700: "#0369a1",
   sky600: "#0284c7",
   sky50: "#f0f9ff",
@@ -120,6 +123,13 @@ export const emailStyles = {
     textTransform: "uppercase" as const,
     letterSpacing: "0.06em",
   },
+  /** Secondary info line inside a score card (wager + score) */
+  scoreCardMeta: {
+    fontSize: "14px",
+    color: colors.zinc500,
+    margin: "8px 0 0 0",
+    textAlign: "center" as const,
+  },
   hr: {
     borderColor: colors.zinc200,
     margin: "0",
@@ -143,4 +153,11 @@ export const emailStyles = {
   scoreCardWin: { backgroundColor: colors.green50 },
   scoreCardLoss: { backgroundColor: colors.red50 },
   scoreCardTie: { backgroundColor: colors.sky50 },
+  /** Wager outcome accents */
+  accentProfit: { color: colors.green600 },
+  accentPartial: { color: colors.orange500 },
+  accentBust: { color: colors.red500 },
+  scoreCardProfit: { backgroundColor: colors.green50 },
+  scoreCardPartial: { backgroundColor: colors.orange50 },
+  scoreCardBust: { backgroundColor: colors.red50 },
 } as const;

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SITE_URL } from "@/lib/constants";
 import Header from "@/components/layout/Header";
@@ -120,6 +121,7 @@ export default function RootLayout({
             </PlayerProfileProvider>
           </OnboardingProvider>
         </AuthProvider>
+      <GoogleAnalytics gaId="G-7DZPHLZGD2" />
       </body>
     </html>
   );
