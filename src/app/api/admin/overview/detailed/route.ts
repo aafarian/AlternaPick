@@ -162,7 +162,7 @@ async function buildActiveUsers(
       .gte("last_active_at", todayStart)
       .eq("is_deactivated", false)
       .order("last_active_at", { ascending: false })
-      .limit(100),
+      .limit(500),
   ]);
 
   const onlineCount = onlineResult.count ?? 0;
@@ -240,6 +240,9 @@ async function buildTokenEconomy(
       .select("fire_tokens_balance")
       .limit(ROW_LIMIT),
   ]);
+
+  warnIfLimitHit("Token wagers", wagerRes.data, 10000);
+  warnIfLimitHit("Circulating supply", circulatingRes.data, ROW_LIMIT);
 
   const wagerCards = (wagerRes.data ?? []) as Array<{
     fire_token_wager: number;

@@ -79,7 +79,7 @@ export default function DetailedOverview() {
     );
   }
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="space-y-6">
         <SectionSkeleton />
