@@ -19,23 +19,28 @@ export function startOfDayInTimezone(
   timeZone: string,
   dayOffset = 0,
 ): string {
-  const fmt = new Intl.DateTimeFormat("en-US", {
+  const dateFmt = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   });
-  const parts = fmt.formatToParts(now);
+  const parts = dateFmt.formatToParts(now);
   const y = Number(parts.find((p) => p.type === "year")?.value);
   const m = Number(parts.find((p) => p.type === "month")?.value);
   const d = Number(parts.find((p) => p.type === "day")?.value);
+
+  // Build an approximate target date at noon UTC to sample the correct
+  // DST offset for the target day (not `now`). Noon avoids edge cases
+  // near midnight where offset ambiguity could occur.
+  const approxTarget = new Date(Date.UTC(y, m - 1, d + dayOffset, 12, 0, 0, 0));
 
   const offsetFmt = new Intl.DateTimeFormat("en-US", {
     timeZone,
     timeZoneName: "longOffset",
   });
   const offsetPart = offsetFmt
-    .formatToParts(now)
+    .formatToParts(approxTarget)
     .find((p) => p.type === "timeZoneName")?.value;
   let offsetMinutes = 0;
   if (offsetPart && offsetPart.startsWith("GMT")) {
