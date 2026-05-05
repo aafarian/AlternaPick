@@ -2,7 +2,7 @@ import { Section, Text, Button } from "@react-email/components";
 import type { ReactElement } from "react";
 import { getCardTier } from "@/lib/cards/tiers";
 import { baseUrl } from "@/lib/email/config";
-import { emailStyles as styles, colors } from "@/lib/email/styles";
+import { emailStyles as styles } from "@/lib/email/styles";
 import { EmailLayout } from "@/lib/email/components/email-layout";
 
 // ---------------------------------------------------------------------------
@@ -84,8 +84,9 @@ function getWagerAccent(outcome: WagerOutcome) {
     case "partial":
       return styles.accentPartial;
     case "bust":
-    case "refund":
       return styles.accentBust;
+    case "refund":
+      return {};
   }
 }
 
@@ -96,8 +97,9 @@ function getWagerScoreCardBg(outcome: WagerOutcome) {
     case "partial":
       return styles.scoreCardPartial;
     case "bust":
-    case "refund":
       return styles.scoreCardBust;
+    case "refund":
+      return {};
   }
 }
 
@@ -132,15 +134,10 @@ export function CardResolvedEmail({
         <Text style={styles.heading}>{headline}</Text>
         <Section style={{ ...styles.scoreCard, ...scoreCardBg }}>
           <Text style={{ ...styles.scoreBlock, ...accent }}>
-            {net >= 0 ? "+" : ""}{payout}
+            {net >= 0 ? "+" : ""}{net}
           </Text>
           <Text style={styles.scoreLabel}>coins earned</Text>
-          <Text style={{
-            fontSize: "14px",
-            color: colors.zinc500,
-            margin: "8px 0 0 0",
-            textAlign: "center" as const,
-          }}>
+          <Text style={styles.scoreCardMeta}>
             Wager: {wager} · Score: {score}/{total}
           </Text>
         </Section>
@@ -204,7 +201,7 @@ export function getCardResolvedEmailProps(
     return {
       subject,
       react: <CardResolvedEmail {...props} />,
-      text: `${getWagerHeadline(outcome, net)}\n\n${net >= 0 ? "+" : ""}${props.payout} coins earned\nWager: ${props.wager} · Score: ${props.score}/${props.total}\n\n${props.username}, ${subtext.toLowerCase()}\n\nView your card: ${cardUrl}`,
+      text: `${getWagerHeadline(outcome, net)}\n\n${net >= 0 ? "+" : ""}${net} coins earned\nWager: ${props.wager} · Score: ${props.score}/${props.total}\n\n${props.username}, ${subtext.toLowerCase()}\n\nView your card: ${cardUrl}`,
     };
   }
 

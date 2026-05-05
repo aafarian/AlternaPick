@@ -123,6 +123,13 @@ export const emailStyles = {
     textTransform: "uppercase" as const,
     letterSpacing: "0.06em",
   },
+  /** Secondary info line inside a score card (wager + score) */
+  scoreCardMeta: {
+    fontSize: "14px",
+    color: colors.zinc500,
+    margin: "8px 0 0 0",
+    textAlign: "center" as const,
+  },
   hr: {
     borderColor: colors.zinc200,
     margin: "0",
