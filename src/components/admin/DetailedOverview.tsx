@@ -61,7 +61,7 @@ export default function DetailedOverview() {
     fetchData();
   }, [fetchData]);
 
-  if (error) {
+  if (error && !data) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-card p-12 text-center">
         <Activity className="h-10 w-10 text-muted-foreground" />
