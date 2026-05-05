@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SITE_URL } from "@/lib/constants";
@@ -29,6 +29,12 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -97,7 +103,7 @@ export default function RootLayout({
           <OnboardingProvider>
             <PlayerProfileProvider>
             <Header />
-            <main className="mx-auto min-h-screen max-w-6xl px-4 pt-20 pb-20 md:pb-12">
+            <main className="mx-auto min-h-screen max-w-6xl px-4 pt-20 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-12">
               <PageTransitionShell>
                 {children}
               </PageTransitionShell>
