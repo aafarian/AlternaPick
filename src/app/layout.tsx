@@ -103,7 +103,7 @@ export default function RootLayout({
           <OnboardingProvider>
             <PlayerProfileProvider>
             <Header />
-            <main className="mx-auto min-h-screen max-w-6xl px-4 pt-20 pb-20 md:pb-12">
+            <main className="mx-auto min-h-screen max-w-6xl px-4 pt-20 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-12">
               <PageTransitionShell>
                 {children}
               </PageTransitionShell>
