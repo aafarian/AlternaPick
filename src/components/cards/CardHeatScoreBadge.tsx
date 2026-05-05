@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Flame, HelpCircle } from "lucide-react";
 import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
@@ -39,8 +39,20 @@ export default function CardHeatScoreBadge({
 }: CardHeatScoreBadgeProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [showHeatInfo, setShowHeatInfo] = useState(false);
+  const [anchorRight, setAnchorRight] = useState(true);
+  const wagerRef = useRef<HTMLSpanElement>(null);
   const hasWager = wager != null;
   const hasHS = heatScore != null;
+
+  /** Determine which side to anchor the tooltip based on badge position. */
+  const openTooltip = useCallback(() => {
+    if (wagerRef.current) {
+      const rect = wagerRef.current.getBoundingClientRect();
+      // If the badge's right edge is past the midpoint, anchor right; otherwise left
+      setAnchorRight(rect.right > window.innerWidth / 2);
+    }
+    setShowTooltip(true);
+  }, []);
 
   const baseMultiplier = cardSize ? getHeatScoreMultiplier(cardSize, cardSize) : null;
 
@@ -149,8 +161,9 @@ export default function CardHeatScoreBadge({
       {/* Wager display (wagered cards only) */}
       {hasWager && (
         <span
+          ref={wagerRef}
           className="relative inline-flex items-center"
-          onMouseEnter={() => setShowTooltip(true)}
+          onMouseEnter={openTooltip}
           onMouseLeave={() => setShowTooltip(false)}
         >
           {/* Live card: wager + "up to Xx" */}
@@ -168,7 +181,8 @@ export default function CardHeatScoreBadge({
                     onClick={(e) => {
                       e.stopPropagation();
                       e.preventDefault();
-                      setShowTooltip((prev) => !prev);
+                      if (showTooltip) setShowTooltip(false);
+                      else openTooltip();
                     }}
                     className="p-1.5 -m-1.5 text-muted-foreground/60 transition-colors hover:text-muted-foreground"
                     aria-label="View payout multipliers"
@@ -196,7 +210,8 @@ export default function CardHeatScoreBadge({
                 onClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
-                  setShowTooltip((prev) => !prev);
+                  if (showTooltip) setShowTooltip(false);
+                  else openTooltip();
                 }}
                 className="p-1.5 -m-1.5 text-muted-foreground/60 transition-colors hover:text-muted-foreground"
                 aria-label="View payout breakdown"
@@ -216,7 +231,10 @@ export default function CardHeatScoreBadge({
               aria-hidden="true"
             />
             <div
-              className="absolute left-0 top-full z-50 mt-1.5 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-card p-3 shadow-lg text-[10px] font-normal sm:left-auto sm:right-0"
+              className={cn(
+                "absolute top-full z-50 mt-1.5 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-card p-3 shadow-lg text-[10px] font-normal",
+                anchorRight ? "right-0" : "left-0",
+              )}
               onMouseLeave={() => setShowTooltip(false)}
             >
               {/* Resolved: show payout rates + breakdown */}
