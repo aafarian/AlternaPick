@@ -3,6 +3,12 @@ import { requireAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { handleApiError } from "@/lib/api/errors";
 import { logWarn } from "@/lib/logger";
+import {
+  ADMIN_TIMEZONE,
+  startOfDayInTimezone,
+  dateInTimezone,
+  hourInTimezone,
+} from "@/lib/admin/date-utils";
 import type {
   AdminDetailedOverview,
   SignupTrendPoint,
@@ -13,68 +19,7 @@ import type {
   TokenEconomyStats,
 } from "@/lib/admin/types";
 
-const ADMIN_TIMEZONE = "America/New_York";
 const ROW_LIMIT = 50000;
-
-// Reuse the same timezone-aware date helper from the main overview route.
-function startOfDayInTimezone(now: Date, timeZone: string, dayOffset = 0): string {
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const parts = fmt.formatToParts(now);
-  const y = Number(parts.find((p) => p.type === "year")?.value);
-  const m = Number(parts.find((p) => p.type === "month")?.value);
-  const d = Number(parts.find((p) => p.type === "day")?.value);
-
-  const offsetFmt = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    timeZoneName: "longOffset",
-  });
-  const offsetPart = offsetFmt
-    .formatToParts(now)
-    .find((p) => p.type === "timeZoneName")?.value;
-  let offsetMinutes = 0;
-  if (offsetPart && offsetPart.startsWith("GMT")) {
-    const sign = offsetPart[3] === "-" ? -1 : 1;
-    const rest = offsetPart.slice(4);
-    if (rest) {
-      const [hh, mm] = rest.split(":").map(Number);
-      offsetMinutes = sign * (hh * 60 + (mm ?? 0));
-    }
-  }
-
-  const localMidnightAsUtc = Date.UTC(y, m - 1, d + dayOffset, 0, 0, 0, 0);
-  const utcInstant = localMidnightAsUtc - offsetMinutes * 60 * 1000;
-  return new Date(utcInstant).toISOString();
-}
-
-function dateInTimezone(isoString: string, timeZone: string): string {
-  const d = new Date(isoString);
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const parts = fmt.formatToParts(d);
-  const y = parts.find((p) => p.type === "year")?.value;
-  const mo = parts.find((p) => p.type === "month")?.value;
-  const dd = parts.find((p) => p.type === "day")?.value;
-  return `${y}-${mo}-${dd}`;
-}
-
-function hourInTimezone(isoString: string, timeZone: string): number {
-  const d = new Date(isoString);
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "numeric",
-    hour12: false,
-  });
-  return Number(fmt.format(d));
-}
 
 function warnIfLimitHit(label: string, rows: unknown[] | null, limit: number) {
   if (rows && rows.length >= limit) {

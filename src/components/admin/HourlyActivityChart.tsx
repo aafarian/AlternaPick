@@ -14,7 +14,7 @@ const HEIGHT = 160;
 const SERIES = [
   { key: "picks" as const, color: CHART_COLORS.blue, label: "Picks" },
   { key: "cards" as const, color: CHART_COLORS.green, label: "Cards" },
-  { key: "signups" as const, color: "#a78bfa", label: "Signups" },
+  { key: "signups" as const, color: CHART_COLORS.purple, label: "Signups" },
 ];
 
 export default function HourlyActivityChart({ data }: HourlyActivityChartProps) {
