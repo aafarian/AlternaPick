@@ -1032,6 +1032,8 @@ export async function handlePostResolution(
           score: result.score,
           total: result.total,
           cardId: result.card_id,
+          wager: result.fire_token_wager ?? undefined,
+          payout: result.fire_token_payout ?? undefined,
         });
         void sendEmail({ to: profile.email, subject, react, text });
       }
