@@ -7,6 +7,7 @@ export const CHART_COLORS = {
   green: "#00d26a",
   blue: "#3b82f6",
   red: "#ef4444",
+  purple: "#a78bfa",
   muted: "#6b7280",
   surface: "#1e1e2e",
   text: "#e5e5e5",
