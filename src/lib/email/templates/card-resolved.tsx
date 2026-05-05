@@ -134,9 +134,11 @@ export function CardResolvedEmail({
         <Text style={styles.heading}>{headline}</Text>
         <Section style={{ ...styles.scoreCard, ...scoreCardBg }}>
           <Text style={{ ...styles.scoreBlock, ...accent }}>
-            {net >= 0 ? "+" : ""}{net}
+            {outcome === "profit" ? `+${net}` : outcome === "bust" ? `-${wager}` : outcome === "refund" ? `${wager}` : `${payout}`}
           </Text>
-          <Text style={styles.scoreLabel}>coins earned</Text>
+          <Text style={styles.scoreLabel}>
+            {outcome === "profit" ? "coins earned" : outcome === "bust" ? "coins lost" : outcome === "refund" ? "coins returned" : "coins recouped"}
+          </Text>
           <Text style={styles.scoreCardMeta}>
             Wager: {wager} · Score: {score}/{total}
           </Text>
@@ -201,7 +203,7 @@ export function getCardResolvedEmailProps(
     return {
       subject,
       react: <CardResolvedEmail {...props} />,
-      text: `${getWagerHeadline(outcome, net)}\n\n${net >= 0 ? "+" : ""}${net} coins earned\nWager: ${props.wager} · Score: ${props.score}/${props.total}\n\n${props.username}, ${subtext.toLowerCase()}\n\nView your card: ${cardUrl}`,
+      text: `${getWagerHeadline(outcome, net)}\n\n${outcome === "profit" ? `+${net} coins earned` : outcome === "bust" ? `-${props.wager} coins lost` : outcome === "refund" ? `${props.wager} coins returned` : `${props.payout} coins recouped`}\nWager: ${props.wager} · Score: ${props.score}/${props.total}\n\n${props.username}, ${subtext.toLowerCase()}\n\nView your card: ${cardUrl}`,
     };
   }
 
