@@ -84,7 +84,7 @@ export default function ActiveUsersPanel({ data }: ActiveUsersPanelProps) {
                       <Avatar className="h-7 w-7">
                         <AvatarImage src={user.avatarUrl ?? undefined} />
                         <AvatarFallback className="text-[10px]">
-                          {(user.username ?? "?")[0].toUpperCase()}
+                          {(user.username || "?")[0].toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       {user.isOnline && (
