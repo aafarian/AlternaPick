@@ -17,13 +17,13 @@ const highlights = [
   },
   {
     icon: Target,
-    label: "Over/Under splits",
-    detail: "Know your tendencies",
+    label: "Weekly Wrapped",
+    detail: "Personalized recaps with achievement tiles",
   },
   {
     icon: Users,
-    label: "Player breakdowns",
-    detail: "Find which players you read best",
+    label: "Player & team breakdowns",
+    detail: "Find which players and teams you read best",
   },
 ];
 

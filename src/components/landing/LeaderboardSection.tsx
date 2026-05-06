@@ -21,8 +21,8 @@ const highlights = [
   },
   {
     icon: Flame,
-    label: "Win streaks",
-    detail: "Build momentum and hold your streak",
+    label: "Flame leaderboard",
+    detail: "Compete for the highest coin balance and biggest payouts",
   },
 ];
 
@@ -95,9 +95,8 @@ export function LeaderboardSection() {
               </span>
             </h2>
             <p className="text-muted-foreground">
-              See where you stand among all players or just your friends. Two
-              leaderboards, two ranking systems — hit rate and head-to-head
-              record.
+              Three ways to rank: hit rate, head-to-head record, and Flame
+              Coin balance. Compete globally or just among friends.
             </p>
 
             <div className="grid gap-4 sm:grid-cols-2">

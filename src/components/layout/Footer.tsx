@@ -9,7 +9,7 @@ export default function Footer() {
           <span className="text-foreground">Pick</span>
         </p>
         <Separator className="mx-auto my-3 max-w-32" />
-        <p className="text-xs text-muted-foreground">Built for NBA fans.</p>
+        <p className="text-xs text-muted-foreground">The free alternative to sports betting.</p>
         <p className="mt-1 text-xs text-muted-foreground">
           &copy; {new Date().getFullYear()} AlternaPick. All rights reserved.
         </p>

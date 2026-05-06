@@ -31,9 +31,9 @@ export function CTASection() {
         {/* Supporting text */}
         <SlideUp delay={0.25} offset={12}>
           <p className="mx-auto mt-4 max-w-lg text-base text-muted-foreground sm:text-lg">
-            No money, no risk — just you vs. your friends on real player props
-            across multiple sports. Make your picks and find out who really knows
-            the game.
+            Pick props, wager Flame Coins, challenge friends, and watch it all
+            unfold live. No real money, no risk — just bragging rights and
+            leaderboard glory.
           </p>
         </SlideUp>
 

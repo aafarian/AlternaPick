@@ -59,9 +59,9 @@ export default function HeroSection() {
       {/* ── Subtitle ── */}
       <FadeIn delay={0.65} duration={0.6} className="max-w-2xl">
         <p className="text-lg text-muted-foreground sm:text-xl">
-          Pick over/unders on real player props across NBA, college basketball,
-          soccer, and more. Challenge friends head-to-head and prove who really
-          knows the game.
+          Pick over/unders on real player props. Wager virtual Flame Coins,
+          watch your picks resolve live, and challenge friends head-to-head.
+          No real money — just bragging rights and leaderboard glory.
         </p>
       </FadeIn>
 
