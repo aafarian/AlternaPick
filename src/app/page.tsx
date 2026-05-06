@@ -1,6 +1,8 @@
 import HeroSection from "@/components/landing/HeroSection";
 import { SportsBar } from "@/components/landing/SportsBar";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
+import { FlameTokensSection } from "@/components/landing/FlameTokensSection";
+import { LiveScoringSection } from "@/components/landing/LiveScoringSection";
 import { GameModesSection } from "@/components/landing/GameModesSection";
 import { AnalyticsSection } from "@/components/landing/AnalyticsSection";
 import { LeaderboardSection } from "@/components/landing/LeaderboardSection";
@@ -22,6 +24,8 @@ export default function Home() {
       <HeroSection />
       <SportsBar />
       <FeaturesSection />
+      <FlameTokensSection />
+      <LiveScoringSection />
       <GameModesSection />
       <AnalyticsSection />
       <LeaderboardSection />

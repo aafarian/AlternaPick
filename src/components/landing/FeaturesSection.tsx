@@ -2,26 +2,32 @@
 
 import { useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Target, Swords, Trophy, type LucideIcon } from "lucide-react";
+import { Target, Flame, Swords, Trophy, type LucideIcon } from "lucide-react";
 import { motion, useInView, useReducedMotion } from "@/lib/motion";
 
 const features: { title: string; description: string; icon: LucideIcon }[] = [
   {
     title: "Pick Over/Unders",
     description:
-      "Browse real player props across NBA, college basketball, Premier League, La Liga, and more. Lock in your predictions on points, assists, goals, and dozens of other stats.",
+      "Browse real player props across NBA, college basketball, Premier League, La Liga, NHL, and more. Lock in your predictions and watch them resolve live with real-time scores.",
     icon: Target,
+  },
+  {
+    title: "Wager Flame Coins",
+    description:
+      "Put your virtual coins on the line. Higher-risk picks earn bigger multipliers. Climb the difficulty tiers from Frosty to Volcanic for massive payouts — no real money involved.",
+    icon: Flame,
   },
   {
     title: "Challenge Friends",
     description:
-      "Go head-to-head in 6 unique game modes — from Classic to Sabotage. Send a challenge, both make your picks, and see who comes out on top.",
+      "Go head-to-head in 6 unique game modes — from Classic to Sabotage. Create multiplayer lobbies and see who comes out on top.",
     icon: Swords,
   },
   {
-    title: "Climb the Leaderboard",
+    title: "Track Everything",
     description:
-      "Track your hit rate, build win streaks, and climb the global rankings. Compare stats with friends or compete for the #1 spot.",
+      "Personal analytics, weekly Wrapped recaps, per-sport breakdowns, and global leaderboards. See your hit rates, streaks, and how you stack up.",
     icon: Trophy,
   },
 ];
@@ -50,14 +56,14 @@ export function FeaturesSection() {
   const header = (
     <div className="mb-12 text-center">
       <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
-        How It{" "}
+        Why{" "}
         <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-          Works
+          AlternaPick
         </span>
       </h2>
       <p className="mx-auto mt-4 max-w-lg text-muted-foreground">
-        Three steps to getting in the game. No money, no risk — just bragging
-        rights.
+        Everything you love about sports betting — picks, wagers, multipliers,
+        leaderboards — without risking a cent.
       </p>
     </div>
   );
@@ -66,7 +72,7 @@ export function FeaturesSection() {
     return (
       <section className="mx-auto max-w-5xl px-4 py-20">
         {header}
-        <div className="grid gap-6 sm:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((feature) => (
             <FeatureCard key={feature.title} feature={feature} reduced />
           ))}
@@ -80,7 +86,7 @@ export function FeaturesSection() {
       {header}
       <motion.div
         ref={ref}
-        className="grid gap-6 sm:grid-cols-3"
+        className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
         variants={containerVariants}
         initial="hidden"
         animate={isInView ? "visible" : "hidden"}

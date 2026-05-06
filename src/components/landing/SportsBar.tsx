@@ -8,7 +8,7 @@ const sports: { label: string; icon?: LucideIcon; badge?: string }[] = [
   { label: "College Hoops", icon: GraduationCap },
   { label: "Premier League", icon: Trophy },
   { label: "La Liga", icon: Trophy },
-  { label: "NHL", badge: "Soon" },
+  { label: "NHL", icon: Circle },
   { label: "& More", badge: "Coming" },
 ];
 
