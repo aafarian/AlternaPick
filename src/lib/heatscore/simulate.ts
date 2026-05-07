@@ -149,7 +149,6 @@ export async function simulateCardHeatScore(
   const simulatedPayout = computeFireTokenPayout(
     DEMO_WAGER,
     cardResult.multiplier,
-    qualityResult.total,
     notchScale,
   );
 

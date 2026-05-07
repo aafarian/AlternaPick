@@ -177,7 +177,6 @@ async function main() {
             payout = computeFireTokenPayout(
               card.fire_token_wager,
               hsResult.multiplier,
-              qualityResult.total,
               notchScale,
             );
           }

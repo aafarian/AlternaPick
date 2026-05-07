@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Flame, HelpCircle } from "lucide-react";
 import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
 import HeatScoreModal from "@/components/onboarding/HeatScoreModal";
-import { getHeatScoreMultiplier, WAGER_NOTCH_SCALE } from "@/lib/heatscore/constants";
+import { getHeatScoreMultiplier } from "@/lib/heatscore/constants";
 import { getNotchTier, computeWagerNotchScale } from "@/lib/heatscore/compute";
 import { cn } from "@/lib/utils";
 
@@ -56,12 +56,15 @@ export default function CardHeatScoreBadge({
 
   const baseMultiplier = cardSize ? getHeatScoreMultiplier(cardSize, cardSize) : null;
 
-  // Wager notch scale: geometric mean of per-pick scales (matches payout formula)
+  // Wager notch scale: 2D lookup by notch tier + effective card size.
+  // For resolved cards, use totalPicks (scoreable size after DNP/push) to
+  // match the server-side resolution.ts calculation.
+  const notchScaleSize = (payout != null && totalPicks != null && totalPicks > 0) ? totalPicks : cardSize;
   const wagerNotchScale = pickNotches && pickNotches.length > 0
-    ? computeWagerNotchScale(pickNotches)
+    ? computeWagerNotchScale(pickNotches, notchScaleSize)
     : 1;
   const effectiveMultiplier = baseMultiplier != null
-    ? Math.round(baseMultiplier * wagerNotchScale * 10) / 10
+    ? Math.round(Math.min(baseMultiplier * wagerNotchScale, 500) * 10) / 10
     : baseMultiplier;
 
   // Build base multiplier rows — use effective size (totalPicks) for resolved cards,
@@ -75,41 +78,17 @@ export default function CardHeatScoreBadge({
     : [];
 
   // Build notch line items for tooltip
-  const notchLineItems = (() => {
-    if (!pickNotches) return [];
-    const tierCounts = new Map<number, number>();
-    for (const n of pickNotches) {
-      tierCounts.set(n, (tierCounts.get(n) ?? 0) + 1);
-    }
-    const total = pickNotches.length;
-    return Array.from(tierCounts.entries())
-      .filter(([n]) => n !== 0)
-      .sort(([a], [b]) => b - a)
-      .map(([notch, count]) => {
-        const tier = getNotchTier(notch);
-        const wagerScale = WAGER_NOTCH_SCALE[notch] ?? 1;
-        const cardImpact = Math.round(Math.pow(wagerScale, count / total) * 100) / 100;
-        return { label: tier.label, cardImpact, isHarder: wagerScale > 1, count };
-      });
-  })();
-
-  const hasNotchBonus = notchLineItems.length > 0;
+  // Determine if this card uses a non-Standard notch tier
+  const cardNotch = pickNotches && pickNotches.length > 0 ? pickNotches[0] : 0;
+  const hasNotchBonus = cardNotch !== 0;
   const isResolved = payout != null || (hasHS && !hasWager);
 
-  // For resolved wagered cards: compute the base payout and quality bonus
+  // For resolved wagered cards: compute the actual multiplier
   const actualMultiplier = (score != null && totalPicks != null && totalPicks > 0)
     ? getHeatScoreMultiplier(score, totalPicks)
     : null;
-  // Display value (rounded for UI)
   const actualEffective = actualMultiplier != null
-    ? Math.round(actualMultiplier * wagerNotchScale * 10) / 10
-    : null;
-  // Use unrounded value for payout computation to match server-side math
-  const basePayout = (wager != null && actualMultiplier != null)
-    ? Math.round(wager * actualMultiplier * wagerNotchScale)
-    : null;
-  const qualityBonus = (payout != null && basePayout != null)
-    ? payout - basePayout
+    ? Math.round(Math.min(actualMultiplier * wagerNotchScale, 500) * 10) / 10
     : null;
 
   if (!hasWager && !hasHS) return null;
@@ -274,22 +253,12 @@ export default function CardHeatScoreBadge({
                     </div>
                     {actualEffective != null && (
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-muted-foreground">Multiplier{hasNotchBonus ? " (w/ difficulty)" : ""}</span>
+                        <span className="text-[11px] text-muted-foreground">Multiplier</span>
                         <span className={cn("text-[11px] font-bold", actualEffective > 0 ? "text-emerald-500" : "text-red-400")}>
                           {actualEffective > 0 ? `${actualEffective}x` : "Bust"}
                         </span>
                       </div>
                     )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-muted-foreground">Base payout</span>
-                      <span className="text-[11px] font-bold text-foreground">{basePayout ?? 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-muted-foreground">Quality bonus</span>
-                      <span className={cn("text-[11px] font-bold", (qualityBonus ?? 0) > 0 ? "text-emerald-500" : (qualityBonus ?? 0) < 0 ? "text-red-400" : "text-muted-foreground")}>
-                        {(qualityBonus ?? 0) > 0 ? "+" : ""}{qualityBonus ?? 0}
-                      </span>
-                    </div>
                     <div className="border-t border-border mt-0.5 pt-1 flex items-center justify-between">
                       <span className="text-xs font-semibold text-foreground">Total payout</span>
                       <span className={cn("text-xs font-black", payout > 0 ? "text-emerald-500" : "text-muted-foreground")}>
@@ -327,20 +296,9 @@ export default function CardHeatScoreBadge({
                   {hasNotchBonus && (
                     <>
                       <div className="my-1.5 border-t border-border" />
-                      <p className="mb-1 font-semibold text-foreground">Difficulty Bonus</p>
-                      <div className="flex flex-col gap-0.5">
-                        {notchLineItems.map(({ label, cardImpact, isHarder, count }) => (
-                          <div key={label} className="flex items-center justify-between">
-                            <span className="text-muted-foreground">{label}{count > 1 ? ` ×${count}` : ""}</span>
-                            <span className={cn("font-bold", isHarder ? "text-orange-400" : "text-sky-400")}>
-                              {cardImpact}x
-                            </span>
-                          </div>
-                        ))}
-                        <div className="mt-0.5 flex items-center justify-between border-t border-border/50 pt-0.5">
-                          <span className="font-semibold text-foreground">Total</span>
-                          <span className="font-bold text-orange-400">{Math.round(wagerNotchScale * 100) / 100}x</span>
-                        </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-foreground">Difficulty</span>
+                        <span className="font-bold text-orange-400">{getNotchTier(cardNotch).label}</span>
                       </div>
                     </>
                   )}
@@ -352,11 +310,6 @@ export default function CardHeatScoreBadge({
                         <span className="font-semibold text-foreground">Max payout</span>
                         <span className="font-black text-emerald-500">{Math.round(wager * effectiveMultiplier).toLocaleString()}</span>
                       </div>
-                      {hasNotchBonus && (
-                        <p className="mt-0.5 text-[9px] text-muted-foreground/60">
-                          {wager} × {baseMultiplier}x × {Math.round(wagerNotchScale * 100) / 100}x
-                        </p>
-                      )}
                     </>
                   )}
                 </>
