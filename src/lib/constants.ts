@@ -213,6 +213,37 @@ const TEAM_TRICODES: Record<string, string> = {
   "Sevilla": "SEV",
   "Valencia": "VCF",
   "Villarreal": "VIL",
+  // MLB
+  "Arizona Diamondbacks": "ARI",
+  "Atlanta Braves": "ATL",
+  "Baltimore Orioles": "BAL",
+  "Boston Red Sox": "BOS",
+  "Chicago Cubs": "CHC",
+  "Chicago White Sox": "CWS",
+  "Cincinnati Reds": "CIN",
+  "Cleveland Guardians": "CLE",
+  "Colorado Rockies": "COL",
+  "Detroit Tigers": "DET",
+  "Houston Astros": "HOU",
+  "Kansas City Royals": "KC",
+  "Los Angeles Angels": "LAA",
+  "Los Angeles Dodgers": "LAD",
+  "Miami Marlins": "MIA",
+  "Milwaukee Brewers": "MIL",
+  "Minnesota Twins": "MIN",
+  "New York Mets": "NYM",
+  "New York Yankees": "NYY",
+  "Oakland Athletics": "OAK",
+  "Philadelphia Phillies": "PHI",
+  "Pittsburgh Pirates": "PIT",
+  "San Diego Padres": "SD",
+  "San Francisco Giants": "SF",
+  "Seattle Mariners": "SEA",
+  "St. Louis Cardinals": "STL",
+  "Tampa Bay Rays": "TB",
+  "Texas Rangers": "TEX",
+  "Toronto Blue Jays": "TOR",
+  "Washington Nationals": "WSH",
 };
 
 export function teamTricode(teamName: string): string {
@@ -272,6 +303,20 @@ const LA_LIGA_ESPN_IDS: Record<string, number> = {
   SEV: 243, VCF: 94, VIL: 102,
 };
 
+/** MLB full team name → ESPN team ID (full-name keyed to avoid tricode collisions with NBA). */
+const MLB_TEAM_ESPN_IDS: Record<string, number> = {
+  "Arizona Diamondbacks": 29, "Atlanta Braves": 15, "Baltimore Orioles": 1,
+  "Boston Red Sox": 2, "Chicago Cubs": 16, "Chicago White Sox": 4,
+  "Cincinnati Reds": 17, "Cleveland Guardians": 5, "Colorado Rockies": 27,
+  "Detroit Tigers": 6, "Houston Astros": 18, "Kansas City Royals": 7,
+  "Los Angeles Angels": 3, "Los Angeles Dodgers": 19, "Miami Marlins": 28,
+  "Milwaukee Brewers": 8, "Minnesota Twins": 9, "New York Mets": 21,
+  "New York Yankees": 10, "Oakland Athletics": 11, "Philadelphia Phillies": 22,
+  "Pittsburgh Pirates": 23, "San Diego Padres": 25, "San Francisco Giants": 26,
+  "Seattle Mariners": 12, "St. Louis Cardinals": 24, "Tampa Bay Rays": 30,
+  "Texas Rangers": 13, "Toronto Blue Jays": 14, "Washington Nationals": 20,
+};
+
 // NCAAB team ESPN IDs — populated dynamically from ESPN scoreboard data
 const ncaabTeamEspnIds = new Map<string, string>();
 
@@ -312,7 +357,13 @@ export function teamLogoUrl(teamName: string): string {
     return `https://a.espncdn.com/i/teamlogos/ncaa/500/${ncaabExact}.png`;
   }
 
-  // 2. Soccer (La Liga / EPL) via tricode — check before NBA to avoid collisions (e.g. "ATM" vs "ATL")
+  // 2. MLB via full team name (before tricode to avoid collisions with NBA: ATL/BOS/MIA/etc.)
+  const mlbByName = MLB_TEAM_ESPN_IDS[teamName];
+  if (mlbByName) {
+    return `https://a.espncdn.com/i/teamlogos/mlb/500/${mlbByName}.png`;
+  }
+
+  // 3. Soccer (La Liga / EPL) via tricode — check before NBA to avoid collisions (e.g. "ATM" vs "ATL")
   const code = teamTricode(teamName);
   const laLigaId = LA_LIGA_ESPN_IDS[code];
   if (laLigaId) {
@@ -329,7 +380,7 @@ export function teamLogoUrl(teamName: string): string {
     return `https://cdn.nba.com/logos/nba/${nbaId}/global/L/logo.svg`;
   }
 
-  // 4. NCAAB partial match as fallback
+  // 5. NCAAB partial match as fallback
   const ncaabPartial = getNcaabEspnTeamId(teamName);
   if (ncaabPartial) {
     return `https://a.espncdn.com/i/teamlogos/ncaa/500/${ncaabPartial}.png`;
@@ -347,6 +398,7 @@ export function gameUrl(sport: string | undefined, externalEventId: string): str
     case "epl":
     case "la_liga": return `https://www.espn.com/soccer/match/_/gameId/${externalEventId}`;
     case "nhl": return `https://www.nhl.com/gamecenter/${externalEventId}`;
+    case "mlb": return `https://www.espn.com/mlb/game/_/gameId/${externalEventId}`;
     default: return undefined;
   }
 }

@@ -14,6 +14,10 @@ import {
   fetchNcaabBoxscoreLive,
   fetchNcaabGamesLive,
   fetchNcaabGamesByDate,
+  fetchMlbBoxscore,
+  fetchMlbBoxscoreLive,
+  fetchMlbGamesLive,
+  fetchMlbGamesByDate,
   type PlayerBoxScore,
   type StatsGame,
 } from "@/lib/stats-service/client";
@@ -327,6 +331,12 @@ const SPORT_FETCHERS: Record<string, SportFetchers> = {
           { name: g.away_team, id: g.away_team_id ?? "" },
         ]),
       ),
+  },
+  mlb: {
+    fetchGames: fetchMlbGamesLive,
+    fetchGamesByDate: fetchMlbGamesByDate,
+    fetchBoxscore: fetchMlbBoxscore,
+    fetchBoxscoreLive: fetchMlbBoxscoreLive,
   },
 };
 

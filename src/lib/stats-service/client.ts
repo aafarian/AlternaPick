@@ -661,6 +661,22 @@ export async function fetchMlbBoxscore(
   return result;
 }
 
+export async function fetchMlbBoxscoreLive(
+  eventId: string
+): Promise<PlayerBoxScore[]> {
+  const cacheKey = `mlbBoxscoreLive:${eventId}`;
+  const cached = getCached<PlayerBoxScore[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/mlb/games/${encodeURIComponent(eventId)}/boxscore/live`
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result);
+  return result;
+}
+
 // --- Player gamelog ---
 
 export async function fetchPlayerGamelog(
