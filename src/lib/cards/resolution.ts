@@ -862,6 +862,9 @@ export async function resolveCard(
 
     // Wager Flame payout — uses multiplier table, scaled by notch difficulty.
     // Uses geometric mean of per-pick wager scales to prevent mixed-card exploits.
+    // Quality bonus is intentionally excluded from wager payouts — it's reserved
+    // for HeatScore (challenge winner determination). Wager payouts are purely
+    // multiplier × notch scale so users always know exactly where coins come from.
     if (wager != null) {
       const hsResult = computeCardHeatScore(score, misses, card.card_size);
       if (hsResult.effectiveSize <= 1) {
@@ -875,7 +878,7 @@ export async function resolveCard(
           .filter((p) => p.result === "hit" || p.result === "miss")
           .map((p) => p.notch ?? 0);
         const notchScale = computeWagerNotchScale(scoreableNotches);
-        payout = computeFireTokenPayout(wager, hsResult.multiplier, qualityBonus, notchScale);
+        payout = computeFireTokenPayout(wager, hsResult.multiplier, 0, notchScale);
       }
     }
   } catch (hsError) {

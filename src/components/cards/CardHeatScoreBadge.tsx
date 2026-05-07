@@ -84,20 +84,13 @@ export default function CardHeatScoreBadge({
   const hasNotchBonus = notchLineItems.length > 0;
   const isResolved = payout != null || (hasHS && !hasWager);
 
-  // For resolved wagered cards: compute the base payout and quality bonus
+  // For resolved wagered cards: compute the actual multiplier used
   const actualMultiplier = (score != null && totalPicks != null && totalPicks > 0)
     ? getHeatScoreMultiplier(score, totalPicks)
     : null;
   // Display value (rounded for UI)
   const actualEffective = actualMultiplier != null
     ? Math.round(actualMultiplier * wagerNotchScale * 10) / 10
-    : null;
-  // Use unrounded value for payout computation to match server-side math
-  const basePayout = (wager != null && actualMultiplier != null)
-    ? Math.round(wager * actualMultiplier * wagerNotchScale)
-    : null;
-  const qualityBonus = (payout != null && basePayout != null)
-    ? payout - basePayout
     : null;
 
   if (!hasWager && !hasHS) return null;
@@ -262,16 +255,6 @@ export default function CardHeatScoreBadge({
                         </span>
                       </div>
                     )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-muted-foreground">Base payout</span>
-                      <span className="text-[11px] font-bold text-foreground">{basePayout ?? 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-muted-foreground">Quality bonus</span>
-                      <span className={cn("text-[11px] font-bold", (qualityBonus ?? 0) > 0 ? "text-emerald-500" : (qualityBonus ?? 0) < 0 ? "text-red-400" : "text-muted-foreground")}>
-                        {(qualityBonus ?? 0) > 0 ? "+" : ""}{qualityBonus ?? 0}
-                      </span>
-                    </div>
                     <div className="border-t border-border mt-0.5 pt-1 flex items-center justify-between">
                       <span className="text-xs font-semibold text-foreground">Total payout</span>
                       <span className={cn("text-xs font-black", payout > 0 ? "text-emerald-500" : "text-muted-foreground")}>
