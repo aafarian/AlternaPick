@@ -11,6 +11,7 @@ import { useLiveStats } from "@/lib/cards/use-live-stats";
 import GameScoreBanner from "@/components/live/GameScoreBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import LivePickRow from "@/components/live/LivePickRow";
+import { Loader2 } from "lucide-react";
 import { teamTricode, teamLogoUrl, gameUrl, CATEGORY_LABELS, CATEGORY_SHORT_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import {
@@ -223,28 +224,44 @@ const LiveCardContent = memo(function LiveCardContent({
         </div>
 
         {/* Stats side panel — visible on lg+ in condensed view */}
-        {condensed && categoryStats && categoryStats.size > 0 && (
+        {condensed && (
           <div className="hidden border-l border-border lg:flex lg:w-56 lg:shrink-0 lg:flex-col lg:px-5">
-            {card.picks.map((pick) => {
-              const cat = pick.props?.stat_category ?? "";
-              const stats = categoryStats.get(cat);
-              if (!stats) return <div key={pick.id} className="flex h-[54px] items-center" />;
-              const pct = Math.round(stats.rate * 100);
-              const catShort = CATEGORY_SHORT_LABELS[pick.props?.stat_category as keyof typeof CATEGORY_SHORT_LABELS] ?? cat;
-              return (
-                <div key={pick.id} className="flex h-[54px] items-center gap-2">
-                  <span className={cn(
-                    "text-lg font-black tabular-nums shrink-0",
-                    pct >= 60 ? "text-emerald-500" : pct >= 40 ? "text-blue-400" : "text-red-400"
-                  )}>
-                    {pct}%
-                  </span>
-                  <span className="text-[10px] leading-tight text-muted-foreground">
-                    {catShort} hit rate · {stats.total} picks
-                  </span>
-                </div>
-              );
-            })}
+            {categoryStats === undefined ? (
+              /* Loading state */
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 py-4">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" />
+                <span className="text-[10px] text-muted-foreground/50">Loading your stats...</span>
+              </div>
+            ) : (
+              card.picks.map((pick) => {
+                const cat = pick.props?.stat_category ?? "";
+                const stats = categoryStats.get(cat);
+                const catShort = CATEGORY_SHORT_LABELS[pick.props?.stat_category as keyof typeof CATEGORY_SHORT_LABELS] ?? cat;
+                if (!stats || stats.total === 0) {
+                  return (
+                    <div key={pick.id} className="flex h-[54px] items-center">
+                      <span className="text-[10px] italic text-muted-foreground/50">
+                        First time picking {catShort}!
+                      </span>
+                    </div>
+                  );
+                }
+                const pct = Math.round(stats.rate * 100);
+                return (
+                  <div key={pick.id} className="flex h-[54px] items-center gap-2">
+                    <span className={cn(
+                      "text-lg font-black tabular-nums shrink-0",
+                      pct >= 70 ? "text-emerald-500" : pct >= 55 ? "text-green-400" : pct >= 45 ? "text-blue-400" : pct >= 35 ? "text-orange-400" : "text-red-400"
+                    )}>
+                      {pct}%
+                    </span>
+                    <span className="text-[10px] leading-tight text-muted-foreground">
+                      {catShort} hit rate · {stats.total} picks
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
       </CardContent>

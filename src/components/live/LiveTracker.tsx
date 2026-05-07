@@ -10,7 +10,7 @@ import LivePickCard from "./LivePickCard";
 import { Badge } from "@/components/ui/badge";
 import { AnimatedList } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
-import { Radio } from "lucide-react";
+import { Radio, Loader2 } from "lucide-react";
 import CardHeatScoreBadge from "@/components/cards/CardHeatScoreBadge";
 import { CATEGORY_LABELS, CATEGORY_SHORT_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -103,19 +103,33 @@ function LiveCard({
   // LivePickRow already handles the "no value yet" state with a dash + spinner.
   const picks = liveData?.picks ?? buildFallbackPicks(card.picks);
 
-  const statsPanel = categoryStats && categoryStats.size > 0 && (
+  const statsPanel = (
     <div className="hidden border-l border-border lg:flex lg:w-56 lg:shrink-0 lg:flex-col lg:px-5">
-      {card.picks.map((pick) => {
+      {!categoryStats ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 py-4">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" />
+          <span className="text-[10px] text-muted-foreground/50">Loading your stats...</span>
+        </div>
+      ) : (
+      card.picks.map((pick) => {
         const cat = pick.props?.stat_category ?? "";
         const stats = categoryStats.get(cat);
-        if (!stats) return <div key={pick.id} className="flex h-[54px] items-center" />;
-        const pct = Math.round(stats.rate * 100);
         const catShort = CATEGORY_SHORT_LABELS[pick.props?.stat_category as keyof typeof CATEGORY_SHORT_LABELS] ?? cat;
+        if (!stats || stats.total === 0) {
+          return (
+            <div key={pick.id} className="flex h-[54px] items-center">
+              <span className="text-[10px] italic text-muted-foreground/50">
+                First time picking {catShort}!
+              </span>
+            </div>
+          );
+        }
+        const pct = Math.round(stats.rate * 100);
         return (
           <div key={pick.id} className="flex h-[54px] items-center gap-2">
             <span className={cn(
               "text-lg font-black tabular-nums shrink-0",
-              pct >= 60 ? "text-emerald-500" : pct >= 40 ? "text-blue-400" : "text-red-400"
+              pct >= 70 ? "text-emerald-500" : pct >= 55 ? "text-green-400" : pct >= 45 ? "text-blue-400" : pct >= 35 ? "text-orange-400" : "text-red-400"
             )}>
               {pct}%
             </span>
@@ -124,7 +138,8 @@ function LiveCard({
             </span>
           </div>
         );
-      })}
+      })
+      )}
     </div>
   );
 
