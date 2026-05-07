@@ -97,6 +97,16 @@ export interface PlayerBoxScore {
   passes?: number;
   fouls_committed?: number;
   saves?: number;
+  // Baseball-specific stats (optional, present when fetched from MLB endpoints)
+  hits?: number;
+  home_runs?: number;
+  rbis?: number;
+  runs?: number;
+  stolen_bases?: number;
+  total_bases?: number;
+  pitcher_strikeouts?: number;
+  pitcher_outs?: number;
+  hits_runs_rbis?: number;
   /** True when the player was on the roster but did not play */
   dnp?: boolean;
 }
