@@ -11,7 +11,9 @@ import { useLiveStats } from "@/lib/cards/use-live-stats";
 import GameScoreBanner from "@/components/live/GameScoreBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import LivePickRow from "@/components/live/LivePickRow";
-import { teamTricode, teamLogoUrl, gameUrl } from "@/lib/constants";
+import { Loader2 } from "lucide-react";
+import { teamTricode, teamLogoUrl, gameUrl, CATEGORY_SHORT_LABELS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -84,9 +86,13 @@ function StatusBadge({ status, score, total }: { status: string; score: number; 
 const LiveCardContent = memo(function LiveCardContent({
   card,
   animate,
+  condensed = false,
+  categoryStats,
 }: {
   card: CardWithPicks;
   animate: boolean;
+  condensed?: boolean;
+  categoryStats?: Map<string, { rate: number; total: number }>;
 }) {
   const isLocked = card.status === "locked";
   const router = useRouter();
@@ -124,8 +130,8 @@ const LiveCardContent = memo(function LiveCardContent({
         </div>
       )}
 
-      {/* Game score banner */}
-      {(() => {
+      {/* Game score banner — hidden in condensed view */}
+      {!condensed && (() => {
         if (isLocked && !gamesToShow) {
           return (
             <div className="flex gap-2 px-3 pb-2">
@@ -159,8 +165,10 @@ const LiveCardContent = memo(function LiveCardContent({
 
       <Separator />
 
-      {/* Pick rows */}
-      <CardContent className="flex flex-col gap-0 p-0">
+      {/* Pick rows + optional stats side panel */}
+      <CardContent className="flex gap-0 p-0">
+        {/* Pick rows */}
+        <div className="flex-1 min-w-0">
         {animate ? (
           <StaggerChildren staggerDelay={0.07} className="flex flex-col gap-0">
             {card.picks.map((pick) => {
@@ -178,7 +186,11 @@ const LiveCardContent = memo(function LiveCardContent({
               });
               return (
                 <StaggerItem key={pick.id}>
-                  <LivePickRow pick={livePick} showQualityTokens={false} />
+                  <LivePickRow
+                    pick={livePick}
+                    showQualityTokens={false}
+                    variant={condensed ? "condensed" : "full"}
+                  />
                 </StaggerItem>
               );
             })}
@@ -198,14 +210,64 @@ const LiveCardContent = memo(function LiveCardContent({
                   game_id: pick.props.game_id, games: pick.props.games,
                 } : null,
               });
-              return <LivePickRow key={pick.id} pick={livePick} showQualityTokens={false} />;
+              return (
+                <LivePickRow
+                  key={pick.id}
+                  pick={livePick}
+                  showQualityTokens={false}
+                  variant={condensed ? "condensed" : "full"}
+                />
+              );
             })}
+          </div>
+        )}
+        </div>
+
+        {/* Stats side panel — visible on lg+ screens */}
+        {(condensed || categoryStats) && (
+          <div className="hidden border-l border-border lg:flex lg:w-56 lg:shrink-0 lg:flex-col lg:px-5">
+            {categoryStats === undefined ? (
+              /* Loading state */
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 py-4">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" />
+                <span className="text-[10px] text-muted-foreground/50">Loading your stats...</span>
+              </div>
+            ) : (
+              card.picks.map((pick) => {
+                const cat = pick.props?.stat_category ?? "";
+                const stats = categoryStats.get(cat);
+                const catShort = CATEGORY_SHORT_LABELS[pick.props?.stat_category as keyof typeof CATEGORY_SHORT_LABELS] ?? cat;
+                if (!stats || stats.total === 0) {
+                  return (
+                    <div key={pick.id} className="flex flex-1 items-center">
+                      <span className="text-[10px] italic text-muted-foreground/50">
+                        First time picking {catShort}!
+                      </span>
+                    </div>
+                  );
+                }
+                const pct = Math.round(stats.rate * 100);
+                return (
+                  <div key={pick.id} className="flex flex-1 items-center gap-2">
+                    <span className={cn(
+                      "text-lg font-black tabular-nums shrink-0",
+                      pct >= 70 ? "text-emerald-500" : pct >= 55 ? "text-green-400" : pct >= 45 ? "text-blue-400" : pct >= 35 ? "text-orange-400" : "text-red-400"
+                    )}>
+                      {pct}%
+                    </span>
+                    <span className="text-[10px] leading-tight text-muted-foreground">
+                      {catShort} hit rate · {stats.total} picks
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
       </CardContent>
 
-      {/* Share button (resolved only) */}
-      {card.status === "resolved" && (
+      {/* Share button (resolved only, hidden in condensed) */}
+      {card.status === "resolved" && !condensed && (
         <FadeIn delay={animate ? 0.3 : 0}>
           <CardFooter className="justify-end px-4 py-3">
             <ShareButton cardId={card.id} />
@@ -220,7 +282,7 @@ const LiveCardContent = memo(function LiveCardContent({
 // CardDetail — static header + LiveCardContent child
 // ---------------------------------------------------------------------------
 
-export default function CardDetail({ card, linked = true }: { card: CardWithPicks; linked?: boolean }) {
+export default function CardDetail({ card, linked = true, condensed = false, categoryStats }: { card: CardWithPicks; linked?: boolean; condensed?: boolean; categoryStats?: Map<string, { rate: number; total: number }> }) {
   const date = new Date(card.created_at).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -292,7 +354,7 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
           </div>
 
           {/* Live content — isolated re-renders */}
-          <LiveCardContent card={card} animate={animate} />
+          <LiveCardContent card={card} animate={animate} condensed={condensed} categoryStats={categoryStats} />
         </Card>
       </SlideUp>
     </Wrapper>

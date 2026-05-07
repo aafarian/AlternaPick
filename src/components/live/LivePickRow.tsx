@@ -3,7 +3,7 @@
 import { useEffect, useRef, memo } from "react";
 import type { LivePickData } from "@/lib/cards/live-types";
 import { computePickDisplay } from "@/lib/cards/pick-display";
-import { CATEGORY_LABELS, CATEGORY_COLORS, formatPlayerSubtitle } from "@/lib/constants";
+import { CATEGORY_LABELS, CATEGORY_SHORT_LABELS, CATEGORY_COLORS, formatPlayerSubtitle } from "@/lib/constants";
 import { formatLiveStatus, formatGameTime } from "@/lib/format";
 import type { StatCategory } from "@/lib/supabase/types";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
@@ -22,7 +22,7 @@ const CHEVRON_LEFT = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/20
 
 interface LivePickRowProps {
   pick: LivePickData;
-  variant?: "full" | "compact";
+  variant?: "full" | "compact" | "condensed";
   /** When true, show quality bonus tokens instead of full heatscore */
   showQualityTokens?: boolean;
 }
@@ -136,6 +136,128 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
               : "Scheduled"}
           </span>
         )}
+      </div>
+    );
+  }
+
+  // Condensed variant — compact single-line with inline progress bar
+  if (variant === "condensed") {
+    return (
+      <div
+        className={cn(
+          "flex flex-col gap-1 border-l-2 px-4 py-1.5 transition-colors",
+          d.accentClass,
+          d.isSettled && "opacity-75"
+        )}
+      >
+        {/* Info row */}
+        <div className="flex items-center gap-2">
+          {/* Settled icon */}
+          <div
+            className={cn(
+              "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+              d.isSettled
+                ? d.isDnp || d.isVoid
+                  ? "bg-muted text-muted-foreground"
+                  : d.settledWon
+                    ? "bg-neon-green/15 text-neon-green"
+                    : "bg-bold-red/15 text-bold-red"
+                : "bg-transparent text-transparent"
+            )}
+          >
+            {d.isSettled && (
+              d.isDnp || d.isVoid ? (
+                <Minus className="h-3 w-3" strokeWidth={3} />
+              ) : d.settledWon ? (
+                <Check className="h-3 w-3" strokeWidth={3} />
+              ) : (
+                <X className="h-3 w-3" strokeWidth={3} />
+              )
+            )}
+          </div>
+
+          {/* Avatar */}
+          <PlayerAvatar
+            playerId={pick.player_id}
+            playerName={pick.player_name}
+            sport={pick.sport}
+            size="default"
+            className="ring-1 ring-border/60"
+          />
+
+          {/* Player name + stat */}
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-sm font-semibold leading-tight">
+              {pick.player_name}
+            </span>
+            <div className="flex items-center gap-1">
+              <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none", statPillClass)}>
+                {CATEGORY_SHORT_LABELS[statCat] ?? statCat}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {d.isOver ? "O" : "U"} {pick.line}
+              </span>
+            </div>
+          </div>
+
+          {/* Value + status */}
+          <div className="flex shrink-0 items-center gap-2">
+            {d.isDnp || d.isVoid ? (
+              <span className="text-[10px] font-semibold text-muted-foreground">
+                {d.isDnp ? "DNP" : "Void"}
+              </span>
+            ) : d.hasValue ? (
+              <span className={cn(
+                "text-lg font-black tabular-nums",
+                d.isWinning ? "text-neon-green" : "text-bold-red"
+              )}>
+                {pick.current_value}
+              </span>
+            ) : d.isSettled ? (
+              <span className={cn(
+                "text-[10px] font-semibold",
+                d.settledWon ? "text-neon-green" : "text-bold-red"
+              )}>
+                {d.settledWon ? "Hit" : "Miss"}
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground/30">&mdash;</span>
+            )}
+
+            {d.isLive && pick.game_status && (
+              <span className="flex items-center gap-1 text-[9px] font-semibold text-white/70">
+                <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-primary" />
+                {formatLiveStatus(pick.game_status.period, pick.game_status.clock, pick.sport, pick.game_status.home_score, pick.game_status.away_score)}
+              </span>
+            )}
+            {d.isFinal && !d.isSettled && (
+              <span className="text-[9px] font-semibold text-white/50">Final</span>
+            )}
+          </div>
+        </div>
+
+        {/* Progress bar — ml-7 aligns with avatar (past settled icon + gap) */}
+        <div className="relative ml-7 h-1.5 w-auto overflow-visible rounded-full bg-secondary/30">
+          <div
+            className="absolute -top-[2px] z-20"
+            style={{ left: `${d.linePosition}%`, transform: "translateX(-50%)" }}
+          >
+            <svg width="6" height="10" viewBox="0 0 8 14">
+              {d.isOver ? (
+                <polygon points="0,0 8,7 0,14" fill="currentColor" className="text-foreground" />
+              ) : (
+                <polygon points="8,0 0,7 8,14" fill="currentColor" className="text-foreground" />
+              )}
+            </svg>
+          </div>
+          <div
+            className={cn(
+              "h-full overflow-hidden rounded-full transition-[width,background-color] duration-700 ease-out",
+              d.barColor
+            )}
+            style={{ width: `${d.barWidth}%` }}
+          />
+        </div>
       </div>
     );
   }
@@ -333,8 +455,8 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
         </div>
       </div>
 
-      {/* Progress bar — mounts at 0% then animates to target width */}
-      <div className="relative h-2 w-full overflow-visible rounded-full bg-secondary/30">
+      {/* Progress bar — ml-8 aligns with avatar (past settled icon + gap) */}
+      <div className="relative ml-8 h-2 w-auto overflow-visible rounded-full bg-secondary/30">
         {/* Line marker — triangle pointing toward the pick direction */}
         <div
           className="absolute -top-[3px] z-20"

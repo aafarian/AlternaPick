@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { CardWithPicks } from "@/lib/cards/api";
@@ -10,8 +10,10 @@ import LivePickCard from "./LivePickCard";
 import { Badge } from "@/components/ui/badge";
 import { AnimatedList } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
-import { Radio } from "lucide-react";
+import { Radio, Loader2 } from "lucide-react";
 import CardHeatScoreBadge from "@/components/cards/CardHeatScoreBadge";
+import { CATEGORY_SHORT_LABELS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
 
 function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
@@ -88,16 +90,58 @@ function LiveCard({
   liveData,
   hasFetched,
   hasError,
+  categoryStats,
 }: {
   card: CardWithPicks;
   liveData: LiveCardData | undefined;
   hasFetched: boolean;
   hasError: boolean;
+  categoryStats?: Map<string, { rate: number; total: number }>;
 }) {
   // Render card structure immediately using static pick data from the server.
   // Live values (current_value, game scores) overlay when they arrive —
   // LivePickRow already handles the "no value yet" state with a dash + spinner.
   const picks = liveData?.picks ?? buildFallbackPicks(card.picks);
+
+  const statsPanel = (
+    <div className="hidden border-l border-border lg:flex lg:w-56 lg:shrink-0 lg:flex-col lg:px-5">
+      {!categoryStats ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 py-4">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" />
+          <span className="text-[10px] text-muted-foreground/50">Loading your stats...</span>
+        </div>
+      ) : (
+      card.picks.map((pick) => {
+        const cat = pick.props?.stat_category ?? "";
+        const stats = categoryStats.get(cat);
+        const catShort = CATEGORY_SHORT_LABELS[pick.props?.stat_category as keyof typeof CATEGORY_SHORT_LABELS] ?? cat;
+        if (!stats || stats.total === 0) {
+          return (
+            <div key={pick.id} className="flex h-[54px] items-center">
+              <span className="text-[10px] italic text-muted-foreground/50">
+                First time picking {catShort}!
+              </span>
+            </div>
+          );
+        }
+        const pct = Math.round(stats.rate * 100);
+        return (
+          <div key={pick.id} className="flex h-[54px] items-center gap-2">
+            <span className={cn(
+              "text-lg font-black tabular-nums shrink-0",
+              pct >= 70 ? "text-emerald-500" : pct >= 55 ? "text-green-400" : pct >= 45 ? "text-blue-400" : pct >= 35 ? "text-orange-400" : "text-red-400"
+            )}>
+              {pct}%
+            </span>
+            <span className="text-[10px] leading-tight text-muted-foreground">
+              {catShort} hit rate · {stats.total} picks
+            </span>
+          </div>
+        );
+      })
+      )}
+    </div>
+  );
 
   const content = (
     <LivePickCard
@@ -127,6 +171,7 @@ function LiveCard({
       loading={!hasFetched}
       pickCount={card.picks.length}
       error={hasError}
+      sidePanel={statsPanel}
     />
   );
 
@@ -161,6 +206,22 @@ export default function LiveTracker({
     [initialCards]
   );
 
+  // Fetch category stats once for side panel
+  const [categoryStats, setCategoryStats] = useState<Map<string, { rate: number; total: number }> | undefined>();
+  useEffect(() => {
+    fetch("/api/analytics?section=categories")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data?.categories) return;
+        const map = new Map<string, { rate: number; total: number }>();
+        for (const c of data.categories as Array<{ category: string; rate: number; total: number }>) {
+          map.set(c.category, { rate: c.rate, total: c.total });
+        }
+        setCategoryStats(map);
+      })
+      .catch(() => { /* non-blocking */ });
+  }, []);
+
   const { dataMap, hasFetched, error } = useBatchLiveStats(
     cardIds,
     initialCards.length > 0,
@@ -178,7 +239,7 @@ export default function LiveTracker({
   }
 
   return (
-    <AnimatedList className="grid grid-cols-1 gap-4" staggerDelay={0.06}>
+    <AnimatedList className="grid grid-cols-1 gap-4 max-w-4xl" staggerDelay={0.06}>
       {initialCards.map((card) => (
         <LiveCard
           key={card.id}
@@ -186,6 +247,7 @@ export default function LiveTracker({
           liveData={dataMap.get(card.id)}
           hasFetched={hasFetched}
           hasError={!!error}
+          categoryStats={categoryStats}
         />
       ))}
     </AnimatedList>

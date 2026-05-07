@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import CardDetail from "@/components/cards/CardDetail";
 import BackButton from "@/components/ui/BackButton";
 import { CARD_SELECT, type CardWithPicks } from "@/lib/cards/api";
+import { getCategoryStats } from "@/lib/analytics/queries";
 import { FadeIn } from "@/components/motion";
 
 export default async function CardDetailPage({
@@ -35,11 +36,20 @@ export default async function CardDetailPage({
 
   const card = data as CardWithPicks;
 
+  // Fetch category stats for the side panel
+  let categoryStats: Map<string, { rate: number; total: number }> | undefined;
+  try {
+    const stats = await getCategoryStats(supabase, user.id);
+    categoryStats = new Map(stats.map((s) => [s.category, { rate: s.rate, total: s.total }]));
+  } catch {
+    // Non-blocking — side panel just won't show
+  }
+
   return (
     <FadeIn>
-      <div className="mx-auto flex max-w-2xl flex-col gap-8 py-8">
+      <div className="mx-auto flex max-w-4xl flex-col gap-8 py-8">
         <BackButton />
-        <CardDetail card={card} linked={false} />
+        <CardDetail card={card} linked={false} categoryStats={categoryStats} />
       </div>
     </FadeIn>
   );
