@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams, fetchSoccerPlayers, fetchMlbPlayers } from "@/lib/stats-service/client";
 import { unauthorized, handleApiError } from "@/lib/api/errors";
+import { requireAdmin } from "@/lib/auth/admin";
 import { logError } from "@/lib/logger";
 
 function normalizeName(name: string): string {
@@ -93,12 +94,14 @@ function normalizeTeamName(name: string): string {
  * the null-guard was added.
  */
 export async function POST(request: NextRequest) {
+  // Accept either SYNC_SECRET (cron) or admin session (dashboard)
   const syncSecret = process.env.SYNC_SECRET;
-  if (syncSecret) {
-    const authHeader = request.headers.get("authorization");
-    if (authHeader !== `Bearer ${syncSecret}`) {
-      return unauthorized();
-    }
+  const authHeader = request.headers.get("authorization");
+  const hasSyncAuth = syncSecret && authHeader === `Bearer ${syncSecret}`;
+
+  if (!hasSyncAuth) {
+    const admin = await requireAdmin();
+    if (!admin.isAdmin) return admin.response;
   }
 
   try {

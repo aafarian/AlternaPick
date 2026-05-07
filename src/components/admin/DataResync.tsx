@@ -31,6 +31,7 @@ import {
   AlertCircle,
   Loader2,
   Database,
+  Image,
 } from "lucide-react";
 import type { CardScoreFix } from "@/lib/admin/resync";
 
@@ -200,6 +201,7 @@ export default function DataResync() {
   const [recap, setRecap] = useState<StepState>({ status: "idle" });
   const [fullResync, setFullResync] = useState<StepState>({ status: "idle" });
   const [propSync, setPropSync] = useState<StepState>({ status: "idle" });
+  const [backfill, setBackfill] = useState<StepState>({ status: "idle" });
 
   const [leaderboardUserId, setLeaderboardUserId] = useState("");
   const [recapDate, setRecapDate] = useState("");
@@ -269,6 +271,11 @@ export default function DataResync() {
     [runStep],
   );
 
+  const handleBackfill = useCallback(
+    () => runStep("/api/props/backfill", null, setBackfill),
+    [runStep],
+  );
+
   const handleFullResync = useCallback(async () => {
     setFullResync({ status: "running" });
     try {
@@ -324,7 +331,8 @@ export default function DataResync() {
     leaderboard.status === "running" ||
     recap.status === "running" ||
     fullResync.status === "running" ||
-    propSync.status === "running";
+    propSync.status === "running" ||
+    backfill.status === "running";
 
   const isRebuildAll = !leaderboardUserId;
 
@@ -663,6 +671,41 @@ export default function DataResync() {
             <p className="mt-2 text-sm text-red-400">{propSync.error}</p>
           )}
           {propSync.result && <ResultDisplay result={propSync.result} />}
+        </CardContent>
+      </Card>
+
+      {/* Backfill Headshots */}
+      <Card className="py-4">
+        <CardHeader className="pb-0 pt-0 px-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Image className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">Backfill Headshots</CardTitle>
+              <StatusIcon status={backfill.status} />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBackfill}
+              disabled={anyRunning}
+            >
+              {backfill.status === "running" ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                "Run"
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 pt-2 pb-0">
+          <p className="text-sm text-muted-foreground">
+            Re-enriches props with missing player IDs by looking up names against
+            ESPN rosters. Covers NBA, NCAAB, soccer, and MLB.
+          </p>
+          {backfill.error && (
+            <p className="mt-2 text-sm text-red-400">{backfill.error}</p>
+          )}
+          {backfill.result && <ResultDisplay result={backfill.result} />}
         </CardContent>
       </Card>
     </div>
