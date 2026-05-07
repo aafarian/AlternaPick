@@ -12,7 +12,7 @@ import { AnimatedList } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { Radio } from "lucide-react";
 import CardHeatScoreBadge from "@/components/cards/CardHeatScoreBadge";
-import { CATEGORY_LABELS } from "@/lib/constants";
+import { CATEGORY_LABELS, CATEGORY_SHORT_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
 
@@ -104,23 +104,23 @@ function LiveCard({
   const picks = liveData?.picks ?? buildFallbackPicks(card.picks);
 
   const statsPanel = categoryStats && categoryStats.size > 0 && (
-    <div className="hidden border-l border-border lg:flex lg:w-56 lg:shrink-0 lg:flex-col lg:justify-center lg:gap-2 lg:px-5 lg:py-2">
+    <div className="hidden border-l border-border lg:flex lg:w-56 lg:shrink-0 lg:flex-col lg:px-5">
       {card.picks.map((pick) => {
         const cat = pick.props?.stat_category ?? "";
         const stats = categoryStats.get(cat);
-        if (!stats) return <div key={pick.id} className="h-[50px]" />;
+        if (!stats) return <div key={pick.id} className="flex h-[54px] items-center" />;
         const pct = Math.round(stats.rate * 100);
-        const catName = CATEGORY_LABELS[pick.props?.stat_category as keyof typeof CATEGORY_LABELS] ?? cat;
+        const catShort = CATEGORY_SHORT_LABELS[pick.props?.stat_category as keyof typeof CATEGORY_SHORT_LABELS] ?? cat;
         return (
-          <div key={pick.id} className="flex items-baseline gap-2">
+          <div key={pick.id} className="flex h-[54px] items-center gap-2">
             <span className={cn(
-              "text-lg font-black tabular-nums",
+              "text-lg font-black tabular-nums shrink-0",
               pct >= 60 ? "text-emerald-500" : pct >= 40 ? "text-blue-400" : "text-red-400"
             )}>
               {pct}%
             </span>
             <span className="text-[10px] leading-tight text-muted-foreground">
-              {catName} hit rate · {stats.total} picks
+              {catShort} hit rate · {stats.total} picks
             </span>
           </div>
         );
