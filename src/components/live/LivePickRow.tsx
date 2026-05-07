@@ -236,8 +236,8 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
           </div>
         </div>
 
-        {/* Progress bar */}
-        <div className="relative h-1.5 w-full overflow-visible rounded-full bg-secondary/30">
+        {/* Progress bar — ml-7 aligns with avatar (past settled icon + gap) */}
+        <div className="relative ml-7 h-1.5 w-auto overflow-visible rounded-full bg-secondary/30">
           <div
             className="absolute -top-[2px] z-20"
             style={{ left: `${d.linePosition}%`, transform: "translateX(-50%)" }}
