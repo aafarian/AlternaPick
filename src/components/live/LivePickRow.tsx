@@ -273,7 +273,7 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false, h
                 style={{
                   backgroundImage: d.isOver ? CHEVRON_RIGHT : CHEVRON_LEFT,
                   backgroundRepeat: "repeat",
-                  backgroundSize: "8px 8px",
+                  backgroundSize: "6px 6px",
                 }}
               />
             )}
