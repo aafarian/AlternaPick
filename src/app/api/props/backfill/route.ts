@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams, fetchSoccerPlayers, fetchMlbPlayers } from "@/lib/stats-service/client";
-import { unauthorized, handleApiError } from "@/lib/api/errors";
+import { handleApiError } from "@/lib/api/errors";
 import { requireAdmin } from "@/lib/auth/admin";
 import { logError } from "@/lib/logger";
 
