@@ -49,7 +49,7 @@ export default function PicksTabs({
   }
 
   return (
-    <Tabs value={activeTab} onValueChange={handleTabChange} className="mx-auto max-w-2xl">
+    <Tabs value={activeTab} onValueChange={handleTabChange} className="mx-auto max-w-3xl">
       <TabsList className="bg-secondary">
         <TabsTrigger value="live" className="data-[state=active]:bg-primary/15 data-[state=active]:text-primary">
           Live ({liveCount})

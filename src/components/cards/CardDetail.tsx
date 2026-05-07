@@ -224,22 +224,23 @@ const LiveCardContent = memo(function LiveCardContent({
 
         {/* Stats side panel — visible on lg+ in condensed view */}
         {condensed && categoryStats && categoryStats.size > 0 && (
-          <div className="hidden border-l border-border lg:flex lg:w-44 lg:shrink-0 lg:flex-col lg:justify-center lg:gap-3 lg:px-4 lg:py-2">
+          <div className="hidden border-l border-border lg:flex lg:w-48 lg:shrink-0 lg:flex-col lg:justify-center lg:gap-2 lg:px-4 lg:py-2">
             {card.picks.map((pick) => {
               const cat = pick.props?.stat_category ?? "";
               const stats = categoryStats.get(cat);
               if (!stats) return <div key={pick.id} className="h-[50px]" />;
               const pct = Math.round(stats.rate * 100);
+              const catName = CATEGORY_LABELS[pick.props?.stat_category as keyof typeof CATEGORY_LABELS] ?? cat;
               return (
-                <div key={pick.id} className="flex flex-col gap-0.5">
+                <div key={pick.id} className="flex items-baseline gap-1.5">
                   <span className={cn(
-                    "text-sm font-bold tabular-nums",
+                    "text-base font-black tabular-nums",
                     pct >= 60 ? "text-emerald-500" : pct >= 40 ? "text-blue-400" : "text-red-400"
                   )}>
                     {pct}%
                   </span>
                   <span className="text-[10px] text-muted-foreground">
-                    {CATEGORY_LABELS[pick.props?.stat_category as keyof typeof CATEGORY_LABELS] ?? cat} ({stats.total})
+                    {catName} · {stats.total} picks
                   </span>
                 </div>
               );

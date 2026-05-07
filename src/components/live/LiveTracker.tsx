@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { CardWithPicks } from "@/lib/cards/api";
@@ -12,6 +12,8 @@ import { AnimatedList } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { Radio } from "lucide-react";
 import CardHeatScoreBadge from "@/components/cards/CardHeatScoreBadge";
+import { CATEGORY_LABELS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
 
 function buildFallbackPicks(picks: CardWithPicks["picks"]): LivePickData[] {
@@ -88,46 +90,78 @@ function LiveCard({
   liveData,
   hasFetched,
   hasError,
+  categoryStats,
 }: {
   card: CardWithPicks;
   liveData: LiveCardData | undefined;
   hasFetched: boolean;
   hasError: boolean;
+  categoryStats?: Map<string, { rate: number; total: number }>;
 }) {
   // Render card structure immediately using static pick data from the server.
   // Live values (current_value, game scores) overlay when they arrive —
   // LivePickRow already handles the "no value yet" state with a dash + spinner.
   const picks = liveData?.picks ?? buildFallbackPicks(card.picks);
 
+  const statsPanel = categoryStats && categoryStats.size > 0 && (
+    <div className="hidden border-l border-border lg:flex lg:w-48 lg:shrink-0 lg:flex-col lg:justify-center lg:gap-2 lg:px-4 lg:py-2">
+      {card.picks.map((pick) => {
+        const cat = pick.props?.stat_category ?? "";
+        const stats = categoryStats.get(cat);
+        if (!stats) return <div key={pick.id} className="h-[50px]" />;
+        const pct = Math.round(stats.rate * 100);
+        const catName = CATEGORY_LABELS[pick.props?.stat_category as keyof typeof CATEGORY_LABELS] ?? cat;
+        return (
+          <div key={pick.id} className="flex items-baseline gap-1.5">
+            <span className={cn(
+              "text-base font-black tabular-nums",
+              pct >= 60 ? "text-emerald-500" : pct >= 40 ? "text-blue-400" : "text-red-400"
+            )}>
+              {pct}%
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {catName} · {stats.total} picks
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   const content = (
-    <LivePickCard
-      picks={picks}
-      hasLiveGames={liveData?.has_live_games ?? false}
-      games={liveData?.games}
-      statusLabel={
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <CardTypeBadge card={card} />
-          {card.picks.length} picks
-        </span>
-      }
-      wagerLabel={
-        (card.fire_token_wager != null || card.heat_score != null) ? (
-          <CardHeatScoreBadge
-            heatScore={card.heat_score}
-            wager={card.fire_token_wager}
-            payout={card.fire_token_payout}
-            cardSize={card.card_size}
-            pickNotches={card.picks.map((p) => p.notch ?? 0)}
-            score={card.score}
-            totalPicks={card.total_picks}
-          />
-        ) : undefined
-      }
-      isWagered={card.fire_token_wager != null}
-      loading={!hasFetched}
-      pickCount={card.picks.length}
-      error={hasError}
-    />
+    <div className="flex">
+      <div className="flex-1 min-w-0">
+        <LivePickCard
+          picks={picks}
+          hasLiveGames={liveData?.has_live_games ?? false}
+          games={liveData?.games}
+          statusLabel={
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CardTypeBadge card={card} />
+              {card.picks.length} picks
+            </span>
+          }
+          wagerLabel={
+            (card.fire_token_wager != null || card.heat_score != null) ? (
+              <CardHeatScoreBadge
+                heatScore={card.heat_score}
+                wager={card.fire_token_wager}
+                payout={card.fire_token_payout}
+                cardSize={card.card_size}
+                pickNotches={card.picks.map((p) => p.notch ?? 0)}
+                score={card.score}
+                totalPicks={card.total_picks}
+              />
+            ) : undefined
+          }
+          isWagered={card.fire_token_wager != null}
+          loading={!hasFetched}
+          pickCount={card.picks.length}
+          error={hasError}
+        />
+      </div>
+      {statsPanel}
+    </div>
   );
 
   if (card.challenge_id) {
@@ -161,6 +195,22 @@ export default function LiveTracker({
     [initialCards]
   );
 
+  // Fetch category stats once for side panel
+  const [categoryStats, setCategoryStats] = useState<Map<string, { rate: number; total: number }> | undefined>();
+  useEffect(() => {
+    fetch("/api/analytics?section=categories")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data?.categories) return;
+        const map = new Map<string, { rate: number; total: number }>();
+        for (const c of data.categories as Array<{ category: string; rate: number; total: number }>) {
+          map.set(c.category, { rate: c.rate, total: c.total });
+        }
+        setCategoryStats(map);
+      })
+      .catch(() => { /* non-blocking */ });
+  }, []);
+
   const { dataMap, hasFetched, error } = useBatchLiveStats(
     cardIds,
     initialCards.length > 0,
@@ -178,7 +228,7 @@ export default function LiveTracker({
   }
 
   return (
-    <AnimatedList className="grid grid-cols-1 gap-4 max-w-2xl" staggerDelay={0.06}>
+    <AnimatedList className="grid grid-cols-1 gap-4 max-w-3xl" staggerDelay={0.06}>
       {initialCards.map((card) => (
         <LiveCard
           key={card.id}
@@ -186,7 +236,8 @@ export default function LiveTracker({
           liveData={dataMap.get(card.id)}
           hasFetched={hasFetched}
           hasError={!!error}
-            />
+          categoryStats={categoryStats}
+        />
       ))}
     </AnimatedList>
   );
