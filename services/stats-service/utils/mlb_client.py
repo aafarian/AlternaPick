@@ -249,14 +249,17 @@ async def get_mlb_team_roster(team_id: str) -> list[dict]:
     try:
         data = await _espn_get(f"/teams/{team_id}/roster")
         players = []
-        for athlete in data.get("athletes", []):
-            player_id = str(athlete.get("id", ""))
-            display_name = athlete.get("displayName", athlete.get("fullName", ""))
-            if player_id and display_name:
-                players.append({
-                    "name": display_name,
-                    "id": player_id,
-                })
+        # ESPN MLB rosters nest players under position groups:
+        # athletes: [{ position: "Pitchers", items: [{ id, displayName, ... }] }, ...]
+        for group in data.get("athletes", []):
+            for athlete in group.get("items", []):
+                player_id = str(athlete.get("id", ""))
+                display_name = athlete.get("displayName", athlete.get("fullName", ""))
+                if player_id and display_name:
+                    players.append({
+                        "name": display_name,
+                        "id": player_id,
+                    })
         set_cached(cache_key, players, 6 * 3600)  # Cache for 6 hours
         return players
     except Exception as e:
