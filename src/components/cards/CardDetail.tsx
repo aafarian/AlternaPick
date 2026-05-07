@@ -190,6 +190,7 @@ const LiveCardContent = memo(function LiveCardContent({
                     pick={livePick}
                     showQualityTokens={false}
                     variant={condensed ? "condensed" : "full"}
+                    hidePerPickScore={card.fire_token_wager != null}
                   />
                 </StaggerItem>
               );

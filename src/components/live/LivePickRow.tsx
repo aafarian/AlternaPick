@@ -25,9 +25,11 @@ interface LivePickRowProps {
   variant?: "full" | "compact" | "condensed";
   /** When true, show quality bonus tokens instead of full heatscore */
   showQualityTokens?: boolean;
+  /** When true, hide per-pick HeatScore entirely (wagered cards) */
+  hidePerPickScore?: boolean;
 }
 
-function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }: LivePickRowProps) {
+function LivePickRowInner({ pick, variant = "full", showQualityTokens = false, hidePerPickScore = false }: LivePickRowProps) {
   // Track whether this is the initial render (for the bar grow animation).
   // Once the bar has grown, subsequent renders just set the width directly.
   const initialRenderRef = useRef(true);
@@ -410,8 +412,8 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
             </span>
           )}
 
-          {/* Per-pick score (resolved picks only) */}
-          {d.isSettled && pick.heat_score != null && pick.heat_score !== 0 && (() => {
+          {/* Per-pick score (resolved picks only, hidden on wagered cards) */}
+          {!hidePerPickScore && d.isSettled && pick.heat_score != null && pick.heat_score !== 0 && (() => {
             // For wagered cards, show quality tokens (what contributed to payout)
             // For non-wagered, show full heatscore
             const notchMult = (pick.notch != null && pick.notch !== 0)
@@ -437,7 +439,7 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
               </span>
             );
           })()}
-          {d.isSettled && (pick.heat_score == null || pick.heat_score === 0) && pick.trending === "hit" && (
+          {!hidePerPickScore && d.isSettled && (pick.heat_score == null || pick.heat_score === 0) && pick.trending === "hit" && (
             <span className="text-[10px] font-semibold text-emerald-500/60">Hit</span>
           )}
 
@@ -529,6 +531,7 @@ const LivePickRow = memo(LivePickRowInner, (prev, next) => {
   // Only re-render if the pick data actually changed
   if (prev.variant !== next.variant) return false;
   if (prev.showQualityTokens !== next.showQualityTokens) return false;
+  if (prev.hidePerPickScore !== next.hidePerPickScore) return false;
   const p = prev.pick;
   const n = next.pick;
   return (
