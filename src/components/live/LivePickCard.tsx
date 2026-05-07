@@ -136,7 +136,7 @@ export default function LivePickCard({
             {picks.map((pick, i) => (
               <div key={pick.pick_id}>
                 {i > 0 && <Separator className="ml-4 opacity-20" />}
-                <LivePickRow pick={pick} />
+                <LivePickRow pick={pick} variant="condensed" />
               </div>
             ))}
           </div>

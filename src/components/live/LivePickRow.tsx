@@ -198,11 +198,24 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
           </div>
         </div>
 
-        {/* Inline progress bar */}
-        <div className="relative h-1.5 min-w-[60px] flex-1 overflow-hidden rounded-full bg-secondary/30">
+        {/* Inline progress bar with line marker */}
+        <div className="relative h-1.5 min-w-[60px] flex-1 overflow-visible rounded-full bg-secondary/30">
+          {/* Line marker arrow */}
+          <div
+            className="absolute -top-[2px] z-20"
+            style={{ left: `${d.linePosition}%`, transform: "translateX(-50%)" }}
+          >
+            <svg width="6" height="10" viewBox="0 0 6 10">
+              {d.isOver ? (
+                <polygon points="0,0 6,5 0,10" fill="currentColor" className="text-foreground/60" />
+              ) : (
+                <polygon points="6,0 0,5 6,10" fill="currentColor" className="text-foreground/60" />
+              )}
+            </svg>
+          </div>
           <div
             className={cn(
-              "h-full rounded-full transition-[width,background-color] duration-700 ease-out",
+              "h-full overflow-hidden rounded-full transition-[width,background-color] duration-700 ease-out",
               d.barColor
             )}
             style={{ width: `${d.barWidth}%` }}
