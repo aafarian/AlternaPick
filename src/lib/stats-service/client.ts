@@ -597,6 +597,60 @@ export async function fetchSoccerBoxscoreLive(
   return result;
 }
 
+// --- MLB ---
+
+export async function fetchMlbGames(): Promise<StatsGame[]> {
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/mlb/games/today`
+  );
+  const data = await response.json();
+  return data.data ?? [];
+}
+
+export async function fetchMlbGamesByDate(date: string): Promise<StatsGame[]> {
+  const cacheKey = `mlbGamesByDate:${date}`;
+  const cached = getCached<StatsGame[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/mlb/games/today?date=${encodeURIComponent(date)}`
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  return result;
+}
+
+export async function fetchMlbGamesLive(): Promise<StatsGame[]> {
+  const cacheKey = "mlbGamesLive";
+  const cached = getCached<StatsGame[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/mlb/games/today/live`
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result);
+  return result;
+}
+
+export async function fetchMlbBoxscore(
+  eventId: string
+): Promise<PlayerBoxScore[]> {
+  const cacheKey = `mlbBoxscore:${eventId}`;
+  const cached = getCached<PlayerBoxScore[]>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/mlb/boxscore/${encodeURIComponent(eventId)}`
+  );
+  const data = await response.json();
+  const result = data.data ?? [];
+  setCache(cacheKey, result, FINAL_CACHE_TTL);
+  return result;
+}
+
 // --- Player gamelog ---
 
 export async function fetchPlayerGamelog(

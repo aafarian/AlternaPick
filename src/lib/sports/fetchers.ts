@@ -6,6 +6,7 @@ import {
   fetchBoxscore,
   fetchSoccerBoxscore,
   fetchNcaabBoxscore,
+  fetchMlbBoxscore,
   type PlayerBoxScore,
 } from "@/lib/stats-service/client";
 import { logWarn } from "@/lib/logger";
@@ -49,6 +50,7 @@ const FETCHER_MAP: Partial<Record<SportKey, BoxscoreFetcher>> = {
   epl: fetchSoccerBoxscore,
   la_liga: fetchSoccerBoxscore,
   ncaab: fetchNcaabBoxscore,
+  mlb: fetchMlbBoxscore,
 };
 
 /** Returns the appropriate boxscore fetcher for a sport, defaulting to NBA. */
