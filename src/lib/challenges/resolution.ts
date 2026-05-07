@@ -44,6 +44,7 @@ interface GroupParticipantCard {
   user_id: string | null;
   card_id: string | null;
   card_score: number;
+  card_total_picks: number;
   card_heat_score: number;
   card_status: string;
 }
@@ -278,6 +279,9 @@ export async function resolveEligibleChallenges(): Promise<
             username: challengerName,
             myScore: challengerScore,
             theirScore: opponentScore,
+            totalPicks: challengerCard.total_picks,
+            myHeatScore: challengerHS,
+            theirHeatScore: opponentHS,
             opponentName,
             isWinner: winnerId === challenge.challenger_id,
             isTie,
@@ -299,6 +303,9 @@ export async function resolveEligibleChallenges(): Promise<
             username: opponentName,
             myScore: opponentScore,
             theirScore: challengerScore,
+            totalPicks: opponentCard.total_picks,
+            myHeatScore: opponentHS,
+            theirHeatScore: challengerHS,
             opponentName: challengerName,
             isWinner: winnerId === challenge.opponent_id,
             isTie,
@@ -421,7 +428,7 @@ async function resolveGroupChallenge(
   // Fetch all cards for active participants
   const cardIds = participantsWithCards.map((p) => p.card_id as string);
   const { data: cardsData, error: cardsError } = await (supabase.from("cards") as any)
-    .select("id, user_id, score, heat_score, status")
+    .select("id, user_id, score, total_picks, heat_score, status")
     .in("id", cardIds);
 
   if (cardsError) {
@@ -436,6 +443,7 @@ async function resolveGroupChallenge(
     id: string;
     user_id: string | null;
     score: number;
+    total_picks: number;
     heat_score: number | null;
     status: string;
   }>;
@@ -456,6 +464,7 @@ async function resolveGroupChallenge(
       user_id: p.user_id,
       card_id: p.card_id,
       card_score: card.score,
+      card_total_picks: card.total_picks,
       card_heat_score: card.heat_score ?? 0,
       card_status: card.status,
     });
@@ -468,7 +477,7 @@ async function resolveGroupChallenge(
   });
 
   // Assign placements with dense ranking (ties get same placement, next skips)
-  const placements: Array<{ participant_id: string; user_id: string | null; placement: number; score: number }> = [];
+  const placements: Array<{ participant_id: string; user_id: string | null; placement: number; score: number; card_total_picks: number; card_heat_score: number }> = [];
   let currentPlacement = 1;
 
   for (let i = 0; i < participantCards.length; i++) {
@@ -480,6 +489,8 @@ async function resolveGroupChallenge(
       user_id: participantCards[i].user_id,
       placement: currentPlacement,
       score: participantCards[i].card_score,
+      card_total_picks: participantCards[i].card_total_picks,
+      card_heat_score: participantCards[i].card_heat_score,
     });
   }
 
@@ -618,6 +629,9 @@ async function resolveGroupChallenge(
             username,
             myScore: p.score,
             theirScore: secondScore,
+            totalPicks: p.card_total_picks,
+            myHeatScore: p.card_heat_score,
+            theirHeatScore: participantCards.length > 1 ? participantCards[1].card_heat_score : 0,
             opponentName: formatGroupOpponentLabel(totalParticipants),
             isWinner: p.placement === 1,
             isTie: hasFirstPlaceTie && p.placement === 1,
