@@ -258,24 +258,37 @@ export function computeHeatScore(picks: HeatScorePickInput[]): number {
  * New model: wagered cards have uniform notch, so direct 2D table lookup.
  * Legacy fallback: geometric mean for old mixed cards.
  */
+/** Legacy flat scales for removed Frosty/Chilled tiers.
+ * Used when re-resolving old wagered cards with these notches. */
+const LEGACY_FLAT_SCALE: Record<number, number> = {
+  [-2]: 0.27, // Frosty
+  [-1]: 0.56, // Chilled
+};
+
 export function computeWagerNotchScale(notches: number[], cardSize?: number): number {
   if (notches.length === 0) return 1;
   const size = cardSize ?? notches.length;
 
-  // Uniform notch: direct lookup
+  // Uniform notch: direct lookup from 2D table
   const allSame = notches.every((n) => n === notches[0]);
   if (allSame) {
     const tierScales = WAGER_NOTCH_SCALE[notches[0]];
     if (tierScales && tierScales[size] != null) {
       return tierScales[size];
     }
+    // Legacy flat scale for Frosty/Chilled
+    const legacyScale = LEGACY_FLAT_SCALE[notches[0]];
+    if (legacyScale != null) return legacyScale;
   }
 
-  // Legacy fallback: geometric mean for old mixed cards
+  // Fallback: geometric mean for old mixed cards
   const product = notches.reduce((p, n) => {
     const tierScales = WAGER_NOTCH_SCALE[n];
-    const scale = tierScales ? (tierScales[size] ?? 1) : 1;
-    return p * scale;
+    if (tierScales) {
+      return p * (tierScales[size] ?? 1);
+    }
+    // Legacy Frosty/Chilled: use old flat scale
+    return p * (LEGACY_FLAT_SCALE[n] ?? 1);
   }, 1);
   return Math.pow(product, 1 / notches.length);
 }
