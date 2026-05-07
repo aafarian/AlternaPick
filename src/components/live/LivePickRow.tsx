@@ -145,65 +145,102 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
     return (
       <div
         className={cn(
-          "flex items-center gap-2 border-l-2 px-2 py-1.5 transition-colors",
+          "flex flex-col gap-1 border-l-2 px-2 py-1.5 transition-colors",
           d.accentClass,
           d.isSettled && "opacity-75"
         )}
       >
-        {/* Settled icon */}
-        <div
-          className={cn(
-            "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
-            d.isSettled
-              ? d.isDnp || d.isVoid
-                ? "bg-muted text-muted-foreground"
-                : d.settledWon
-                  ? "bg-neon-green/15 text-neon-green"
-                  : "bg-bold-red/15 text-bold-red"
-              : "bg-transparent text-transparent"
-          )}
-        >
-          {d.isSettled && (
-            d.isDnp || d.isVoid ? (
-              <Minus className="h-3 w-3" strokeWidth={3} />
-            ) : d.settledWon ? (
-              <Check className="h-3 w-3" strokeWidth={3} />
+        {/* Info row */}
+        <div className="flex items-center gap-2">
+          {/* Settled icon */}
+          <div
+            className={cn(
+              "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+              d.isSettled
+                ? d.isDnp || d.isVoid
+                  ? "bg-muted text-muted-foreground"
+                  : d.settledWon
+                    ? "bg-neon-green/15 text-neon-green"
+                    : "bg-bold-red/15 text-bold-red"
+                : "bg-transparent text-transparent"
+            )}
+          >
+            {d.isSettled && (
+              d.isDnp || d.isVoid ? (
+                <Minus className="h-3 w-3" strokeWidth={3} />
+              ) : d.settledWon ? (
+                <Check className="h-3 w-3" strokeWidth={3} />
+              ) : (
+                <X className="h-3 w-3" strokeWidth={3} />
+              )
+            )}
+          </div>
+
+          {/* Avatar */}
+          <PlayerAvatar
+            playerId={pick.player_id}
+            playerName={pick.player_name}
+            sport={pick.sport}
+            size="default"
+            className="ring-1 ring-border/60"
+          />
+
+          {/* Player name + stat */}
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-sm font-semibold leading-tight">
+              {pick.player_name}
+            </span>
+            <div className="flex items-center gap-1">
+              <span className={cn("text-[10px] font-semibold uppercase", statPillClass)}>
+                {CATEGORY_SHORT_LABELS[statCat] ?? statCat}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {d.isOver ? "O" : "U"} {pick.line}
+              </span>
+            </div>
+          </div>
+
+          {/* Value + status */}
+          <div className="flex shrink-0 items-center gap-2">
+            {d.isDnp || d.isVoid ? (
+              <span className="text-[10px] font-semibold text-muted-foreground">
+                {d.isDnp ? "DNP" : "Void"}
+              </span>
+            ) : d.hasValue ? (
+              <span className={cn(
+                "text-lg font-black tabular-nums",
+                d.isWinning ? "text-neon-green" : "text-bold-red"
+              )}>
+                {pick.current_value}
+              </span>
+            ) : d.isSettled ? (
+              <span className={cn(
+                "text-[10px] font-semibold",
+                d.settledWon ? "text-neon-green" : "text-bold-red"
+              )}>
+                {d.settledWon ? "Hit" : "Miss"}
+              </span>
             ) : (
-              <X className="h-3 w-3" strokeWidth={3} />
-            )
-          )}
-        </div>
+              <span className="text-xs text-muted-foreground/30">&mdash;</span>
+            )}
 
-        {/* Avatar */}
-        <PlayerAvatar
-          playerId={pick.player_id}
-          playerName={pick.player_name}
-          sport={pick.sport}
-          size="default"
-          className="ring-1 ring-border/60"
-        />
-
-        {/* Player name + stat */}
-        <div className="flex min-w-0 flex-col">
-          <span className="truncate text-sm font-semibold leading-tight">
-            {pick.player_name}
-          </span>
-          <div className="flex items-center gap-1">
-            <span className={cn("text-[10px] font-semibold uppercase", statPillClass)}>
-              {CATEGORY_SHORT_LABELS[statCat] ?? statCat}
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              {d.isOver ? "O" : "U"} {pick.line}
-            </span>
+            {d.isLive && pick.game_status && (
+              <span className="flex items-center gap-1 text-[9px] font-semibold text-white/70">
+                <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-primary" />
+                {formatLiveStatus(pick.game_status.period, pick.game_status.clock, pick.sport, pick.game_status.home_score, pick.game_status.away_score)}
+              </span>
+            )}
+            {d.isFinal && !d.isSettled && (
+              <span className="text-[9px] font-semibold text-white/50">Final</span>
+            )}
           </div>
         </div>
 
-        {/* Inline progress bar with line marker */}
-        <div className="relative h-1.5 min-w-[60px] flex-1 overflow-visible rounded-full bg-secondary/30">
-          {/* Line marker — triangle centered vertically on the bar */}
+        {/* Full-width progress bar with line marker */}
+        <div className="relative h-1.5 w-full overflow-visible rounded-full bg-secondary/30">
           <div
-            className="absolute top-1/2 z-20"
-            style={{ left: `${d.linePosition}%`, transform: "translate(-50%, -50%)" }}
+            className="absolute -top-[2px] z-20"
+            style={{ left: `${d.linePosition}%`, transform: "translateX(-50%)" }}
           >
             <svg width="6" height="10" viewBox="0 0 8 14">
               {d.isOver ? (
@@ -220,41 +257,6 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
             )}
             style={{ width: `${d.barWidth}%` }}
           />
-        </div>
-
-        {/* Value + status */}
-        <div className="flex shrink-0 items-center gap-2">
-          {d.isDnp || d.isVoid ? (
-            <span className="text-[10px] font-semibold text-muted-foreground">
-              {d.isDnp ? "DNP" : "Void"}
-            </span>
-          ) : d.hasValue ? (
-            <span className={cn(
-              "text-sm font-black tabular-nums",
-              d.isWinning ? "text-neon-green" : "text-bold-red"
-            )}>
-              {pick.current_value}
-            </span>
-          ) : d.isSettled ? (
-            <span className={cn(
-              "text-[10px] font-semibold",
-              d.settledWon ? "text-neon-green" : "text-bold-red"
-            )}>
-              {d.settledWon ? "Hit" : "Miss"}
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground/30">&mdash;</span>
-          )}
-
-          {d.isLive && pick.game_status && (
-            <span className="flex items-center gap-1 text-[9px] font-semibold text-white/70">
-              <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-primary" />
-              {formatLiveStatus(pick.game_status.period, pick.game_status.clock, pick.sport, pick.game_status.home_score, pick.game_status.away_score)}
-            </span>
-          )}
-          {d.isFinal && !d.isSettled && (
-            <span className="text-[9px] font-semibold text-white/50">Final</span>
-          )}
         </div>
       </div>
     );
