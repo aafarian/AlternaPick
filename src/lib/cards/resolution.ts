@@ -877,7 +877,7 @@ export async function resolveCard(
         const scoreableNotches = pickResolutions
           .filter((p) => p.result === "hit" || p.result === "miss")
           .map((p) => p.notch ?? 0);
-        const notchScale = computeWagerNotchScale(scoreableNotches);
+        const notchScale = computeWagerNotchScale(scoreableNotches, hsResult.effectiveSize);
         payout = computeFireTokenPayout(wager, hsResult.multiplier, 0, notchScale);
       }
     }

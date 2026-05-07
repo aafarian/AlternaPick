@@ -12,15 +12,13 @@ export interface NotchTier {
 }
 
 export const NOTCH_TIERS: readonly NotchTier[] = [
-  { notch: -2, label: "Frosty", multiplier: 0.25, color: "blue" },
-  { notch: -1, label: "Chilled", multiplier: 0.5, color: "lightblue" },
   { notch: 0, label: "Standard", multiplier: 1.0, color: "neutral" },
   { notch: 1, label: "Heated", multiplier: 1.75, color: "yellow" },
   { notch: 2, label: "Scorched", multiplier: 2.75, color: "orange" },
   { notch: 3, label: "Volcanic", multiplier: 4.0, color: "red" },
 ] as const;
 
-export const MIN_NOTCH = -2;
+export const MIN_NOTCH = 0;
 export const MAX_NOTCH = 3;
 
 // ---------------------------------------------------------------------------
@@ -88,30 +86,48 @@ export const MIN_STEP = 1.0;
 // ~60% (5-pick), ~58% (6-pick).
 // ---------------------------------------------------------------------------
 
+/**
+ * Base payout multiplier table. Determines the payout structure for each
+ * card size at Standard difficulty (50% hit rate per pick).
+ *
+ * E[return] = 0.90 (10% house edge) for every card size.
+ * Partial payouts on 3+ pick cards prevent all-or-nothing frustration.
+ *
+ *   2-pick: all-or-nothing (PrizePicks style)
+ *   3-pick: 2/3 = get your money back
+ *   4-pick: 3/4 = 1.5x profit
+ *   5-pick: layered (3 tiers before bust)
+ *   6-pick: high risk, high reward
+ */
 const HEATSCORE_TABLE: Record<number, Record<number, number>> = {
-  2: { 2: 2.8, 1: 0, 0: 0 },
-  3: { 3: 3.0, 2: 0.9, 1: 0, 0: 0 },
-  4: { 4: 5.0, 3: 1.5, 2: 0, 1: 0, 0: 0 },
-  5: { 5: 10.0, 4: 3, 3: 0.5, 2: 0, 1: 0, 0: 0 },
-  6: { 6: 25.0, 5: 3.0, 4: 0.8, 3: 0, 2: 0, 1: 0, 0: 0 },
+  2: { 2: 3.6, 1: 0, 0: 0 },
+  3: { 3: 4.2, 2: 1.0, 1: 0, 0: 0 },
+  4: { 4: 8.4, 3: 1.5, 2: 0, 1: 0, 0: 0 },
+  5: { 5: 13.8, 4: 2.0, 3: 0.5, 2: 0, 1: 0, 0: 0 },
+  6: { 6: 32.1, 5: 3.0, 4: 0.5, 3: 0, 2: 0, 1: 0, 0: 0 },
 };
 
 /**
- * Per-tier wager payout scale, calibrated so every notch tier has
- * E[return] ≈ 0.85 at its actual hit rate (50% for Standard).
+ * Per-(cardSize, notch) wager payout scale. Each cell is calibrated so
+ * E[return] = 0.90 at the tier's actual hit rate.
  *
- * When a card mixes tiers, the geometric mean of the per-pick scales
- * is used — this prevents the exploit where one Volcanic pick inflates
- * the whole card's payout.
+ * Wagered cards must use a uniform notch tier (no mixing) so the payout
+ * is a clean lookup: `multiplier × scale`, no geometric mean blending.
+ *
+ * The payout the user sees = HEATSCORE_TABLE[size][hits] × WAGER_NOTCH_SCALE[notch][size].
  */
-export const WAGER_NOTCH_SCALE: Record<number, number> = {
-  [-2]: 0.27,   // Frosty  — easy picks, low payout
-  [-1]: 0.56,   // Chilled
-  [0]:  1.0,    // Standard
-  [1]:  4.36,   // Heated
-  [2]:  14.68,  // Scorched
-  [3]:  82.3,   // Volcanic — lottery ticket
+export const WAGER_NOTCH_SCALE: Record<number, Record<number, number>> = {
+  [0]: { 2: 1, 3: 1, 4: 1, 5: 1, 6: 1 },                            // Standard (50%)
+  [1]: { 2: 1.562, 3: 1.616, 4: 2.02, 5: 2.195, 6: 2.892 },         // Heated (40%)
+  [2]: { 2: 2.778, 3: 2.976, 4: 4.96, 5: 5.755, 6: 10.742 },        // Scorched (30%)
+  [3]: { 2: 6.25, 3: 6.944, 4: 17.361, 5: 21.02, 6: 15.576 },       // Volcanic (20%)
 };
+
+/** Maximum payout multiplier (caps Volcanic 6-pick). */
+export const MAX_PAYOUT_MULTIPLIER = 500;
+
+/** Maximum Volcanic (notch=3) picks per card. */
+export const MAX_VOLCANIC_PER_CARD = 2;
 
 /**
  * Look up the HeatScore multiplier for a given effective card size and hit
@@ -205,7 +221,8 @@ export const DAILY_CLAIM = 50;
  * easy picks (Frosty = 0.27x payout), so the exploit is addressed by the
  * payout math rather than a hard cap. Re-enable if needed for game-feel.
  */
-export const MAX_EASY_NOTCH_PICKS = 0; // disabled — allow unlimited Frosty/Chilled for testing
+/** @deprecated Frosty/Chilled removed — kept for backward compat with old picks. */
+export const MAX_EASY_NOTCH_PICKS = 0;
 
 // ---------------------------------------------------------------------------
 // Challenge token rewards (no wager — flat bonuses)
