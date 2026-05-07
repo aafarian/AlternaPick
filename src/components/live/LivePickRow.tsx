@@ -3,7 +3,7 @@
 import { useEffect, useRef, memo } from "react";
 import type { LivePickData } from "@/lib/cards/live-types";
 import { computePickDisplay } from "@/lib/cards/pick-display";
-import { CATEGORY_LABELS, CATEGORY_COLORS, formatPlayerSubtitle } from "@/lib/constants";
+import { CATEGORY_LABELS, CATEGORY_SHORT_LABELS, CATEGORY_COLORS, formatPlayerSubtitle } from "@/lib/constants";
 import { formatLiveStatus, formatGameTime } from "@/lib/format";
 import type { StatCategory } from "@/lib/supabase/types";
 import PlayerAvatar from "@/components/players/PlayerAvatar";
@@ -22,7 +22,7 @@ const CHEVRON_LEFT = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/20
 
 interface LivePickRowProps {
   pick: LivePickData;
-  variant?: "full" | "compact";
+  variant?: "full" | "compact" | "condensed";
   /** When true, show quality bonus tokens instead of full heatscore */
   showQualityTokens?: boolean;
 }
@@ -136,6 +136,113 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
               : "Scheduled"}
           </span>
         )}
+      </div>
+    );
+  }
+
+  // Condensed variant — compact single-line with inline progress bar
+  if (variant === "condensed") {
+    return (
+      <div
+        className={cn(
+          "flex items-center gap-2 border-l-2 px-2 py-1.5 transition-colors",
+          d.accentClass,
+          d.isSettled && "opacity-75"
+        )}
+      >
+        {/* Settled icon */}
+        <div
+          className={cn(
+            "flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
+            d.isSettled
+              ? d.isDnp || d.isVoid
+                ? "bg-muted text-muted-foreground"
+                : d.settledWon
+                  ? "bg-neon-green/15 text-neon-green"
+                  : "bg-bold-red/15 text-bold-red"
+              : "bg-transparent text-transparent"
+          )}
+        >
+          {d.isSettled && (
+            d.isDnp || d.isVoid ? (
+              <Minus className="h-2.5 w-2.5" strokeWidth={3} />
+            ) : d.settledWon ? (
+              <Check className="h-2.5 w-2.5" strokeWidth={3} />
+            ) : (
+              <X className="h-2.5 w-2.5" strokeWidth={3} />
+            )
+          )}
+        </div>
+
+        {/* Small avatar */}
+        <PlayerAvatar
+          playerId={pick.player_id}
+          playerName={pick.player_name}
+          sport={pick.sport}
+          size="sm"
+          className="ring-1 ring-border/60"
+        />
+
+        {/* Player name + stat */}
+        <div className="flex min-w-0 flex-col">
+          <span className="truncate text-xs font-semibold leading-tight">
+            {pick.player_name}
+          </span>
+          <div className="flex items-center gap-1">
+            <span className={cn("text-[9px] font-semibold uppercase", statPillClass)}>
+              {CATEGORY_SHORT_LABELS[statCat] ?? statCat}
+            </span>
+            <span className="text-[9px] text-muted-foreground">
+              {d.isOver ? "O" : "U"} {pick.line}
+            </span>
+          </div>
+        </div>
+
+        {/* Inline progress bar */}
+        <div className="relative h-1.5 min-w-[60px] flex-1 overflow-hidden rounded-full bg-secondary/30">
+          <div
+            className={cn(
+              "h-full rounded-full transition-[width,background-color] duration-700 ease-out",
+              d.barColor
+            )}
+            style={{ width: `${d.barWidth}%` }}
+          />
+        </div>
+
+        {/* Value + status */}
+        <div className="flex shrink-0 items-center gap-2">
+          {d.isDnp || d.isVoid ? (
+            <span className="text-[10px] font-semibold text-muted-foreground">
+              {d.isDnp ? "DNP" : "Void"}
+            </span>
+          ) : d.hasValue ? (
+            <span className={cn(
+              "text-sm font-black tabular-nums",
+              d.isWinning ? "text-neon-green" : "text-bold-red"
+            )}>
+              {pick.current_value}
+            </span>
+          ) : d.isSettled ? (
+            <span className={cn(
+              "text-[10px] font-semibold",
+              d.settledWon ? "text-neon-green" : "text-bold-red"
+            )}>
+              {d.settledWon ? "Hit" : "Miss"}
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground/30">&mdash;</span>
+          )}
+
+          {d.isLive && pick.game_status && (
+            <span className="flex items-center gap-1 text-[9px] font-semibold text-white/70">
+              <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-primary" />
+              {formatLiveStatus(pick.game_status.period, pick.game_status.clock, pick.sport, pick.game_status.home_score, pick.game_status.away_score)}
+            </span>
+          )}
+          {d.isFinal && !d.isSettled && (
+            <span className="text-[9px] font-semibold text-white/50">Final</span>
+          )}
+        </div>
       </div>
     );
   }

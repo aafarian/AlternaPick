@@ -84,9 +84,11 @@ function StatusBadge({ status, score, total }: { status: string; score: number; 
 const LiveCardContent = memo(function LiveCardContent({
   card,
   animate,
+  condensed = false,
 }: {
   card: CardWithPicks;
   animate: boolean;
+  condensed?: boolean;
 }) {
   const isLocked = card.status === "locked";
   const router = useRouter();
@@ -124,8 +126,8 @@ const LiveCardContent = memo(function LiveCardContent({
         </div>
       )}
 
-      {/* Game score banner */}
-      {(() => {
+      {/* Game score banner — hidden in condensed view */}
+      {!condensed && (() => {
         if (isLocked && !gamesToShow) {
           return (
             <div className="flex gap-2 px-3 pb-2">
@@ -178,7 +180,7 @@ const LiveCardContent = memo(function LiveCardContent({
               });
               return (
                 <StaggerItem key={pick.id}>
-                  <LivePickRow pick={livePick} showQualityTokens={false} />
+                  <LivePickRow pick={livePick} showQualityTokens={false} variant={condensed ? "condensed" : "full"} />
                 </StaggerItem>
               );
             })}
@@ -198,14 +200,14 @@ const LiveCardContent = memo(function LiveCardContent({
                   game_id: pick.props.game_id, games: pick.props.games,
                 } : null,
               });
-              return <LivePickRow key={pick.id} pick={livePick} showQualityTokens={false} />;
+              return <LivePickRow key={pick.id} pick={livePick} showQualityTokens={false} variant={condensed ? "condensed" : "full"} />;
             })}
           </div>
         )}
       </CardContent>
 
-      {/* Share button (resolved only) */}
-      {card.status === "resolved" && (
+      {/* Share button (resolved only, hidden in condensed) */}
+      {card.status === "resolved" && !condensed && (
         <FadeIn delay={animate ? 0.3 : 0}>
           <CardFooter className="justify-end px-4 py-3">
             <ShareButton cardId={card.id} />
@@ -220,7 +222,7 @@ const LiveCardContent = memo(function LiveCardContent({
 // CardDetail — static header + LiveCardContent child
 // ---------------------------------------------------------------------------
 
-export default function CardDetail({ card, linked = true }: { card: CardWithPicks; linked?: boolean }) {
+export default function CardDetail({ card, linked = true, condensed = false }: { card: CardWithPicks; linked?: boolean; condensed?: boolean }) {
   const date = new Date(card.created_at).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -292,7 +294,7 @@ export default function CardDetail({ card, linked = true }: { card: CardWithPick
           </div>
 
           {/* Live content — isolated re-renders */}
-          <LiveCardContent card={card} animate={animate} />
+          <LiveCardContent card={card} animate={animate} condensed={condensed} />
         </Card>
       </SlideUp>
     </Wrapper>
