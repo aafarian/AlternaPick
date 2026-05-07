@@ -111,7 +111,8 @@ export async function POST(request: NextRequest) {
     const { data: nullProps, error: fetchError } = await supabase
       .from("props")
       .select("id, player_name, game_id, games(sport, home_team, away_team)")
-      .is("player_id", null);
+      .is("player_id", null)
+      .limit(10000);
 
     if (fetchError) {
       return NextResponse.json({ error: fetchError.message }, { status: 500 });
