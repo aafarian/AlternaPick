@@ -87,7 +87,9 @@ async def get_todays_mlb_games(target_date: str | None = None) -> list[dict]:
                 "away_score": int(away.get("score", "0") or "0"),
                 "status": parse_espn_status(status_type),
                 "period": parse_period(status),
-                "clock": parse_clock(status),
+                # For MLB, use shortDetail (e.g. "Bot 8th", "Top 3rd") instead of
+                # the display clock (always "0:00" in baseball — no game clock).
+                "clock": status.get("type", {}).get("shortDetail", "") or parse_clock(status),
                 "start_time": event.get("date", ""),
                 "home_team_id": str(home_team_data.get("id", "")),
                 "away_team_id": str(away_team_data.get("id", "")),
@@ -127,10 +129,18 @@ async def get_mlb_boxscore(event_id: str) -> list[dict]:
             team_name = team_info.get("displayName", team_info.get("name", ""))
             team_tricode = team_info.get("abbreviation", "")
 
-            # ESPN baseball boxscores have multiple stat groups: batting, pitching, fielding
-            for stat_group in team_data.get("statistics", []):
-                group_name = stat_group.get("name", "").lower()
+            # ESPN baseball boxscores have stat groups: batting (index 0), pitching (index 1).
+            # The "name" field is often empty, so detect by labels or index.
+            for group_idx, stat_group in enumerate(team_data.get("statistics", [])):
                 labels = [lbl.lower() for lbl in stat_group.get("labels", [])]
+                # Detect group type by labels: batting has "ab"/"h", pitching has "ip"/"er"
+                is_batting = "ab" in labels or "h-ab" in labels
+                is_pitching = "ip" in labels or "er" in labels
+                # Fallback to index: first group = batting, second = pitching
+                if not is_batting and not is_pitching:
+                    is_batting = group_idx == 0
+                    is_pitching = group_idx == 1
+                group_name = "batting" if is_batting else "pitching" if is_pitching else ""
 
                 for athlete in stat_group.get("athletes", []):
                     athlete_info = athlete.get("athlete", {})
