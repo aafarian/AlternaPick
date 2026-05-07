@@ -261,11 +261,35 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false, h
           </div>
           <div
             className={cn(
-              "h-full overflow-hidden rounded-full transition-[width,background-color] duration-700 ease-out",
+              "relative h-full overflow-hidden rounded-full transition-[width,background-color] duration-700 ease-out",
               d.barColor
             )}
             style={{ width: `${d.barWidth}%` }}
-          />
+          >
+            {/* Chevron pattern — only when in play */}
+            {!d.isSettled && (
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: d.isOver ? CHEVRON_RIGHT : CHEVRON_LEFT,
+                  backgroundRepeat: "repeat",
+                  backgroundSize: "8px 8px",
+                }}
+              />
+            )}
+            {/* Shimmer — only when in play */}
+            {d.inPlay && (
+              <div className="absolute inset-0 overflow-hidden">
+                <div
+                  className="absolute inset-y-0 w-1/3 animate-bar-shimmer"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",
+                  }}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
