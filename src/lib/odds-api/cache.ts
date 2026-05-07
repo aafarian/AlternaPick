@@ -4,7 +4,7 @@ import type { SportKey } from "./constants";
 import type { OddsApiEvent, ParsedPlayerProp } from "./types";
 import type { Game, Prop } from "@/lib/supabase/types";
 import {
-  fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams, fetchSoccerPlayers,
+  fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams, fetchSoccerPlayers, fetchMlbPlayers,
   fetchSoccerGamesByDate, fetchLaLigaGamesByDate, fetchCopaDelReyGamesByDate,
   type StatsGame,
 } from "@/lib/stats-service/client";
@@ -418,6 +418,18 @@ async function _cachePropsInternal(
       }
     } catch (err) {
       logError(`${sport} enrich`, "Failed", undefined, err);
+    }
+  }
+
+  if (sport === "mlb") {
+    try {
+      const mlbPlayerMap = await fetchMlbPlayers();
+      for (const [name, id] of Object.entries(mlbPlayerMap)) {
+        playerIdMap.set(name.toLowerCase(), id);
+        playerIdMap.set(normalizeName(name), id);
+      }
+    } catch (err) {
+      logError("MLB enrich", "Failed", undefined, err);
     }
   }
 

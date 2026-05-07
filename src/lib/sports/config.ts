@@ -6,7 +6,7 @@ import type { StatCategory } from "@/lib/supabase/types";
 
 /* ---------- Keys & Types ---------- */
 
-export const SPORT_KEYS = ["nba", "ncaab", "epl", "la_liga", "nhl"] as const;
+export const SPORT_KEYS = ["nba", "ncaab", "epl", "la_liga", "nhl", "mlb"] as const;
 export type SportKey = (typeof SPORT_KEYS)[number];
 
 export type CategoryOption = { value: StatCategory | "all"; label: string };
@@ -45,6 +45,19 @@ const BASKETBALL_CATEGORIES: CategoryOption[] = [
   { value: "pts_ast", label: "Pts+Ast" },
   { value: "reb_ast", label: "Reb+Ast" },
   { value: "blk_stl", label: "Blk+Stl" },
+];
+
+const BASEBALL_CATEGORIES: CategoryOption[] = [
+  { value: "all", label: "All" },
+  { value: "hits", label: "Hits" },
+  { value: "home_runs", label: "Home Runs" },
+  { value: "rbis", label: "RBIs" },
+  { value: "runs", label: "Runs" },
+  { value: "stolen_bases", label: "Stolen Bases" },
+  { value: "total_bases", label: "Total Bases" },
+  { value: "pitcher_strikeouts", label: "Strikeouts (P)" },
+  { value: "pitcher_outs", label: "Outs (P)" },
+  { value: "hits_runs_rbis", label: "H+R+RBI" },
 ];
 
 const SOCCER_CATEGORIES: CategoryOption[] = [
@@ -134,12 +147,27 @@ export const SPORT_CONFIG: Record<SportKey, SportConfig> = {
       height: 100,
     },
   },
+  mlb: {
+    key: "mlb",
+    displayName: "MLB",
+    shortLabel: "MLB",
+    icon: "\u26BE",
+    isSoccer: false,
+    usesHalves: false,
+    categories: BASEBALL_CATEGORIES,
+    headshot: {
+      getUrl: (id) => `https://a.espncdn.com/combiner/i?img=/i/headshots/mlb/players/full/${id}.png&w=260&h=190`,
+      isProxied: false,
+      width: 130,
+      height: 100,
+    },
+  },
 };
 
 /* ---------- UI Subsets ---------- */
 
 /** Sports shown in selector tabs and auto-select priority order (NHL omitted until ready). */
-export const UI_SPORTS: SportKey[] = ["nba", "ncaab", "epl", "la_liga"];
+export const UI_SPORTS: SportKey[] = ["nba", "mlb", "ncaab", "epl", "la_liga"];
 
 /** Auto-select priority order on props page. Same as UI_SPORTS — split if they diverge. */
 export const SPORT_PRIORITY = UI_SPORTS;

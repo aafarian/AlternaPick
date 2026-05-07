@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchTodaysGames, fetchNbaGamesByDate, fetchSoccerGames, fetchSoccerGamesByDate, fetchLaLigaGames, fetchLaLigaGamesByDate, fetchNcaabGames, fetchNcaabGamesByDate } from "@/lib/stats-service/client";
+import { fetchTodaysGames, fetchNbaGamesByDate, fetchSoccerGames, fetchSoccerGamesByDate, fetchLaLigaGames, fetchLaLigaGamesByDate, fetchNcaabGames, fetchNcaabGamesByDate, fetchMlbGames, fetchMlbGamesByDate } from "@/lib/stats-service/client";
 import { resolveEligibleCards, reResolveStaleCards } from "@/lib/cards/resolution";
 import { resolveEligibleChallenges } from "@/lib/challenges/resolution";
 import { unauthorized, serverError, handleApiError } from "@/lib/api/errors";
@@ -664,6 +664,123 @@ export async function POST(request: NextRequest) {
       }
     } catch (ncaabError) {
       logError("game-sync", "Failed to sync NCAAB games", "/api/games/sync-status", ncaabError);
+    }
+
+    // --- MLB game sync ---
+    try {
+      const mlbGames = await fetchMlbGames();
+
+      if (mlbGames.length > 0) {
+        const mlbGamesResult = await supabase
+          .from("games")
+          .select("*")
+          .eq("sport", "mlb")
+          .gte("commence_time", yesterdayStart.toISOString())
+          .lte("commence_time", tomorrowEnd.toISOString());
+
+        const mlbDbGames = (mlbGamesResult.data ?? []) as Game[];
+
+        for (const mlbGame of mlbGames) {
+          const match = mlbDbGames.find((g) =>
+            teamsMatch(g.home_team, mlbGame.home_team) &&
+            teamsMatch(g.away_team, mlbGame.away_team)
+          );
+
+          if (!match) continue;
+
+          const newStatus = mapNbaStatus(mlbGame.status);
+          const previousStatus = match.status;
+
+          const { error: updateError } = await (supabase.from("games") as any)
+            .update({
+              status: newStatus,
+              home_score: mlbGame.home_score,
+              away_score: mlbGame.away_score,
+              period: mlbGame.period,
+              clock: mlbGame.clock,
+              external_event_id: mlbGame.game_id,
+            })
+            .eq("id", match.id);
+
+          if (!updateError) {
+            updated.push({
+              odds_team: `${match.away_team} @ ${match.home_team}`,
+              nba_team: `${mlbGame.away_team} @ ${mlbGame.home_team}`,
+              status: newStatus,
+              external_event_id: mlbGame.game_id,
+            });
+
+            if (newStatus === "live" && previousStatus === "scheduled") {
+              gamesBecameLive.push(match.id);
+            }
+          }
+        }
+      }
+
+      // MLB lookback: fix unmatched games from last 7 days
+      const mlbLookbackStart = new Date(now);
+      mlbLookbackStart.setDate(mlbLookbackStart.getDate() - 7);
+
+      const mlbUnmatchedResult = await supabase
+        .from("games")
+        .select("*")
+        .eq("sport", "mlb")
+        .is("external_event_id", null)
+        .gte("commence_time", mlbLookbackStart.toISOString());
+
+      const mlbUnmatched = (mlbUnmatchedResult.data ?? []) as Game[];
+
+      if (mlbUnmatched.length > 0) {
+        const datesToFetch = new Set<string>();
+        for (const g of mlbUnmatched) {
+          if (g.commence_time) {
+            for (const d of lookbackDatesForSport("mlb", new Date(g.commence_time))) {
+              datesToFetch.add(d);
+            }
+          }
+        }
+
+        const allEspnMlbGames = (
+          await Promise.all(
+            Array.from(datesToFetch).map((dateStr) =>
+              fetchMlbGamesByDate(dateStr).catch(() => [])
+            )
+          )
+        ).flat();
+
+        for (const espnGame of allEspnMlbGames) {
+          const match = mlbUnmatched.find((g) => {
+            if ((g as any)._matched) return false;
+            return teamsMatch(g.home_team, espnGame.home_team) && teamsMatch(g.away_team, espnGame.away_team);
+          });
+          if (!match) continue;
+          (match as any)._matched = true;
+
+          const newStatus = mapNbaStatus(espnGame.status);
+
+          const { error: updateError } = await (supabase.from("games") as any)
+            .update({
+              status: newStatus,
+              home_score: espnGame.home_score,
+              away_score: espnGame.away_score,
+              period: espnGame.period,
+              clock: espnGame.clock,
+              external_event_id: espnGame.game_id,
+            })
+            .eq("id", match.id);
+
+          if (!updateError) {
+            updated.push({
+              odds_team: `${match.away_team} @ ${match.home_team}`,
+              nba_team: `${espnGame.away_team} @ ${espnGame.home_team}`,
+              status: newStatus,
+              external_event_id: espnGame.game_id,
+            });
+          }
+        }
+      }
+    } catch (mlbError) {
+      logError("game-sync", "Failed to sync MLB games", "/api/games/sync-status", mlbError);
     }
 
     // Auto-cancel accepted challenges where only one side locked a card

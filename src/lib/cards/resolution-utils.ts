@@ -46,6 +46,25 @@ export function extractStatValue(
       return stats.fouls_committed ?? 0;
     case "saves":
       return stats.saves ?? 0;
+    // Baseball stats
+    case "hits":
+      return stats.hits ?? 0;
+    case "home_runs":
+      return stats.home_runs ?? 0;
+    case "rbis":
+      return stats.rbis ?? 0;
+    case "runs":
+      return stats.runs ?? 0;
+    case "stolen_bases":
+      return stats.stolen_bases ?? 0;
+    case "total_bases":
+      return stats.total_bases ?? 0;
+    case "pitcher_strikeouts":
+      return stats.pitcher_strikeouts ?? 0;
+    case "pitcher_outs":
+      return stats.pitcher_outs ?? 0;
+    case "hits_runs_rbis":
+      return stats.hits_runs_rbis ?? 0;
     default:
       logWarn("resolution", `Unknown stat category: ${category}`);
       return 0;

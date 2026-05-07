@@ -13,6 +13,7 @@ import {
   fetchLaLigaGamesByDate,
   fetchCopaDelReyGamesByDate,
   fetchNcaabGamesByDate,
+  fetchMlbGamesByDate,
 } from "@/lib/stats-service/client";
 import { getBoxscoreFetcher, lookbackDatesForSport } from "@/lib/sports/fetchers";
 import { teamsMatch } from "@/lib/team-matching";
@@ -264,6 +265,7 @@ export async function reResolveStaleCards(): Promise<{
     la_liga: [fetchLaLigaGamesByDate, fetchCopaDelReyGamesByDate],
     copa_del_rey: [fetchCopaDelReyGamesByDate],
     ncaab: [fetchNcaabGamesByDate],
+    mlb: [fetchMlbGamesByDate],
   };
 
   /** Try to find the correct ESPN event ID for a game by team-name matching. */

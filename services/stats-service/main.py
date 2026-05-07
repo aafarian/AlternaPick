@@ -19,6 +19,7 @@ from endpoints.boxscores import router as boxscores_router
 from endpoints.players import router as players_router
 from endpoints.soccer import router as soccer_router
 from endpoints.ncaab import router as ncaab_router
+from endpoints.mlb import router as mlb_router
 from endpoints.gamelog import router as gamelog_router
 
 load_dotenv()
@@ -42,6 +43,7 @@ async def _refresh_scoreboards():
     from utils.nba_client import get_todays_scoreboard
     from utils.ncaab_client import get_todays_ncaab_games
     from utils.soccer_espn_client import get_epl_scoreboard, get_la_liga_scoreboard
+    from utils.mlb_client import get_todays_mlb_games
 
     while True:
         try:
@@ -51,11 +53,12 @@ async def _refresh_scoreboards():
                 get_todays_ncaab_games(),
                 get_epl_scoreboard(),
                 get_la_liga_scoreboard(),
+                get_todays_mlb_games(),
                 return_exceptions=True,
             )
             for i, r in enumerate(results):
                 if isinstance(r, Exception):
-                    sport = ["NBA", "NCAAB", "EPL", "La Liga"][i]
+                    sport = ["NBA", "NCAAB", "EPL", "La Liga", "MLB"][i]
                     logger.warning(f"Background refresh failed for {sport}: {r}")
         except Exception as e:
             logger.warning(f"Background refresh error: {e}")
@@ -72,12 +75,14 @@ async def lifespan(app: FastAPI):
     from utils.nba_client import get_todays_scoreboard
     from utils.ncaab_client import get_todays_ncaab_games
     from utils.soccer_espn_client import get_epl_scoreboard, get_la_liga_scoreboard
+    from utils.mlb_client import get_todays_mlb_games as mlb_warmup
 
     await asyncio.gather(
         get_todays_scoreboard(),
         get_todays_ncaab_games(),
         get_epl_scoreboard(),
         get_la_liga_scoreboard(),
+        mlb_warmup(),
         return_exceptions=True,
     )
 
@@ -150,4 +155,5 @@ app.include_router(boxscores_router)
 app.include_router(players_router)
 app.include_router(soccer_router)
 app.include_router(ncaab_router)
+app.include_router(mlb_router)
 app.include_router(gamelog_router)

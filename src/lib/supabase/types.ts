@@ -17,7 +17,17 @@ export type StatCategory =
   | "passes"
   | "goals"
   | "fouls_committed"
-  | "saves";
+  | "saves"
+  // Baseball
+  | "hits"
+  | "home_runs"
+  | "rbis"
+  | "runs"
+  | "stolen_bases"
+  | "total_bases"
+  | "pitcher_strikeouts"
+  | "pitcher_outs"
+  | "hits_runs_rbis";
 
 export type GameStatus =
   | "scheduled"
