@@ -5,6 +5,7 @@ from utils.mlb_client import (
     get_todays_mlb_games_cached,
     get_mlb_boxscore,
     get_mlb_boxscore_cached,
+    get_mlb_player_mapping,
 )
 
 router = APIRouter(prefix="/mlb", tags=["mlb"])
@@ -42,6 +43,28 @@ async def today_mlb_games_live():
             status_code=503,
             detail={
                 "error": "Failed to fetch live MLB games",
+                "message": str(e),
+                "retry": "Try again in a few seconds",
+            },
+        )
+
+
+@router.get("/players")
+async def mlb_players(team_ids: str = Query(default="")):
+    """Get player name -> ESPN ID mapping.
+
+    Pass ?team_ids=1,2,3 to fetch rosters for specific teams.
+    Omit for today's game teams.
+    """
+    try:
+        ids = [tid.strip() for tid in team_ids.split(",") if tid.strip()] if team_ids else None
+        mapping = await get_mlb_player_mapping(ids)
+        return {"data": mapping, "count": len(mapping)}
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "Failed to fetch MLB player mapping",
                 "message": str(e),
                 "retry": "Try again in a few seconds",
             },

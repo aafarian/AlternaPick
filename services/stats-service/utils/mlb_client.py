@@ -237,3 +237,65 @@ async def get_mlb_boxscore(event_id: str) -> list[dict]:
 async def get_mlb_boxscore_cached(event_id: str) -> list[dict]:
     """Get cached MLB boxscore (30s TTL for live, 1hr for final)."""
     return await get_mlb_boxscore(event_id)
+
+
+async def get_mlb_team_roster(team_id: str) -> list[dict]:
+    """Fetch MLB team roster from ESPN. Returns list of {name, id}."""
+    cache_key = f"mlb_roster:{team_id}"
+    cached = get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        data = await _espn_get(f"/teams/{team_id}/roster")
+        players = []
+        for athlete in data.get("athletes", []):
+            player_id = str(athlete.get("id", ""))
+            display_name = athlete.get("displayName", athlete.get("fullName", ""))
+            if player_id and display_name:
+                players.append({
+                    "name": display_name,
+                    "id": player_id,
+                })
+        set_cached(cache_key, players, 6 * 3600)  # Cache for 6 hours
+        return players
+    except Exception as e:
+        logger.warning(f"Failed to fetch MLB roster for team {team_id}: {e}")
+        return []
+
+
+async def get_mlb_player_mapping(team_ids: list[str] | None = None) -> dict[str, str]:
+    """Get player name → ESPN player ID mapping for MLB teams.
+
+    If team_ids is provided, fetch rosters for those specific teams.
+    Otherwise, fetch rosters for all of today's game teams.
+    """
+    cache_key = f"mlb_player_mapping:{','.join(sorted(team_ids)) if team_ids else 'today'}"
+    cached = get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    if team_ids is None:
+        games = await get_todays_mlb_games()
+        team_ids = list(set(
+            game.get("home_team_id", "") for game in games
+        ) | set(
+            game.get("away_team_id", "") for game in games
+        ))
+
+    team_ids = [tid for tid in team_ids if tid]
+
+    sem = asyncio.Semaphore(10)
+
+    async def _fetch(tid: str) -> list[dict]:
+        async with sem:
+            return await get_mlb_team_roster(tid)
+
+    rosters = await asyncio.gather(*[_fetch(tid) for tid in team_ids])
+    mapping: dict[str, str] = {}
+    for roster in rosters:
+        for player in roster:
+            mapping[player["name"].lower()] = player["id"]
+
+    set_cached(cache_key, mapping, 3600)
+    return mapping

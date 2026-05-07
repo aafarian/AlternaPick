@@ -677,6 +677,17 @@ export async function fetchMlbBoxscoreLive(
   return result;
 }
 
+export async function fetchMlbPlayers(
+  teamIds?: string[]
+): Promise<Record<string, string>> {
+  const params = teamIds ? `?team_ids=${teamIds.join(",")}` : "";
+  const response = await fetchWithRetry(
+    `${STATS_SERVICE_URL}/mlb/players${params}`
+  );
+  const data = await response.json();
+  return data.data ?? {};
+}
+
 // --- Player gamelog ---
 
 export async function fetchPlayerGamelog(
