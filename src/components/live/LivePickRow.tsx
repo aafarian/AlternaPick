@@ -455,8 +455,8 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
         </div>
       </div>
 
-      {/* Progress bar — mounts at 0% then animates to target width */}
-      <div className="relative h-2 w-full overflow-visible rounded-full bg-secondary/30">
+      {/* Progress bar — ml-8 aligns with avatar (past settled icon + gap) */}
+      <div className="relative ml-8 h-2 w-auto overflow-visible rounded-full bg-secondary/30">
         {/* Line marker — triangle pointing toward the pick direction */}
         <div
           className="absolute -top-[3px] z-20"
