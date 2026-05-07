@@ -153,7 +153,7 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
         {/* Settled icon */}
         <div
           className={cn(
-            "flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
+            "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
             d.isSettled
               ? d.isDnp || d.isVoid
                 ? "bg-muted text-muted-foreground"
@@ -165,34 +165,34 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
         >
           {d.isSettled && (
             d.isDnp || d.isVoid ? (
-              <Minus className="h-2.5 w-2.5" strokeWidth={3} />
+              <Minus className="h-3 w-3" strokeWidth={3} />
             ) : d.settledWon ? (
-              <Check className="h-2.5 w-2.5" strokeWidth={3} />
+              <Check className="h-3 w-3" strokeWidth={3} />
             ) : (
-              <X className="h-2.5 w-2.5" strokeWidth={3} />
+              <X className="h-3 w-3" strokeWidth={3} />
             )
           )}
         </div>
 
-        {/* Small avatar */}
+        {/* Avatar */}
         <PlayerAvatar
           playerId={pick.player_id}
           playerName={pick.player_name}
           sport={pick.sport}
-          size="sm"
+          size="default"
           className="ring-1 ring-border/60"
         />
 
         {/* Player name + stat */}
         <div className="flex min-w-0 flex-col">
-          <span className="truncate text-xs font-semibold leading-tight">
+          <span className="truncate text-sm font-semibold leading-tight">
             {pick.player_name}
           </span>
           <div className="flex items-center gap-1">
-            <span className={cn("text-[9px] font-semibold uppercase", statPillClass)}>
+            <span className={cn("text-[10px] font-semibold uppercase", statPillClass)}>
               {CATEGORY_SHORT_LABELS[statCat] ?? statCat}
             </span>
-            <span className="text-[9px] text-muted-foreground">
+            <span className="text-[10px] text-muted-foreground">
               {d.isOver ? "O" : "U"} {pick.line}
             </span>
           </div>
@@ -200,10 +200,10 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
 
         {/* Inline progress bar with line marker */}
         <div className="relative h-1.5 min-w-[60px] flex-1 overflow-visible rounded-full bg-secondary/30">
-          {/* Line marker arrow */}
+          {/* Line marker arrow — centered vertically on the bar */}
           <div
-            className="absolute -top-[2px] z-20"
-            style={{ left: `${d.linePosition}%`, transform: "translateX(-50%)" }}
+            className="absolute top-1/2 z-20 -translate-y-1/2"
+            style={{ left: `${d.linePosition}%`, transform: `translateX(-50%) translateY(-50%)` }}
           >
             <svg width="6" height="10" viewBox="0 0 6 10">
               {d.isOver ? (
