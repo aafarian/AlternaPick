@@ -354,9 +354,10 @@ export default function DataResync() {
           <li>Resync card scores (recalculate from corrected pick results)</li>
           <li>Rebuild leaderboard (recompute all derived stats)</li>
           <li>Recompute recap (regenerate daily summaries if needed)</li>
+          <li>Backfill headshots (enrich missing player IDs from ESPN)</li>
         </ol>
         <p className="mt-2">
-          Or use <strong>Full Resync</strong> to run steps 1-4 sequentially.
+          Or use <strong>Full Resync</strong> to run steps 1-3 + 5 sequentially.
         </p>
       </div>
 
