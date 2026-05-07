@@ -653,7 +653,7 @@ export async function fetchMlbBoxscore(
   if (cached) return cached;
 
   const response = await fetchWithRetry(
-    `${STATS_SERVICE_URL}/mlb/boxscore/${encodeURIComponent(eventId)}`
+    `${STATS_SERVICE_URL}/mlb/games/${encodeURIComponent(eventId)}/boxscore`
   );
   const data = await response.json();
   const result = data.data ?? [];

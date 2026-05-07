@@ -522,16 +522,16 @@ export const CATEGORY_COLORS: Record<StatCategory, string> = {
   goals: "bg-green-500/20 text-green-400",
   fouls_committed: "bg-gray-500/20 text-gray-400",
   saves: "bg-purple-500/20 text-purple-400",
-  // Baseball
-  hits: "bg-blue-500/20 text-blue-400",
-  home_runs: "bg-red-500/20 text-red-400",
-  rbis: "bg-orange-500/20 text-orange-400",
-  runs: "bg-green-500/20 text-green-400",
-  stolen_bases: "bg-yellow-500/20 text-yellow-400",
-  total_bases: "bg-purple-500/20 text-purple-400",
+  // Baseball — distinct from basketball/soccer palette
+  hits: "bg-sky-500/20 text-sky-400",
+  home_runs: "bg-amber-500/20 text-amber-400",
+  rbis: "bg-indigo-500/20 text-indigo-400",
+  runs: "bg-emerald-500/20 text-emerald-400",
+  stolen_bases: "bg-fuchsia-500/20 text-fuchsia-400",
+  total_bases: "bg-violet-500/20 text-violet-400",
   pitcher_strikeouts: "bg-rose-500/20 text-rose-400",
-  pitcher_outs: "bg-gray-500/20 text-gray-400",
-  hits_runs_rbis: "bg-pink-500/20 text-pink-400",
+  pitcher_outs: "bg-slate-500/20 text-slate-400",
+  hits_runs_rbis: "bg-teal-500/20 text-teal-400",
 };
 
 /** Text-only colors for category labels (no background). */
@@ -557,13 +557,13 @@ export const CATEGORY_TEXT_COLORS: Record<StatCategory, string> = {
   fouls_committed: "text-gray-400",
   saves: "text-purple-400",
   // Baseball
-  hits: "text-blue-400",
-  home_runs: "text-red-400",
-  rbis: "text-orange-400",
-  runs: "text-green-400",
-  stolen_bases: "text-yellow-400",
-  total_bases: "text-purple-400",
+  hits: "text-sky-400",
+  home_runs: "text-amber-400",
+  rbis: "text-indigo-400",
+  runs: "text-emerald-400",
+  stolen_bases: "text-fuchsia-400",
+  total_bases: "text-violet-400",
   pitcher_strikeouts: "text-rose-400",
-  pitcher_outs: "text-gray-400",
-  hits_runs_rbis: "text-pink-400",
+  pitcher_outs: "text-slate-400",
+  hits_runs_rbis: "text-teal-400",
 };
