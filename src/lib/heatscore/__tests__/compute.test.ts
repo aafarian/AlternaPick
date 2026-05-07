@@ -358,7 +358,7 @@ describe("computeCardHeatScore", () => {
 
 describe("computeFireTokenPayout", () => {
   it("multiplies wager by multiplier", () => {
-    expect(computeFireTokenPayout(100, 2.8)).toBe(280);
+    expect(computeFireTokenPayout(100, 3.6)).toBe(360);
   });
 
   it("returns 0 for 0x multiplier", () => {
@@ -374,30 +374,18 @@ describe("computeFireTokenPayout", () => {
     expect(computeFireTokenPayout(75, 0.7)).toBe(53); // 52.5 → 53
   });
 
-  it("handles perfect 6-pick with large wager", () => {
-    expect(computeFireTokenPayout(250, 25.0)).toBe(6250);
+  it("applies notch scale", () => {
+    // wager=100, multiplier=8.4, notchScale=2.02 → round(100 * 8.4 * 2.02) = 1697
+    expect(computeFireTokenPayout(100, 8.4, 2.02)).toBe(1697);
   });
 
-  it("adds quality bonus to payout", () => {
-    expect(computeFireTokenPayout(100, 1.2, 20)).toBe(140);
-  });
-
-  it("subtracts quality penalty from payout", () => {
-    expect(computeFireTokenPayout(100, 0.25, -15)).toBe(10);
-  });
-
-  it("floors payout at 0 when quality penalty exceeds base", () => {
-    expect(computeFireTokenPayout(100, 0.25, -50)).toBe(0);
+  it("caps at MAX_PAYOUT_MULTIPLIER (500x)", () => {
+    // wager=100, multiplier=32.1, notchScale=62.75 → raw=2014x → capped at 500x = 50000
+    expect(computeFireTokenPayout(100, 32.1, 62.75)).toBe(50000);
   });
 
   it("floors at 0 for bust", () => {
-    // wager=100, multiplier=0, qualityBonus=-50 → max(0, 0 + -50) = 0
-    expect(computeFireTokenPayout(100, 0, -50)).toBe(0);
-  });
-
-  it("includes quality bonus in payout", () => {
-    // wager=100, multiplier=2.5, qualityBonus=20 → round(250 + 20) = 270
-    expect(computeFireTokenPayout(100, 2.5, 20)).toBe(270);
+    expect(computeFireTokenPayout(100, 0, 1.0)).toBe(0);
   });
 });
 

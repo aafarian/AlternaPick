@@ -44,9 +44,12 @@ export default function CardHeatScoreBadge({
 
   const baseMultiplier = cardSize ? getHeatScoreMultiplier(cardSize, cardSize) : null;
 
-  // Wager notch scale: 2D lookup by notch tier + card size
+  // Wager notch scale: 2D lookup by notch tier + effective card size.
+  // For resolved cards, use totalPicks (scoreable size after DNP/push) to
+  // match the server-side resolution.ts calculation.
+  const notchScaleSize = (payout != null && totalPicks != null && totalPicks > 0) ? totalPicks : cardSize;
   const wagerNotchScale = pickNotches && pickNotches.length > 0
-    ? computeWagerNotchScale(pickNotches, cardSize)
+    ? computeWagerNotchScale(pickNotches, notchScaleSize)
     : 1;
   const effectiveMultiplier = baseMultiplier != null
     ? Math.round(Math.min(baseMultiplier * wagerNotchScale, 500) * 10) / 10

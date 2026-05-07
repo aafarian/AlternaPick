@@ -284,18 +284,16 @@ export function computeWagerNotchScale(notches: number[], cardSize?: number): nu
  * Compute the Flame Token payout for a given wager and HeatScore multiplier.
  *
  * Payout = wager × multiplier × notchScale, capped at MAX_PAYOUT_MULTIPLIER.
- * Quality bonus is NOT included for wager payouts (reserved for challenges).
  */
 export function computeFireTokenPayout(
   wager: number,
   multiplier: number,
-  qualityBonus?: number,
   wagerNotchScale?: number,
 ): number {
   const notchScale = wagerNotchScale ?? 1;
   const rawMult = multiplier * notchScale;
   const cappedMult = Math.min(rawMult, MAX_PAYOUT_MULTIPLIER);
-  return Math.max(0, Math.round(wager * cappedMult + (qualityBonus ?? 0)));
+  return Math.max(0, Math.round(wager * cappedMult));
 }
 
 // ---------------------------------------------------------------------------
