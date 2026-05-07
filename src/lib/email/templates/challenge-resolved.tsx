@@ -133,7 +133,9 @@ export function ChallengeResolvedEmail({
           </Text>
         </Section>
       )}
-      <Text style={styles.text}>{summary}</Text>
+      <Text style={styles.text}>
+        {username}, {summary.charAt(0).toLowerCase()}{summary.slice(1)}
+      </Text>
       <Section style={styles.buttonWrapper}>
         <Button style={styles.button} href={challengeUrl}>
           View Details
