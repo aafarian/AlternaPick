@@ -309,19 +309,52 @@ export async function POST(request: NextRequest) {
     // --- MLB enrichment ---
     if (mlbProps.length > 0) {
       try {
-        const mlbPlayerMap = await fetchMlbPlayers();
-        const playerMap = new Map<string, string>();
-        for (const [name, id] of Object.entries(mlbPlayerMap)) {
-          playerMap.set(name.toLowerCase(), id);
-          playerMap.set(normalizeName(name), id);
+        // Collect unique team names from MLB props
+        const mlbTeamNames = new Set<string>();
+        for (const p of mlbProps) {
+          if (p.games?.home_team) mlbTeamNames.add(p.games.home_team);
+          if (p.games?.away_team) mlbTeamNames.add(p.games.away_team);
         }
-        mlbPlayerMapSize = Object.keys(mlbPlayerMap).length;
+
+        // Fetch per-team rosters to build both player ID and team maps
+        const playerIdMap = new Map<string, string>();
+        const mlbTeamMap = new Map<string, string>();
+
+        // Get ESPN team IDs from today's MLB games
+        const { fetchMlbGames } = await import("@/lib/stats-service/client");
+        const mlbGames = await fetchMlbGames();
+        const teamIdMap = new Map<string, string>(); // teamName → espnTeamId
+        for (const g of mlbGames) {
+          if (g.home_team_id) teamIdMap.set(g.home_team, g.home_team_id);
+          if (g.away_team_id) teamIdMap.set(g.away_team, g.away_team_id);
+        }
+
+        for (const teamName of mlbTeamNames) {
+          const teamId = teamIdMap.get(teamName);
+          if (!teamId) continue;
+          try {
+            const roster = await fetchMlbPlayers([teamId]);
+            for (const [name, id] of Object.entries(roster)) {
+              playerIdMap.set(name.toLowerCase(), id);
+              playerIdMap.set(normalizeName(name), id);
+              mlbTeamMap.set(name.toLowerCase(), teamName);
+              mlbTeamMap.set(normalizeName(name), teamName);
+            }
+          } catch {
+            // Individual team roster failure is non-blocking
+          }
+        }
+        mlbPlayerMapSize = playerIdMap.size / 2;
 
         for (const prop of mlbProps) {
-          const playerId = lookupPlayer(prop.player_name, playerMap);
-          if (playerId) {
+          const playerId = lookupPlayer(prop.player_name, playerIdMap);
+          const playerTeam = lookupPlayer(prop.player_name, mlbTeamMap);
+          if (playerId || playerTeam) {
+            const updatePayload: Record<string, unknown> = {};
+            if (playerId) updatePayload.player_id = playerId;
+            if (playerTeam) updatePayload.player_team = playerTeam;
             const { error } = await (supabase.from("props") as any)
-              .update({ player_id: playerId })
+              .update(updatePayload)
               .eq("id", prop.id);
             if (!error) mlbUpdated++;
           } else {

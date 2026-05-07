@@ -423,10 +423,42 @@ async function _cachePropsInternal(
 
   if (sport === "mlb") {
     try {
-      const mlbPlayerMap = await fetchMlbPlayers();
-      for (const [name, id] of Object.entries(mlbPlayerMap)) {
-        playerIdMap.set(name.toLowerCase(), id);
-        playerIdMap.set(normalizeName(name), id);
+      // Build team-aware player map from per-team rosters (like NCAAB).
+      // Each event has home_team/away_team with ESPN team IDs from the games data.
+      const mlbTeamIds = new Set<string>();
+      const mlbTeamIdToName = new Map<string, string>();
+      for (const event of events) {
+        // The game was already created in the DB — get team IDs from
+        // ESPN via the games endpoint response cached during sync.
+        if (event.home_team) mlbTeamIdToName.set(event.home_team, event.home_team);
+        if (event.away_team) mlbTeamIdToName.set(event.away_team, event.away_team);
+      }
+      // Fetch all today's MLB game rosters via the flat endpoint, then
+      // use the returned player list. Team mapping comes from matching
+      // player names against individual team rosters.
+      const { fetchMlbGames } = await import("@/lib/stats-service/client");
+      const mlbGames = await fetchMlbGames();
+      for (const g of mlbGames) {
+        if (g.home_team_id) mlbTeamIds.add(g.home_team_id);
+        if (g.away_team_id) mlbTeamIds.add(g.away_team_id);
+        if (g.home_team_id) mlbTeamIdToName.set(g.home_team_id, g.home_team);
+        if (g.away_team_id) mlbTeamIdToName.set(g.away_team_id, g.away_team);
+      }
+
+      // Fetch per-team rosters to build both ID and team maps
+      for (const teamId of mlbTeamIds) {
+        try {
+          const teamName = mlbTeamIdToName.get(teamId) ?? "";
+          const roster = await fetchMlbPlayers([teamId]);
+          for (const [name, id] of Object.entries(roster)) {
+            playerIdMap.set(name.toLowerCase(), id);
+            playerIdMap.set(normalizeName(name), id);
+            playerTeamMap.set(name.toLowerCase(), teamName);
+            playerTeamMap.set(normalizeName(name), teamName);
+          }
+        } catch {
+          // Individual team roster failure is non-blocking
+        }
       }
     } catch (err) {
       logError("MLB enrich", "Failed", undefined, err);
