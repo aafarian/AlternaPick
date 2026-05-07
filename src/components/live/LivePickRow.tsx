@@ -145,7 +145,7 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
     return (
       <div
         className={cn(
-          "flex flex-col gap-1 border-l-2 px-2 py-1.5 transition-colors",
+          "flex flex-col gap-1 border-l-2 px-4 py-1.5 transition-colors",
           d.accentClass,
           d.isSettled && "opacity-75"
         )}

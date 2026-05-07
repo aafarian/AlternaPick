@@ -104,7 +104,7 @@ function LiveCard({
   const picks = liveData?.picks ?? buildFallbackPicks(card.picks);
 
   const statsPanel = categoryStats && categoryStats.size > 0 && (
-    <div className="hidden border-l border-border lg:flex lg:w-48 lg:shrink-0 lg:flex-col lg:justify-center lg:gap-2 lg:px-4 lg:py-2">
+    <div className="hidden border-l border-border lg:flex lg:w-56 lg:shrink-0 lg:flex-col lg:justify-center lg:gap-2 lg:px-5 lg:py-2">
       {card.picks.map((pick) => {
         const cat = pick.props?.stat_category ?? "";
         const stats = categoryStats.get(cat);
@@ -112,15 +112,15 @@ function LiveCard({
         const pct = Math.round(stats.rate * 100);
         const catName = CATEGORY_LABELS[pick.props?.stat_category as keyof typeof CATEGORY_LABELS] ?? cat;
         return (
-          <div key={pick.id} className="flex items-baseline gap-1.5">
+          <div key={pick.id} className="flex items-baseline gap-2">
             <span className={cn(
-              "text-base font-black tabular-nums",
+              "text-lg font-black tabular-nums",
               pct >= 60 ? "text-emerald-500" : pct >= 40 ? "text-blue-400" : "text-red-400"
             )}>
               {pct}%
             </span>
-            <span className="text-[10px] text-muted-foreground">
-              {catName} · {stats.total} picks
+            <span className="text-[10px] leading-tight text-muted-foreground">
+              {catName} hit rate · {stats.total} picks
             </span>
           </div>
         );
@@ -228,7 +228,7 @@ export default function LiveTracker({
   }
 
   return (
-    <AnimatedList className="grid grid-cols-1 gap-4 max-w-3xl" staggerDelay={0.06}>
+    <AnimatedList className="grid grid-cols-1 gap-4 max-w-4xl" staggerDelay={0.06}>
       {initialCards.map((card) => (
         <LiveCard
           key={card.id}
