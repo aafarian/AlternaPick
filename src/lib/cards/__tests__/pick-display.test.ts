@@ -76,7 +76,7 @@ describe("computePickDisplay", () => {
       expect(result.isAwaitingLive).toBe(false);
     });
 
-    it("scheduled but started: commence_time in the past -> isPreGame=false, isAwaitingLive=true", () => {
+    it("scheduled but started: commence_time in the past -> still isPreGame (show time, not spinner)", () => {
       const past = new Date(Date.now() - 600_000).toISOString(); // 10 min ago
       const result = computePickDisplay(
         makePick({
@@ -86,8 +86,8 @@ describe("computePickDisplay", () => {
           }),
         }),
       );
-      expect(result.isPreGame).toBe(false);
-      expect(result.isAwaitingLive).toBe(true);
+      expect(result.isPreGame).toBe(true);
+      expect(result.isAwaitingLive).toBe(false);
       expect(result.isLive).toBe(false);
     });
 
