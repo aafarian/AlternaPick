@@ -233,6 +233,13 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
             {d.isFinal && !d.isSettled && (
               <span className="text-[9px] font-semibold text-white/50">Final</span>
             )}
+            {d.isPreGame && !d.isAwaitingLive && (
+              <span className="text-[9px] font-semibold text-white/70">
+                {pick.game_status?.commence_time
+                  ? formatGameTime(pick.game_status.commence_time)
+                  : "Scheduled"}
+              </span>
+            )}
           </div>
         </div>
 
