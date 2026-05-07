@@ -308,6 +308,10 @@ export default function DataResync() {
         return;
       }
 
+      // Step 4: Backfill headshots
+      await runStep("/api/props/backfill", null, setBackfill);
+      // Backfill is best-effort — don't fail the full resync if it errors
+
       const r1Typed = r1 as unknown as ReResolveResult;
       const r2Typed = r2 as unknown as CardScoresResult;
       const r3Typed = r3 as unknown as LeaderboardResult;
@@ -352,7 +356,7 @@ export default function DataResync() {
           <li>Recompute recap (regenerate daily summaries if needed)</li>
         </ol>
         <p className="mt-2">
-          Or use <strong>Full Resync</strong> to run steps 1-3 sequentially.
+          Or use <strong>Full Resync</strong> to run steps 1-4 sequentially.
         </p>
       </div>
 
@@ -385,8 +389,9 @@ export default function DataResync() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Run Full Resync?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will re-resolve all picks, resync all card scores, and
-                    rebuild every user&apos;s leaderboard stats. This operation may
+                    This will re-resolve all picks, resync all card scores,
+                    rebuild every user&apos;s leaderboard stats, and backfill
+                    missing player headshots. This operation may
                     take several minutes.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -402,7 +407,7 @@ export default function DataResync() {
         </CardHeader>
         <CardContent className="px-4 pt-2 pb-0">
           <p className="text-sm text-muted-foreground">
-            Chains re-resolve, card scores, and leaderboard rebuild sequentially.
+            Chains re-resolve, card scores, leaderboard rebuild, and headshot backfill sequentially.
           </p>
           {fullResync.error && (
             <p className="mt-2 text-sm text-red-400">{fullResync.error}</p>
