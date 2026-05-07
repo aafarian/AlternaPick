@@ -62,6 +62,16 @@ export const NOTCH_SHIFT_PCT: Record<StatCategory, number> = {
   passes: 0.08, // ~3pt on a 35-line (high volume like points)
   fouls_committed: 0.20, // ~0.5pt on a 2-line
   saves: 0.20, // ~0.5pt on a 2-line
+  // Baseball
+  hits: 0.20, // ~0.5pt on a 2-line (low volume)
+  home_runs: 0.30, // ~0.5pt on a 0.5-line (very low volume, binary-ish)
+  rbis: 0.20, // ~0.5pt on a 2-line
+  runs: 0.20, // ~0.5pt on a 2-line
+  stolen_bases: 0.30, // ~0.5pt on a 0.5-line (very low volume)
+  total_bases: 0.15, // ~0.5pt on a 3-line
+  pitcher_strikeouts: 0.12, // ~0.5pt on a 5-line
+  pitcher_outs: 0.08, // ~1pt on a 15-line (high volume)
+  hits_runs_rbis: 0.10, // composite, mid-range
 };
 
 /** Minimum shift per notch — ensures at least a 1-point move.

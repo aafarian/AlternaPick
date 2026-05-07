@@ -103,6 +103,31 @@ export const SPORT_CONFIGS: Record<SportKey, {
       player_shots_on_goal: "shots",
     },
   },
+  mlb: {
+    oddsApiKey: "baseball_mlb",
+    markets: [
+      "player_hits",
+      "player_home_runs",
+      "player_rbis",
+      "player_runs_scored",
+      "player_stolen_bases",
+      "player_total_bases",
+      "pitcher_strikeouts",
+      "pitcher_outs",
+      "player_hits_runs_rbis",
+    ],
+    marketToCategory: {
+      player_hits: "hits",
+      player_home_runs: "home_runs",
+      player_rbis: "rbis",
+      player_runs_scored: "runs",
+      player_stolen_bases: "stolen_bases",
+      player_total_bases: "total_bases",
+      pitcher_strikeouts: "pitcher_strikeouts",
+      pitcher_outs: "pitcher_outs",
+      player_hits_runs_rbis: "hits_runs_rbis",
+    },
+  },
   la_liga: {
     oddsApiKey: "soccer_spain_la_liga",
     markets: [

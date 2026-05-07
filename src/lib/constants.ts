@@ -398,6 +398,16 @@ export const CATEGORY_LABELS: Record<StatCategory, string> = {
   goals: "Goals",
   fouls_committed: "Fouls",
   saves: "Saves",
+  // Baseball
+  hits: "Hits",
+  home_runs: "Home Runs",
+  rbis: "RBIs",
+  runs: "Runs",
+  stolen_bases: "Stolen Bases",
+  total_bases: "Total Bases",
+  pitcher_strikeouts: "Strikeouts (P)",
+  pitcher_outs: "Outs (P)",
+  hits_runs_rbis: "H+R+RBI",
 };
 
 /** Abbreviated stat labels for dense tables (admin, HeatScore simulator). */
@@ -421,6 +431,16 @@ export const CATEGORY_SHORT_LABELS: Record<StatCategory, string> = {
   goals: "GOL",
   fouls_committed: "FLS",
   saves: "SAV",
+  // Baseball
+  hits: "H",
+  home_runs: "HR",
+  rbis: "RBI",
+  runs: "R",
+  stolen_bases: "SB",
+  total_bases: "TB",
+  pitcher_strikeouts: "K",
+  pitcher_outs: "OUT",
+  hits_runs_rbis: "HRR",
 };
 
 /** Map a raw stat_category key (e.g. "pts_ast") to its human label ("Pts+Ast"). */
@@ -450,6 +470,16 @@ export const CATEGORY_COLORS: Record<StatCategory, string> = {
   goals: "bg-green-500/20 text-green-400",
   fouls_committed: "bg-gray-500/20 text-gray-400",
   saves: "bg-purple-500/20 text-purple-400",
+  // Baseball
+  hits: "bg-blue-500/20 text-blue-400",
+  home_runs: "bg-red-500/20 text-red-400",
+  rbis: "bg-orange-500/20 text-orange-400",
+  runs: "bg-green-500/20 text-green-400",
+  stolen_bases: "bg-yellow-500/20 text-yellow-400",
+  total_bases: "bg-purple-500/20 text-purple-400",
+  pitcher_strikeouts: "bg-rose-500/20 text-rose-400",
+  pitcher_outs: "bg-gray-500/20 text-gray-400",
+  hits_runs_rbis: "bg-pink-500/20 text-pink-400",
 };
 
 /** Text-only colors for category labels (no background). */
@@ -474,4 +504,14 @@ export const CATEGORY_TEXT_COLORS: Record<StatCategory, string> = {
   goals: "text-green-400",
   fouls_committed: "text-gray-400",
   saves: "text-purple-400",
+  // Baseball
+  hits: "text-blue-400",
+  home_runs: "text-red-400",
+  rbis: "text-orange-400",
+  runs: "text-green-400",
+  stolen_bases: "text-yellow-400",
+  total_bases: "text-purple-400",
+  pitcher_strikeouts: "text-rose-400",
+  pitcher_outs: "text-gray-400",
+  hits_runs_rbis: "text-pink-400",
 };

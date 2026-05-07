@@ -30,6 +30,16 @@ const STAT_SORT_ORDER: Record<StatCategory, number> = {
   passes: 16,
   fouls_committed: 17,
   saves: 18,
+  // Baseball
+  hits: 19,
+  home_runs: 20,
+  rbis: 21,
+  runs: 22,
+  stolen_bases: 23,
+  total_bases: 24,
+  pitcher_strikeouts: 25,
+  pitcher_outs: 26,
+  hits_runs_rbis: 27,
 };
 
 function TeamLogo({ team }: { team: string }) {
