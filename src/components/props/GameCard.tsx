@@ -107,23 +107,30 @@ export default function GameCard({
         // Interleave in chunks so left half of grid = away, right half = home.
         // 4-col (desktop): 2 away, 2 home per row → left half=away, right half=home
         // 2-col (mobile): each chunk of 4 wraps to 2 rows (away pair, then home pair)
+        // When one team runs out, overflow fills the full grid width.
         const COLS_DESKTOP = 4;
-        const HALF = COLS_DESKTOP / 2; // 2 away slots, then 2 home slots per row
-        const maxLen = Math.max(allAway.length, homeProps.length);
-        const rows = Math.ceil(maxLen / HALF);
+        const HALF = COLS_DESKTOP / 2;
+        const pairedCount = Math.min(allAway.length, homeProps.length);
+        const pairedRows = Math.ceil(pairedCount / HALF);
         const interleaved: (Prop | null)[] = [];
 
-        for (let row = 0; row < rows; row++) {
-          // Away chunk (left half)
+        // Paired section: away left, home right
+        for (let row = 0; row < pairedRows; row++) {
           for (let col = 0; col < HALF; col++) {
             const idx = row * HALF + col;
             interleaved.push(idx < allAway.length ? allAway[idx] : null);
           }
-          // Home chunk (right half)
           for (let col = 0; col < HALF; col++) {
             const idx = row * HALF + col;
             interleaved.push(idx < homeProps.length ? homeProps[idx] : null);
           }
+        }
+
+        // Overflow: remaining props from the longer team fill full width
+        const awayOverflow = allAway.slice(pairedRows * HALF);
+        const homeOverflow = homeProps.slice(pairedRows * HALF);
+        for (const prop of [...awayOverflow, ...homeOverflow]) {
+          interleaved.push(prop);
         }
 
         return (
