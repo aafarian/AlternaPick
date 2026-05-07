@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useState, useEffect } from "react";
+import { useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { CardWithPicks } from "@/lib/cards/api";
@@ -88,13 +88,11 @@ function LiveCard({
   liveData,
   hasFetched,
   hasError,
-  categoryStats,
 }: {
   card: CardWithPicks;
   liveData: LiveCardData | undefined;
   hasFetched: boolean;
   hasError: boolean;
-  categoryStats?: Map<string, { rate: number; total: number }>;
 }) {
   // Render card structure immediately using static pick data from the server.
   // Live values (current_value, game scores) overlay when they arrive —
@@ -129,7 +127,6 @@ function LiveCard({
       loading={!hasFetched}
       pickCount={card.picks.length}
       error={hasError}
-      categoryStats={categoryStats}
     />
   );
 
@@ -164,22 +161,6 @@ export default function LiveTracker({
     [initialCards]
   );
 
-  // Fetch category stats once for condensed accuracy display
-  const [categoryStats, setCategoryStats] = useState<Map<string, { rate: number; total: number }> | undefined>();
-  useEffect(() => {
-    fetch("/api/analytics?section=categories")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (!data?.categories) return;
-        const map = new Map<string, { rate: number; total: number }>();
-        for (const c of data.categories as Array<{ category: string; rate: number; total: number }>) {
-          map.set(c.category, { rate: c.rate, total: c.total });
-        }
-        setCategoryStats(map);
-      })
-      .catch(() => { /* non-blocking */ });
-  }, []);
-
   const { dataMap, hasFetched, error } = useBatchLiveStats(
     cardIds,
     initialCards.length > 0,
@@ -205,8 +186,7 @@ export default function LiveTracker({
           liveData={dataMap.get(card.id)}
           hasFetched={hasFetched}
           hasError={!!error}
-          categoryStats={categoryStats}
-        />
+            />
       ))}
     </AnimatedList>
   );

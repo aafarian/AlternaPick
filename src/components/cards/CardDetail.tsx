@@ -11,7 +11,8 @@ import { useLiveStats } from "@/lib/cards/use-live-stats";
 import GameScoreBanner from "@/components/live/GameScoreBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import LivePickRow from "@/components/live/LivePickRow";
-import { teamTricode, teamLogoUrl, gameUrl } from "@/lib/constants";
+import { teamTricode, teamLogoUrl, gameUrl, CATEGORY_LABELS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -163,8 +164,10 @@ const LiveCardContent = memo(function LiveCardContent({
 
       <Separator />
 
-      {/* Pick rows */}
-      <CardContent className="flex flex-col gap-0 p-0">
+      {/* Pick rows + optional stats side panel */}
+      <CardContent className="flex gap-0 p-0">
+        {/* Pick rows */}
+        <div className="flex-1 min-w-0">
         {animate ? (
           <StaggerChildren staggerDelay={0.07} className="flex flex-col gap-0">
             {card.picks.map((pick) => {
@@ -186,8 +189,6 @@ const LiveCardContent = memo(function LiveCardContent({
                     pick={livePick}
                     showQualityTokens={false}
                     variant={condensed ? "condensed" : "full"}
-                    categoryRate={condensed && categoryStats ? categoryStats.get(pick.props?.stat_category ?? "")?.rate ?? null : null}
-                    categoryTotal={condensed && categoryStats ? categoryStats.get(pick.props?.stat_category ?? "")?.total : undefined}
                   />
                 </StaggerItem>
               );
@@ -214,9 +215,33 @@ const LiveCardContent = memo(function LiveCardContent({
                   pick={livePick}
                   showQualityTokens={false}
                   variant={condensed ? "condensed" : "full"}
-                  categoryRate={condensed && categoryStats ? categoryStats.get(pick.props?.stat_category ?? "")?.rate ?? null : null}
-                  categoryTotal={condensed && categoryStats ? categoryStats.get(pick.props?.stat_category ?? "")?.total : undefined}
                 />
+              );
+            })}
+          </div>
+        )}
+        </div>
+
+        {/* Stats side panel — visible on lg+ in condensed view */}
+        {condensed && categoryStats && categoryStats.size > 0 && (
+          <div className="hidden border-l border-border lg:flex lg:w-44 lg:shrink-0 lg:flex-col lg:justify-center lg:gap-3 lg:px-4 lg:py-2">
+            {card.picks.map((pick) => {
+              const cat = pick.props?.stat_category ?? "";
+              const stats = categoryStats.get(cat);
+              if (!stats) return <div key={pick.id} className="h-[50px]" />;
+              const pct = Math.round(stats.rate * 100);
+              return (
+                <div key={pick.id} className="flex flex-col gap-0.5">
+                  <span className={cn(
+                    "text-sm font-bold tabular-nums",
+                    pct >= 60 ? "text-emerald-500" : pct >= 40 ? "text-blue-400" : "text-red-400"
+                  )}>
+                    {pct}%
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {CATEGORY_LABELS[pick.props?.stat_category as keyof typeof CATEGORY_LABELS] ?? cat} ({stats.total})
+                  </span>
+                </div>
               );
             })}
           </div>

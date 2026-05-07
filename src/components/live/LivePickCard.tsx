@@ -42,8 +42,6 @@ interface LivePickCardProps {
   error?: boolean;
   /** When true, shows game score section (banner + skeleton). Default true. */
   showGameScores?: boolean;
-  /** Category stats map for condensed view accuracy display */
-  categoryStats?: Map<string, { rate: number; total: number }>;
 }
 
 export default function LivePickCard({
@@ -57,7 +55,6 @@ export default function LivePickCard({
   pickCount = 0,
   error = false,
   showGameScores = true,
-  categoryStats,
 }: LivePickCardProps) {
   return (
     <Card className={cn(
@@ -139,12 +136,7 @@ export default function LivePickCard({
             {picks.map((pick, i) => (
               <div key={pick.pick_id}>
                 {i > 0 && <Separator className="ml-4 opacity-20" />}
-                <LivePickRow
-                  pick={pick}
-                  variant="condensed"
-                  categoryRate={categoryStats?.get(pick.stat_category ?? "")?.rate ?? null}
-                  categoryTotal={categoryStats?.get(pick.stat_category ?? "")?.total}
-                />
+                <LivePickRow pick={pick} variant="condensed" />
               </div>
             ))}
           </div>

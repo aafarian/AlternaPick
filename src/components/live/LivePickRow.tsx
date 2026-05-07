@@ -25,13 +25,9 @@ interface LivePickRowProps {
   variant?: "full" | "compact" | "condensed";
   /** When true, show quality bonus tokens instead of full heatscore */
   showQualityTokens?: boolean;
-  /** Category hit rate (0-1) shown next to the bar in condensed view on wide screens */
-  categoryRate?: number | null;
-  /** Total picks for this category (shown alongside rate) */
-  categoryTotal?: number;
 }
 
-function LivePickRowInner({ pick, variant = "full", showQualityTokens = false, categoryRate, categoryTotal }: LivePickRowProps) {
+function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }: LivePickRowProps) {
   // Track whether this is the initial render (for the bar grow animation).
   // Once the bar has grown, subsequent renders just set the width directly.
   const initialRenderRef = useRef(true);
@@ -240,52 +236,27 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false, c
           </div>
         </div>
 
-        {/* Progress bar + optional category stat */}
-        <div className="flex items-center gap-0">
-          {/* Bar */}
-          <div className={cn(
-            "relative h-1.5 overflow-visible rounded-full bg-secondary/30",
-            categoryRate != null ? "w-full lg:flex-[3]" : "w-full"
-          )}>
-            <div
-              className="absolute -top-[2px] z-20"
-              style={{ left: `${d.linePosition}%`, transform: "translateX(-50%)" }}
-            >
-              <svg width="6" height="10" viewBox="0 0 8 14">
-                {d.isOver ? (
-                  <polygon points="0,0 8,7 0,14" fill="currentColor" className="text-foreground" />
-                ) : (
-                  <polygon points="8,0 0,7 8,14" fill="currentColor" className="text-foreground" />
-                )}
-              </svg>
-            </div>
-            <div
-              className={cn(
-                "h-full overflow-hidden rounded-full transition-[width,background-color] duration-700 ease-out",
-                d.barColor
+        {/* Progress bar */}
+        <div className="relative h-1.5 w-full overflow-visible rounded-full bg-secondary/30">
+          <div
+            className="absolute -top-[2px] z-20"
+            style={{ left: `${d.linePosition}%`, transform: "translateX(-50%)" }}
+          >
+            <svg width="6" height="10" viewBox="0 0 8 14">
+              {d.isOver ? (
+                <polygon points="0,0 8,7 0,14" fill="currentColor" className="text-foreground" />
+              ) : (
+                <polygon points="8,0 0,7 8,14" fill="currentColor" className="text-foreground" />
               )}
-              style={{ width: `${d.barWidth}%` }}
-            />
+            </svg>
           </div>
-
-          {/* Category stat — visible on lg+ screens */}
-          {categoryRate != null && (
-            <div className="hidden items-center gap-2 lg:flex lg:flex-1">
-              <div className="h-3 w-px bg-border/40" />
-              <span className="text-[10px] text-muted-foreground">
-                <span className={cn(
-                  "font-semibold",
-                  categoryRate >= 0.6 ? "text-emerald-500" : categoryRate >= 0.4 ? "text-blue-400" : "text-red-400"
-                )}>
-                  {Math.round(categoryRate * 100)}%
-                </span>
-                {" "}{CATEGORY_SHORT_LABELS[statCat] ?? statCat} accuracy
-                {categoryTotal != null && (
-                  <span className="text-muted-foreground/50"> ({categoryTotal})</span>
-                )}
-              </span>
-            </div>
-          )}
+          <div
+            className={cn(
+              "h-full overflow-hidden rounded-full transition-[width,background-color] duration-700 ease-out",
+              d.barColor
+            )}
+            style={{ width: `${d.barWidth}%` }}
+          />
         </div>
       </div>
     );
@@ -551,7 +522,6 @@ const LivePickRow = memo(LivePickRowInner, (prev, next) => {
   // Only re-render if the pick data actually changed
   if (prev.variant !== next.variant) return false;
   if (prev.showQualityTokens !== next.showQualityTokens) return false;
-  if (prev.categoryRate !== next.categoryRate) return false;
   const p = prev.pick;
   const n = next.pick;
   return (
