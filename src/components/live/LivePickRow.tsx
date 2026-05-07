@@ -191,7 +191,7 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
               {pick.player_name}
             </span>
             <div className="flex items-center gap-1">
-              <span className={cn("text-[10px] font-semibold uppercase", statPillClass)}>
+              <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none", statPillClass)}>
                 {CATEGORY_SHORT_LABELS[statCat] ?? statCat}
               </span>
               <span className="text-[10px] text-muted-foreground">
