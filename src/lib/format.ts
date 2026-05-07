@@ -37,6 +37,14 @@ export function formatTimeAgo(timestamp: string, compact = false): string {
  * Uses sport to determine period labels: H (halves) for ncaab/epl/la_liga, Q (quarters) for nba/nhl.
  */
 export function formatClock(period: number, clock: string, sport?: string): string {
+  // MLB: the clock field contains the inning detail directly (e.g. "Bot 8th", "Top 3rd")
+  // from ESPN's shortDetail — no parsing needed.
+  if (sport === "mlb") {
+    if (clock && clock !== "0:00") return clock;
+    if (period > 0) return `Inn ${period}`;
+    return "Starting";
+  }
+
   // Parse ISO 8601 duration (e.g. "PT05M30.00S" → 5, 30)
   const cleanClock = clock.replace(/^PT/, "").replace(/\.00S$/, "S");
   const isoMatch = cleanClock.match(/(\d+)M(\d+)/);

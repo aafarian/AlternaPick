@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams, fetchSoccerPlayers } from "@/lib/stats-service/client";
+import { fetchAllPlayers, fetchNcaabPlayers, fetchNcaabTeams, fetchSoccerPlayers, fetchMlbPlayers } from "@/lib/stats-service/client";
 import { unauthorized, handleApiError } from "@/lib/api/errors";
+import { requireAdmin } from "@/lib/auth/admin";
 import { logError } from "@/lib/logger";
 
 function normalizeName(name: string): string {
@@ -93,52 +94,66 @@ function normalizeTeamName(name: string): string {
  * the null-guard was added.
  */
 export async function POST(request: NextRequest) {
+  // Accept either SYNC_SECRET (cron) or admin session (dashboard)
   const syncSecret = process.env.SYNC_SECRET;
-  if (syncSecret) {
-    const authHeader = request.headers.get("authorization");
-    if (authHeader !== `Bearer ${syncSecret}`) {
-      return unauthorized();
-    }
+  const authHeader = request.headers.get("authorization");
+  const hasSyncAuth = syncSecret && authHeader === `Bearer ${syncSecret}`;
+
+  if (!hasSyncAuth) {
+    const admin = await requireAdmin();
+    if (!admin.isAdmin) return admin.response;
   }
 
   try {
     const supabase = createAdminClient();
 
-    // Fetch all props missing player_id, joined with game sport + teams
-    const { data: nullProps, error: fetchError } = await supabase
-      .from("props")
-      .select("id, player_name, game_id, games(sport, home_team, away_team)")
-      .is("player_id", null);
-
-    if (fetchError) {
-      return NextResponse.json({ error: fetchError.message }, { status: 500 });
-    }
-
-    const props = (nullProps ?? []) as {
+    // Fetch null-player_id props per sport to avoid Supabase row limits.
+    type PropRow = {
       id: string;
       player_name: string;
       game_id: string;
       games: { sport: string; home_team: string; away_team: string } | null;
-    }[];
+    };
 
-    if (props.length === 0) {
-      return NextResponse.json({ updated: 0, message: "No props with null player_id" });
+    async function fetchNullProps(sport: string | string[]): Promise<PropRow[]> {
+      const sports = Array.isArray(sport) ? sport : [sport];
+      const allProps: PropRow[] = [];
+      for (const s of sports) {
+        const { data } = await (supabase.from("props") as any)
+          .select("id, player_name, game_id, games!inner(sport, home_team, away_team)")
+          .is("player_id", null)
+          .eq("games.sport", s)
+          .limit(5000);
+        if (data) allProps.push(...(data as PropRow[]));
+      }
+      return allProps;
     }
 
-    // Group props by sport
-    const nbaProps = props.filter((p) => p.games?.sport === "nba");
-    const ncaabProps = props.filter((p) => p.games?.sport === "ncaab");
-    const soccerProps = props.filter((p) => p.games?.sport === "epl" || p.games?.sport === "la_liga");
+    const [nbaProps, ncaabProps, soccerProps, mlbProps] = await Promise.all([
+      fetchNullProps("nba"),
+      fetchNullProps("ncaab"),
+      fetchNullProps(["epl", "la_liga"]),
+      fetchNullProps("mlb"),
+    ]);
+
+    const totalNull = nbaProps.length + ncaabProps.length + soccerProps.length + mlbProps.length;
+
+    if (totalNull === 0) {
+      return NextResponse.json({ updated: 0, message: "No props with null player_id" });
+    }
 
     let nbaUpdated = 0;
     let ncaabUpdated = 0;
     let soccerUpdated = 0;
+    let mlbUpdated = 0;
     const unmatchedNba: string[] = [];
     const unmatchedNcaab: string[] = [];
     const unmatchedSoccer: string[] = [];
+    const unmatchedMlb: string[] = [];
     let nbaPlayerMapSize = 0;
     let ncaabPlayerMapSize = 0;
     let soccerPlayerMapSize = 0;
+    let mlbPlayerMapSize = 0;
 
     // --- NBA enrichment ---
     if (nbaProps.length > 0) {
@@ -247,7 +262,7 @@ export async function POST(request: NextRequest) {
     // --- Soccer (EPL / La Liga) enrichment ---
     if (soccerProps.length > 0) {
       // Group by league since fetchSoccerPlayers needs the league param
-      const byLeague = new Map<string, typeof props>();
+      const byLeague = new Map<string, typeof nbaProps>();
       for (const p of soccerProps) {
         const sport = p.games!.sport;
         if (!byLeague.has(sport)) byLeague.set(sport, []);
@@ -291,16 +306,86 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // --- Second pass: NCAAB props with player_id but missing player_team ---
-    const { data: teamNullProps } = await supabase
-      .from("props")
-      .select("id, player_name, game_id, games(sport, home_team, away_team)")
-      .not("player_id", "is", null)
-      .is("player_team", null);
+    // --- MLB enrichment ---
+    if (mlbProps.length > 0) {
+      try {
+        // Collect unique team names from MLB props
+        const mlbTeamNames = new Set<string>();
+        for (const p of mlbProps) {
+          if (p.games?.home_team) mlbTeamNames.add(p.games.home_team);
+          if (p.games?.away_team) mlbTeamNames.add(p.games.away_team);
+        }
 
-    const ncaabTeamNullProps = ((teamNullProps ?? []) as typeof props).filter(
-      (p) => p.games?.sport === "ncaab"
-    );
+        // Fetch per-team rosters to build both player ID and team maps
+        const playerIdMap = new Map<string, string>();
+        const mlbTeamMap = new Map<string, string>();
+
+        // Get ESPN team IDs from today's MLB games
+        const { fetchMlbGames } = await import("@/lib/stats-service/client");
+        const mlbGames = await fetchMlbGames();
+        const teamIdMap = new Map<string, string>(); // teamName → espnTeamId
+        for (const g of mlbGames) {
+          if (g.home_team_id) teamIdMap.set(g.home_team, g.home_team_id);
+          if (g.away_team_id) teamIdMap.set(g.away_team, g.away_team_id);
+        }
+
+        for (const teamName of mlbTeamNames) {
+          const teamId = teamIdMap.get(teamName);
+          if (!teamId) continue;
+          try {
+            const roster = await fetchMlbPlayers([teamId]);
+            for (const [name, id] of Object.entries(roster)) {
+              playerIdMap.set(name.toLowerCase(), id);
+              playerIdMap.set(normalizeName(name), id);
+              mlbTeamMap.set(name.toLowerCase(), teamName);
+              mlbTeamMap.set(normalizeName(name), teamName);
+            }
+          } catch {
+            // Individual team roster failure is non-blocking
+          }
+        }
+        mlbPlayerMapSize = playerIdMap.size / 2;
+
+        for (const prop of mlbProps) {
+          const playerId = lookupPlayer(prop.player_name, playerIdMap);
+          const playerTeam = lookupPlayer(prop.player_name, mlbTeamMap);
+          if (playerId || playerTeam) {
+            const updatePayload: Record<string, unknown> = {};
+            if (playerId) updatePayload.player_id = playerId;
+            if (playerTeam) updatePayload.player_team = playerTeam;
+            const { error } = await (supabase.from("props") as any)
+              .update(updatePayload)
+              .eq("id", prop.id);
+            if (!error) mlbUpdated++;
+          } else {
+            unmatchedMlb.push(prop.player_name);
+          }
+        }
+      } catch (err) {
+        logError("backfill", "MLB enrichment failed", undefined, err);
+        unmatchedMlb.push(`ERROR: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    // --- Second pass: props with player_id but missing player_team ---
+    // Fetch per-sport to avoid row limit
+    const [ncaabTeamNullResult, mlbTeamNullResult] = await Promise.all([
+      (supabase.from("props") as any)
+        .select("id, player_name, game_id, games!inner(sport, home_team, away_team)")
+        .not("player_id", "is", null)
+        .is("player_team", null)
+        .eq("games.sport", "ncaab")
+        .limit(5000),
+      (supabase.from("props") as any)
+        .select("id, player_name, game_id, games!inner(sport, home_team, away_team)")
+        .not("player_id", "is", null)
+        .is("player_team", null)
+        .eq("games.sport", "mlb")
+        .limit(5000),
+    ]);
+
+    const ncaabTeamNullProps = (ncaabTeamNullResult.data ?? []) as typeof nbaProps;
+    const mlbTeamNullProps = (mlbTeamNullResult.data ?? []) as typeof nbaProps;
 
     let ncaabTeamBackfilled = 0;
     if (ncaabTeamNullProps.length > 0) {
@@ -363,22 +448,74 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // --- MLB team backfill (player_id set but player_team null) ---
+    let mlbTeamBackfilled = 0;
+    if (mlbTeamNullProps.length > 0) {
+      try {
+        const { fetchMlbGames: fetchMlbGames2 } = await import("@/lib/stats-service/client");
+        const mlbGames2 = await fetchMlbGames2();
+        const teamIdMap2 = new Map<string, string>();
+        for (const g of mlbGames2) {
+          if (g.home_team_id) teamIdMap2.set(g.home_team, g.home_team_id);
+          if (g.away_team_id) teamIdMap2.set(g.away_team, g.away_team_id);
+        }
+
+        const mlbTeamNames2 = new Set<string>();
+        for (const p of mlbTeamNullProps) {
+          if (p.games?.home_team) mlbTeamNames2.add(p.games.home_team);
+          if (p.games?.away_team) mlbTeamNames2.add(p.games.away_team);
+        }
+
+        const mlbTeamMap2 = new Map<string, string>();
+        for (const teamName of mlbTeamNames2) {
+          const teamId = teamIdMap2.get(teamName);
+          if (!teamId) continue;
+          try {
+            const roster = await fetchMlbPlayers([teamId]);
+            for (const [name] of Object.entries(roster)) {
+              mlbTeamMap2.set(name.toLowerCase(), teamName);
+              mlbTeamMap2.set(normalizeName(name), teamName);
+            }
+          } catch {
+            // Non-blocking
+          }
+        }
+
+        for (const prop of mlbTeamNullProps) {
+          const playerTeam = lookupPlayer(prop.player_name, mlbTeamMap2);
+          if (playerTeam) {
+            const { error } = await (supabase.from("props") as any)
+              .update({ player_team: playerTeam })
+              .eq("id", prop.id);
+            if (!error) mlbTeamBackfilled++;
+          }
+        }
+      } catch (err) {
+        logError("backfill", "MLB team backfill failed", undefined, err);
+      }
+    }
+
     return NextResponse.json({
-      total_null: props.length,
+      total_null: totalNull,
       nba_null: nbaProps.length,
       ncaab_null: ncaabProps.length,
       soccer_null: soccerProps.length,
+      mlb_null: mlbProps.length,
       nba_updated: nbaUpdated,
       ncaab_updated: ncaabUpdated,
       soccer_updated: soccerUpdated,
-      updated: nbaUpdated + ncaabUpdated + soccerUpdated,
+      mlb_updated: mlbUpdated,
+      updated: nbaUpdated + ncaabUpdated + soccerUpdated + mlbUpdated,
       ncaab_team_backfilled: ncaabTeamBackfilled,
+      mlb_team_backfilled: mlbTeamBackfilled,
       nba_player_map_size: nbaPlayerMapSize,
       ncaab_player_map_size: ncaabPlayerMapSize,
       soccer_player_map_size: soccerPlayerMapSize,
+      mlb_player_map_size: mlbPlayerMapSize,
       unmatched_nba: unmatchedNba.slice(0, 30),
       unmatched_ncaab: unmatchedNcaab.slice(0, 30),
       unmatched_soccer: unmatchedSoccer.slice(0, 30),
+      unmatched_mlb: unmatchedMlb.slice(0, 30),
     });
   } catch (error) {
     return handleApiError(error, "Failed to backfill player IDs");
