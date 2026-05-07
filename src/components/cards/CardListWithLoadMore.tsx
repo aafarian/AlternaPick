@@ -217,6 +217,22 @@ export default function CardListWithLoadMore({
     });
   }, [cards.length, restorationKey]);
 
+  // Fetch category stats once for the condensed view's inline accuracy display
+  const [categoryStats, setCategoryStats] = useState<Map<string, { rate: number; total: number }> | undefined>();
+  useEffect(() => {
+    fetch("/api/analytics?section=categories")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data?.categories) return;
+        const map = new Map<string, { rate: number; total: number }>();
+        for (const c of data.categories as Array<{ category: string; rate: number; total: number }>) {
+          map.set(c.category, { rate: c.rate, total: c.total });
+        }
+        setCategoryStats(map);
+      })
+      .catch(() => { /* non-blocking */ });
+  }, []);
+
   if (cards.length === 0) return null;
 
   return (
@@ -224,7 +240,7 @@ export default function CardListWithLoadMore({
       <AnimatedList className="grid grid-cols-1 gap-4 max-w-2xl" staggerDelay={0.05}>
         {cards.map((card) => (
           <div key={card.id} className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 rounded-xl">
-            <CardDetail card={card} condensed />
+            <CardDetail card={card} condensed categoryStats={categoryStats} />
           </div>
         ))}
       </AnimatedList>

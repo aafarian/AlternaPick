@@ -85,10 +85,12 @@ const LiveCardContent = memo(function LiveCardContent({
   card,
   animate,
   condensed = false,
+  categoryStats,
 }: {
   card: CardWithPicks;
   animate: boolean;
   condensed?: boolean;
+  categoryStats?: Map<string, { rate: number; total: number }>;
 }) {
   const isLocked = card.status === "locked";
   const router = useRouter();
@@ -180,7 +182,13 @@ const LiveCardContent = memo(function LiveCardContent({
               });
               return (
                 <StaggerItem key={pick.id}>
-                  <LivePickRow pick={livePick} showQualityTokens={false} variant={condensed ? "condensed" : "full"} />
+                  <LivePickRow
+                    pick={livePick}
+                    showQualityTokens={false}
+                    variant={condensed ? "condensed" : "full"}
+                    categoryRate={condensed && categoryStats ? categoryStats.get(pick.props?.stat_category ?? "")?.rate ?? null : null}
+                    categoryTotal={condensed && categoryStats ? categoryStats.get(pick.props?.stat_category ?? "")?.total : undefined}
+                  />
                 </StaggerItem>
               );
             })}
@@ -200,7 +208,16 @@ const LiveCardContent = memo(function LiveCardContent({
                   game_id: pick.props.game_id, games: pick.props.games,
                 } : null,
               });
-              return <LivePickRow key={pick.id} pick={livePick} showQualityTokens={false} variant={condensed ? "condensed" : "full"} />;
+              return (
+                <LivePickRow
+                  key={pick.id}
+                  pick={livePick}
+                  showQualityTokens={false}
+                  variant={condensed ? "condensed" : "full"}
+                  categoryRate={condensed && categoryStats ? categoryStats.get(pick.props?.stat_category ?? "")?.rate ?? null : null}
+                  categoryTotal={condensed && categoryStats ? categoryStats.get(pick.props?.stat_category ?? "")?.total : undefined}
+                />
+              );
             })}
           </div>
         )}
@@ -222,7 +239,7 @@ const LiveCardContent = memo(function LiveCardContent({
 // CardDetail — static header + LiveCardContent child
 // ---------------------------------------------------------------------------
 
-export default function CardDetail({ card, linked = true, condensed = false }: { card: CardWithPicks; linked?: boolean; condensed?: boolean }) {
+export default function CardDetail({ card, linked = true, condensed = false, categoryStats }: { card: CardWithPicks; linked?: boolean; condensed?: boolean; categoryStats?: Map<string, { rate: number; total: number }> }) {
   const date = new Date(card.created_at).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -294,7 +311,7 @@ export default function CardDetail({ card, linked = true, condensed = false }: {
           </div>
 
           {/* Live content — isolated re-renders */}
-          <LiveCardContent card={card} animate={animate} condensed={condensed} />
+          <LiveCardContent card={card} animate={animate} condensed={condensed} categoryStats={categoryStats} />
         </Card>
       </SlideUp>
     </Wrapper>
