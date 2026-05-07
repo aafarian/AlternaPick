@@ -200,10 +200,10 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false }:
 
         {/* Inline progress bar with line marker */}
         <div className="relative h-1.5 min-w-[60px] flex-1 overflow-visible rounded-full bg-secondary/30">
-          {/* Line marker — same style as full variant, scaled for smaller bar */}
+          {/* Line marker — triangle centered vertically on the bar */}
           <div
-            className="absolute -top-[2px] z-20"
-            style={{ left: `${d.linePosition}%`, transform: "translateX(-50%)" }}
+            className="absolute top-1/2 z-20"
+            style={{ left: `${d.linePosition}%`, transform: "translate(-50%, -50%)" }}
           >
             <svg width="6" height="10" viewBox="0 0 8 14">
               {d.isOver ? (
