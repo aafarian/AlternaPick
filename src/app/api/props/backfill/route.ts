@@ -107,33 +107,40 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = createAdminClient();
 
-    // Fetch all props missing player_id, joined with game sport + teams
-    const { data: nullProps, error: fetchError } = await supabase
-      .from("props")
-      .select("id, player_name, game_id, games(sport, home_team, away_team)")
-      .is("player_id", null)
-      .limit(10000);
-
-    if (fetchError) {
-      return NextResponse.json({ error: fetchError.message }, { status: 500 });
-    }
-
-    const props = (nullProps ?? []) as {
+    // Fetch null-player_id props per sport to avoid Supabase row limits.
+    type PropRow = {
       id: string;
       player_name: string;
       game_id: string;
       games: { sport: string; home_team: string; away_team: string } | null;
-    }[];
+    };
 
-    if (props.length === 0) {
-      return NextResponse.json({ updated: 0, message: "No props with null player_id" });
+    async function fetchNullProps(sport: string | string[]): Promise<PropRow[]> {
+      const sports = Array.isArray(sport) ? sport : [sport];
+      const allProps: PropRow[] = [];
+      for (const s of sports) {
+        const { data } = await (supabase.from("props") as any)
+          .select("id, player_name, game_id, games!inner(sport, home_team, away_team)")
+          .is("player_id", null)
+          .eq("games.sport", s)
+          .limit(5000);
+        if (data) allProps.push(...(data as PropRow[]));
+      }
+      return allProps;
     }
 
-    // Group props by sport
-    const nbaProps = props.filter((p) => p.games?.sport === "nba");
-    const ncaabProps = props.filter((p) => p.games?.sport === "ncaab");
-    const soccerProps = props.filter((p) => p.games?.sport === "epl" || p.games?.sport === "la_liga");
-    const mlbProps = props.filter((p) => p.games?.sport === "mlb");
+    const [nbaProps, ncaabProps, soccerProps, mlbProps] = await Promise.all([
+      fetchNullProps("nba"),
+      fetchNullProps("ncaab"),
+      fetchNullProps(["epl", "la_liga"]),
+      fetchNullProps("mlb"),
+    ]);
+
+    const totalNull = nbaProps.length + ncaabProps.length + soccerProps.length + mlbProps.length;
+
+    if (totalNull === 0) {
+      return NextResponse.json({ updated: 0, message: "No props with null player_id" });
+    }
 
     let nbaUpdated = 0;
     let ncaabUpdated = 0;
@@ -255,7 +262,7 @@ export async function POST(request: NextRequest) {
     // --- Soccer (EPL / La Liga) enrichment ---
     if (soccerProps.length > 0) {
       // Group by league since fetchSoccerPlayers needs the league param
-      const byLeague = new Map<string, typeof props>();
+      const byLeague = new Map<string, typeof nbaProps>();
       for (const p of soccerProps) {
         const sport = p.games!.sport;
         if (!byLeague.has(sport)) byLeague.set(sport, []);
@@ -334,7 +341,7 @@ export async function POST(request: NextRequest) {
       .not("player_id", "is", null)
       .is("player_team", null);
 
-    const ncaabTeamNullProps = ((teamNullProps ?? []) as typeof props).filter(
+    const ncaabTeamNullProps = ((teamNullProps ?? []) as typeof nbaProps).filter(
       (p) => p.games?.sport === "ncaab"
     );
 
@@ -400,7 +407,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      total_null: props.length,
+      total_null: totalNull,
       nba_null: nbaProps.length,
       ncaab_null: ncaabProps.length,
       soccer_null: soccerProps.length,
