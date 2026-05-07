@@ -31,7 +31,7 @@ import {
   AlertCircle,
   Loader2,
   Database,
-  Image,
+  Image as ImageIcon,
 } from "lucide-react";
 import type { CardScoreFix } from "@/lib/admin/resync";
 
@@ -685,7 +685,7 @@ export default function DataResync() {
         <CardHeader className="pb-0 pt-0 px-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Image className="h-4 w-4 text-muted-foreground" />
+              <ImageIcon className="h-4 w-4 text-muted-foreground" />
               <CardTitle className="text-base">Backfill Headshots</CardTitle>
               <StatusIcon status={backfill.status} />
             </div>
