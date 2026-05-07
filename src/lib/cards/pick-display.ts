@@ -54,11 +54,17 @@ export function computePickDisplay(pick: LivePickData): PickDisplayState {
   const linePosition = 90;
   const barWidth = crossedLine ? 100 : (rawPct / 100) * 90;
 
-  // Settled: line is decided and won't change
+  // Settled: line is decided and won't change.
+  // For Over picks, crossing the line mid-game is a guaranteed hit (stats only go up).
+  // For Under picks, crossing the line mid-game is a guaranteed miss.
+  // But we only settle on crossedLine if the game is actually live or final —
+  // never on stale/missing game status alone.
+  const crossedLineSettled = crossedLine && (isLive || isFinal);
   const isSettled =
     isDnp || isVoid ||
-    (hasValue && (isFinal || crossedLine)) ||
-    (pick.trending !== null && (isFinal || !pick.game_status));
+    (hasValue && isFinal) ||
+    crossedLineSettled ||
+    (pick.trending !== null && isFinal);
 
   const settledWon = isDnp || isVoid
     ? null
