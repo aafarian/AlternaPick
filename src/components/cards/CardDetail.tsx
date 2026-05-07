@@ -224,7 +224,7 @@ const LiveCardContent = memo(function LiveCardContent({
         </div>
 
         {/* Stats side panel — visible on lg+ in condensed view */}
-        {condensed && (
+        {(condensed || categoryStats) && (
           <div className="hidden border-l border-border lg:flex lg:w-56 lg:shrink-0 lg:flex-col lg:px-5">
             {categoryStats === undefined ? (
               /* Loading state */
@@ -239,7 +239,7 @@ const LiveCardContent = memo(function LiveCardContent({
                 const catShort = CATEGORY_SHORT_LABELS[pick.props?.stat_category as keyof typeof CATEGORY_SHORT_LABELS] ?? cat;
                 if (!stats || stats.total === 0) {
                   return (
-                    <div key={pick.id} className="flex h-[54px] items-center">
+                    <div key={pick.id} className="flex flex-1 items-center">
                       <span className="text-[10px] italic text-muted-foreground/50">
                         First time picking {catShort}!
                       </span>
@@ -248,7 +248,7 @@ const LiveCardContent = memo(function LiveCardContent({
                 }
                 const pct = Math.round(stats.rate * 100);
                 return (
-                  <div key={pick.id} className="flex h-[54px] items-center gap-2">
+                  <div key={pick.id} className="flex flex-1 items-center gap-2">
                     <span className={cn(
                       "text-lg font-black tabular-nums shrink-0",
                       pct >= 70 ? "text-emerald-500" : pct >= 55 ? "text-green-400" : pct >= 45 ? "text-blue-400" : pct >= 35 ? "text-orange-400" : "text-red-400"
