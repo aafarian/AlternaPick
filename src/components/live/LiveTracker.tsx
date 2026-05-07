@@ -12,7 +12,7 @@ import { AnimatedList } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { Radio, Loader2 } from "lucide-react";
 import CardHeatScoreBadge from "@/components/cards/CardHeatScoreBadge";
-import { CATEGORY_LABELS, CATEGORY_SHORT_LABELS } from "@/lib/constants";
+import { CATEGORY_SHORT_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { StatCategory, PickSelection } from "@/lib/supabase/types";
 

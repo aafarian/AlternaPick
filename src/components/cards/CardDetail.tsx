@@ -12,7 +12,7 @@ import GameScoreBanner from "@/components/live/GameScoreBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import LivePickRow from "@/components/live/LivePickRow";
 import { Loader2 } from "lucide-react";
-import { teamTricode, teamLogoUrl, gameUrl, CATEGORY_LABELS, CATEGORY_SHORT_LABELS } from "@/lib/constants";
+import { teamTricode, teamLogoUrl, gameUrl, CATEGORY_SHORT_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import {
   Card,
@@ -223,7 +223,7 @@ const LiveCardContent = memo(function LiveCardContent({
         )}
         </div>
 
-        {/* Stats side panel — visible on lg+ in condensed view */}
+        {/* Stats side panel — visible on lg+ screens */}
         {(condensed || categoryStats) && (
           <div className="hidden border-l border-border lg:flex lg:w-56 lg:shrink-0 lg:flex-col lg:px-5">
             {categoryStats === undefined ? (
