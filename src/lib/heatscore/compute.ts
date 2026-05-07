@@ -10,6 +10,7 @@ import {
   HIT_QUALITY_TIERS,
   MISS_QUALITY_TIERS,
   WAGER_NOTCH_SCALE,
+  MAX_PAYOUT_MULTIPLIER,
 } from "./constants";
 
 // ---------------------------------------------------------------------------
@@ -18,17 +19,24 @@ import {
 
 const TIER_MAP = new Map(NOTCH_TIERS.map((t) => [t.notch, t]));
 
+/** Legacy Frosty/Chilled tiers — kept for resolving old picks but not selectable. */
+const LEGACY_TIERS: Record<number, { notch: number; label: string; multiplier: number; color: string }> = {
+  [-2]: { notch: -2, label: "Frosty", multiplier: 0.25, color: "blue" },
+  [-1]: { notch: -1, label: "Chilled", multiplier: 0.5, color: "lightblue" },
+};
+
 /**
- * Get the notch tier definition. Throws if `notch` is out of range.
+ * Get the notch tier definition. Supports legacy Frosty/Chilled notches
+ * for backward compatibility with existing resolved picks.
  */
 export function getNotchTier(notch: number) {
   const tier = TIER_MAP.get(notch);
-  if (!tier) {
-    throw new Error(
-      `Invalid notch ${notch}. Must be between ${MIN_NOTCH} and ${MAX_NOTCH}.`,
-    );
-  }
-  return tier;
+  if (tier) return tier;
+  const legacy = LEGACY_TIERS[notch];
+  if (legacy) return legacy;
+  throw new Error(
+    `Invalid notch ${notch}. Must be between ${MIN_NOTCH} and ${MAX_NOTCH}.`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -245,18 +253,38 @@ export function computeHeatScore(picks: HeatScorePickInput[]): number {
  * Used to scale wager payouts — geometric mean prevents the exploit
  * where one Volcanic pick inflates the whole card's payout.
  */
-export function computeWagerNotchScale(notches: number[]): number {
+/**
+ * Look up the wager notch scale for a card.
+ * New model: wagered cards have uniform notch, so direct 2D table lookup.
+ * Legacy fallback: geometric mean for old mixed cards.
+ */
+export function computeWagerNotchScale(notches: number[], cardSize?: number): number {
   if (notches.length === 0) return 1;
-  const product = notches.reduce((p, n) => p * (WAGER_NOTCH_SCALE[n] ?? 1), 1);
+  const size = cardSize ?? notches.length;
+
+  // Uniform notch: direct lookup
+  const allSame = notches.every((n) => n === notches[0]);
+  if (allSame) {
+    const tierScales = WAGER_NOTCH_SCALE[notches[0]];
+    if (tierScales && tierScales[size] != null) {
+      return tierScales[size];
+    }
+  }
+
+  // Legacy fallback: geometric mean for old mixed cards
+  const product = notches.reduce((p, n) => {
+    const tierScales = WAGER_NOTCH_SCALE[n];
+    const scale = tierScales ? (tierScales[size] ?? 1) : 1;
+    return p * scale;
+  }, 1);
   return Math.pow(product, 1 / notches.length);
 }
 
 /**
  * Compute the Flame Token payout for a given wager and HeatScore multiplier.
  *
- * The payout is scaled by the wager notch scale (geometric mean of per-pick
- * scales), so easier picks reduce the payout and harder picks increase it.
- * Includes an optional quality bonus (from hit/miss margins). Floored at 0.
+ * Payout = wager × multiplier × notchScale, capped at MAX_PAYOUT_MULTIPLIER.
+ * Quality bonus is NOT included for wager payouts (reserved for challenges).
  */
 export function computeFireTokenPayout(
   wager: number,
@@ -265,7 +293,9 @@ export function computeFireTokenPayout(
   wagerNotchScale?: number,
 ): number {
   const notchScale = wagerNotchScale ?? 1;
-  return Math.max(0, Math.round(wager * multiplier * notchScale + (qualityBonus ?? 0)));
+  const rawMult = multiplier * notchScale;
+  const cappedMult = Math.min(rawMult, MAX_PAYOUT_MULTIPLIER);
+  return Math.max(0, Math.round(wager * cappedMult + (qualityBonus ?? 0)));
 }
 
 // ---------------------------------------------------------------------------

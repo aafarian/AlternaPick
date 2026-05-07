@@ -178,7 +178,7 @@ const LiveCardContent = memo(function LiveCardContent({
               });
               return (
                 <StaggerItem key={pick.id}>
-                  <LivePickRow pick={livePick} showQualityTokens={card.fire_token_wager != null} />
+                  <LivePickRow pick={livePick} showQualityTokens={false} />
                 </StaggerItem>
               );
             })}
@@ -198,7 +198,7 @@ const LiveCardContent = memo(function LiveCardContent({
                   game_id: pick.props.game_id, games: pick.props.games,
                 } : null,
               });
-              return <LivePickRow key={pick.id} pick={livePick} showQualityTokens={card.fire_token_wager != null} />;
+              return <LivePickRow key={pick.id} pick={livePick} showQualityTokens={false} />;
             })}
           </div>
         )}
