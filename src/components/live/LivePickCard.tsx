@@ -42,6 +42,8 @@ interface LivePickCardProps {
   error?: boolean;
   /** When true, shows game score section (banner + skeleton). Default true. */
   showGameScores?: boolean;
+  /** Optional side panel rendered to the right of pick rows (stats panel). */
+  sidePanel?: React.ReactNode;
 }
 
 export default function LivePickCard({
@@ -55,6 +57,7 @@ export default function LivePickCard({
   pickCount = 0,
   error = false,
   showGameScores = true,
+  sidePanel,
 }: LivePickCardProps) {
   return (
     <Card className={cn(
@@ -128,17 +131,20 @@ export default function LivePickCard({
         </div>
       )}
 
-      {/* Pick rows */}
+      {/* Pick rows + optional side panel */}
       {picks.length > 0 && (
         <>
           <Separator className="opacity-30" />
-          <div className={cn("flex flex-col transition-opacity", loading && "opacity-60")}>
-            {picks.map((pick, i) => (
-              <div key={pick.pick_id}>
-                {i > 0 && <Separator className="ml-4 opacity-20" />}
-                <LivePickRow pick={pick} variant="condensed" />
-              </div>
-            ))}
+          <div className="flex">
+            <div className={cn("flex-1 min-w-0 flex flex-col transition-opacity", loading && "opacity-60")}>
+              {picks.map((pick, i) => (
+                <div key={pick.pick_id}>
+                  {i > 0 && <Separator className="ml-4 opacity-20" />}
+                  <LivePickRow pick={pick} variant="condensed" />
+                </div>
+              ))}
+            </div>
+            {sidePanel}
           </div>
         </>
       )}

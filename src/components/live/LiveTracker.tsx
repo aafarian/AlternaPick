@@ -129,39 +129,35 @@ function LiveCard({
   );
 
   const content = (
-    <div className="flex">
-      <div className="flex-1 min-w-0">
-        <LivePickCard
-          picks={picks}
-          hasLiveGames={liveData?.has_live_games ?? false}
-          games={liveData?.games}
-          statusLabel={
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <CardTypeBadge card={card} />
-              {card.picks.length} picks
-            </span>
-          }
-          wagerLabel={
-            (card.fire_token_wager != null || card.heat_score != null) ? (
-              <CardHeatScoreBadge
-                heatScore={card.heat_score}
-                wager={card.fire_token_wager}
-                payout={card.fire_token_payout}
-                cardSize={card.card_size}
-                pickNotches={card.picks.map((p) => p.notch ?? 0)}
-                score={card.score}
-                totalPicks={card.total_picks}
-              />
-            ) : undefined
-          }
-          isWagered={card.fire_token_wager != null}
-          loading={!hasFetched}
-          pickCount={card.picks.length}
-          error={hasError}
-        />
-      </div>
-      {statsPanel}
-    </div>
+    <LivePickCard
+      picks={picks}
+      hasLiveGames={liveData?.has_live_games ?? false}
+      games={liveData?.games}
+      statusLabel={
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <CardTypeBadge card={card} />
+          {card.picks.length} picks
+        </span>
+      }
+      wagerLabel={
+        (card.fire_token_wager != null || card.heat_score != null) ? (
+          <CardHeatScoreBadge
+            heatScore={card.heat_score}
+            wager={card.fire_token_wager}
+            payout={card.fire_token_payout}
+            cardSize={card.card_size}
+            pickNotches={card.picks.map((p) => p.notch ?? 0)}
+            score={card.score}
+            totalPicks={card.total_picks}
+          />
+        ) : undefined
+      }
+      isWagered={card.fire_token_wager != null}
+      loading={!hasFetched}
+      pickCount={card.picks.length}
+      error={hasError}
+      sidePanel={statsPanel}
+    />
   );
 
   if (card.challenge_id) {
