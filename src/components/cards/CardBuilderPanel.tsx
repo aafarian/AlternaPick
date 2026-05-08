@@ -68,7 +68,7 @@ export default function CardBuilderPanel() {
 
   // Flame Token wager (solo ranked mode)
   const [wager, setWager] = useState<number | null>(null);
-  const [playMode, setPlayMode] = useState<"wager" | "casual" | "challenge">("wager");
+  const [playMode, setPlayMode] = useState<"wager" | "casual" | "challenge">("casual");
   // showHeatPicker removed — wager panel is always visible for users with access
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
@@ -105,7 +105,7 @@ export default function CardBuilderPanel() {
   }, [picks.length]);
 
   // Challenge-a-friend state
-  const [showChallengePicker, setShowChallengePicker] = useState(false);
+  const [_showChallengePicker, setShowChallengePicker] = useState(false);
   const [friends, setFriends] = useState<FriendProfile[]>([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [challengeMessage, setChallengeMessage] = useState("");
@@ -757,7 +757,7 @@ export default function CardBuilderPanel() {
                     ) : (
                       <>
                         <Lock className="mr-1.5 h-3.5 w-3.5" />
-                        Lock In {pickCountLabel}Challenge
+                        Lock In<span className="hidden sm:inline"> {pickCountLabel}Challenge</span>
                       </>
                     )}
                   </Button>
@@ -790,17 +790,23 @@ export default function CardBuilderPanel() {
                     ) : playMode === "wager" && wager != null && wager >= MIN_WAGER ? (
                       <>
                         <FlameTokenIcon className="mr-1.5 h-3.5 w-3.5" />
-                        Lock In {pickCountLabel}Wager
+                        Lock In<span className="hidden sm:inline"> {pickCountLabel}Wager</span>
                       </>
                     ) : playMode === "wager" ? (
                       <>
                         <FlameTokenIcon className="mr-1.5 h-3.5 w-3.5" />
-                        Enter Wager to Lock In
+                        <span className="sm:hidden">Set Wager</span>
+                        <span className="hidden sm:inline">Enter Wager to Lock In</span>
                       </>
                     ) : playMode === "casual" ? (
                       <>
                         <Lock className="mr-1.5 h-3.5 w-3.5" />
-                        Lock In {pickCountLabel}Casual
+                        Lock In<span className="hidden sm:inline"> {pickCountLabel}Casual</span>
+                      </>
+                    ) : playMode === "challenge" ? (
+                      <>
+                        <Swords className="mr-1.5 h-3.5 w-3.5" />
+                        Send<span className="hidden sm:inline"> {pickCountLabel}Challenge</span>
                       </>
                     ) : null}
                   </Button>
