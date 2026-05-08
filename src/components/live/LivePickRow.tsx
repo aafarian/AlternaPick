@@ -202,8 +202,8 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false, h
             </div>
           </div>
 
-          {/* Value + status */}
-          <div className="flex shrink-0 items-center gap-2">
+          {/* Value + per-pick score + status */}
+          <div className="flex shrink-0 flex-col items-end gap-0.5">
             {d.isDnp || d.isVoid ? (
               <span className="text-[10px] font-semibold text-muted-foreground">
                 {d.isDnp ? "DNP" : "Void"}
@@ -224,6 +224,17 @@ function LivePickRowInner({ pick, variant = "full", showQualityTokens = false, h
               </span>
             ) : (
               <span className="text-xs text-muted-foreground/30">&mdash;</span>
+            )}
+
+            {/* Per-pick HeatScore below the value (non-wagered cards only) */}
+            {!hidePerPickScore && d.isSettled && pick.heat_score != null && pick.heat_score !== 0 && (
+              <span className={cn(
+                "inline-flex items-center gap-0.5 text-[10px] font-bold tabular-nums leading-none",
+                pick.heat_score > 0 ? "text-emerald-500/80" : "text-red-400/70",
+              )}>
+                <Flame className="h-2.5 w-2.5 text-orange-400/70" />
+                {pick.heat_score > 0 ? "+" : ""}{pick.heat_score}
+              </span>
             )}
 
             {d.isLive && pick.game_status && (
