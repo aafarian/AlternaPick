@@ -693,8 +693,8 @@ export default function CardBuilderPanel() {
             {!isInChallengeMode && user && heatModeAccess && (
               <div className="mb-2 flex items-center gap-1">
                 {([
-                  { mode: "wager" as const, label: "Wager", Icon: FlameTokenIcon },
                   { mode: "casual" as const, label: "Casual", Icon: Target },
+                  { mode: "wager" as const, label: "Wager", Icon: FlameTokenIcon },
                   { mode: "challenge" as const, label: "Challenge", Icon: Swords },
                 ]).map(({ mode, label, Icon }) => {
                   const isActive = playMode === mode;
