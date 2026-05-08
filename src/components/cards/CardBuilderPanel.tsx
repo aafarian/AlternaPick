@@ -110,6 +110,7 @@ export default function CardBuilderPanel() {
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [challengeMessage, setChallengeMessage] = useState("");
   const [creatingChallenge, setCreatingChallenge] = useState(false);
+  const [casualPanelDismissed, setCasualPanelDismissed] = useState(false);
   const [friendSearch, setFriendSearch] = useState("");
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
 
@@ -506,10 +507,10 @@ export default function CardBuilderPanel() {
         )}
 
         {/* Casual panel — brief explanation when casual is selected */}
-        {!isInChallengeMode && playMode === "casual" && (
+        {!isInChallengeMode && playMode === "casual" && !casualPanelDismissed && (
           <div className="border-t border-border bg-surface/95 backdrop-blur-xl">
-            <div className="mx-auto max-w-6xl px-4 py-2">
-              <p className="text-xs text-muted-foreground">
+            <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2">
+              <p className="flex-1 text-xs text-muted-foreground">
                 <span className="font-semibold text-foreground">Free play</span> — no Flame Coins wagered. Want to put coins on the line?{" "}
                 <button
                   type="button"
@@ -519,6 +520,14 @@ export default function CardBuilderPanel() {
                   Switch to Wager
                 </button>
               </p>
+              <button
+                type="button"
+                onClick={() => setCasualPanelDismissed(true)}
+                className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
         )}
