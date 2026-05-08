@@ -505,6 +505,24 @@ export default function CardBuilderPanel() {
           </div>
         )}
 
+        {/* Casual panel — brief explanation when casual is selected */}
+        {!isInChallengeMode && playMode === "casual" && (
+          <div className="border-t border-border bg-surface/95 backdrop-blur-xl">
+            <div className="mx-auto max-w-6xl px-4 py-2">
+              <p className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">Free play</span> — no Flame Coins wagered. Want to put coins on the line?{" "}
+                <button
+                  type="button"
+                  onClick={() => setPlayMode("wager")}
+                  className="font-semibold text-orange-400 transition-colors hover:text-orange-300"
+                >
+                  Switch to Wager
+                </button>
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Wager panel — visible in wager mode only */}
         {user && heatModeAccess && !isInChallengeMode && playMode === "wager" && (
           <div className="border-t border-orange-500/30 bg-surface/95 backdrop-blur-xl">
