@@ -154,7 +154,9 @@ export default function CardHeatScoreBadge({
               </span>
               {effectiveMultiplier != null && effectiveMultiplier > 0 && (
                 <span className="inline-flex items-center gap-1">
-                  <span className="font-black text-emerald-500">up to {effectiveMultiplier}x</span>
+                  <span className="font-black text-emerald-500">
+                    <span className="hidden sm:inline">up to </span>{effectiveMultiplier}x
+                  </span>
                   <button
                     type="button"
                     onClick={(e) => {

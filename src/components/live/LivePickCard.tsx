@@ -64,8 +64,8 @@ export default function LivePickCard({
       "overflow-hidden bg-card border-border",
       isWagered && "border-t-2 border-t-orange-500",
     )}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3">
+      {/* Header row 1: status + dots */}
+      <div className="flex items-center justify-between px-4 pt-3 pb-1">
         <div className="flex items-center gap-2.5">
           {hasLiveGames && (
             <div className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5">
@@ -86,27 +86,31 @@ export default function LivePickCard({
           )}
         </div>
 
-        {/* Right side: wager info + dot scoreboard */}
-        <div className="flex items-center gap-3">
-          {wagerLabel}
-          {picks.length > 0 && (
-            <div className="flex items-center gap-1">
-              {picks.map((pick) => (
-                <div
-                  key={pick.pick_id}
-                  className={cn(
-                    "h-2 w-2 rounded-full transition-colors",
-                    pick.trending === "hit" && "bg-neon-green",
-                    pick.trending === "miss" && "bg-bold-red",
-                    pick.trending === "push" && "bg-amber-400",
-                    !pick.trending && "bg-secondary"
-                  )}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Dot scoreboard — always on row 1 */}
+        {picks.length > 0 && (
+          <div className="flex items-center gap-1">
+            {picks.map((pick) => (
+              <div
+                key={pick.pick_id}
+                className={cn(
+                  "h-2 w-2 rounded-full transition-colors",
+                  pick.trending === "hit" && "bg-neon-green",
+                  pick.trending === "miss" && "bg-bold-red",
+                  pick.trending === "push" && "bg-amber-400",
+                  !pick.trending && "bg-secondary"
+                )}
+              />
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Header row 2: wager info (only if wagered) */}
+      {wagerLabel && (
+        <div className="px-4 pb-2">
+          {wagerLabel}
+        </div>
+      )}
 
       {error && (
         <div className="px-4 pb-2">
