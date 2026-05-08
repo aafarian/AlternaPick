@@ -61,11 +61,29 @@ export default function LivePickCard({
 }: LivePickCardProps) {
   return (
     <Card className={cn(
-      "overflow-hidden bg-card border-border",
+      "relative overflow-hidden bg-card border-border",
       isWagered && "border-t-2 border-t-orange-500",
     )}>
+      {/* Dot scoreboard — pinned top-right */}
+      {picks.length > 0 && (
+        <div className="absolute right-4 top-3 flex items-center gap-1">
+          {picks.map((pick) => (
+            <div
+              key={pick.pick_id}
+              className={cn(
+                "h-2 w-2 rounded-full transition-colors",
+                pick.trending === "hit" && "bg-neon-green",
+                pick.trending === "miss" && "bg-bold-red",
+                pick.trending === "push" && "bg-amber-400",
+                !pick.trending && "bg-secondary"
+              )}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-y-1 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-y-1 px-4 py-3">
         <div className="flex items-center gap-2.5">
           {hasLiveGames && (
             <div className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5">
@@ -86,26 +104,12 @@ export default function LivePickCard({
           )}
         </div>
 
-        {/* Right side: wager info + dot scoreboard */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {wagerLabel}
-          {picks.length > 0 && (
-            <div className="flex items-center gap-1">
-              {picks.map((pick) => (
-                <div
-                  key={pick.pick_id}
-                  className={cn(
-                    "h-2 w-2 rounded-full transition-colors",
-                    pick.trending === "hit" && "bg-neon-green",
-                    pick.trending === "miss" && "bg-bold-red",
-                    pick.trending === "push" && "bg-amber-400",
-                    !pick.trending && "bg-secondary"
-                  )}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Wager info */}
+        {wagerLabel && (
+          <div className="ml-auto">
+            {wagerLabel}
+          </div>
+        )}
       </div>
 
       {error && (
