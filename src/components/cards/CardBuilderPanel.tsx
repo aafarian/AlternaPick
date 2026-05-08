@@ -68,6 +68,7 @@ export default function CardBuilderPanel() {
 
   // Flame Token wager (solo ranked mode)
   const [wager, setWager] = useState<number | null>(null);
+  const [playMode, setPlayMode] = useState<"wager" | "casual" | "challenge">("wager");
   // showHeatPicker removed — wager panel is always visible for users with access
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
@@ -375,7 +376,7 @@ export default function CardBuilderPanel() {
 
       <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 md:bottom-0">
         {/* Challenge picker panel — sits ABOVE the bar */}
-        {showChallengePicker && (
+        {playMode === "challenge" && !isInChallengeMode && (
           <div className="border-t border-orange-500/30 bg-surface/95 backdrop-blur-xl">
             <div className="mx-auto max-w-6xl px-4 py-2.5">
               {/* Row 1: Mode pills (60%) + trash talk (40%) */}
@@ -504,8 +505,8 @@ export default function CardBuilderPanel() {
           </div>
         )}
 
-        {/* Wager panel — always visible when user has access (not in challenge mode) */}
-        {user && heatModeAccess && !isInChallengeMode && !showChallengePicker && (
+        {/* Wager panel — visible in wager mode only */}
+        {user && heatModeAccess && !isInChallengeMode && playMode === "wager" && (
           <div className="border-t border-orange-500/30 bg-surface/95 backdrop-blur-xl">
             <div className="mx-auto max-w-6xl px-4 py-2.5">
               {/* Label row: "Wager" + balance */}
@@ -688,12 +689,57 @@ export default function CardBuilderPanel() {
               </div>
             )}
 
-            {/* Actions row */}
+            {/* Mode selector + actions row */}
+            {!isInChallengeMode && user && heatModeAccess && (
+              <div className="mb-2 flex items-center gap-1">
+                {(["wager", "casual", "challenge"] as const).map((mode) => {
+                  const isActive = playMode === mode;
+                  const labels = {
+                    wager: { icon: "🪙", label: "Wager" },
+                    casual: { icon: "🎯", label: "Casual" },
+                    challenge: { icon: "⚔", label: "Challenge" },
+                  };
+                  const { icon, label } = labels[mode];
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
+                        setPlayMode(mode);
+                        if (mode === "casual") {
+                          setWager(null);
+                          setShowChallengePicker(false);
+                        } else if (mode === "wager") {
+                          setShowChallengePicker(false);
+                        } else if (mode === "challenge") {
+                          setWager(null);
+                          setShowChallengePicker(true);
+                          fetchFriendsForChallenge();
+                        }
+                      }}
+                      className={cn(
+                        "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+                        isActive
+                          ? mode === "wager"
+                            ? "bg-orange-500/20 text-orange-400 ring-1 ring-orange-500/40"
+                            : mode === "challenge"
+                              ? "bg-orange-500/20 text-orange-400 ring-1 ring-orange-500/40"
+                              : "bg-primary/15 text-primary ring-1 ring-primary/30"
+                          : "bg-muted text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {icon} {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             <div className="flex items-center gap-3">
-              {/* CTA buttons — LEFT side */}
+              {/* Lock In button */}
               <div className="flex shrink-0 items-center gap-2">
                 {isInChallengeMode ? (
-                  /* Challenge mode — single Lock In button */
+                  /* Already in a challenge — single Lock In button */
                   <Button
                     onClick={handleLockIn}
                     disabled={!canLockIn || isLocking}
@@ -719,79 +765,46 @@ export default function CardBuilderPanel() {
                     )}
                   </Button>
                 ) : (
-                  /* Regular card — Solo lock-in + Wager Flame toggle + Challenge */
-                  <>
-                    <Button
-                      onClick={handleLockIn}
-                      disabled={!canLockIn || isLocking || creatingChallenge}
-                      size="sm"
-                      className={cn(
-                        "font-bold",
-                        wager != null
-                          ? "bg-orange-500 text-white hover:bg-orange-600"
-                          : "",
-                        isLocking && "opacity-70",
-                        canLockIn && !isLocking && !creatingChallenge && (
-                          wager != null
-                            ? "animate-pulse shadow-[0_0_20px_rgba(249,115,22,0.4)]"
-                            : "animate-pulse shadow-[0_0_20px_rgba(0,210,106,0.4)]"
-                        ),
-                      )}
-                    >
-                      {isLocking ? (
-                        <>
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                          Locking...
-                        </>
-                      ) : wager != null ? (
-                        <>
-                          <FlameTokenIcon className="mr-1.5 h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Wager {wager} —&nbsp;</span>Lock In
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="mr-1.5 h-3.5 w-3.5" />
-                          Lock In <span className="hidden sm:inline">{pickCountLabel}Solo</span>
-                        </>
-                      )}
-                    </Button>
-                    {user && (
-                      <>
-                        <Button
-                          onClick={() => {
-                            if (showChallengePicker) {
-                              setShowChallengePicker(false);
-                            } else {
-                              setShowChallengePicker(true);
-                              // wager panel shows automatically when challenge closes
-                              setWager(null);
-                              fetchFriendsForChallenge();
-                            }
-                          }}
-                          disabled={isLocking}
-                          variant="outline"
-                          size="sm"
-                          className={cn(
-                            "font-bold border-orange-500/40 text-orange-400 hover:bg-orange-500/10",
-                            showChallengePicker && "bg-orange-500/10",
-                          )}
-                        >
-                          {showChallengePicker ? (
-                            <>
-                              <FlameTokenIcon className="mr-1.5 h-3.5 w-3.5" />
-                              <span className="hidden sm:inline">Wager</span>
-                            </>
-                          ) : (
-                            <>
-                              <Swords className="mr-1.5 h-3.5 w-3.5" />
-                              <span className="hidden sm:inline">Challenge</span>
-                            </>
-                          )}
-                        </Button>
-                      </>
+                  /* Mode-aware Lock In button */
+                  <Button
+                    onClick={handleLockIn}
+                    disabled={!canLockIn || isLocking || creatingChallenge}
+                    size="sm"
+                    className={cn(
+                      "font-bold",
+                      playMode === "wager" && wager != null
+                        ? "bg-orange-500 text-white hover:bg-orange-600"
+                        : "",
+                      isLocking && "opacity-70",
+                      canLockIn && !isLocking && !creatingChallenge && (
+                        playMode === "wager" && wager != null
+                          ? "animate-pulse shadow-[0_0_20px_rgba(249,115,22,0.4)]"
+                          : "animate-pulse shadow-[0_0_20px_rgba(0,210,106,0.4)]"
+                      ),
                     )}
-                    {/* Wager toggle removed — panel is always visible above */}
-                  </>
+                  >
+                    {isLocking ? (
+                      <>
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        Locking...
+                      </>
+                    ) : playMode === "wager" && wager != null ? (
+                      <>
+                        <FlameTokenIcon className="mr-1.5 h-3.5 w-3.5" />
+                        Lock In {pickCountLabel}Wager
+                      </>
+                    ) : playMode === "casual" ? (
+                      <>
+                        <Lock className="mr-1.5 h-3.5 w-3.5" />
+                        Lock In {pickCountLabel}Casual
+                      </>
+                    ) : playMode === "wager" ? (
+                      <>
+                        <Lock className="mr-1.5 h-3.5 w-3.5" />
+                        Lock In {pickCountLabel}<span className="hidden sm:inline">Solo</span>
+                      </>
+                    ) : null}
+                  </Button>
                 )}
               </div>
 
