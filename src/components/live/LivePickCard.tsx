@@ -65,7 +65,7 @@ export default function LivePickCard({
       isWagered && "border-t-2 border-t-orange-500",
     )}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-y-1 px-4 py-3">
         <div className="flex items-center gap-2.5">
           {hasLiveGames && (
             <div className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5">
@@ -87,7 +87,7 @@ export default function LivePickCard({
         </div>
 
         {/* Right side: wager info + dot scoreboard */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {wagerLabel}
           {picks.length > 0 && (
             <div className="flex items-center gap-1">
