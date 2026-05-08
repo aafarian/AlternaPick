@@ -12,7 +12,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { X, Lock, Loader2, Swords } from "lucide-react";
+import { X, Lock, Loader2, Swords, Target } from "lucide-react";
 import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
 import { logWarn } from "@/lib/logger";
 import { cn } from "@/lib/utils";
@@ -692,14 +692,12 @@ export default function CardBuilderPanel() {
             {/* Mode selector + actions row */}
             {!isInChallengeMode && user && heatModeAccess && (
               <div className="mb-2 flex items-center gap-1">
-                {(["wager", "casual", "challenge"] as const).map((mode) => {
+                {([
+                  { mode: "wager" as const, label: "Wager", Icon: FlameTokenIcon },
+                  { mode: "casual" as const, label: "Casual", Icon: Target },
+                  { mode: "challenge" as const, label: "Challenge", Icon: Swords },
+                ]).map(({ mode, label, Icon }) => {
                   const isActive = playMode === mode;
-                  const labels = {
-                    wager: { icon: "🪙", label: "Wager" },
-                    casual: { icon: "🎯", label: "Casual" },
-                    challenge: { icon: "⚔", label: "Challenge" },
-                  };
-                  const { icon, label } = labels[mode];
                   return (
                     <button
                       key={mode}
@@ -718,17 +716,16 @@ export default function CardBuilderPanel() {
                         }
                       }}
                       className={cn(
-                        "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+                        "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
                         isActive
-                          ? mode === "wager"
-                            ? "bg-orange-500/20 text-orange-400 ring-1 ring-orange-500/40"
-                            : mode === "challenge"
-                              ? "bg-orange-500/20 text-orange-400 ring-1 ring-orange-500/40"
-                              : "bg-primary/15 text-primary ring-1 ring-primary/30"
+                          ? mode === "casual"
+                            ? "bg-primary/15 text-primary ring-1 ring-primary/30"
+                            : "bg-orange-500/20 text-orange-400 ring-1 ring-orange-500/40"
                           : "bg-muted text-muted-foreground hover:text-foreground",
                       )}
                     >
-                      {icon} {label}
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
                     </button>
                   );
                 })}
@@ -768,18 +765,20 @@ export default function CardBuilderPanel() {
                   /* Mode-aware Lock In button */
                   <Button
                     onClick={handleLockIn}
-                    disabled={!canLockIn || isLocking || creatingChallenge}
+                    disabled={!canLockIn || isLocking || creatingChallenge || (playMode === "wager" && (wager == null || wager < MIN_WAGER))}
                     size="sm"
                     className={cn(
                       "font-bold",
-                      playMode === "wager" && wager != null
+                      playMode === "wager" && wager != null && wager >= MIN_WAGER
                         ? "bg-orange-500 text-white hover:bg-orange-600"
                         : "",
                       isLocking && "opacity-70",
                       canLockIn && !isLocking && !creatingChallenge && (
-                        playMode === "wager" && wager != null
+                        playMode === "wager" && wager != null && wager >= MIN_WAGER
                           ? "animate-pulse shadow-[0_0_20px_rgba(249,115,22,0.4)]"
-                          : "animate-pulse shadow-[0_0_20px_rgba(0,210,106,0.4)]"
+                          : playMode === "casual"
+                            ? "animate-pulse shadow-[0_0_20px_rgba(0,210,106,0.4)]"
+                            : ""
                       ),
                     )}
                   >
@@ -788,20 +787,20 @@ export default function CardBuilderPanel() {
                         <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                         Locking...
                       </>
-                    ) : playMode === "wager" && wager != null ? (
+                    ) : playMode === "wager" && wager != null && wager >= MIN_WAGER ? (
                       <>
                         <FlameTokenIcon className="mr-1.5 h-3.5 w-3.5" />
                         Lock In {pickCountLabel}Wager
+                      </>
+                    ) : playMode === "wager" ? (
+                      <>
+                        <FlameTokenIcon className="mr-1.5 h-3.5 w-3.5" />
+                        Enter Wager to Lock In
                       </>
                     ) : playMode === "casual" ? (
                       <>
                         <Lock className="mr-1.5 h-3.5 w-3.5" />
                         Lock In {pickCountLabel}Casual
-                      </>
-                    ) : playMode === "wager" ? (
-                      <>
-                        <Lock className="mr-1.5 h-3.5 w-3.5" />
-                        Lock In {pickCountLabel}<span className="hidden sm:inline">Solo</span>
                       </>
                     ) : null}
                   </Button>
