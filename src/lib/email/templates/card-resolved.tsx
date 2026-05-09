@@ -25,19 +25,22 @@ export interface CardResolvedEmailProps {
 // Wager outcome helpers
 // ---------------------------------------------------------------------------
 
-type WagerOutcome = "profit" | "partial" | "bust" | "refund";
+type WagerOutcome = "profit" | "breakeven" | "partial" | "bust" | "refund";
 
-function getWagerOutcome(wager: number, payout: number): WagerOutcome {
-  if (payout === wager) return "refund";
+function getWagerOutcome(wager: number, payout: number, score: number): WagerOutcome {
+  if (payout === wager && score === 0) return "refund";
+  if (payout === wager) return "breakeven";
   if (payout > wager) return "profit";
   if (payout > 0) return "partial";
   return "bust";
 }
 
-function getWagerHeadline(outcome: WagerOutcome, net: number): string {
+function getWagerHeadline(outcome: WagerOutcome, payout: number): string {
   switch (outcome) {
     case "profit":
-      return `You earned +${net} coins!`;
+      return `You won ${payout} coins!`;
+    case "breakeven":
+      return "You broke even";
     case "partial":
       return "Close call";
     case "bust":
@@ -51,23 +54,26 @@ function getWagerSubtext(outcome: WagerOutcome): string {
   switch (outcome) {
     case "profit":
       return "Your picks paid off. Keep the momentum going.";
+    case "breakeven":
+      return "You got your wager back — one more pick and you would have profited.";
     case "partial":
       return "You recouped some coins, but not enough to profit. Almost had it.";
     case "bust":
       return "You didn't hit this time. Shake it off and try again.";
     case "refund":
-      return "Too many players were inactive, so your wager was returned in full.";
+      return "Too many DNPs on this card, so your wager was returned in full.";
   }
 }
 
 function getWagerSubject(
   outcome: WagerOutcome,
-  net: number,
   payout: number,
 ): string {
   switch (outcome) {
     case "profit":
-      return `Your card earned +${net} Flame Coins!`;
+      return `Your card won ${payout} Flame Coins!`;
+    case "breakeven":
+      return "Your card results — you broke even";
     case "partial":
       return `Your card results — you recouped ${payout} coins`;
     case "bust":
@@ -81,6 +87,7 @@ function getWagerAccent(outcome: WagerOutcome) {
   switch (outcome) {
     case "profit":
       return styles.accentProfit;
+    case "breakeven":
     case "partial":
       return styles.accentPartial;
     case "bust":
@@ -94,6 +101,7 @@ function getWagerScoreCardBg(outcome: WagerOutcome) {
   switch (outcome) {
     case "profit":
       return styles.scoreCardProfit;
+    case "breakeven":
     case "partial":
       return styles.scoreCardPartial;
     case "bust":
@@ -121,12 +129,24 @@ export function CardResolvedEmail({
 
   // Wagered card
   if (isWagered) {
-    const net = payout - wager;
-    const outcome = getWagerOutcome(wager, payout);
-    const headline = getWagerHeadline(outcome, net);
+    const outcome = getWagerOutcome(wager, payout, score);
+    const headline = getWagerHeadline(outcome, payout);
     const subtext = getWagerSubtext(outcome);
     const accent = getWagerAccent(outcome);
     const scoreCardBg = getWagerScoreCardBg(outcome);
+
+    const scoreBlockText =
+      outcome === "profit" ? `${payout}` :
+      outcome === "bust" ? `-${wager}` :
+      outcome === "refund" || outcome === "breakeven" ? `${wager}` :
+      `${payout}`;
+
+    const scoreLabelText =
+      outcome === "profit" ? "coins won" :
+      outcome === "bust" ? "coins lost" :
+      outcome === "refund" ? "coins returned" :
+      outcome === "breakeven" ? "coins returned" :
+      "coins recouped";
 
     return (
       <EmailLayout unsubscribeUrl={unsubscribeUrl}>
@@ -134,10 +154,10 @@ export function CardResolvedEmail({
         <Text style={styles.heading}>{headline}</Text>
         <Section style={{ ...styles.scoreCard, ...scoreCardBg }}>
           <Text style={{ ...styles.scoreBlock, ...accent }}>
-            {outcome === "profit" ? `+${net}` : outcome === "bust" ? `-${wager}` : outcome === "refund" ? `${wager}` : `${payout}`}
+            {scoreBlockText}
           </Text>
           <Text style={styles.scoreLabel}>
-            {outcome === "profit" ? "coins earned" : outcome === "bust" ? "coins lost" : outcome === "refund" ? "coins returned" : "coins recouped"}
+            {scoreLabelText}
           </Text>
           <Text style={styles.scoreCardMeta}>
             Wager: {wager} · Score: {score}/{total}
@@ -195,15 +215,20 @@ export function getCardResolvedEmailProps(
   const isWagered = props.wager != null && props.payout != null;
 
   if (isWagered) {
-    const net = props.payout! - props.wager!;
-    const outcome = getWagerOutcome(props.wager!, props.payout!);
-    const subject = getWagerSubject(outcome, net, props.payout!);
+    const outcome = getWagerOutcome(props.wager!, props.payout!, props.score);
+    const subject = getWagerSubject(outcome, props.payout!);
     const subtext = getWagerSubtext(outcome);
+
+    const coinsSummary =
+      outcome === "profit" ? `${props.payout} coins won` :
+      outcome === "bust" ? `-${props.wager} coins lost` :
+      outcome === "refund" || outcome === "breakeven" ? `${props.wager} coins returned` :
+      `${props.payout} coins recouped`;
 
     return {
       subject,
       react: <CardResolvedEmail {...props} />,
-      text: `${getWagerHeadline(outcome, net)}\n\n${outcome === "profit" ? `+${net} coins earned` : outcome === "bust" ? `-${props.wager} coins lost` : outcome === "refund" ? `${props.wager} coins returned` : `${props.payout} coins recouped`}\nWager: ${props.wager} · Score: ${props.score}/${props.total}\n\n${props.username}, ${subtext.toLowerCase()}\n\nView your card: ${cardUrl}`,
+      text: `${getWagerHeadline(outcome, props.payout!)}\n\n${coinsSummary}\nWager: ${props.wager} · Score: ${props.score}/${props.total}\n\n${props.username}, ${subtext.toLowerCase()}\n\nView your card: ${cardUrl}`,
     };
   }
 
