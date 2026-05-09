@@ -104,7 +104,7 @@ function LiveCard({
   const picks = liveData?.picks ?? buildFallbackPicks(card.picks);
 
   const statsPanel = (
-    <div className="hidden border-l border-border lg:flex lg:w-56 lg:shrink-0 lg:flex-col lg:px-5">
+    <div className="hidden border-l border-border md:flex md:w-56 md:shrink-0 md:flex-col md:px-5">
       {!categoryStats ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 py-4">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" />

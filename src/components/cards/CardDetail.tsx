@@ -224,9 +224,9 @@ const LiveCardContent = memo(function LiveCardContent({
         )}
         </div>
 
-        {/* Stats side panel — visible on lg+ screens */}
+        {/* Stats side panel — visible on md+ screens */}
         {(condensed || categoryStats) && (
-          <div className="hidden border-l border-border lg:flex lg:w-56 lg:shrink-0 lg:flex-col lg:px-5">
+          <div className="hidden border-l border-border md:flex md:w-56 md:shrink-0 md:flex-col md:px-5">
             {categoryStats === undefined ? (
               /* Loading state */
               <div className="flex flex-1 flex-col items-center justify-center gap-2 py-4">
