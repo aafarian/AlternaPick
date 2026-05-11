@@ -77,7 +77,7 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
       <h2 className={CHART_TITLE_CLASS}>Top Players</h2>
 
       {/* Podium — top 3 */}
-      <div className="mb-4 grid grid-cols-3 gap-2.5">
+      <div className="mb-4 flex gap-2.5 overflow-x-auto pb-1 scrollbar-none sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0">
         {top3.map((player, i) => {
           const pct = Math.round(player.rate * 100);
           const color = rateColor(pct);
@@ -90,7 +90,7 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
           return (
             <div
               key={player.player_name}
-              className="relative flex flex-col items-center rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3 pb-4 pt-3"
+              className="relative flex w-36 shrink-0 flex-col items-center rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3 pb-4 pt-3 sm:w-auto"
             >
               {/* Rank — top left, clean number */}
               <span className={`absolute left-3 top-3 text-sm font-black ${medalColors[i]}`}>
