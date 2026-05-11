@@ -172,6 +172,9 @@ export const UI_SPORTS: SportKey[] = ["nba", "mlb", "ncaab", "epl", "la_liga"];
 /** Auto-select priority order on props page. Same as UI_SPORTS — split if they diverge. */
 export const SPORT_PRIORITY = UI_SPORTS;
 
+/** Sports that have player game log support (ESPN stats-service integration). */
+export const GAMELOG_SPORTS: ReadonlySet<string> = new Set(["nba", "ncaab"]);
+
 /* ---------- Derived Maps ---------- */
 
 export const SPORT_LABELS: Record<SportKey, string> = Object.fromEntries(

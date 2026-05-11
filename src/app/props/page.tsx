@@ -1,7 +1,9 @@
 import { getCachedProps } from "@/lib/odds-api/cache";
 import { type SportKey, SPORT_PRIORITY, SPORT_KEYS } from "@/lib/sports";
 import { LOCK_BUFFER_MS } from "@/lib/challenges/constants";
+import { fetchNcaabTeams } from "@/lib/stats-service/client";
 import PropsPageClient from "@/components/props/PropsPageClient";
+import NcaabTeamRegistrar from "@/components/props/NcaabTeamRegistrar";
 import { buildPageMetadata } from "@/lib/seo/page-metadata";
 import { logWarn } from "@/lib/logger";
 
@@ -48,13 +50,26 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
   // and games with 0 props. Client only needs to filter by sport/category/player.
   const clientGames = (allGames ?? [])
     .filter((g) => new Date(g.commence_time).getTime() - now > LOCK_BUFFER_MS)
-    .filter((g) => g.props.length > 0);
+    .filter((g) => g.props.length > 0) as (typeof allGames extends (infer T)[] | null ? T : never)[];
+
+  // NCAAB logos require client-side team ID registration
+  let ncaabTeams: Record<string, string> = {};
+  if (propCounts["ncaab"]) {
+    try {
+      ncaabTeams = await fetchNcaabTeams();
+    } catch (error) {
+      logWarn("props-page", "ESPN unavailable for NCAAB teams", error);
+    }
+  }
 
   return (
-    <PropsPageClient
-      allGames={clientGames as Parameters<typeof PropsPageClient>[0]["allGames"]}
-      initialSport={initialSport}
-      propCounts={propCounts}
-    />
+    <>
+      {Object.keys(ncaabTeams).length > 0 && <NcaabTeamRegistrar teams={ncaabTeams} />}
+      <PropsPageClient
+        allGames={clientGames}
+        initialSport={initialSport}
+        propCounts={propCounts}
+      />
+    </>
   );
 }

@@ -17,14 +17,12 @@ interface PropsPageClientProps {
   allGames: GameWithProps[];
   initialSport: SportKey;
   propCounts: Record<string, number>;
-  ncaabTeams?: Record<string, string>;
 }
 
 export default function PropsPageClient({
   allGames,
   initialSport,
   propCounts,
-  ncaabTeams: _ncaabTeams,
 }: PropsPageClientProps) {
   const [sport, setSport] = useState<SportKey>(initialSport);
   const [category, setCategory] = useState<StatCategory | "all">("all");
@@ -66,7 +64,7 @@ export default function PropsPageClient({
       .filter((g) => g.sport === sport)
       .map((game) => ({
         ...game,
-        props: (game.props ?? [])
+        props: game.props
           .filter((p) => isAll || p.stat_category === (category as StatCategory))
           .filter(
             (p) =>
@@ -83,7 +81,6 @@ export default function PropsPageClient({
 
   return (
     <div className="flex flex-col gap-4 pb-8">
-
       <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-2 overflow-x-hidden border-b border-white/5 bg-background/95 px-4 pb-2 pt-2 backdrop-blur-md">
         {/* Sport tabs */}
         <div className="flex items-center gap-0.5">

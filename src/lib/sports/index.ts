@@ -11,6 +11,7 @@ export {
   SPORT_CONFIG,
   UI_SPORTS,
   SPORT_PRIORITY,
+  GAMELOG_SPORTS,
   SPORT_LABELS,
   isValidSport,
   isSoccer,

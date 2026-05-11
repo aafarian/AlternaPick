@@ -1,8 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { fetchPlayerGamelog } from "@/lib/stats-service/client";
+import { GAMELOG_SPORTS } from "@/lib/sports";
 import { logError } from "@/lib/logger";
-
-const VALID_SPORTS = new Set(["nba", "ncaab"]);
 
 export async function GET(
   request: NextRequest,
@@ -17,7 +16,7 @@ export async function GET(
     20
   );
 
-  if (!VALID_SPORTS.has(sport)) {
+  if (!GAMELOG_SPORTS.has(sport)) {
     return NextResponse.json({ data: { games: [], season_averages: null } });
   }
 

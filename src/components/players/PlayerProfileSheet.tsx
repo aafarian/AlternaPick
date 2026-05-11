@@ -23,7 +23,7 @@ import {
   CATEGORY_COLORS,
   shortenTeamName,
 } from "@/lib/constants";
-import { SPORT_LABELS, getPlayerHeadshotUrl, isValidSport } from "@/lib/sports";
+import { SPORT_LABELS, GAMELOG_SPORTS, getPlayerHeadshotUrl, isValidSport } from "@/lib/sports";
 import type { StatCategory } from "@/lib/supabase/types";
 import type { GameLogEntry, SeasonAverages } from "@/lib/stats-service/client";
 import { getCompositeValue, getGamelogFieldsForCategory } from "@/lib/players/stat-mapping";
@@ -53,8 +53,6 @@ const COLUMNS = [
   { key: "3PM", label: "3PM", width: "w-10", field: "threes_made" as const },
 ] as const;
 
-/** Sports that have game log support. */
-const GAMELOG_SPORTS = new Set(["nba", "ncaab"]);
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return "-";
