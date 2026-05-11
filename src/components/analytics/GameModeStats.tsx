@@ -1,134 +1,71 @@
 "use client";
 
-import { scaleBand, scaleLinear } from "d3-scale";
 import type { GameModeStats as GameModeStatsType } from "@/lib/analytics/types";
 import { GAME_MODES } from "@/lib/modes/definitions";
 import type { GameMode } from "@/lib/supabase/types";
 import {
-  CHART_COLORS,
-  BAR_GRADIENT_ID,
-  BarGradientDef,
-  useResponsiveWidth,
+  rateColor,
+  CHART_SECTION_CLASS,
+  CHART_TITLE_CLASS,
 } from "@/lib/analytics/chart-utils";
+import { cn } from "@/lib/utils";
 
 interface GameModeStatsProps {
   data: GameModeStatsType[];
 }
 
-const MARGIN = { top: 4, right: 90, bottom: 4, left: 100 };
-const ROW_HEIGHT = 28;
-const GRID_TICKS = [0, 25, 50, 75, 100];
-
 export default function GameModeStats({ data }: GameModeStatsProps) {
-  const { containerRef, width } = useResponsiveWidth();
-
   if (data.length === 0) {
     return (
-      <div className="rounded-xl border border-border bg-card p-5">
-        <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-          Card Win Rate by Mode
-        </h2>
+      <div className={CHART_SECTION_CLASS}>
+        <h2 className={CHART_TITLE_CLASS}>Hit Rate by Game Mode</h2>
         <p className="text-sm text-muted-foreground">No data yet</p>
       </div>
     );
   }
 
-  const labels = data.map((item) => {
-    const modeDef = GAME_MODES[item.mode as GameMode];
-    const icon = modeDef?.icon ?? "";
-    const name = modeDef?.displayName ?? item.mode;
-    return `${icon} ${name}`;
-  });
-
-  const height = MARGIN.top + MARGIN.bottom + data.length * ROW_HEIGHT;
-  const innerW = width - MARGIN.left - MARGIN.right;
-  const innerH = height - MARGIN.top - MARGIN.bottom;
-
-  const yScale = scaleBand<string>()
-    .domain(labels)
-    .range([0, innerH])
-    .padding(0.25);
-
-  const xScale = scaleLinear().domain([0, 100]).range([0, innerW]);
-
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-        Win Rate by Game Mode
-      </h2>
-      <div ref={containerRef} className="w-full">
-        {width > 0 && (
-          <svg width={width} height={height}>
-            <BarGradientDef />
-            <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-              {/* Grid lines */}
-              {GRID_TICKS.map((tick) => (
-                <line
-                  key={tick}
-                  x1={xScale(tick)}
-                  x2={xScale(tick)}
-                  y1={0}
-                  y2={innerH}
-                  stroke={CHART_COLORS.muted}
-                  strokeOpacity={0.12}
-                  strokeDasharray="4 4"
+    <div className={CHART_SECTION_CLASS}>
+      <h2 className={CHART_TITLE_CLASS}>Hit Rate by Game Mode</h2>
+      <div className="flex flex-col gap-1.5">
+        {data.map((item, i) => {
+          const pct = Math.round(item.hitRate * 100);
+          const color = rateColor(pct);
+          const modeDef = GAME_MODES[item.mode as GameMode];
+          const icon = modeDef?.icon ?? "";
+          const name = modeDef?.displayName ?? item.mode;
+
+          return (
+            <div key={item.mode} className="flex items-center gap-2">
+              <span className="w-20 shrink-0 truncate text-right text-[11px] font-medium text-muted-foreground">
+                {icon} {name}
+              </span>
+              <div className="relative h-[18px] flex-1 overflow-hidden rounded bg-white/[0.04]">
+                <div
+                  className="absolute inset-y-0 left-0 rounded transition-all duration-700 ease-out"
+                  style={{
+                    width: `${pct}%`,
+                    backgroundColor: color,
+                    opacity: 0.7,
+                    transitionDelay: `${i * 40}ms`,
+                  }}
                 />
-              ))}
-
-              {/* Bars + labels */}
-              {data.map((item, i) => {
-                const winPct = Math.round(item.winRate * 100);
-                const label = labels[i];
-                const y = yScale(label) ?? 0;
-                const bh = yScale.bandwidth();
-
-                return (
-                  <g key={item.mode}>
-                    {/* Y-axis label: icon + name */}
-                    <text
-                      x={-8}
-                      y={y + bh / 2}
-                      dy="0.35em"
-                      textAnchor="end"
-                      fill={CHART_COLORS.text}
-                      fontSize={11}
-                    >
-                      {label}
-                    </text>
-
-                    {/* Bar */}
-                    <rect
-                      x={0}
-                      y={y}
-                      width={Math.max(xScale(winPct), 0)}
-                      height={bh}
-                      rx={3}
-                      fill={`url(#${BAR_GRADIENT_ID})`}
-                      fillOpacity={0.85}
-                    />
-
-                    {/* Stats on right side */}
-                    <text
-                      x={Math.max(xScale(winPct), 0) + 6}
-                      y={y + bh / 2}
-                      dy="0.35em"
-                      fill={CHART_COLORS.muted}
-                      fontSize={9}
-                      fontFamily="monospace"
-                    >
-                      {winPct}% ({item.wins}/{item.cards} · avg {item.avgScore})
-                    </text>
-                  </g>
-                );
-              })}
-            </g>
-          </svg>
-        )}
+                <span className={cn(
+                  "relative z-[1] flex h-full items-center px-1.5 text-[9px] font-bold tabular-nums",
+                  pct > 12 ? "text-white" : "text-muted-foreground",
+                )}>
+                  {pct}%
+                </span>
+              </div>
+              <span className="hidden shrink-0 text-[9px] tabular-nums text-muted-foreground sm:inline">
+                {item.hits}/{item.total}
+              </span>
+            </div>
+          );
+        })}
       </div>
-
-      {/* Info */}
-      <p className="mt-3 text-[10px] text-muted-foreground">
-        Win = 66%+ picks correct on a card
+      <p className="mt-2.5 text-[9px] text-muted-foreground">
+        {data.reduce((s, d) => s + d.cards, 0)} cards across {data.length} mode{data.length !== 1 ? "s" : ""}
       </p>
     </div>
   );

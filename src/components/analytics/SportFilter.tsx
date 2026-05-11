@@ -1,63 +1,69 @@
 "use client";
 
-import Link from "next/link";
+import { motion } from "motion/react";
 import { UI_SPORTS, SPORT_CONFIG } from "@/lib/sports";
+import type { SportKey } from "@/lib/sports";
 
 interface SportFilterProps {
   activeSport: string;
-  currentMode: string;
+  onSelect: (sport: SportKey | "all") => void;
 }
 
 export default function SportFilter({
   activeSport,
-  currentMode,
+  onSelect,
 }: SportFilterProps) {
-  const modeParam = currentMode && currentMode !== "all" ? `&mode=${currentMode}` : "";
-
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-      <TabLink
-        href={`/analytics?sport=all${modeParam}`}
-        active={activeSport === "all"}
-      >
-        All Sports
-      </TabLink>
-
-      {UI_SPORTS.map((key) => {
-        const sport = SPORT_CONFIG[key];
-        return (
-          <TabLink
-            key={key}
-            href={`/analytics?sport=${key}${modeParam}`}
-            active={activeSport === key}
-          >
-            {sport.icon} {sport.displayName}
-          </TabLink>
-        );
-      })}
+    <div className="relative">
+      <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-6 bg-gradient-to-l from-background to-transparent" />
+      <div className="flex items-center gap-1 overflow-x-auto pr-6 scrollbar-none">
+        <TabPill active={activeSport === "all"} onClick={() => onSelect("all")}>
+          All Sports
+        </TabPill>
+        {UI_SPORTS.map((key) => {
+          const sport = SPORT_CONFIG[key];
+          return (
+            <TabPill
+              key={key}
+              active={activeSport === key}
+              onClick={() => onSelect(key)}
+            >
+              {sport.shortLabel}
+            </TabPill>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function TabLink({
-  href,
+function TabPill({
   active,
+  onClick,
   children,
 }: {
-  href: string;
   active: boolean;
+  onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <Link
-      href={href}
-      className={`inline-flex shrink-0 items-center rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
         active
-          ? "bg-primary text-primary-foreground"
-          : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+          ? "text-primary-foreground"
+          : "text-muted-foreground hover:text-foreground"
       }`}
     >
-      {children}
-    </Link>
+      {active && (
+        <motion.span
+          layoutId="analytics-sport-indicator"
+          className="absolute inset-0 rounded-md bg-primary shadow-sm"
+          transition={{ type: "spring", stiffness: 500, damping: 35 }}
+        />
+      )}
+      <span className="relative z-[1]">{children}</span>
+    </button>
   );
 }

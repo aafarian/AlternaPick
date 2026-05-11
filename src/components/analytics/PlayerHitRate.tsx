@@ -1,114 +1,173 @@
 "use client";
 
-import { scaleBand, scaleLinear } from "d3-scale";
+import { useState } from "react";
 import type { PlayerStats } from "@/lib/analytics/types";
 import {
-  CHART_COLORS,
-  BAR_GRADIENT_ID,
-  BarGradientDef,
-  useResponsiveWidth,
+  rateColor,
+  CHART_SECTION_CLASS,
+  CHART_TITLE_CLASS,
 } from "@/lib/analytics/chart-utils";
+import { SPORT_LABELS, isValidSport, getPlayerHeadshotUrl } from "@/lib/sports";
+import { usePlayerProfile } from "@/lib/players/player-profile-context";
 
 interface PlayerHitRateProps {
   data: PlayerStats[];
 }
 
-const MARGIN = { top: 4, right: 90, bottom: 4, left: 110 };
-const ROW_HEIGHT = 26;
-const GRID_TICKS = [0, 25, 50, 75, 100];
+function SportBadge({ sport }: { sport?: string }) {
+  if (!sport || !isValidSport(sport)) return null;
+  return (
+    <span className="rounded bg-white/[0.06] px-1 py-0.5 text-[8px] font-bold uppercase tracking-wider text-muted-foreground">
+      {SPORT_LABELS[sport]}
+    </span>
+  );
+}
 
-export default function PlayerHitRate({ data }: PlayerHitRateProps) {
-  const { containerRef, width } = useResponsiveWidth();
-
-  if (data.length === 0) return null;
-
-  const height = MARGIN.top + MARGIN.bottom + data.length * ROW_HEIGHT;
-  const innerW = width - MARGIN.left - MARGIN.right;
-  const innerH = height - MARGIN.top - MARGIN.bottom;
-
-  const labels = data.map((p, i) => `${i + 1}. ${p.player_name}`);
-
-  const yScale = scaleBand<string>()
-    .domain(labels)
-    .range([0, innerH])
-    .padding(0.2);
-
-  const xScale = scaleLinear().domain([0, 100]).range([0, innerW]);
+function PlayerAvatar({ name, playerId, sport, size = 32 }: { name: string; playerId?: string | null; sport?: string; size?: number }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const url = playerId && !imgFailed ? getPlayerHeadshotUrl(playerId, sport) : "";
+  const parts = name.split(" ");
+  const initials = parts.length >= 2
+    ? `${parts[0][0]}${parts[parts.length - 1][0]}`
+    : name.slice(0, 2);
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-        Top 10 Players
-      </h2>
-      <div ref={containerRef} className="w-full">
-        {width > 0 && (
-          <svg width={width} height={height}>
-            <BarGradientDef />
-            <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-              {/* Grid lines */}
-              {GRID_TICKS.map((tick) => (
-                <line
-                  key={tick}
-                  x1={xScale(tick)}
-                  x2={xScale(tick)}
-                  y1={0}
-                  y2={innerH}
-                  stroke={CHART_COLORS.muted}
-                  strokeOpacity={0.12}
-                  strokeDasharray="4 4"
-                />
-              ))}
+    <div
+      className="shrink-0 overflow-hidden rounded-full bg-white/[0.08]"
+      style={{ width: size, height: size }}
+    >
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt={name}
+          width={size}
+          height={size}
+          className="h-full w-full object-cover"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-[11px] font-bold text-muted-foreground">
+          {initials.toUpperCase()}
+        </div>
+      )}
+    </div>
+  );
+}
 
-              {/* Bars + labels */}
-              {data.map((player, i) => {
-                const pct = Math.round(player.rate * 100);
-                const label = labels[i];
-                const y = yScale(label) ?? 0;
-                const bh = yScale.bandwidth();
+export default function PlayerHitRate({ data }: PlayerHitRateProps) {
+  const { openProfile } = usePlayerProfile();
 
-                return (
-                  <g key={player.player_name}>
-                    {/* Y-axis label: rank + name */}
-                    <text
-                      x={-8}
-                      y={y + bh / 2}
-                      dy="0.35em"
-                      textAnchor="end"
-                      fill={CHART_COLORS.text}
-                      fontSize={10}
-                    >
-                      {label.length > 16 ? label.slice(0, 15) + "…" : label}
-                    </text>
-
-                    {/* Bar */}
-                    <rect
-                      x={0}
-                      y={y}
-                      width={Math.max(xScale(pct), 0)}
-                      height={bh}
-                      rx={3}
-                      fill={`url(#${BAR_GRADIENT_ID})`}
-                      fillOpacity={0.85}
-                    />
-
-                    {/* Stats on right side */}
-                    <text
-                      x={Math.max(xScale(pct), 0) + 6}
-                      y={y + bh / 2}
-                      dy="0.35em"
-                      fill={CHART_COLORS.muted}
-                      fontSize={9}
-                      fontFamily="monospace"
-                    >
-                      {pct}% ({player.hits}/{player.total})
-                    </text>
-                  </g>
-                );
-              })}
-            </g>
-          </svg>
-        )}
+  if (data.length === 0) {
+    return (
+      <div className={CHART_SECTION_CLASS}>
+        <h2 className={CHART_TITLE_CLASS}>Top Players</h2>
+        <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+          No picks for this filter
+        </div>
       </div>
+    );
+  }
+
+  const top3 = data.slice(0, 3);
+  const rest = data.slice(3);
+
+  function handleClick(player: PlayerStats) {
+    if (!player.player_id) return;
+    openProfile({
+      playerId: player.player_id,
+      playerName: player.player_name,
+      playerTeam: null,
+      playerPosition: null,
+      sport: player.sport,
+    });
+  }
+
+  return (
+    <div className={CHART_SECTION_CLASS}>
+      <h2 className={CHART_TITLE_CLASS}>Top Players</h2>
+
+      {/* Podium — top 3 */}
+      <div className="mb-4 grid grid-cols-3 gap-1.5 sm:gap-2.5">
+        {top3.map((player, i) => {
+          const pct = Math.round(player.rate * 100);
+          const color = rateColor(pct);
+          const medalColors = [
+            "text-amber-400",    // gold
+            "text-gray-400",     // silver
+            "text-amber-600",    // bronze
+          ];
+
+          return (
+            <div
+              key={player.player_name}
+              className="relative flex min-w-0 flex-col items-center rounded-2xl border border-white/[0.06] bg-white/[0.02] px-1.5 pb-2.5 pt-2 sm:px-3 sm:pb-4 sm:pt-3"
+            >
+              {/* Rank — top left, clean number */}
+              <span className={`absolute left-1.5 top-1.5 text-xs font-black sm:left-3 sm:top-3 sm:text-sm ${medalColors[i]}`}>
+                {i + 1}
+              </span>
+
+              {/* Headshot — hero (clickable) */}
+              <button
+                type="button"
+                onClick={() => handleClick(player)}
+                className="mb-2.5 mt-1 cursor-pointer transition-transform hover:scale-105"
+                disabled={!player.player_id}
+              >
+                <PlayerAvatar name={player.player_name} playerId={player.player_id} sport={player.sport} size={56} />
+              </button>
+
+              {/* Name — first initial + last name to fit */}
+              <p className="mb-1 max-w-full truncate text-center text-[11px] font-bold leading-tight">
+                {(() => {
+                  const parts = player.player_name.split(" ");
+                  if (parts.length < 2) return player.player_name;
+                  return `${parts[0][0]}. ${parts.slice(1).join(" ")}`;
+                })()}
+              </p>
+
+              {/* Hit rate — prominent */}
+              <p className="text-base font-black tabular-nums leading-none sm:text-xl" style={{ color }}>
+                {pct}%
+              </p>
+
+              {/* Sport + count footer */}
+              <div className="mt-1 flex items-center gap-1 sm:mt-1.5">
+                <span className="hidden sm:inline"><SportBadge sport={player.sport} /></span>
+                <span className="text-[8px] tabular-nums text-muted-foreground sm:text-[9px]">
+                  {player.hits}/{player.total}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Rest — compact rows */}
+      {rest.length > 0 && (
+        <div className="flex flex-col">
+          {rest.map((player, i) => {
+            const pct = Math.round(player.rate * 100);
+            const color = rateColor(pct);
+
+            return (
+              <div
+                key={player.player_name}
+                className="flex items-center gap-2 border-t border-white/5 py-1.5"
+              >
+                <span className="w-4 shrink-0 text-right text-[10px] text-muted-foreground/40">
+                  {i + 4}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-xs">{player.player_name}</span>
+                <span className="hidden sm:inline"><SportBadge sport={player.sport} /></span>
+                <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color }}>{pct}%</span>
+                <span className="hidden shrink-0 text-[10px] tabular-nums text-muted-foreground sm:inline">{player.hits}/{player.total}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

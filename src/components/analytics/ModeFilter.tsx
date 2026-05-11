@@ -1,64 +1,71 @@
 "use client";
 
-import Link from "next/link";
+import { motion } from "motion/react";
 import { GAME_MODES } from "@/lib/modes/definitions";
 import type { GameMode } from "@/lib/supabase/types";
 
 interface ModeFilterProps {
   activeMode: string;
   availableModes: GameMode[];
-  currentSport: string;
+  onSelect: (mode: GameMode | "all") => void;
 }
 
 export default function ModeFilter({
   activeMode,
   availableModes,
-  currentSport,
+  onSelect,
 }: ModeFilterProps) {
-  const sportParam = currentSport && currentSport !== "all" ? `&sport=${currentSport}` : "";
-
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-      {/* "All" tab — always shown */}
-      <TabLink href={`/analytics?mode=all${sportParam}`} active={activeMode === "all"}>
-        All
-      </TabLink>
-
-      {availableModes.map((mode) => {
-        const def = GAME_MODES[mode];
-        return (
-          <TabLink
-            key={mode}
-            href={`/analytics?mode=${mode}${sportParam}`}
-            active={activeMode === mode}
-          >
-            {def.icon} {def.displayName}
-          </TabLink>
-        );
-      })}
+    <div className="relative">
+      <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-6 bg-gradient-to-l from-background to-transparent" />
+      <div className="flex items-center gap-0.5 overflow-x-auto pr-6 scrollbar-none">
+        <TabButton active={activeMode === "all"} onClick={() => onSelect("all")}>
+          All
+        </TabButton>
+        {availableModes.map((mode) => {
+          const def = GAME_MODES[mode];
+          return (
+            <TabButton
+              key={mode}
+              active={activeMode === mode}
+              onClick={() => onSelect(mode)}
+            >
+              {def.displayName}
+            </TabButton>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function TabLink({
-  href,
+function TabButton({
   active,
+  onClick,
   children,
 }: {
-  href: string;
   active: boolean;
+  onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <Link
-      href={href}
-      className={`inline-flex shrink-0 items-center rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative shrink-0 px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors ${
         active
-          ? "bg-primary text-primary-foreground"
-          : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+          ? "text-primary"
+          : "text-muted-foreground hover:text-foreground"
       }`}
     >
       {children}
-    </Link>
+      {active && (
+        <motion.span
+          layoutId="analytics-mode-indicator"
+          className="absolute inset-x-0 bottom-0 h-0.5 bg-primary"
+          transition={{ type: "spring", stiffness: 500, damping: 35 }}
+        />
+      )}
+    </button>
   );
 }

@@ -3,6 +3,7 @@ import type { GameMode, StatCategory } from "@/lib/supabase/types";
 /** Hit-rate stats for a single stat category (points, rebounds, etc.) */
 export interface CategoryStats {
   category: StatCategory;
+  sport?: string;
   hits: number;
   total: number;
   rate: number;
@@ -11,6 +12,8 @@ export interface CategoryStats {
 /** Hit-rate stats for a single player */
 export interface PlayerStats {
   player_name: string;
+  player_id?: string | null;
+  sport?: string;
   hits: number;
   total: number;
   rate: number;
@@ -69,11 +72,19 @@ export interface CardHistoryItem {
   resolvedAt: string | null;
 }
 
-/** Win-rate stats grouped by game mode */
+/** A single data point in the flame coin balance trend */
+export interface CoinTrendPoint {
+  date: string;
+  balance: number;
+  wager: number;
+  payout: number;
+}
+
+/** Hit-rate stats grouped by game mode */
 export interface GameModeStats {
   mode: GameMode;
   cards: number;
-  wins: number;
-  winRate: number;
-  avgScore: number;
+  hits: number;
+  total: number;
+  hitRate: number;
 }

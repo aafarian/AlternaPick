@@ -2,21 +2,30 @@
 
 import { arc as d3Arc, pie as d3Pie } from "d3-shape";
 import type { DirectionStats } from "@/lib/analytics/types";
-import { CHART_COLORS } from "@/lib/analytics/chart-utils";
+import { CHART_COLORS, CHART_SECTION_CLASS, CHART_TITLE_CLASS } from "@/lib/analytics/chart-utils";
 
 interface DirectionSplitProps {
   data: DirectionStats;
 }
 
-const DONUT_SIZE = 140;
-const THICKNESS = 18;
+const DONUT_SIZE = 160;
+const THICKNESS = 20;
 
 export default function DirectionSplit({ data }: DirectionSplitProps) {
   const overPct = Math.round(data.over.rate * 100);
   const underPct = Math.round(data.under.rate * 100);
   const totalPicks = data.over.total + data.under.total;
 
-  if (totalPicks === 0) return null;
+  if (totalPicks === 0) {
+    return (
+      <div className={CHART_SECTION_CLASS}>
+        <h2 className={CHART_TITLE_CLASS}>Over vs Under</h2>
+        <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+          No picks for this filter
+        </div>
+      </div>
+    );
+  }
 
   const overShare = data.over.total;
   const underShare = data.under.total;
@@ -44,12 +53,12 @@ export default function DirectionSplit({ data }: DirectionSplitProps) {
   const underSharePct = 100 - overSharePct;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+    <div className={CHART_SECTION_CLASS}>
+      <h2 className={CHART_TITLE_CLASS}>
         Over vs Under
       </h2>
 
-      <div className="flex items-center justify-center gap-6">
+      <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
         {/* Donut chart */}
         <div className="relative shrink-0">
           <svg width={DONUT_SIZE} height={DONUT_SIZE}>

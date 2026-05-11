@@ -68,20 +68,22 @@ function NavBadge({
   );
 }
 
-function NavDot({ visible }: { visible: boolean }) {
+function NavNotifyBadge({ count }: { count: number }) {
   const prefersReducedMotion = useReducedMotion();
 
   return (
     <AnimatePresence>
-      {visible && (
+      {count > 0 && (
         <motion.span
           initial={prefersReducedMotion ? false : { scale: 0, opacity: 0 }}
           animate={prefersReducedMotion ? {} : { scale: 1, opacity: 1 }}
           exit={prefersReducedMotion ? {} : { scale: 0, opacity: 0 }}
           transition={{ type: "spring", stiffness: 500, damping: 25 }}
-          className="ml-1 inline-flex"
+          className="-ml-1 -mt-2.5 inline-flex"
         >
-          <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-0.5 text-[8px] font-bold text-white">
+            {count > 9 ? "9+" : count}
+          </span>
         </motion.span>
       )}
     </AnimatePresence>
@@ -93,7 +95,8 @@ interface NavLink {
   label: string;
   icon: React.ElementType;
   badgeKey?: "friends" | "challenges";
-  dotKey?: "analytics" | "wrapped";
+  /** Key for superscript notification badge. Shows count for "friends", 1 for analytics/wrapped. */
+  notifyKey?: "analytics" | "wrapped" | "friends";
 }
 
 interface NavDropdownGroup {
@@ -114,9 +117,10 @@ const authenticatedItems: NavItem[] = [
   { href: "/props", label: "Props", icon: LayoutGrid },
   { href: "/picks", label: "My Picks", icon: ClipboardList },
   { href: "/challenges", label: "Challenges", icon: Swords, badgeKey: "challenges" },
-  { href: "/analytics", label: "Analytics", icon: TrendingUp, dotKey: "analytics" },
-  { href: "/recap", label: "Wrapped", icon: Newspaper, dotKey: "wrapped" },
+  { href: "/analytics", label: "Analytics", icon: TrendingUp, notifyKey: "analytics" },
+  { href: "/recap", label: "Wrapped", icon: Newspaper, notifyKey: "wrapped" },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  { href: "/friends", label: "Friends", icon: UserPlus, notifyKey: "friends" },
 ];
 
 /** Flat list of all authenticated links (used for mobile drawer) */
@@ -138,7 +142,7 @@ export interface NotificationCounts {
 }
 
 /** Paths that are handled by the mobile BottomTabBar */
-const bottomTabPaths = new Set(["/props", "/picks", "/challenges", "/leaderboard", "/profile"]);
+const bottomTabPaths = new Set(["/props", "/picks", "/challenges", "/leaderboard", "/friends"]);
 
 export default function Nav({
   onNavigate,
@@ -161,9 +165,17 @@ export default function Nav({
     ? baseLinks.filter((l) => !bottomTabPaths.has(l.href))
     : baseLinks;
   const desktopItems = user ? authenticatedItems : publicLinks;
-  const isProfileActive =
-    activePath === "/profile" || activePath === "/settings" || activePath === "/friends";
   const isAdminActive = activePath.startsWith("/admin");
+  const isAccountActive =
+    activePath === "/profile" || activePath === "/settings" || isAdminActive;
+
+  function getNotifyCount(link: NavLink): number {
+    if (!link.notifyKey || !notificationCounts) return 0;
+    if (link.notifyKey === "analytics") return notificationCounts.analyticsUnseen ? 1 : 0;
+    if (link.notifyKey === "wrapped") return notificationCounts.wrappedUnseen ? 1 : 0;
+    if (link.notifyKey === "friends") return notificationCounts.friends;
+    return 0;
+  }
 
   function renderStandaloneLink(link: NavLink, context: "mobile" | "desktop" = "desktop") {
     const isActive = activePath === link.href;
@@ -171,10 +183,7 @@ export default function Nav({
       link.badgeKey && notificationCounts
         ? notificationCounts[link.badgeKey]
         : 0;
-    const showDot = !isActive && !!link.dotKey && !!notificationCounts && (
-      (link.dotKey === "analytics" && notificationCounts.analyticsUnseen) ||
-      (link.dotKey === "wrapped" && notificationCounts.wrappedUnseen)
-    );
+    const notifyCount = !isActive ? getNotifyCount(link) : 0;
     const Icon = link.icon;
 
     return (
@@ -205,7 +214,7 @@ export default function Nav({
             <Icon className="h-4 w-4 md:hidden" />
             {link.label}
             <NavBadge count={badgeCount} animationKey={`badge-${link.badgeKey ?? link.href}`} />
-            <NavDot visible={showDot} />
+            <NavNotifyBadge count={notifyCount} />
           </span>
         </Button>
       </Link>
@@ -280,56 +289,20 @@ export default function Nav({
         )}
       </div>
 
-      {isAdmin && user && (
-        <Link href="/admin" onClick={() => { setPendingPath("/admin"); onNavigate?.(); }}>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`relative w-full justify-start gap-2 md:w-auto ${
-              mobileSecondaryOnly ? "h-10 text-sm" : ""
-            } ${
-              isAdminActive
-                ? "text-primary hover:text-primary hover:bg-transparent"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            }`}
-          >
-            {isAdminActive && (
-              <motion.div
-                layoutId="desktop-nav-indicator"
-                className="absolute inset-0 rounded-md bg-primary/10"
-                transition={
-                  prefersReducedMotion
-                    ? { duration: 0 }
-                    : { type: "spring", stiffness: 500, damping: 30 }
-                }
-              />
-            )}
-            <span className="relative z-[1] flex items-center gap-2">
-              <Shield className="h-4 w-4 md:hidden" />
-              Admin
-            </span>
-          </Button>
-        </Link>
-      )}
-
       {user ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`group w-full justify-start gap-2 md:w-auto focus-visible:ring-0 focus-visible:border-transparent ${
-                mobileSecondaryOnly ? "h-10 text-sm" : ""
-              } ${
-                isProfileActive
-                  ? activeTriggerStyle
+            <button
+              type="button"
+              className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                isAccountActive
+                  ? "bg-primary/15 text-primary"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
+              aria-label="Account menu"
             >
-              <User className="h-4 w-4 md:hidden" />
-              Profile
-              <ChevronDown className={`h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180 ${isProfileActive ? "text-primary" : "text-muted-foreground"}`} />
-            </Button>
+              <User className="h-4 w-4" />
+            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem asChild>
@@ -344,21 +317,6 @@ export default function Nav({
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link
-                href="/friends"
-                onClick={() => { setPendingPath("/friends"); onNavigate?.(); }}
-                className={`gap-2 ${activePath === "/friends" ? activeChildStyle : ""}`}
-              >
-                <UserPlus className="h-4 w-4" />
-                Friends
-                {(notificationCounts?.friends ?? 0) > 0 && (
-                  <span className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
-                    {notificationCounts?.friends}
-                  </span>
-                )}
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link
                 href="/settings"
                 onClick={() => { setPendingPath("/settings"); onNavigate?.(); }}
                 className={`gap-2 ${activePath === "/settings" ? activeChildStyle : ""}`}
@@ -367,12 +325,23 @@ export default function Nav({
                 Settings
               </Link>
             </DropdownMenuItem>
+            {isAdmin && (
+              <DropdownMenuItem asChild>
+                <Link
+                  href="/admin"
+                  onClick={() => { setPendingPath("/admin"); onNavigate?.(); }}
+                  className={`gap-2 ${isAdminActive ? activeChildStyle : ""}`}
+                >
+                  <Shield className="h-4 w-4" />
+                  Admin
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={async (e) => {
                 e.preventDefault();
                 onNavigate?.();
-                // Sign out client-side so onAuthStateChange fires immediately
                 const { createClient } = await import("@/lib/supabase/client");
                 const { clearAnonymousId } = await import("@/lib/session/anonymous");
                 const supabase = createClient();

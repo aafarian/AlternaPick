@@ -22,12 +22,14 @@ import type {
   PlayerStats,
   DirectionStats,
   TrendPoint,
+  CoinTrendPoint,
   CardSizeStats,
   TeamStats,
   ScoreDistributionEntry,
   GameModeStats,
   CardHistoryItem,
 } from "./types";
+import { STARTING_BALANCE } from "@/lib/heatscore/constants";
 
 // ---------- Internal helpers ----------
 
@@ -39,6 +41,7 @@ interface ResolvedPickRow {
   props: {
     stat_category: StatCategory;
     player_name: string;
+    player_id: string | null;
     player_team: string | null;
     games: { sport: string } | null;
   } | null;
@@ -89,7 +92,7 @@ async function fetchResolvedPicks(
   // Step 2 – get resolved picks for those cards with prop + game join
   const picksResult = await (supabase.from("picks") as any)
     .select(
-      "selection, result, cards:card_id(user_id, resolved_at), props:prop_id(stat_category, player_name, player_team, games:game_id(sport))"
+      "selection, result, cards:card_id(user_id, resolved_at), props:prop_id(stat_category, player_name, player_id, player_team, games:game_id(sport))"
     )
     .in("card_id", cardIds)
     .in("result", ["hit", "miss"]);
@@ -182,22 +185,26 @@ export async function getCategoryStats(
 ): Promise<CategoryStats[]> {
   const picks = await fetchResolvedPicks(supabase, userId, mode, sport);
 
-  const map = new Map<StatCategory, { hits: number; total: number }>();
+  // Group by (category, sport) so NBA and NCAAB stats are separate
+  const map = new Map<string, { category: StatCategory; sport?: string; hits: number; total: number }>();
 
   for (const pick of picks) {
     const cat = pick.props?.stat_category;
     if (!cat) continue;
+    const pickSport = pick.props?.games?.sport;
+    const key = `${cat}:${pickSport ?? ""}`;
 
-    const entry = map.get(cat) ?? { hits: 0, total: 0 };
+    const entry = map.get(key) ?? { category: cat, sport: pickSport ?? undefined, hits: 0, total: 0 };
     entry.total += 1;
     if (pick.result === "hit") entry.hits += 1;
-    map.set(cat, entry);
+    map.set(key, entry);
   }
 
   const results: CategoryStats[] = [];
-  for (const [category, { hits, total }] of map) {
+  for (const [, { category, sport: catSport, hits, total }] of map) {
     results.push({
       category,
+      sport: catSport,
       hits,
       total,
       rate: total > 0 ? Math.round((hits / total) * 1000) / 1000 : 0,
@@ -221,7 +228,7 @@ export async function getPlayerStats(
 ): Promise<PlayerStats[]> {
   const picks = await fetchResolvedPicks(supabase, userId, mode, sport);
 
-  const map = new Map<string, { hits: number; total: number }>();
+  const map = new Map<string, { hits: number; total: number; sport?: string; player_id?: string | null }>();
 
   for (const pick of picks) {
     const name = pick.props?.player_name;
@@ -230,13 +237,21 @@ export async function getPlayerStats(
     const entry = map.get(name) ?? { hits: 0, total: 0 };
     entry.total += 1;
     if (pick.result === "hit") entry.hits += 1;
+    if (!entry.sport && pick.props?.games?.sport) {
+      entry.sport = pick.props.games.sport;
+    }
+    if (!entry.player_id && pick.props?.player_id) {
+      entry.player_id = pick.props.player_id;
+    }
     map.set(name, entry);
   }
 
   const results: PlayerStats[] = [];
-  for (const [player_name, { hits, total }] of map) {
+  for (const [player_name, { hits, total, sport: playerSport, player_id }] of map) {
     results.push({
       player_name,
+      player_id,
+      sport: playerSport,
       hits,
       total,
       rate: total > 0 ? Math.round((hits / total) * 1000) / 1000 : 0,
@@ -503,8 +518,7 @@ export async function getScoreDistribution(
 }
 
 /**
- * Get win-rate stats grouped by game mode.
- * A "win" is defined as score/total_picks >= 0.66.
+ * Get average hit-rate stats grouped by game mode.
  */
 export async function getGameModeStats(
   supabase: SupabaseClient<Database>,
@@ -515,41 +529,32 @@ export async function getGameModeStats(
 
   const map = new Map<
     GameMode,
-    { cards: number; wins: number; totalScore: number }
+    { cards: number; hits: number; total: number }
   >();
 
   for (const card of cards) {
     const entry = map.get(card.game_mode) ?? {
       cards: 0,
-      wins: 0,
-      totalScore: 0,
+      hits: 0,
+      total: 0,
     };
     entry.cards += 1;
-    entry.totalScore += card.score;
-    if (card.total_picks > 0 && card.score / card.total_picks >= 0.66) {
-      entry.wins += 1;
-    }
+    entry.hits += card.score;
+    entry.total += card.total_picks;
     map.set(card.game_mode, entry);
   }
 
   const results: GameModeStats[] = [];
-  for (const [mode, { cards: cardCount, wins, totalScore }] of map) {
+  for (const [mode, { cards: cardCount, hits, total }] of map) {
     results.push({
       mode,
       cards: cardCount,
-      wins,
-      winRate:
-        cardCount > 0
-          ? Math.round((wins / cardCount) * 1000) / 1000
-          : 0,
-      avgScore:
-        cardCount > 0
-          ? Math.round((totalScore / cardCount) * 100) / 100
-          : 0,
+      hits,
+      total,
+      hitRate: total > 0 ? Math.round((hits / total) * 1000) / 1000 : 0,
     });
   }
 
-  // Sort by total cards descending
   results.sort((a, b) => b.cards - a.cards);
   return results;
 }
@@ -645,4 +650,57 @@ export async function getCardHistory(
     gameMode: c.game_mode,
     resolvedAt: c.resolved_at,
   }));
+}
+
+/**
+ * Get flame coin balance trend — running balance over time from wagered cards.
+ * Returns one point per resolved wagered card, ordered chronologically.
+ *
+ * Intentionally ignores mode/sport filters — flame coin balance is global.
+ * A synthetic starting point at STARTING_BALANCE is prepended and given the
+ * same date as the first real data point (so the chart starts at the baseline).
+ */
+export async function getCoinTrend(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<CoinTrendPoint[]> {
+  const result = await (supabase.from("cards") as any)
+    .select("fire_token_wager, fire_token_payout, resolved_at")
+    .eq("user_id", userId)
+    .eq("status", "resolved")
+    .not("fire_token_wager", "is", null)
+    .order("resolved_at", { ascending: true })
+    .limit(500);
+
+  if (result.error) {
+    logError("analytics", `getCoinTrend: ${result.error.message}`, "getCoinTrend", result.error);
+    return [];
+  }
+  if (!result.data) return [];
+
+  const cards = result.data as {
+    fire_token_wager: number;
+    fire_token_payout: number | null;
+    resolved_at: string | null;
+  }[];
+
+  let balance = STARTING_BALANCE;
+  const points: CoinTrendPoint[] = [
+    { date: "", balance: STARTING_BALANCE, wager: 0, payout: 0 },
+  ];
+
+  for (const card of cards) {
+    const wager = card.fire_token_wager;
+    const payout = card.fire_token_payout ?? 0;
+    balance = balance - wager + payout;
+    const date = card.resolved_at?.slice(0, 10) ?? "";
+    points.push({ date, balance, wager, payout });
+  }
+
+  // Remove the synthetic starting point if we have real data
+  if (points.length > 1) {
+    points[0].date = points[1].date;
+  }
+
+  return points;
 }

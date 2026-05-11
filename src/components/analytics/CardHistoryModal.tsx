@@ -4,11 +4,11 @@ import { useCallback, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, ExternalLink, Loader2 } from "lucide-react";
 import type { CardHistoryItem } from "@/lib/analytics/types";
+import { STAT_CARD_CLASS } from "@/lib/analytics/chart-utils";
 import type { CardDetailResponse, CardDetailPick } from "@/lib/cards/detail-types";
 import { GAME_MODES } from "@/lib/modes/definitions";
 import { logWarn } from "@/lib/logger";
 import { hitRateColor } from "@/components/recap/tiles/shared";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -213,16 +213,15 @@ export default function CardHistoryModal({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Card className="cursor-pointer border-primary/20 bg-primary/5 transition-colors hover:bg-primary/10">
-          <CardContent className="p-4">
+        <div className={`${STAT_CARD_CLASS} cursor-pointer transition-colors hover:from-white/[0.06]`}>
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               Total Cards
             </p>
             <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
               {totalCards}
             </p>
-          </CardContent>
-        </Card>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">resolved cards</p>
+        </div>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] sm:max-w-md">
         <DialogHeader>
