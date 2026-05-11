@@ -2,7 +2,7 @@
 
 import { arc as d3Arc, pie as d3Pie } from "d3-shape";
 import type { DirectionStats } from "@/lib/analytics/types";
-import { CHART_COLORS } from "@/lib/analytics/chart-utils";
+import { CHART_COLORS, CHART_SECTION_CLASS, CHART_TITLE_CLASS } from "@/lib/analytics/chart-utils";
 
 interface DirectionSplitProps {
   data: DirectionStats;
@@ -44,8 +44,8 @@ export default function DirectionSplit({ data }: DirectionSplitProps) {
   const underSharePct = 100 - overSharePct;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+    <div className={CHART_SECTION_CLASS}>
+      <h2 className={CHART_TITLE_CLASS}>
         Over vs Under
       </h2>
 

@@ -1,135 +1,94 @@
 "use client";
 
-import { scaleBand, scaleLinear } from "d3-scale";
 import { CATEGORY_LABELS } from "@/lib/constants";
 import type { CategoryStats } from "@/lib/analytics/types";
 import type { StatCategory } from "@/lib/supabase/types";
 import {
-  CHART_COLORS,
-  BAR_GRADIENT_ID,
-  BarGradientDef,
-  useResponsiveWidth,
+  rateColor,
   getCategorySport,
+  CHART_SECTION_CLASS,
+  CHART_TITLE_CLASS,
 } from "@/lib/analytics/chart-utils";
+import { cn } from "@/lib/utils";
 
 interface CategoryChartProps {
   data: CategoryStats[];
 }
 
-const MARGIN = { top: 4, right: 90, bottom: 4, left: 110 };
-const ROW_HEIGHT = 28;
-const GRID_TICKS = [0, 25, 50, 75, 100];
+/** Group categories by sport for visual separation. */
+function groupBySport(data: CategoryStats[]): { sport: string; items: CategoryStats[] }[] {
+  const groups = new Map<string, CategoryStats[]>();
+  for (const item of data) {
+    const sport = getCategorySport(item.category) ?? "Other";
+    const list = groups.get(sport) ?? [];
+    list.push(item);
+    groups.set(sport, list);
+  }
+  return Array.from(groups, ([sport, items]) => ({ sport, items }));
+}
 
 export default function CategoryChart({ data }: CategoryChartProps) {
-  const { containerRef, width } = useResponsiveWidth();
-
   if (data.length === 0) return null;
 
-  const height = MARGIN.top + MARGIN.bottom + data.length * ROW_HEIGHT;
-  const innerW = width - MARGIN.left - MARGIN.right;
-  const innerH = height - MARGIN.top - MARGIN.bottom;
-
-  const labels = data.map(
-    (item) => CATEGORY_LABELS[item.category as StatCategory] ?? item.category,
-  );
-
-  const yScale = scaleBand<string>()
-    .domain(labels)
-    .range([0, innerH])
-    .padding(0.25);
-
-  const xScale = scaleLinear().domain([0, 100]).range([0, innerW]);
+  const groups = groupBySport(data);
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-        Hit Rate by Category
-      </h2>
-      <div ref={containerRef} className="w-full">
-        {width > 0 && (
-          <svg width={width} height={height}>
-            <BarGradientDef />
-            <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-              {/* Grid lines */}
-              {GRID_TICKS.map((tick) => (
-                <line
-                  key={tick}
-                  x1={xScale(tick)}
-                  x2={xScale(tick)}
-                  y1={0}
-                  y2={innerH}
-                  stroke={CHART_COLORS.muted}
-                  strokeOpacity={0.12}
-                  strokeDasharray="4 4"
-                />
-              ))}
+    <div className={CHART_SECTION_CLASS}>
+      <h2 className={CHART_TITLE_CLASS}>Hit Rate by Category</h2>
 
-              {/* Bars + labels */}
-              {data.map((item, i) => {
+      <div className="flex flex-col gap-4">
+        {groups.map(({ sport, items }) => (
+          <div key={sport}>
+            {/* Sport group header */}
+            {groups.length > 1 && (
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                {sport}
+              </p>
+            )}
+
+            <div className="flex flex-col gap-1.5">
+              {items.map((item, i) => {
                 const pct = Math.round(item.rate * 100);
-                const label = labels[i];
-                const y = yScale(label) ?? 0;
-                const bh = yScale.bandwidth();
-                const sportLabel = getCategorySport(item.category);
+                const label = CATEGORY_LABELS[item.category as StatCategory] ?? item.category;
+                const color = rateColor(pct);
 
                 return (
-                  <g key={item.category}>
-                    {/* Sport badge */}
-                    {sportLabel && (
-                      <text
-                        x={-MARGIN.left + 4}
-                        y={y + bh / 2}
-                        dy="0.35em"
-                        textAnchor="start"
-                        fill={CHART_COLORS.muted}
-                        fontSize={8}
-                        fontWeight={600}
-                        letterSpacing="0.05em"
-                      >
-                        {sportLabel}
-                      </text>
-                    )}
-
-                    {/* Y-axis label */}
-                    <text
-                      x={-8}
-                      y={y + bh / 2}
-                      dy="0.35em"
-                      textAnchor="end"
-                      fill={CHART_COLORS.text}
-                      fontSize={11}
-                    >
+                  <div key={item.category} className="flex items-center gap-3">
+                    {/* Category name */}
+                    <span className="w-24 shrink-0 truncate text-right text-xs font-medium text-muted-foreground">
                       {label}
-                    </text>
+                    </span>
 
                     {/* Bar */}
-                    <rect
-                      x={0}
-                      y={y}
-                      width={Math.max(xScale(pct), 0)}
-                      height={bh}
-                      rx={3}
-                      fill={`url(#${BAR_GRADIENT_ID})`}
-                      fillOpacity={0.85}
-                    />
+                    <div className="relative h-5 flex-1 overflow-hidden rounded-md bg-white/[0.04]">
+                      <div
+                        className="absolute inset-y-0 left-0 rounded-md transition-all duration-700 ease-out"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: color,
+                          opacity: 0.7,
+                          transitionDelay: `${i * 40}ms`,
+                        }}
+                      />
+                      {/* Rate text inside bar */}
+                      <span className={cn(
+                        "relative z-[1] flex h-full items-center px-2 text-[10px] font-bold tabular-nums",
+                        pct > 15 ? "text-white" : "text-muted-foreground",
+                      )}>
+                        {pct}%
+                      </span>
+                    </div>
 
-                    {/* Stats on right side */}
-                    <text
-                      x={Math.max(xScale(pct), 0) + 6}
-                      y={y + bh / 2}
-                      dy="0.35em"
-                      fill={CHART_COLORS.muted}
-                      fontSize={10}
-                      fontFamily="monospace"
-                    >
-                      {pct}% ({item.hits}/{item.total})
-                    </text>
-                  </g>
+                    {/* Count */}
+                    <span className="w-14 shrink-0 text-right text-[10px] tabular-nums text-muted-foreground">
+                      {item.hits}/{item.total}
+                    </span>
+                  </div>
                 );
               })}
-            </g>
-          </svg>
-        )}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

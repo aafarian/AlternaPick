@@ -9,6 +9,7 @@ import {
   CHART_COLORS,
   FLAME_ORANGE,
   useResponsiveWidth,
+  CHART_SECTION_CLASS,
 } from "@/lib/analytics/chart-utils";
 import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
 
@@ -90,7 +91,7 @@ export default function CoinTrendChart({ data }: CoinTrendChartProps) {
   const netChange = currentBalance - startBalance;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div className={CHART_SECTION_CLASS}>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-muted-foreground">
           <FlameTokenIcon className="h-4 w-4 text-orange-400" />

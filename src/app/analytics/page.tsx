@@ -23,11 +23,10 @@ import GameModeStats from "@/components/analytics/GameModeStats";
 import CardHistoryModal from "@/components/analytics/CardHistoryModal";
 import ModeFilter from "@/components/analytics/ModeFilter";
 import SportFilter from "@/components/analytics/SportFilter";
-import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { isValidGameMode } from "@/lib/modes/definitions";
-import { isValidSport, SPORT_CONFIG } from "@/lib/sports";
+import { isValidSport } from "@/lib/sports";
 import type { GameMode } from "@/lib/supabase/types";
 import { SlideUp, FadeIn, StaggerChildren, StaggerItem, ScrollReveal } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
@@ -123,7 +122,6 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
   const isEmpty = totalPicks === 0;
 
-  const sportLabel = sport !== "all" ? SPORT_CONFIG[sport].displayName : null;
   const hasFilters = mode !== "all" || sport !== "all";
 
   if (isEmpty) {
@@ -164,29 +162,20 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     );
   }
 
+  const statCardClass = "rounded-2xl bg-gradient-to-b from-white/[0.04] to-card p-4 shadow-[0_1px_3px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)]";
+
   return (
-    <div className="flex flex-col gap-6 py-8">
+    <div className="flex flex-col gap-4 pb-8">
       <MarkPageSeen type="analytics" />
-      {/* Header */}
-      <SlideUp>
-        <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-        <p className="text-sm text-muted-foreground">
-          {totalPicks} resolved pick{totalPicks !== 1 ? "s" : ""}
-          {sportLabel ? ` in ${sportLabel}` : ""} &middot;{" "}
-          {overallRate}% overall hit rate
-        </p>
-      </SlideUp>
 
-      {/* Mode Filter Tabs */}
-      <FadeIn delay={0.1}>
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2 pt-2">
         <ModeFilter activeMode={mode} availableModes={availableModes} currentSport={sport} />
-      </FadeIn>
-      <FadeIn delay={0.15}>
         <SportFilter activeSport={sport} currentMode={mode} />
-      </FadeIn>
+      </div>
 
-      {/* Overview Cards */}
-      <StaggerChildren staggerDelay={0.08} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Overview Stats */}
+      <StaggerChildren staggerDelay={0.06} className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
         <StaggerItem>
           <CardHistoryModal
             cards={cardHistory}
@@ -195,95 +184,60 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           />
         </StaggerItem>
         <StaggerItem>
-          <Card className="border-primary/20 bg-primary/5">
-            <CardContent className="p-4">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Hit Rate
-              </p>
-              <p
-                className={`mt-1 text-2xl font-black tabular-nums ${
-                  overallRate >= 60
-                    ? "text-neon-green"
-                    : overallRate >= 40
-                      ? "text-electric-blue"
-                      : "text-bold-red"
-                }`}
-              >
-                {overallRate}%
-              </p>
-            </CardContent>
-          </Card>
+          <div className={statCardClass}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Hit Rate
+            </p>
+            <p
+              className={`mt-1 text-2xl font-black tabular-nums ${
+                overallRate >= 60
+                  ? "text-neon-green"
+                  : overallRate >= 40
+                    ? "text-electric-blue"
+                    : "text-bold-red"
+              }`}
+            >
+              {overallRate}%
+            </p>
+            <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
+              {totalHits}/{totalPicks} picks
+            </p>
+          </div>
         </StaggerItem>
         <StaggerItem>
-          <Card className="border-primary/20 bg-primary/5">
-            <CardContent className="p-4">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Best Streak
-              </p>
-              <p className="mt-1 text-2xl font-black tabular-nums text-amber-400">
-                {bestStreak} day{bestStreak !== 1 ? "s" : ""}
-              </p>
-            </CardContent>
-          </Card>
+          <div className={statCardClass}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Best Streak
+            </p>
+            <p className="mt-1 text-2xl font-black tabular-nums text-amber-400">
+              {bestStreak} day{bestStreak !== 1 ? "s" : ""}
+            </p>
+          </div>
         </StaggerItem>
         <StaggerItem>
-          <Card className="border-primary/20 bg-primary/5">
-            <CardContent className="p-4">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Total Picks
-              </p>
-              <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
-                {totalPicks}
-              </p>
-            </CardContent>
-          </Card>
+          <div className={statCardClass}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Hits
+            </p>
+            <p className="mt-1 text-2xl font-black tabular-nums text-neon-green">
+              {totalHits}
+            </p>
+          </div>
+        </StaggerItem>
+        <StaggerItem>
+          <div className={statCardClass}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Misses
+            </p>
+            <p className="mt-1 text-2xl font-black tabular-nums text-bold-red">
+              {totalPicks - totalHits}
+            </p>
+          </div>
         </StaggerItem>
       </StaggerChildren>
 
-      {/* Summary stats row */}
-      <FadeIn delay={0.35}>
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap gap-6">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Hits
-                </p>
-                <p className="mt-1 text-2xl font-black tabular-nums text-neon-green">
-                  {totalHits}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Misses
-                </p>
-                <p className="mt-1 text-2xl font-black tabular-nums text-bold-red">
-                  {totalPicks - totalHits}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Hit Rate
-                </p>
-                <p
-                  className={`mt-1 text-2xl font-black tabular-nums ${
-                    overallRate >= 60
-                      ? "text-neon-green"
-                      : overallRate >= 40
-                        ? "text-electric-blue"
-                        : "text-bold-red"
-                  }`}
-                >
-                  {overallRate}%
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </FadeIn>
-
       {/* Core Charts grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <ScrollReveal>
           <CategoryChart data={categories} />
         </ScrollReveal>
@@ -304,16 +258,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       </div>
 
       {/* Advanced Analytics Section */}
-      <FadeIn delay={0.1}>
-        <h2 className="text-lg font-bold tracking-tight text-foreground">
-          Advanced Analytics
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Deeper insights into your prop picking patterns
-        </p>
-      </FadeIn>
-
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="mt-2 grid gap-4 lg:grid-cols-2">
         <ScrollReveal>
           <CardSizeChart data={cardSizes} />
         </ScrollReveal>

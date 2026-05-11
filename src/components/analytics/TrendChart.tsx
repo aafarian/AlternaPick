@@ -9,6 +9,8 @@ import {
   CHART_COLORS,
   rateColor,
   useResponsiveWidth,
+  CHART_SECTION_CLASS,
+  CHART_TITLE_CLASS,
 } from "@/lib/analytics/chart-utils";
 
 interface TrendChartProps {
@@ -108,8 +110,8 @@ export default function TrendChart({ data }: TrendChartProps) {
   if (parsed.length === 1) {
     const p = parsed[0];
     return (
-      <div className="rounded-xl border border-border bg-card p-5">
-        <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+      <div className={CHART_SECTION_CLASS}>
+        <h2 className={CHART_TITLE_CLASS}>
           30-Day Trend
         </h2>
         <RadialGauge pct={p.pct} date={p.dateObj} hits={p.hits} total={p.total} />
@@ -145,8 +147,8 @@ export default function TrendChart({ data }: TrendChartProps) {
   const hoveredPoint = hovered !== null ? parsed[hovered] : null;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+    <div className={CHART_SECTION_CLASS}>
+      <h2 className={CHART_TITLE_CLASS}>
         30-Day Trend
       </h2>
 

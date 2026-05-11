@@ -1,131 +1,120 @@
 "use client";
 
-import { scaleBand, scaleLinear } from "d3-scale";
 import type { PlayerStats } from "@/lib/analytics/types";
 import {
-  CHART_COLORS,
-  BAR_GRADIENT_ID,
-  BarGradientDef,
-  useResponsiveWidth,
+  rateColor,
+  CHART_SECTION_CLASS,
+  CHART_TITLE_CLASS,
 } from "@/lib/analytics/chart-utils";
 import { SPORT_LABELS, isValidSport } from "@/lib/sports";
+import PlayerHeadshot from "@/components/props/PlayerHeadshot";
 
 interface PlayerHitRateProps {
   data: PlayerStats[];
 }
 
-const MARGIN = { top: 4, right: 90, bottom: 4, left: 140 };
-const ROW_HEIGHT = 26;
-const GRID_TICKS = [0, 25, 50, 75, 100];
+function SportBadge({ sport }: { sport?: string }) {
+  if (!sport || !isValidSport(sport)) return null;
+  return (
+    <span className="rounded bg-white/[0.06] px-1 py-0.5 text-[8px] font-bold uppercase tracking-wider text-muted-foreground">
+      {SPORT_LABELS[sport]}
+    </span>
+  );
+}
 
 export default function PlayerHitRate({ data }: PlayerHitRateProps) {
-  const { containerRef, width } = useResponsiveWidth();
-
   if (data.length === 0) return null;
 
-  const height = MARGIN.top + MARGIN.bottom + data.length * ROW_HEIGHT;
-  const innerW = width - MARGIN.left - MARGIN.right;
-  const innerH = height - MARGIN.top - MARGIN.bottom;
-
-  const labels = data.map((p, i) => `${i + 1}. ${p.player_name}`);
-
-  const yScale = scaleBand<string>()
-    .domain(labels)
-    .range([0, innerH])
-    .padding(0.2);
-
-  const xScale = scaleLinear().domain([0, 100]).range([0, innerW]);
+  const top3 = data.slice(0, 3);
+  const rest = data.slice(3);
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-        Top 10 Players
-      </h2>
-      <div ref={containerRef} className="w-full">
-        {width > 0 && (
-          <svg width={width} height={height}>
-            <BarGradientDef />
-            <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-              {/* Grid lines */}
-              {GRID_TICKS.map((tick) => (
-                <line
-                  key={tick}
-                  x1={xScale(tick)}
-                  x2={xScale(tick)}
-                  y1={0}
-                  y2={innerH}
-                  stroke={CHART_COLORS.muted}
-                  strokeOpacity={0.12}
-                  strokeDasharray="4 4"
+    <div className={CHART_SECTION_CLASS}>
+      <h2 className={CHART_TITLE_CLASS}>Top Players</h2>
+
+      {/* Podium — top 3 */}
+      <div className="mb-4 grid grid-cols-3 gap-2">
+        {top3.map((player, i) => {
+          const pct = Math.round(player.rate * 100);
+          const color = rateColor(pct);
+
+          return (
+            <div
+              key={player.player_name}
+              className="flex flex-col items-center gap-1.5 rounded-xl bg-white/[0.03] p-3"
+            >
+              {/* Rank badge */}
+              <span className="text-[10px] font-bold text-muted-foreground">
+                #{i + 1}
+              </span>
+
+              {/* Headshot */}
+              <div className="relative">
+                <PlayerHeadshot
+                  playerId={null}
+                  playerName={player.player_name}
+                  sport={player.sport}
+                  responsive={false}
                 />
-              ))}
+                {/* Hit rate ring */}
+                <div
+                  className="absolute -bottom-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[9px] font-black text-white"
+                  style={{ backgroundColor: color }}
+                >
+                  {pct}%
+                </div>
+              </div>
 
-              {/* Bars + labels */}
-              {data.map((player, i) => {
-                const pct = Math.round(player.rate * 100);
-                const label = labels[i];
-                const y = yScale(label) ?? 0;
-                const bh = yScale.bandwidth();
+              {/* Name */}
+              <span className="max-w-full truncate text-center text-[11px] font-semibold leading-tight">
+                {player.player_name.split(" ").pop()}
+              </span>
 
-                return (
-                  <g key={player.player_name}>
-                    {/* Sport badge */}
-                    {player.sport && isValidSport(player.sport) && (
-                      <text
-                        x={-MARGIN.left + 4}
-                        y={y + bh / 2}
-                        dy="0.35em"
-                        textAnchor="start"
-                        fill={CHART_COLORS.muted}
-                        fontSize={8}
-                        fontWeight={600}
-                        letterSpacing="0.05em"
-                      >
-                        {SPORT_LABELS[player.sport]}
-                      </text>
-                    )}
-
-                    {/* Y-axis label: rank + name */}
-                    <text
-                      x={-8}
-                      y={y + bh / 2}
-                      dy="0.35em"
-                      textAnchor="end"
-                      fill={CHART_COLORS.text}
-                      fontSize={10}
-                    >
-                      {label.length > 18 ? label.slice(0, 17) + "…" : label}
-                    </text>
-
-                    {/* Bar */}
-                    <rect
-                      x={0}
-                      y={y}
-                      width={Math.max(xScale(pct), 0)}
-                      height={bh}
-                      rx={3}
-                      fill={`url(#${BAR_GRADIENT_ID})`}
-                      fillOpacity={0.85}
-                    />
-
-                    {/* Stats on right side */}
-                    <text
-                      x={Math.max(xScale(pct), 0) + 6}
-                      y={y + bh / 2}
-                      dy="0.35em"
-                      fill={CHART_COLORS.muted}
-                      fontSize={9}
-                      fontFamily="monospace"
-                    >
-                      {pct}% ({player.hits}/{player.total})
-                    </text>
-                  </g>
-                );
-              })}
-            </g>
-          </svg>
-        )}
+              {/* Sport + count */}
+              <div className="flex items-center gap-1">
+                <SportBadge sport={player.sport} />
+                <span className="text-[9px] tabular-nums text-muted-foreground">
+                  {player.hits}/{player.total}
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </div>
+
+      {/* Rest — compact table */}
+      {rest.length > 0 && (
+        <div className="flex flex-col">
+          {rest.map((player, i) => {
+            const pct = Math.round(player.rate * 100);
+            const color = rateColor(pct);
+
+            return (
+              <div
+                key={player.player_name}
+                className="flex items-center gap-2 border-t border-white/5 py-1.5"
+              >
+                <span className="w-5 shrink-0 text-right text-[10px] font-bold text-muted-foreground/50">
+                  {i + 4}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-xs">
+                  {player.player_name}
+                </span>
+                <SportBadge sport={player.sport} />
+                <span
+                  className="text-xs font-bold tabular-nums"
+                  style={{ color }}
+                >
+                  {pct}%
+                </span>
+                <span className="text-[10px] tabular-nums text-muted-foreground">
+                  {player.hits}/{player.total}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

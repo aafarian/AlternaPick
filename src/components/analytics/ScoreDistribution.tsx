@@ -6,6 +6,8 @@ import {
   CHART_COLORS,
   rateColor,
   useResponsiveWidth,
+  CHART_SECTION_CLASS,
+  CHART_TITLE_CLASS,
 } from "@/lib/analytics/chart-utils";
 
 interface ScoreDistributionProps {
@@ -20,8 +22,8 @@ export default function ScoreDistribution({ data }: ScoreDistributionProps) {
 
   if (data.length === 0) {
     return (
-      <div className="rounded-xl border border-border bg-card p-5">
-        <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+      <div className={CHART_SECTION_CLASS}>
+        <h2 className={CHART_TITLE_CLASS}>
           Score Distribution
         </h2>
         <p className="text-sm text-muted-foreground">No data yet</p>
@@ -40,8 +42,8 @@ export default function ScoreDistribution({ data }: ScoreDistributionProps) {
   const sortedSizes = [...sizeGroups.keys()].sort((a, b) => a - b);
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+    <div className={CHART_SECTION_CLASS}>
+      <h2 className={CHART_TITLE_CLASS}>
         Score Distribution
       </h2>
       <div ref={containerRef} className="flex w-full flex-col gap-5">

@@ -9,6 +9,8 @@ import {
   BAR_GRADIENT_ID,
   BarGradientDef,
   useResponsiveWidth,
+  CHART_SECTION_CLASS,
+  CHART_TITLE_CLASS,
 } from "@/lib/analytics/chart-utils";
 
 interface GameModeStatsProps {
@@ -24,8 +26,8 @@ export default function GameModeStats({ data }: GameModeStatsProps) {
 
   if (data.length === 0) {
     return (
-      <div className="rounded-xl border border-border bg-card p-5">
-        <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+      <div className={CHART_SECTION_CLASS}>
+        <h2 className={CHART_TITLE_CLASS}>
           Card Win Rate by Mode
         </h2>
         <p className="text-sm text-muted-foreground">No data yet</p>
@@ -52,8 +54,8 @@ export default function GameModeStats({ data }: GameModeStatsProps) {
   const xScale = scaleLinear().domain([0, 100]).range([0, innerW]);
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+    <div className={CHART_SECTION_CLASS}>
+      <h2 className={CHART_TITLE_CLASS}>
         Win Rate by Game Mode
       </h2>
       <div ref={containerRef} className="w-full">
