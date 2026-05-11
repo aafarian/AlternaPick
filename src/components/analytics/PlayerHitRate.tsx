@@ -7,6 +7,7 @@ import {
   CHART_TITLE_CLASS,
 } from "@/lib/analytics/chart-utils";
 import { SPORT_LABELS, isValidSport, getPlayerHeadshotUrl } from "@/lib/sports";
+import { usePlayerProfile } from "@/lib/players/player-profile-context";
 
 interface PlayerHitRateProps {
   data: PlayerStats[];
@@ -53,10 +54,23 @@ function PlayerAvatar({ name, playerId, sport, size = 32 }: { name: string; play
 }
 
 export default function PlayerHitRate({ data }: PlayerHitRateProps) {
+  const { openProfile } = usePlayerProfile();
+
   if (data.length === 0) return null;
 
   const top3 = data.slice(0, 3);
   const rest = data.slice(3);
+
+  function handleClick(player: PlayerStats) {
+    if (!player.player_id) return;
+    openProfile({
+      playerId: player.player_id,
+      playerName: player.player_name,
+      playerTeam: null,
+      playerPosition: null,
+      sport: player.sport,
+    });
+  }
 
   return (
     <div className={CHART_SECTION_CLASS}>
@@ -68,9 +82,9 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
           const pct = Math.round(player.rate * 100);
           const color = rateColor(pct);
           const medalColors = [
-            "bg-amber-500 text-amber-950",    // gold
-            "bg-gray-300 text-gray-700",       // silver
-            "bg-amber-700 text-amber-100",     // bronze
+            "text-amber-400",    // gold
+            "text-gray-400",     // silver
+            "text-amber-600",    // bronze
           ];
 
           return (
@@ -78,15 +92,20 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
               key={player.player_name}
               className="relative flex flex-col items-center rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3 pb-4 pt-3"
             >
-              {/* Medal rank — top left */}
-              <span className={`absolute left-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-black shadow-sm ${medalColors[i]}`}>
+              {/* Rank — top left, clean number */}
+              <span className={`absolute left-3 top-3 text-sm font-black ${medalColors[i]}`}>
                 {i + 1}
               </span>
 
-              {/* Headshot — hero */}
-              <div className="mb-2.5 mt-1">
+              {/* Headshot — hero (clickable) */}
+              <button
+                type="button"
+                onClick={() => handleClick(player)}
+                className="mb-2.5 mt-1 cursor-pointer transition-transform hover:scale-105"
+                disabled={!player.player_id}
+              >
                 <PlayerAvatar name={player.player_name} playerId={player.player_id} sport={player.sport} size={72} />
-              </div>
+              </button>
 
               {/* Name */}
               <p className="mb-1 max-w-full truncate text-center text-xs font-bold leading-tight">

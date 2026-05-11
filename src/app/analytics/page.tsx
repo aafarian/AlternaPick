@@ -236,7 +236,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </StaggerItem>
       </StaggerChildren>
 
-      {/* Top Players + Over vs Under */}
+      {/* Core Charts grid */}
       <div className="grid gap-4 lg:grid-cols-2">
         <ScrollReveal>
           <PlayerHitRate data={players} />
@@ -244,12 +244,10 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         <ScrollReveal>
           <DirectionSplit data={directions} />
         </ScrollReveal>
+        <ScrollReveal>
+          <CategoryChart data={categories} />
+        </ScrollReveal>
       </div>
-
-      {/* Category Chart — full width (can be tall with many categories) */}
-      <ScrollReveal>
-        <CategoryChart data={categories} />
-      </ScrollReveal>
 
       {/* Trend + Flame Coins */}
       <div className="grid gap-4 lg:grid-cols-2">
