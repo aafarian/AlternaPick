@@ -81,7 +81,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     cardHistory,
   ] = await Promise.all([
     getCategoryStats(supabase, user.id, mode, sport),
-    getPlayerStats(supabase, user.id, 5, mode, sport),
+    getPlayerStats(supabase, user.id, 10, mode, sport),
     getDirectionStats(supabase, user.id, mode, sport),
     getTrendData(supabase, user.id, 30, mode, sport),
     getCoinTrend(supabase, user.id),
@@ -212,6 +212,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <p className="mt-1 text-2xl font-black tabular-nums text-amber-400">
               {bestStreak} day{bestStreak !== 1 ? "s" : ""}
             </p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">winning days</p>
           </div>
         </StaggerItem>
         <StaggerItem>
@@ -222,6 +223,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <p className="mt-1 text-2xl font-black tabular-nums text-neon-green">
               {totalHits}
             </p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">correct picks</p>
           </div>
         </StaggerItem>
         <StaggerItem>
@@ -232,6 +234,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <p className="mt-1 text-2xl font-black tabular-nums text-bold-red">
               {totalPicks - totalHits}
             </p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">incorrect picks</p>
           </div>
         </StaggerItem>
       </StaggerChildren>
@@ -254,8 +257,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </ScrollReveal>
       </div>
 
-      {/* Secondary charts — 3 columns */}
-      <div className="grid gap-3 lg:grid-cols-3">
+      {/* Secondary charts — 3 columns, fill naturally */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {coinTrend.length >= 2 && (
           <ScrollReveal>
             <CoinTrendChart data={coinTrend} />
@@ -270,10 +273,10 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </ScrollReveal>
         )}
         <ScrollReveal>
-          <TeamHitRate data={teams} />
+          <ScoreDistribution data={scoreDistributionData} />
         </ScrollReveal>
         <ScrollReveal>
-          <ScoreDistribution data={scoreDistributionData} />
+          <TeamHitRate data={teams} />
         </ScrollReveal>
       </div>
     </div>

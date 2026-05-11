@@ -74,7 +74,7 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
 
   return (
     <div className={CHART_SECTION_CLASS}>
-      <h2 className={CHART_TITLE_CLASS}>Top 5 Players</h2>
+      <h2 className={CHART_TITLE_CLASS}>Top Players</h2>
 
       {/* Podium — top 3 */}
       <div className="mb-4 grid grid-cols-3 gap-2.5">

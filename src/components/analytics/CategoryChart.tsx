@@ -36,51 +36,50 @@ export default function CategoryChart({ data }: CategoryChartProps) {
     <div className={CHART_SECTION_CLASS}>
       <h2 className={CHART_TITLE_CLASS}>Hit Rate by Category</h2>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         {groups.map(({ sport, items }) => (
           <div key={sport}>
             {/* Sport group header */}
             {groups.length > 1 && (
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+              <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50">
                 {sport}
               </p>
             )}
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1">
               {items.map((item, i) => {
                 const pct = Math.round(item.rate * 100);
                 const label = CATEGORY_LABELS[item.category as StatCategory] ?? item.category;
                 const color = rateColor(pct);
 
                 return (
-                  <div key={item.category} className="flex items-center gap-3">
+                  <div key={item.category} className="flex items-center gap-2">
                     {/* Category name */}
-                    <span className="w-24 shrink-0 truncate text-right text-xs font-medium text-muted-foreground">
+                    <span className="w-20 shrink-0 truncate text-right text-[11px] font-medium text-muted-foreground">
                       {label}
                     </span>
 
                     {/* Bar */}
-                    <div className="relative h-5 flex-1 overflow-hidden rounded-md bg-white/[0.04]">
+                    <div className="relative h-[18px] flex-1 overflow-hidden rounded bg-white/[0.04]">
                       <div
-                        className="absolute inset-y-0 left-0 rounded-md transition-all duration-700 ease-out"
+                        className="absolute inset-y-0 left-0 rounded transition-all duration-700 ease-out"
                         style={{
                           width: `${pct}%`,
                           backgroundColor: color,
                           opacity: 0.7,
-                          transitionDelay: `${i * 40}ms`,
+                          transitionDelay: `${i * 30}ms`,
                         }}
                       />
-                      {/* Rate text inside bar */}
                       <span className={cn(
-                        "relative z-[1] flex h-full items-center px-2 text-[10px] font-bold tabular-nums",
-                        pct > 15 ? "text-white" : "text-muted-foreground",
+                        "relative z-[1] flex h-full items-center px-1.5 text-[9px] font-bold tabular-nums",
+                        pct > 12 ? "text-white" : "text-muted-foreground",
                       )}>
                         {pct}%
                       </span>
                     </div>
 
                     {/* Count */}
-                    <span className="w-14 shrink-0 text-right text-[10px] tabular-nums text-muted-foreground">
+                    <span className="w-12 shrink-0 text-right text-[9px] tabular-nums text-muted-foreground">
                       {item.hits}/{item.total}
                     </span>
                   </div>
