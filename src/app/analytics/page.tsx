@@ -244,11 +244,11 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         <ScrollReveal>
           <PlayerHitRate data={players} />
         </ScrollReveal>
-        <div className="flex flex-col gap-3">
-          <ScrollReveal>
+        <div className="flex h-full flex-col gap-3">
+          <ScrollReveal className="flex-1">
             <DirectionSplit data={directions} />
           </ScrollReveal>
-          <ScrollReveal>
+          <ScrollReveal className="flex-1">
             <TrendChart data={trend} />
           </ScrollReveal>
         </div>
