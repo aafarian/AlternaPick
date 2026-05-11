@@ -169,7 +169,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       <MarkPageSeen type="analytics" />
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 pt-2">
+      <div className="flex flex-col gap-1 pt-2">
         <ModeFilter activeMode={mode} availableModes={availableModes} currentSport={sport} />
         <SportFilter activeSport={sport} currentMode={mode} />
       </div>
