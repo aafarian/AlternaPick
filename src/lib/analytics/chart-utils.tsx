@@ -21,20 +21,6 @@ export function rateColor(pct: number): string {
   return CHART_COLORS.red;
 }
 
-/** SVG gradient ID used by all horizontal bar charts */
-export const BAR_GRADIENT_ID = "barGradient";
-
-/** Render an SVG <defs> block containing the shared bar gradient (primary → accent) */
-export function BarGradientDef() {
-  return (
-    <defs>
-      <linearGradient id={BAR_GRADIENT_ID} x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor={CHART_COLORS.green} />
-        <stop offset="100%" stopColor={CHART_COLORS.blue} />
-      </linearGradient>
-    </defs>
-  );
-}
 
 /** Orange color for flame token charts */
 export const FLAME_ORANGE = "#f97316";
@@ -58,8 +44,14 @@ export function getCategorySport(cat: string): string | null {
   return CATEGORY_SPORT_MAP[cat] ?? null;
 }
 
-/** Shared wrapper class for analytics chart sections — gradient bg, subtle shadow, no border. */
-export const CHART_SECTION_CLASS = "h-full min-w-0 overflow-hidden rounded-2xl bg-gradient-to-b from-white/[0.04] to-card p-5 shadow-[0_1px_3px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)]";
+/** Base gradient + shadow style shared by all analytics sections. */
+const ANALYTICS_CARD_BASE = "min-w-0 overflow-hidden rounded-2xl bg-gradient-to-b from-white/[0.04] to-card shadow-[0_1px_3px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)]";
+
+/** Shared wrapper class for analytics chart sections. */
+export const CHART_SECTION_CLASS = `h-full ${ANALYTICS_CARD_BASE} p-5`;
+
+/** Shared wrapper class for stat overview cards (smaller padding). */
+export const STAT_CARD_CLASS = `h-full ${ANALYTICS_CARD_BASE} p-4`;
 
 /** Shared title class for chart section headings. */
 export const CHART_TITLE_CLASS = "mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground";

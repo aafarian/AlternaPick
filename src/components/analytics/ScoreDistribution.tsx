@@ -74,7 +74,7 @@ export default function ScoreDistribution({ data }: ScoreDistributionProps) {
   return (
     <div className={CHART_SECTION_CLASS}>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className={CHART_TITLE_CLASS + " mb-0"}>Score Distribution</h2>
+        <h2 className={cn(CHART_TITLE_CLASS, "mb-0")}>Score Distribution</h2>
         <span className="text-[10px] tabular-nums text-muted-foreground">
           {totalCards} card{totalCards !== 1 ? "s" : ""}
         </span>

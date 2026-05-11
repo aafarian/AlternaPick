@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, ExternalLink, Loader2 } from "lucide-react";
 import type { CardHistoryItem } from "@/lib/analytics/types";
+import { STAT_CARD_CLASS } from "@/lib/analytics/chart-utils";
 import type { CardDetailResponse, CardDetailPick } from "@/lib/cards/detail-types";
 import { GAME_MODES } from "@/lib/modes/definitions";
 import { logWarn } from "@/lib/logger";
@@ -212,7 +213,7 @@ export default function CardHistoryModal({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <div className="h-full cursor-pointer rounded-2xl bg-gradient-to-b from-white/[0.04] to-card p-4 shadow-[0_1px_3px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)] transition-colors hover:from-white/[0.06]">
+        <div className={`${STAT_CARD_CLASS} cursor-pointer transition-colors hover:from-white/[0.06]`}>
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               Total Cards
             </p>

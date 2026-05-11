@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { PlayerStats } from "@/lib/analytics/types";
 import {
   rateColor,
@@ -23,7 +24,8 @@ function SportBadge({ sport }: { sport?: string }) {
 }
 
 function PlayerAvatar({ name, playerId, sport, size = 32 }: { name: string; playerId?: string | null; sport?: string; size?: number }) {
-  const url = playerId ? getPlayerHeadshotUrl(playerId, sport) : "";
+  const [imgFailed, setImgFailed] = useState(false);
+  const url = playerId && !imgFailed ? getPlayerHeadshotUrl(playerId, sport) : "";
   const parts = name.split(" ");
   const initials = parts.length >= 2
     ? `${parts[0][0]}${parts[parts.length - 1][0]}`
@@ -42,7 +44,7 @@ function PlayerAvatar({ name, playerId, sport, size = 32 }: { name: string; play
           width={size}
           height={size}
           className="h-full w-full object-cover"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+          onError={() => setImgFailed(true)}
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-[11px] font-bold text-muted-foreground">

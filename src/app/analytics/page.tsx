@@ -11,6 +11,7 @@ import {
   getGameModeStats,
   getCardHistory,
 } from "@/lib/analytics/queries";
+import { STAT_CARD_CLASS } from "@/lib/analytics/chart-utils";
 import CategoryChart from "@/components/analytics/CategoryChart";
 import PlayerHitRate from "@/components/analytics/PlayerHitRate";
 import DirectionSplit from "@/components/analytics/DirectionSplit";
@@ -162,7 +163,6 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     );
   }
 
-  const statCardClass = "h-full rounded-2xl bg-gradient-to-b from-white/[0.04] to-card p-4 shadow-[0_1px_3px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)]";
 
   return (
     <div className="flex min-w-0 flex-col gap-4 overflow-x-hidden pb-8">
@@ -184,7 +184,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           />
         </StaggerItem>
         <StaggerItem>
-          <div className={statCardClass}>
+          <div className={STAT_CARD_CLASS}>
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               Hit Rate
             </p>
@@ -205,7 +205,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </div>
         </StaggerItem>
         <StaggerItem>
-          <div className={statCardClass}>
+          <div className={STAT_CARD_CLASS}>
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               Best Streak
             </p>
@@ -216,7 +216,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </div>
         </StaggerItem>
         <StaggerItem>
-          <div className={statCardClass}>
+          <div className={STAT_CARD_CLASS}>
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               Hits
             </p>
@@ -227,7 +227,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </div>
         </StaggerItem>
         <StaggerItem>
-          <div className={statCardClass}>
+          <div className={STAT_CARD_CLASS}>
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               Misses
             </p>

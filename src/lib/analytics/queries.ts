@@ -651,6 +651,10 @@ export async function getCardHistory(
 /**
  * Get flame coin balance trend — running balance over time from wagered cards.
  * Returns one point per resolved wagered card, ordered chronologically.
+ *
+ * Intentionally ignores mode/sport filters — flame coin balance is global.
+ * A synthetic starting point at STARTING_BALANCE is prepended and given the
+ * same date as the first real data point (so the chart starts at the baseline).
  */
 export async function getCoinTrend(
   supabase: SupabaseClient<Database>,
