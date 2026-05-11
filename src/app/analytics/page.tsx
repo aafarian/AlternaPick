@@ -236,25 +236,31 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </StaggerItem>
       </StaggerChildren>
 
-      {/* Core Charts grid */}
+      {/* Top Players + Over vs Under (similar height) */}
       <div className="grid items-start gap-4 lg:grid-cols-2">
-        <ScrollReveal>
-          <CategoryChart data={categories} />
-        </ScrollReveal>
         <ScrollReveal>
           <PlayerHitRate data={players} />
         </ScrollReveal>
         <ScrollReveal>
           <DirectionSplit data={directions} />
         </ScrollReveal>
+      </div>
+
+      {/* Category Chart — full width (can be tall with many categories) */}
+      <ScrollReveal>
+        <CategoryChart data={categories} />
+      </ScrollReveal>
+
+      {/* Trend + Flame Coins (similar height line charts) */}
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         <ScrollReveal>
           <TrendChart data={trend} />
         </ScrollReveal>
-        {coinTrend.length >= 2 && (
+        {coinTrend.length >= 2 ? (
           <ScrollReveal>
             <CoinTrendChart data={coinTrend} />
           </ScrollReveal>
-        )}
+        ) : <div />}
       </div>
 
       {/* Advanced Analytics Section */}
