@@ -11,6 +11,7 @@ export interface CategoryStats {
 /** Hit-rate stats for a single player */
 export interface PlayerStats {
   player_name: string;
+  sport?: string;
   hits: number;
   total: number;
   rate: number;
@@ -67,6 +68,14 @@ export interface CardHistoryItem {
   cardSize: number;
   gameMode: GameMode;
   resolvedAt: string | null;
+}
+
+/** A single data point in the flame coin balance trend */
+export interface CoinTrendPoint {
+  date: string;
+  balance: number;
+  wager: number;
+  payout: number;
 }
 
 /** Win-rate stats grouped by game mode */

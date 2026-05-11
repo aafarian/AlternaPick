@@ -22,12 +22,14 @@ import type {
   PlayerStats,
   DirectionStats,
   TrendPoint,
+  CoinTrendPoint,
   CardSizeStats,
   TeamStats,
   ScoreDistributionEntry,
   GameModeStats,
   CardHistoryItem,
 } from "./types";
+import { STARTING_BALANCE } from "@/lib/heatscore/constants";
 
 // ---------- Internal helpers ----------
 
@@ -221,7 +223,7 @@ export async function getPlayerStats(
 ): Promise<PlayerStats[]> {
   const picks = await fetchResolvedPicks(supabase, userId, mode, sport);
 
-  const map = new Map<string, { hits: number; total: number }>();
+  const map = new Map<string, { hits: number; total: number; sport?: string }>();
 
   for (const pick of picks) {
     const name = pick.props?.player_name;
@@ -230,13 +232,17 @@ export async function getPlayerStats(
     const entry = map.get(name) ?? { hits: 0, total: 0 };
     entry.total += 1;
     if (pick.result === "hit") entry.hits += 1;
+    if (!entry.sport && pick.props?.games?.sport) {
+      entry.sport = pick.props.games.sport;
+    }
     map.set(name, entry);
   }
 
   const results: PlayerStats[] = [];
-  for (const [player_name, { hits, total }] of map) {
+  for (const [player_name, { hits, total, sport: playerSport }] of map) {
     results.push({
       player_name,
+      sport: playerSport,
       hits,
       total,
       rate: total > 0 ? Math.round((hits / total) * 1000) / 1000 : 0,
@@ -645,4 +651,52 @@ export async function getCardHistory(
     gameMode: c.game_mode,
     resolvedAt: c.resolved_at,
   }));
+}
+
+/**
+ * Get flame coin balance trend — running balance over time from wagered cards.
+ * Returns one point per resolved wagered card, ordered chronologically.
+ */
+export async function getCoinTrend(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<CoinTrendPoint[]> {
+  const result = await (supabase.from("cards") as any)
+    .select("fire_token_wager, fire_token_payout, resolved_at")
+    .eq("user_id", userId)
+    .eq("status", "resolved")
+    .not("fire_token_wager", "is", null)
+    .order("resolved_at", { ascending: true });
+
+  if (result.error) {
+    logError("analytics", `getCoinTrend: ${result.error.message}`, "getCoinTrend", result.error);
+    return [];
+  }
+  if (!result.data) return [];
+
+  const cards = result.data as {
+    fire_token_wager: number;
+    fire_token_payout: number | null;
+    resolved_at: string | null;
+  }[];
+
+  let balance = STARTING_BALANCE;
+  const points: CoinTrendPoint[] = [
+    { date: "", balance: STARTING_BALANCE, wager: 0, payout: 0 },
+  ];
+
+  for (const card of cards) {
+    const wager = card.fire_token_wager;
+    const payout = card.fire_token_payout ?? 0;
+    balance = balance - wager + payout;
+    const date = card.resolved_at?.slice(0, 10) ?? "";
+    points.push({ date, balance, wager, payout });
+  }
+
+  // Remove the synthetic starting point if we have real data
+  if (points.length > 1) {
+    points[0].date = points[1].date;
+  }
+
+  return points;
 }

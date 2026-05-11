@@ -6,6 +6,7 @@ import {
   getPlayerStats,
   getDirectionStats,
   getTrendData,
+  getCoinTrend,
   getCardSizeStats,
   getTeamStats,
   getScoreDistribution,
@@ -23,6 +24,7 @@ const ALL_SECTIONS = [
   "players",
   "directions",
   "trend",
+  "coinTrend",
   "cardSizes",
   "teams",
   "scoreDistribution",
@@ -112,6 +114,9 @@ export async function GET(request: NextRequest) {
     }
     if (requested.has("gameModes")) {
       fetchers.gameModes = getGameModeStats(supabase, user.id);
+    }
+    if (requested.has("coinTrend")) {
+      fetchers.coinTrend = getCoinTrend(supabase, user.id);
     }
 
     // Fetch all requested sections in parallel

@@ -4,6 +4,7 @@ import {
   getPlayerStats,
   getDirectionStats,
   getTrendData,
+  getCoinTrend,
   getCardSizeStats,
   getTeamStats,
   getScoreDistribution,
@@ -14,6 +15,7 @@ import CategoryChart from "@/components/analytics/CategoryChart";
 import PlayerHitRate from "@/components/analytics/PlayerHitRate";
 import DirectionSplit from "@/components/analytics/DirectionSplit";
 import TrendChart from "@/components/analytics/TrendChart";
+import CoinTrendChart from "@/components/analytics/CoinTrendChart";
 import CardSizeChart from "@/components/analytics/CardSizeChart";
 import TeamHitRate from "@/components/analytics/TeamHitRate";
 import ScoreDistribution from "@/components/analytics/ScoreDistribution";
@@ -72,6 +74,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     players,
     directions,
     trend,
+    coinTrend,
     cardSizes,
     teams,
     scoreDistributionData,
@@ -82,6 +85,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     getPlayerStats(supabase, user.id, 10, mode, sport),
     getDirectionStats(supabase, user.id, mode, sport),
     getTrendData(supabase, user.id, 30, mode, sport),
+    getCoinTrend(supabase, user.id),
     getCardSizeStats(supabase, user.id, mode, sport),
     getTeamStats(supabase, user.id, 10, mode, sport),
     getScoreDistribution(supabase, user.id, mode, sport),
@@ -292,6 +296,11 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         <ScrollReveal>
           <TrendChart data={trend} />
         </ScrollReveal>
+        {coinTrend.length >= 2 && (
+          <ScrollReveal>
+            <CoinTrendChart data={coinTrend} />
+          </ScrollReveal>
+        )}
       </div>
 
       {/* Advanced Analytics Section */}

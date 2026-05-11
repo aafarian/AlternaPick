@@ -8,12 +8,13 @@ import {
   BarGradientDef,
   useResponsiveWidth,
 } from "@/lib/analytics/chart-utils";
+import { SPORT_LABELS, isValidSport } from "@/lib/sports";
 
 interface PlayerHitRateProps {
   data: PlayerStats[];
 }
 
-const MARGIN = { top: 4, right: 90, bottom: 4, left: 110 };
+const MARGIN = { top: 4, right: 90, bottom: 4, left: 140 };
 const ROW_HEIGHT = 26;
 const GRID_TICKS = [0, 25, 50, 75, 100];
 
@@ -68,6 +69,22 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
 
                 return (
                   <g key={player.player_name}>
+                    {/* Sport badge */}
+                    {player.sport && isValidSport(player.sport) && (
+                      <text
+                        x={-MARGIN.left + 4}
+                        y={y + bh / 2}
+                        dy="0.35em"
+                        textAnchor="start"
+                        fill={CHART_COLORS.muted}
+                        fontSize={8}
+                        fontWeight={600}
+                        letterSpacing="0.05em"
+                      >
+                        {SPORT_LABELS[player.sport]}
+                      </text>
+                    )}
+
                     {/* Y-axis label: rank + name */}
                     <text
                       x={-8}
@@ -77,7 +94,7 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
                       fill={CHART_COLORS.text}
                       fontSize={10}
                     >
-                      {label.length > 16 ? label.slice(0, 15) + "…" : label}
+                      {label.length > 18 ? label.slice(0, 17) + "…" : label}
                     </text>
 
                     {/* Bar */}

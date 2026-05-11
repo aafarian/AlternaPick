@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
+import { SPORT_CONFIG, UI_SPORTS } from "@/lib/sports";
 
 /** Shared chart color constants (hex for SVG fill/stroke) */
 export const CHART_COLORS = {
@@ -33,6 +34,28 @@ export function BarGradientDef() {
       </linearGradient>
     </defs>
   );
+}
+
+/** Orange color for flame token charts */
+export const FLAME_ORANGE = "#f97316";
+
+/** Map stat categories to their sport's short label, derived from SPORT_CONFIG. */
+const CATEGORY_SPORT_MAP: Record<string, string> = (() => {
+  const map: Record<string, string> = {};
+  for (const key of UI_SPORTS) {
+    const config = SPORT_CONFIG[key];
+    for (const c of config.categories) {
+      if (c.value !== "all" && !map[c.value]) {
+        map[c.value] = config.shortLabel;
+      }
+    }
+  }
+  return map;
+})();
+
+/** Get a stat category's sport label (e.g. "points" → "NBA", "hits" → "MLB") */
+export function getCategorySport(cat: string): string | null {
+  return CATEGORY_SPORT_MAP[cat] ?? null;
 }
 
 /** Format a Date to a locale-aware hour string (e.g. "3 PM") */

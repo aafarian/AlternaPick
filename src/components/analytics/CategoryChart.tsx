@@ -9,13 +9,14 @@ import {
   BAR_GRADIENT_ID,
   BarGradientDef,
   useResponsiveWidth,
+  getCategorySport,
 } from "@/lib/analytics/chart-utils";
 
 interface CategoryChartProps {
   data: CategoryStats[];
 }
 
-const MARGIN = { top: 4, right: 90, bottom: 4, left: 80 };
+const MARGIN = { top: 4, right: 90, bottom: 4, left: 110 };
 const ROW_HEIGHT = 28;
 const GRID_TICKS = [0, 25, 50, 75, 100];
 
@@ -69,9 +70,26 @@ export default function CategoryChart({ data }: CategoryChartProps) {
                 const label = labels[i];
                 const y = yScale(label) ?? 0;
                 const bh = yScale.bandwidth();
+                const sportLabel = getCategorySport(item.category);
 
                 return (
                   <g key={item.category}>
+                    {/* Sport badge */}
+                    {sportLabel && (
+                      <text
+                        x={-MARGIN.left + 4}
+                        y={y + bh / 2}
+                        dy="0.35em"
+                        textAnchor="start"
+                        fill={CHART_COLORS.muted}
+                        fontSize={8}
+                        fontWeight={600}
+                        letterSpacing="0.05em"
+                      >
+                        {sportLabel}
+                      </text>
+                    )}
+
                     {/* Y-axis label */}
                     <text
                       x={-8}
