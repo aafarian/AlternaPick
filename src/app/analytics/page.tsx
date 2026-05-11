@@ -236,39 +236,34 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </StaggerItem>
       </StaggerChildren>
 
-      {/* Charts — 3-column grid, cards span 1 or 2 cols */}
+      {/* Main charts — 3 columns. Col 1: Players, Col 2: Over/Under + Trend stacked, Col 3: Categories */}
       <div className="grid gap-3 lg:grid-cols-3">
-        {/* Row 1: Top Players (1) + Over/Under (1) + Trend (1) */}
         <ScrollReveal>
           <PlayerHitRate data={players} />
         </ScrollReveal>
+        <div className="flex flex-col gap-3">
+          <ScrollReveal>
+            <DirectionSplit data={directions} />
+          </ScrollReveal>
+          <ScrollReveal>
+            <TrendChart data={trend} />
+          </ScrollReveal>
+        </div>
         <ScrollReveal>
-          <DirectionSplit data={directions} />
-        </ScrollReveal>
-        <ScrollReveal>
-          <TrendChart data={trend} />
-        </ScrollReveal>
-
-        {/* Row 2: Categories (2) + Flame Coins (1) */}
-        <ScrollReveal className="lg:col-span-2">
           <CategoryChart data={categories} />
         </ScrollReveal>
-        {coinTrend.length >= 2 ? (
+      </div>
+
+      {/* Secondary charts — 3 columns */}
+      <div className="grid gap-3 lg:grid-cols-3">
+        {coinTrend.length >= 2 && (
           <ScrollReveal>
             <CoinTrendChart data={coinTrend} />
           </ScrollReveal>
-        ) : (
-          <ScrollReveal>
-            <CardSizeChart data={cardSizes} />
-          </ScrollReveal>
         )}
-
-        {/* Row 3: remaining advanced charts */}
-        {coinTrend.length >= 2 && (
-          <ScrollReveal>
-            <CardSizeChart data={cardSizes} />
-          </ScrollReveal>
-        )}
+        <ScrollReveal>
+          <CardSizeChart data={cardSizes} />
+        </ScrollReveal>
         {isAllMode && (
           <ScrollReveal>
             <GameModeStats data={gameModes} />
