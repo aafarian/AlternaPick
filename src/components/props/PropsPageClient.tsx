@@ -90,6 +90,23 @@ export default function PropsPageClient({
     setActiveChipId(null);
   }, [sport, category, debouncedQuery]);
 
+  const handleChipSelect = useCallback((gameId: string) => {
+    // Toggle: deselect if already active
+    if (activeChipId === gameId) {
+      setActiveChipId(null);
+      return;
+    }
+    setActiveChipId(gameId);
+
+    // Scroll to the game card
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`game-${gameId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }, [activeChipId]);
+
   const filteredGames = useMemo(() => {
     const isAll = category === "all";
     return allGames
@@ -207,7 +224,7 @@ export default function PropsPageClient({
               commence_time: g.commence_time,
             }))}
             activeId={activeChipId}
-            onSelect={setActiveChipId}
+            onSelect={handleChipSelect}
           />
         )}
       </div>
@@ -234,7 +251,7 @@ export default function PropsPageClient({
           ) : (
             <PropsGameList
               games={filteredGames}
-              externalChip={{ activeId: activeChipId, onSelect: setActiveChipId }}
+              externalChip={{ activeId: activeChipId, onSelect: handleChipSelect }}
             />
           )}
         </motion.div>
