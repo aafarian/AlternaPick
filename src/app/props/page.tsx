@@ -50,7 +50,7 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
   // and games with 0 props. Client only needs to filter by sport/category/player.
   const clientGames = (allGames ?? [])
     .filter((g) => new Date(g.commence_time).getTime() - now > LOCK_BUFFER_MS)
-    .filter((g) => g.props.length > 0) as (typeof allGames extends (infer T)[] | null ? T : never)[];
+    .filter((g) => g.props.length > 0);
 
   // NCAAB logos require client-side team ID registration
   let ncaabTeams: Record<string, string> = {};

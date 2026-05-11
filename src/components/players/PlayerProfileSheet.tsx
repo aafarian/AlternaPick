@@ -53,7 +53,6 @@ const COLUMNS = [
   { key: "3PM", label: "3PM", width: "w-10", field: "threes_made" as const },
 ] as const;
 
-
 function formatDate(dateStr: string): string {
   if (!dateStr) return "-";
   // Handle various date formats
