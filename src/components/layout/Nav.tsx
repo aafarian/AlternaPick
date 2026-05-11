@@ -164,9 +164,9 @@ export default function Nav({
     ? baseLinks.filter((l) => !bottomTabPaths.has(l.href))
     : baseLinks;
   const desktopItems = user ? authenticatedItems : publicLinks;
-  const isSocialActive =
-    activePath === "/profile" || activePath === "/settings" || activePath === "/friends";
   const isAdminActive = activePath.startsWith("/admin");
+  const isSocialActive =
+    activePath === "/profile" || activePath === "/settings" || activePath === "/friends" || isAdminActive;
   const socialNotifyCount = notificationCounts?.friends ?? 0;
 
   function getNotifyCount(link: NavLink): number {
@@ -289,38 +289,6 @@ export default function Nav({
         )}
       </div>
 
-      {isAdmin && user && (
-        <Link href="/admin" onClick={() => { setPendingPath("/admin"); onNavigate?.(); }}>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`relative w-full justify-start gap-2 md:w-auto ${
-              mobileSecondaryOnly ? "h-10 text-sm" : ""
-            } ${
-              isAdminActive
-                ? "text-primary hover:text-primary hover:bg-transparent"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            }`}
-          >
-            {isAdminActive && (
-              <motion.div
-                layoutId="desktop-nav-indicator"
-                className="absolute inset-0 rounded-md bg-primary/10"
-                transition={
-                  prefersReducedMotion
-                    ? { duration: 0 }
-                    : { type: "spring", stiffness: 500, damping: 30 }
-                }
-              />
-            )}
-            <span className="relative z-[1] flex items-center gap-2">
-              <Shield className="h-4 w-4 md:hidden" />
-              Admin
-            </span>
-          </Button>
-        </Link>
-      )}
-
       {user ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -377,6 +345,18 @@ export default function Nav({
                 Settings
               </Link>
             </DropdownMenuItem>
+            {isAdmin && (
+              <DropdownMenuItem asChild>
+                <Link
+                  href="/admin"
+                  onClick={() => { setPendingPath("/admin"); onNavigate?.(); }}
+                  className={`gap-2 ${isAdminActive ? activeChildStyle : ""}`}
+                >
+                  <Shield className="h-4 w-4" />
+                  Admin
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={async (e) => {
