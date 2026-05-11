@@ -58,7 +58,16 @@ function PlayerAvatar({ name, playerId, sport, size = 32 }: { name: string; play
 export default function PlayerHitRate({ data }: PlayerHitRateProps) {
   const { openProfile } = usePlayerProfile();
 
-  if (data.length === 0) return null;
+  if (data.length === 0) {
+    return (
+      <div className={CHART_SECTION_CLASS}>
+        <h2 className={CHART_TITLE_CLASS}>Top Players</h2>
+        <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+          No picks for this filter
+        </div>
+      </div>
+    );
+  }
 
   const top3 = data.slice(0, 3);
   const rest = data.slice(3);

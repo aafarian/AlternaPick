@@ -36,7 +36,16 @@ export default function CategoryChart({ data }: CategoryChartProps) {
   const groups = groupBySport(data);
   const [selectedSport, setSelectedSport] = useState("");
 
-  if (data.length === 0) return null;
+  if (data.length === 0) {
+    return (
+      <div className={CHART_SECTION_CLASS}>
+        <h2 className={CHART_TITLE_CLASS}>Hit Rate by Category</h2>
+        <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+          No picks for this filter
+        </div>
+      </div>
+    );
+  }
 
   // If the selected sport doesn't exist in current data, fall back to first group
   const activeSport = groups.some((g) => g.sport === selectedSport)

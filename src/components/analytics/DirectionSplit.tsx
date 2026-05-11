@@ -16,7 +16,16 @@ export default function DirectionSplit({ data }: DirectionSplitProps) {
   const underPct = Math.round(data.under.rate * 100);
   const totalPicks = data.over.total + data.under.total;
 
-  if (totalPicks === 0) return null;
+  if (totalPicks === 0) {
+    return (
+      <div className={CHART_SECTION_CLASS}>
+        <h2 className={CHART_TITLE_CLASS}>Over vs Under</h2>
+        <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+          No picks for this filter
+        </div>
+      </div>
+    );
+  }
 
   const overShare = data.over.total;
   const underShare = data.under.total;

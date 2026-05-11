@@ -94,7 +94,30 @@ export default function TrendChart({ data }: TrendChartProps) {
     [data.length, width],
   );
 
-  if (data.length === 0) return null;
+  if (data.length === 0) {
+    return (
+      <div className={CHART_SECTION_CLASS}>
+        <h2 className={CHART_TITLE_CLASS}>30-Day Trend</h2>
+        <div ref={containerRef} className="w-full overflow-hidden">
+          {width > 0 && (
+            <svg width={width} height={HEIGHT} className="select-none">
+              <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
+                {[0, 25, 50, 75, 100].map((tick) => (
+                  <g key={tick}>
+                    <line x1={0} x2={width - MARGIN.left - MARGIN.right} y1={(HEIGHT - MARGIN.top - MARGIN.bottom) * (1 - tick / 100)} y2={(HEIGHT - MARGIN.top - MARGIN.bottom) * (1 - tick / 100)} stroke={CHART_COLORS.muted} strokeOpacity={0.15} strokeDasharray="4 4" />
+                    <text x={-8} y={(HEIGHT - MARGIN.top - MARGIN.bottom) * (1 - tick / 100)} dy="0.35em" textAnchor="end" fill={CHART_COLORS.muted} fontSize={10}>{tick}%</text>
+                  </g>
+                ))}
+                <text x={(width - MARGIN.left - MARGIN.right) / 2} y={(HEIGHT - MARGIN.top - MARGIN.bottom) / 2} textAnchor="middle" fill={CHART_COLORS.muted} fontSize={12}>
+                  No picks in the last 30 days
+                </text>
+              </g>
+            </svg>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const innerW = width - MARGIN.left - MARGIN.right;
   const innerH = HEIGHT - MARGIN.top - MARGIN.bottom;
