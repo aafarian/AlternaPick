@@ -63,41 +63,47 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
       <h2 className={CHART_TITLE_CLASS}>Top Players</h2>
 
       {/* Podium — top 3 */}
-      <div className="mb-3 grid grid-cols-3 gap-2">
+      <div className="mb-4 grid grid-cols-3 gap-2.5">
         {top3.map((player, i) => {
           const pct = Math.round(player.rate * 100);
           const color = rateColor(pct);
+          const medalColors = [
+            "bg-amber-500 text-amber-950",    // gold
+            "bg-gray-300 text-gray-700",       // silver
+            "bg-amber-700 text-amber-100",     // bronze
+          ];
 
           return (
             <div
               key={player.player_name}
-              className="relative flex flex-col items-center overflow-hidden rounded-xl bg-white/[0.03]"
+              className="relative flex flex-col items-center rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3 pb-4 pt-3"
             >
-              {/* Large headshot */}
-              <div className="relative w-full pt-2">
-                <div className="mx-auto w-16 sm:w-20">
-                  <PlayerAvatar name={player.player_name} playerId={player.player_id} sport={player.sport} size={80} />
-                </div>
-                {/* Rank badge — top left */}
-                <span className="absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/20 text-[10px] font-black text-amber-400">
-                  {i + 1}
-                </span>
+              {/* Medal rank — top left */}
+              <span className={`absolute left-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-black shadow-sm ${medalColors[i]}`}>
+                {i + 1}
+              </span>
+
+              {/* Headshot — hero */}
+              <div className="mb-2.5 mt-1">
+                <PlayerAvatar name={player.player_name} playerId={player.player_id} sport={player.sport} size={72} />
               </div>
 
-              {/* Info below headshot */}
-              <div className="flex w-full flex-col items-center gap-0.5 px-2 pb-2.5 pt-1">
-                <span className="max-w-full truncate text-center text-[11px] font-semibold leading-tight">
-                  {player.player_name.split(" ").slice(-1)[0]}
+              {/* Name */}
+              <p className="mb-1 max-w-full truncate text-center text-xs font-bold leading-tight">
+                {player.player_name}
+              </p>
+
+              {/* Hit rate — prominent */}
+              <p className="text-xl font-black tabular-nums leading-none" style={{ color }}>
+                {pct}%
+              </p>
+
+              {/* Sport + count footer */}
+              <div className="mt-1.5 flex items-center gap-1">
+                <SportBadge sport={player.sport} />
+                <span className="text-[9px] tabular-nums text-muted-foreground">
+                  {player.hits}/{player.total}
                 </span>
-                <span className="text-lg font-black tabular-nums leading-tight" style={{ color }}>
-                  {pct}%
-                </span>
-                <div className="flex items-center gap-1">
-                  <SportBadge sport={player.sport} />
-                  <span className="text-[9px] tabular-nums text-muted-foreground">
-                    {player.hits}/{player.total}
-                  </span>
-                </div>
               </div>
             </div>
           );
