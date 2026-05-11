@@ -15,25 +15,28 @@ export default function SportFilter({
   const modeParam = currentMode && currentMode !== "all" ? `&mode=${currentMode}` : "";
 
   return (
-    <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
-      <TabPill
-        href={`/analytics?sport=all${modeParam}`}
-        active={activeSport === "all"}
-      >
-        All Sports
-      </TabPill>
-      {UI_SPORTS.map((key) => {
-        const sport = SPORT_CONFIG[key];
-        return (
-          <TabPill
-            key={key}
-            href={`/analytics?sport=${key}${modeParam}`}
-            active={activeSport === key}
-          >
-            {sport.shortLabel}
-          </TabPill>
-        );
-      })}
+    <div className="relative">
+      <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-6 bg-gradient-to-l from-background to-transparent" />
+      <div className="flex items-center gap-1 overflow-x-auto pr-6 scrollbar-none">
+        <TabPill
+          href={`/analytics?sport=all${modeParam}`}
+          active={activeSport === "all"}
+        >
+          All Sports
+        </TabPill>
+        {UI_SPORTS.map((key) => {
+          const sport = SPORT_CONFIG[key];
+          return (
+            <TabPill
+              key={key}
+              href={`/analytics?sport=${key}${modeParam}`}
+              active={activeSport === key}
+            >
+              {sport.shortLabel}
+            </TabPill>
+          );
+        })}
+      </div>
     </div>
   );
 }

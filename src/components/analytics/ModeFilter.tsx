@@ -18,22 +18,25 @@ export default function ModeFilter({
   const sportParam = currentSport && currentSport !== "all" ? `&sport=${currentSport}` : "";
 
   return (
-    <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
-      <TabLink href={`/analytics?mode=all${sportParam}`} active={activeMode === "all"}>
-        All
-      </TabLink>
-      {availableModes.map((mode) => {
-        const def = GAME_MODES[mode];
-        return (
-          <TabLink
-            key={mode}
-            href={`/analytics?mode=${mode}${sportParam}`}
-            active={activeMode === mode}
-          >
-            {def.displayName}
-          </TabLink>
-        );
-      })}
+    <div className="relative">
+      <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-6 bg-gradient-to-l from-background to-transparent" />
+      <div className="flex items-center gap-0.5 overflow-x-auto pr-6 scrollbar-none">
+        <TabLink href={`/analytics?mode=all${sportParam}`} active={activeMode === "all"}>
+          All
+        </TabLink>
+        {availableModes.map((mode) => {
+          const def = GAME_MODES[mode];
+          return (
+            <TabLink
+              key={mode}
+              href={`/analytics?mode=${mode}${sportParam}`}
+              active={activeMode === mode}
+            >
+              {def.displayName}
+            </TabLink>
+          );
+        })}
+      </div>
     </div>
   );
 }
