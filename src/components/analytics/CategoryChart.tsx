@@ -34,10 +34,14 @@ function groupBySport(data: CategoryStats[]): { sport: string; label: string; it
 
 export default function CategoryChart({ data }: CategoryChartProps) {
   const groups = groupBySport(data);
-  const [activeSport, setActiveSport] = useState(groups[0]?.sport ?? "");
+  const [selectedSport, setSelectedSport] = useState("");
 
   if (data.length === 0) return null;
 
+  // If the selected sport doesn't exist in current data, fall back to first group
+  const activeSport = groups.some((g) => g.sport === selectedSport)
+    ? selectedSport
+    : groups[0]?.sport ?? "";
   const activeItems = groups.find((g) => g.sport === activeSport)?.items ?? [];
 
   return (
@@ -51,7 +55,7 @@ export default function CategoryChart({ data }: CategoryChartProps) {
             <button
               key={sport}
               type="button"
-              onClick={() => setActiveSport(sport)}
+              onClick={() => setSelectedSport(sport)}
               className={cn(
                 "rounded-md px-2.5 py-1 text-[10px] font-bold transition-colors",
                 activeSport === sport

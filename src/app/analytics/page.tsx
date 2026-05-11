@@ -29,7 +29,7 @@ import { Button } from "@/components/ui/button";
 import { isValidGameMode } from "@/lib/modes/definitions";
 import { isValidSport } from "@/lib/sports";
 import type { GameMode } from "@/lib/supabase/types";
-import { SlideUp, FadeIn, StaggerChildren, StaggerItem, ScrollReveal } from "@/components/motion";
+import { StaggerChildren, StaggerItem, ScrollReveal } from "@/components/motion";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 import { BarChart3 } from "lucide-react";
 import { MarkPageSeen } from "@/components/layout/MarkPageSeen";
@@ -127,38 +127,28 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
   if (isEmpty) {
     return (
-      <div className="flex flex-col gap-6 py-8">
+      <div className="flex min-w-0 flex-col gap-4 overflow-x-hidden pb-8">
         <MarkPageSeen type="analytics" />
-        <SlideUp>
-          <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-          <p className="text-sm text-muted-foreground">
-            Your prop pick performance breakdown
-          </p>
-        </SlideUp>
-        <FadeIn delay={0.1}>
+        <div className="flex flex-col gap-2 pt-1">
           <ModeFilter activeMode={mode} availableModes={availableModes} currentSport={sport} />
-        </FadeIn>
-        <FadeIn delay={0.15}>
           <SportFilter activeSport={sport} currentMode={mode} />
-        </FadeIn>
-        <FadeIn delay={0.2}>
-          <AnimatedEmptyState
-            icon={<BarChart3 className="h-8 w-8" />}
-            title={`No data${hasFilters ? " for this filter combo" : ""}`}
-            description={
-              !hasFilters
-                ? "Play some games to see your analytics! Once your cards are resolved, your hit rates and trends will appear here."
-                : "No resolved cards for these filters yet. Try a different combination or play more games!"
-            }
-            action={
-              <Link href="/props">
-                <Button variant="default" size="sm">
-                  Browse Props
-                </Button>
-              </Link>
-            }
-          />
-        </FadeIn>
+        </div>
+        <AnimatedEmptyState
+          icon={<BarChart3 className="h-8 w-8" />}
+          title={`No data${hasFilters ? " for this filter combo" : ""}`}
+          description={
+            !hasFilters
+              ? "Play some games to see your analytics! Once your cards are resolved, your hit rates and trends will appear here."
+              : "No resolved cards for these filters yet. Try a different combination or play more games!"
+          }
+          action={
+            <Link href="/props">
+              <Button variant="default" size="sm">
+                Browse Props
+              </Button>
+            </Link>
+          }
+        />
       </div>
     );
   }
