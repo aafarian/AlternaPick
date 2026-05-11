@@ -77,7 +77,7 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
       <h2 className={CHART_TITLE_CLASS}>Top Players</h2>
 
       {/* Podium — top 3 */}
-      <div className="mb-4 flex gap-2.5 overflow-x-auto pb-1 scrollbar-none sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0">
+      <div className="mb-4 grid grid-cols-3 gap-1.5 sm:gap-2.5">
         {top3.map((player, i) => {
           const pct = Math.round(player.rate * 100);
           const color = rateColor(pct);
@@ -90,10 +90,10 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
           return (
             <div
               key={player.player_name}
-              className="relative flex w-28 shrink-0 flex-col items-center rounded-2xl border border-white/[0.06] bg-white/[0.02] px-2 pb-3 pt-2.5 sm:w-auto sm:px-3 sm:pb-4 sm:pt-3"
+              className="relative flex min-w-0 flex-col items-center rounded-2xl border border-white/[0.06] bg-white/[0.02] px-1.5 pb-2.5 pt-2 sm:px-3 sm:pb-4 sm:pt-3"
             >
               {/* Rank — top left, clean number */}
-              <span className={`absolute left-3 top-3 text-sm font-black ${medalColors[i]}`}>
+              <span className={`absolute left-1.5 top-1.5 text-xs font-black sm:left-3 sm:top-3 sm:text-sm ${medalColors[i]}`}>
                 {i + 1}
               </span>
 
@@ -122,9 +122,9 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
               </p>
 
               {/* Sport + count footer */}
-              <div className="mt-1.5 flex items-center gap-1">
-                <SportBadge sport={player.sport} />
-                <span className="text-[9px] tabular-nums text-muted-foreground">
+              <div className="mt-1 flex items-center gap-1 sm:mt-1.5">
+                <span className="hidden sm:inline"><SportBadge sport={player.sport} /></span>
+                <span className="text-[8px] tabular-nums text-muted-foreground sm:text-[9px]">
                   {player.hits}/{player.total}
                 </span>
               </div>

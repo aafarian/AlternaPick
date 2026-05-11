@@ -54,7 +54,7 @@ export default function TeamHitRate({ data }: TeamHitRateProps) {
                   {pct}%
                 </span>
               </div>
-              <span className="w-10 shrink-0 text-right text-[9px] tabular-nums text-muted-foreground">
+              <span className="hidden w-10 shrink-0 text-right text-[9px] tabular-nums text-muted-foreground sm:block">
                 {team.hits}/{team.total}
               </span>
             </div>

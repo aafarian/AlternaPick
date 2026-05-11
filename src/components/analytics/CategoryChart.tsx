@@ -70,7 +70,7 @@ export default function CategoryChart({ data }: CategoryChartProps) {
 
           return (
             <div key={item.category} className="flex items-center gap-2">
-              <span className="w-20 shrink-0 truncate text-right text-[11px] font-medium text-muted-foreground">
+              <span className="w-16 shrink-0 truncate text-right text-[10px] font-medium text-muted-foreground sm:w-20 sm:text-[11px]">
                 {label}
               </span>
 
@@ -92,7 +92,7 @@ export default function CategoryChart({ data }: CategoryChartProps) {
                 </span>
               </div>
 
-              <span className="w-12 shrink-0 text-right text-[9px] tabular-nums text-muted-foreground">
+              <span className="hidden w-12 shrink-0 text-right text-[9px] tabular-nums text-muted-foreground sm:block">
                 {item.hits}/{item.total}
               </span>
             </div>

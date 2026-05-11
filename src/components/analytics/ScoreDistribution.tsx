@@ -81,7 +81,7 @@ export default function ScoreDistribution({ data }: ScoreDistributionProps) {
       </div>
 
       {/* Size tabs */}
-      <div className="mb-3 flex gap-1">
+      <div className="mb-3 flex flex-wrap gap-1">
         {sortedSizes.map((size) => (
           <button
             key={size}
