@@ -149,9 +149,9 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
                   {i + 4}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-xs">{player.player_name}</span>
-                <SportBadge sport={player.sport} />
-                <span className="text-xs font-bold tabular-nums" style={{ color }}>{pct}%</span>
-                <span className="text-[10px] tabular-nums text-muted-foreground">{player.hits}/{player.total}</span>
+                <span className="hidden sm:inline"><SportBadge sport={player.sport} /></span>
+                <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color }}>{pct}%</span>
+                <span className="hidden shrink-0 text-[10px] tabular-nums text-muted-foreground sm:inline">{player.hits}/{player.total}</span>
               </div>
             );
           })}

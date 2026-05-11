@@ -59,7 +59,7 @@ export function getCategorySport(cat: string): string | null {
 }
 
 /** Shared wrapper class for analytics chart sections — gradient bg, subtle shadow, no border. */
-export const CHART_SECTION_CLASS = "h-full rounded-2xl bg-gradient-to-b from-white/[0.04] to-card p-5 shadow-[0_1px_3px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)]";
+export const CHART_SECTION_CLASS = "h-full min-w-0 overflow-hidden rounded-2xl bg-gradient-to-b from-white/[0.04] to-card p-5 shadow-[0_1px_3px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)]";
 
 /** Shared title class for chart section headings. */
 export const CHART_TITLE_CLASS = "mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground";
