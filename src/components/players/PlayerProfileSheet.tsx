@@ -23,7 +23,7 @@ import {
   CATEGORY_COLORS,
   shortenTeamName,
 } from "@/lib/constants";
-import { SPORT_LABELS, getPlayerHeadshotUrl, isValidSport } from "@/lib/sports";
+import { SPORT_LABELS, GAMELOG_SPORTS, getPlayerHeadshotUrl, isValidSport } from "@/lib/sports";
 import type { StatCategory } from "@/lib/supabase/types";
 import type { GameLogEntry, SeasonAverages } from "@/lib/stats-service/client";
 import { getCompositeValue, getGamelogFieldsForCategory } from "@/lib/players/stat-mapping";
@@ -52,6 +52,7 @@ const COLUMNS = [
   { key: "AST", label: "AST", width: "w-10", field: "assists" as const },
   { key: "3PM", label: "3PM", width: "w-10", field: "threes_made" as const },
 ] as const;
+
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return "-";
@@ -335,7 +336,11 @@ export default function PlayerProfileSheet() {
 
       {/* Game log */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
-        {loading ? (
+        {target && !GAMELOG_SPORTS.has(target.sport ?? "nba") ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Game log coming soon for {isValidSport(target.sport ?? "") ? SPORT_LABELS[target.sport as keyof typeof SPORT_LABELS] : target.sport?.toUpperCase()}
+          </p>
+        ) : loading ? (
           <div className="flex flex-col gap-2">
             <Skeleton className="h-[160px] rounded-xl" />
             {Array.from({ length: 5 }).map((_, i) => (

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { StatCategory } from "@/lib/supabase/types";
-import { CATEGORY_LABELS, CATEGORY_TEXT_COLORS, teamLogoUrl } from "@/lib/constants";
+import { CATEGORY_LABELS, CATEGORY_TEXT_COLORS, CATEGORY_GLOW_COLORS, teamLogoUrl } from "@/lib/constants";
 import { useCardBuilder } from "@/lib/cards/card-builder-context";
 import { usePlayerProfile } from "@/lib/players/player-profile-context";
 import { getModeConfig } from "@/lib/modes/definitions";
@@ -137,15 +137,25 @@ export default function PropLine({
   // the opponent's logo for away-team players whose enrichment is missing.
   const bgLogoUrl = playerTeam ? teamLogoUrl(playerTeam) : null;
 
+  const glowColor = CATEGORY_GLOW_COLORS[statCategory];
+
   return (
     <div
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all",
+        "group relative flex flex-col overflow-hidden rounded-2xl transition-all duration-200",
+        "bg-gradient-to-b from-white/[0.04] to-card",
+        "shadow-[0_1px_3px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)]",
         selected
-          ? "border-primary/40 shadow-[0_0_24px_rgba(0,210,106,0.15)]"
-          : "hover:border-border/80"
+          ? "ring-1 ring-primary/50 shadow-[0_0_20px_rgba(0,210,106,0.2),inset_0_1px_0_rgba(0,210,106,0.15)]"
+          : "hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.08)]"
       )}
     >
+      {/* Category glow — faint gradient at the top edge */}
+      <div className={cn(
+        "pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b to-transparent opacity-60",
+        glowColor,
+      )} />
+
       {/* Notch tier badge — top-left overlay, only when shifted */}
       {notch !== 0 && (
         <div className="absolute left-2 top-2 z-20">
@@ -243,7 +253,9 @@ export default function PropLine({
       </div>
 
       {/* Over / Under buttons */}
-      <div className="mt-auto grid grid-cols-2 gap-px border-t border-border">
+      <div className="relative mt-auto grid grid-cols-2">
+        {/* Divider line */}
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         <button
           onClick={() => handleClick("over")}
           disabled={disabledUnselected}
@@ -253,7 +265,7 @@ export default function PropLine({
               ? "bg-neon-green/15 text-neon-green"
               : disabledUnselected
                 ? "cursor-not-allowed text-muted-foreground/30"
-                : "text-muted-foreground hover:bg-neon-green/5 hover:text-neon-green"
+                : "text-muted-foreground/60 hover:bg-neon-green/5 hover:text-neon-green"
           )}
         >
           Over
@@ -262,12 +274,13 @@ export default function PropLine({
           onClick={() => handleClick("under")}
           disabled={underDisabled}
           className={cn(
-            "cursor-pointer border-l border-border py-3 text-xs font-bold uppercase tracking-wider transition-all",
+            "relative cursor-pointer py-3 text-xs font-bold uppercase tracking-wider transition-all",
+            "before:absolute before:left-0 before:top-2 before:bottom-2 before:w-px before:bg-white/10",
             selected && selection === "under"
               ? "bg-bold-red/15 text-bold-red"
               : underDisabled
                 ? "cursor-not-allowed text-muted-foreground/30"
-                : "text-muted-foreground hover:bg-bold-red/5 hover:text-bold-red"
+                : "text-muted-foreground/60 hover:bg-bold-red/5 hover:text-bold-red"
           )}
         >
           Under
