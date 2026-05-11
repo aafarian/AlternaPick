@@ -90,13 +90,13 @@ export default function CategoryFilter({ sport = "nba" }: { sport?: string }) {
 
         <TabsList
           ref={scrollRef}
-          className="h-auto max-w-full justify-start gap-1.5 overflow-x-auto overflow-y-hidden bg-transparent p-0 scrollbar-none"
+          className="h-auto max-w-full justify-start gap-1 overflow-x-auto overflow-y-hidden bg-transparent p-0 scrollbar-none"
         >
           {categories.map(({ value, label }) => (
             <TabsTrigger
               key={value}
               value={value}
-              className="flex-none cursor-pointer rounded-full border border-border bg-secondary px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-all data-[state=active]:border-primary data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-[0_0_10px_rgba(0,210,106,0.15)]"
+              className="flex-none cursor-pointer rounded-md px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-all hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
             >
               {label}
             </TabsTrigger>

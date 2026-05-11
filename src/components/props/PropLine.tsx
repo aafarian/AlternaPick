@@ -140,10 +140,10 @@ export default function PropLine({
   return (
     <div
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all",
+        "group relative flex flex-col overflow-hidden rounded-2xl bg-card shadow-[0_1px_3px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.04)] transition-all",
         selected
-          ? "border-primary/40 shadow-[0_0_24px_rgba(0,210,106,0.15)]"
-          : "hover:border-border/80"
+          ? "ring-1 ring-primary/50 shadow-[0_0_24px_rgba(0,210,106,0.15)]"
+          : "hover:shadow-[0_2px_8px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.06)]"
       )}
     >
       {/* Notch tier badge — top-left overlay, only when shifted */}
@@ -243,7 +243,7 @@ export default function PropLine({
       </div>
 
       {/* Over / Under buttons */}
-      <div className="mt-auto grid grid-cols-2 gap-px border-t border-border">
+      <div className="mt-auto grid grid-cols-2 gap-px border-t border-white/5">
         <button
           onClick={() => handleClick("over")}
           disabled={disabledUnselected}
@@ -262,7 +262,7 @@ export default function PropLine({
           onClick={() => handleClick("under")}
           disabled={underDisabled}
           className={cn(
-            "cursor-pointer border-l border-border py-3 text-xs font-bold uppercase tracking-wider transition-all",
+            "cursor-pointer border-l border-white/5 py-3 text-xs font-bold uppercase tracking-wider transition-all",
             selected && selection === "under"
               ? "bg-bold-red/15 text-bold-red"
               : underDisabled
