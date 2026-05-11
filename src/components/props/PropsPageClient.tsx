@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Search, X } from "lucide-react";
 import PropsGameList from "./PropsGameList";
+import GameSelector from "./GameSelector";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 
 type GameWithProps = Game & { props: Prop[] };
@@ -82,6 +83,12 @@ export default function PropsPageClient({
 
   const categories = SPORT_CONFIG[sport].categories;
   const emptyEmoji = SPORT_CONFIG[sport].icon;
+  const [activeChipId, setActiveChipId] = useState<string | null>(null);
+
+  // Reset chip when filters change
+  useEffect(() => {
+    setActiveChipId(null);
+  }, [sport, category, debouncedQuery]);
 
   const filteredGames = useMemo(() => {
     const isAll = category === "all";
@@ -189,6 +196,20 @@ export default function PropsPageClient({
             );
           })}
         </div>
+
+        {/* Game selector chips — inside sticky header, outside AnimatePresence */}
+        {filteredGames.length > 0 && (
+          <GameSelector
+            games={filteredGames.map((g) => ({
+              id: g.id,
+              away_team: g.away_team,
+              home_team: g.home_team,
+              commence_time: g.commence_time,
+            }))}
+            activeId={activeChipId}
+            onSelect={setActiveChipId}
+          />
+        )}
       </div>
 
       {/* Game list with animated transition */}
@@ -211,7 +232,10 @@ export default function PropsPageClient({
               }
             />
           ) : (
-            <PropsGameList games={filteredGames} />
+            <PropsGameList
+              games={filteredGames}
+              externalChip={{ activeId: activeChipId, onSelect: setActiveChipId }}
+            />
           )}
         </motion.div>
       </AnimatePresence>
