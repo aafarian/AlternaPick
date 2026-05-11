@@ -120,6 +120,7 @@ const authenticatedItems: NavItem[] = [
   { href: "/analytics", label: "Analytics", icon: TrendingUp, notifyKey: "analytics" },
   { href: "/recap", label: "Wrapped", icon: Newspaper, notifyKey: "wrapped" },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  { href: "/friends", label: "Friends", icon: UserPlus, notifyKey: "friends" },
 ];
 
 /** Flat list of all authenticated links (used for mobile drawer) */
@@ -141,7 +142,7 @@ export interface NotificationCounts {
 }
 
 /** Paths that are handled by the mobile BottomTabBar */
-const bottomTabPaths = new Set(["/props", "/picks", "/challenges", "/leaderboard", "/profile"]);
+const bottomTabPaths = new Set(["/props", "/picks", "/challenges", "/leaderboard", "/friends"]);
 
 export default function Nav({
   onNavigate,
@@ -165,9 +166,8 @@ export default function Nav({
     : baseLinks;
   const desktopItems = user ? authenticatedItems : publicLinks;
   const isAdminActive = activePath.startsWith("/admin");
-  const isSocialActive =
-    activePath === "/profile" || activePath === "/settings" || activePath === "/friends" || isAdminActive;
-  const socialNotifyCount = notificationCounts?.friends ?? 0;
+  const isAccountActive =
+    activePath === "/profile" || activePath === "/settings" || isAdminActive;
 
   function getNotifyCount(link: NavLink): number {
     if (!link.notifyKey || !notificationCounts) return 0;
@@ -292,22 +292,17 @@ export default function Nav({
       {user ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`group w-full justify-start gap-2 md:w-auto focus-visible:ring-0 focus-visible:border-transparent ${
-                mobileSecondaryOnly ? "h-10 text-sm" : ""
-              } ${
-                isSocialActive
-                  ? activeTriggerStyle
+            <button
+              type="button"
+              className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                isAccountActive
+                  ? "bg-primary/15 text-primary"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
+              aria-label="Account menu"
             >
-              <User className="h-4 w-4 md:hidden" />
-              Social
-              {!isSocialActive && <NavNotifyBadge count={socialNotifyCount} />}
-              <ChevronDown className={`h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180 ${isSocialActive ? "text-primary" : "text-muted-foreground"}`} />
-            </Button>
+              <User className="h-4 w-4" />
+            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem asChild>
@@ -318,21 +313,6 @@ export default function Nav({
               >
                 <User className="h-4 w-4" />
                 My Profile
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link
-                href="/friends"
-                onClick={() => { setPendingPath("/friends"); onNavigate?.(); }}
-                className={`gap-2 ${activePath === "/friends" ? activeChildStyle : ""}`}
-              >
-                <UserPlus className="h-4 w-4" />
-                Friends
-                {socialNotifyCount > 0 && (
-                  <span className="ml-auto flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-0.5 text-[8px] font-bold text-white">
-                    {socialNotifyCount > 9 ? "9+" : socialNotifyCount}
-                  </span>
-                )}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
@@ -362,7 +342,6 @@ export default function Nav({
               onSelect={async (e) => {
                 e.preventDefault();
                 onNavigate?.();
-                // Sign out client-side so onAuthStateChange fires immediately
                 const { createClient } = await import("@/lib/supabase/client");
                 const { clearAnonymousId } = await import("@/lib/session/anonymous");
                 const supabase = createClient();
