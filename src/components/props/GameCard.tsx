@@ -72,13 +72,10 @@ export default function GameCard({
   const homeCode = teamTricode(game.home_team);
 
   return (
-    <Card id={`game-${game.id}`} className="scroll-mt-40 border-0 bg-transparent shadow-none">
+    <Card id={`game-${game.id}`} className="scroll-mt-40 border-0 border-l-2 border-l-white/[0.06] bg-transparent shadow-none">
       <CardHeader
         onClick={onToggle}
-        className={cn(
-          "flex-row items-center justify-between space-y-0 rounded-lg px-4 py-3 transition-colors hover:bg-white/[0.03]",
-          expanded && "rounded-b-none"
-        )}
+        className="flex-row items-center justify-between space-y-0 px-4 py-3 transition-colors hover:bg-white/[0.03]"
       >
         <div className="flex items-center gap-2.5">
           <ChevronDown
