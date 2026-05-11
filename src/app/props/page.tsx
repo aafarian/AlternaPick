@@ -15,11 +15,11 @@ export const metadata = buildPageMetadata({
 });
 
 interface PropsPageProps {
-  searchParams: Promise<{ sport?: string }>;
+  searchParams: Promise<{ sport?: string; category?: string; player?: string }>;
 }
 
 export default async function PropsPage({ searchParams }: PropsPageProps) {
-  const { sport: rawSport } = await searchParams;
+  const { sport: rawSport, category, player } = await searchParams;
 
   let allGames: Awaited<ReturnType<typeof getCachedProps>> = null;
   try {
@@ -68,6 +68,8 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
       <PropsPageClient
         allGames={clientGames}
         initialSport={initialSport}
+        initialCategory={category}
+        initialPlayer={player}
         propCounts={propCounts}
       />
     </>

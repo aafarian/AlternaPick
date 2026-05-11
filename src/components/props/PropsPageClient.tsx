@@ -16,38 +16,63 @@ type GameWithProps = Game & { props: Prop[] };
 interface PropsPageClientProps {
   allGames: GameWithProps[];
   initialSport: SportKey;
+  initialCategory?: string;
+  initialPlayer?: string;
   propCounts: Record<string, number>;
 }
 
 export default function PropsPageClient({
   allGames,
   initialSport,
+  initialCategory,
+  initialPlayer,
   propCounts,
 }: PropsPageClientProps) {
   const [sport, setSport] = useState<SportKey>(initialSport);
-  const [category, setCategory] = useState<StatCategory | "all">("all");
-  const [playerQuery, setPlayerQuery] = useState("");
+  const [category, setCategory] = useState<StatCategory | "all">((initialCategory ?? "all") as StatCategory | "all");
+  const [playerQuery, setPlayerQuery] = useState(initialPlayer ?? "");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState(initialPlayer?.trim().toLowerCase() ?? "");
+
+  // Sync filters to URL without triggering navigation
+  const syncUrl = useCallback((s: SportKey, cat: StatCategory | "all", player: string) => {
+    const params = new URLSearchParams();
+    params.set("sport", s);
+    if (cat !== "all") params.set("category", cat);
+    if (player) params.set("player", player);
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `/props?${qs}` : "/props");
+  }, []);
 
   // Reset category when switching sports
   const handleSportChange = useCallback((s: SportKey) => {
     setSport(s);
     setCategory("all");
-  }, []);
+    syncUrl(s, "all", debouncedQuery);
+  }, [syncUrl, debouncedQuery]);
+
+  const handleCategoryChange = useCallback((cat: StatCategory | "all") => {
+    setCategory(cat);
+    syncUrl(sport, cat, debouncedQuery);
+  }, [syncUrl, sport, debouncedQuery]);
 
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const next = e.target.value;
     setPlayerQuery(next);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setDebouncedQuery(next.trim().toLowerCase()), 200);
-  }, []);
+    debounceRef.current = setTimeout(() => {
+      const trimmed = next.trim().toLowerCase();
+      setDebouncedQuery(trimmed);
+      syncUrl(sport, category, trimmed);
+    }, 200);
+  }, [syncUrl, sport, category]);
 
   const handleClearSearch = useCallback(() => {
     setPlayerQuery("");
     setDebouncedQuery("");
     if (debounceRef.current) clearTimeout(debounceRef.current);
-  }, []);
+    syncUrl(sport, category, "");
+  }, [syncUrl, sport, category]);
 
   useEffect(() => {
     return () => {
@@ -144,7 +169,7 @@ export default function PropsPageClient({
               <button
                 key={value}
                 type="button"
-                onClick={() => setCategory(value)}
+                onClick={() => handleCategoryChange(value)}
                 className={cn(
                   "relative shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
                   isActive
