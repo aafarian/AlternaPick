@@ -8,7 +8,6 @@ import { teamMatchesQuery } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Search, X } from "lucide-react";
-import PropsHeader from "./PropsHeader";
 import PropsGameList from "./PropsGameList";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 
@@ -83,10 +82,9 @@ export default function PropsPageClient({
   }, [allGames, sport, category, debouncedQuery]);
 
   return (
-    <div className="flex flex-col gap-4 pt-4 pb-8">
-      <PropsHeader gameCount={filteredGames.length} />
+    <div className="flex flex-col gap-4 pb-8">
 
-      <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-2 overflow-x-hidden border-b border-white/5 bg-background/95 px-4 pb-2 pt-1.5 backdrop-blur-md">
+      <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-2 overflow-x-hidden border-b border-white/5 bg-background/95 px-4 pb-2 pt-2 backdrop-blur-md">
         {/* Sport tabs */}
         <div className="flex items-center gap-0.5">
           {UI_SPORTS.map((key) => {
