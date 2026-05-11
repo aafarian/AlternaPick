@@ -44,9 +44,15 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
     initialSport = SPORT_PRIORITY.find((s) => (propCounts[s] ?? 0) > 0) ?? "nba";
   }
 
+  // Pre-filter server-side to reduce RSC payload: drop games past lock buffer
+  // and games with 0 props. Client only needs to filter by sport/category/player.
+  const clientGames = (allGames ?? [])
+    .filter((g) => new Date(g.commence_time).getTime() - now > LOCK_BUFFER_MS)
+    .filter((g) => g.props.length > 0);
+
   return (
     <PropsPageClient
-      allGames={(allGames ?? []) as Parameters<typeof PropsPageClient>[0]["allGames"]}
+      allGames={clientGames as Parameters<typeof PropsPageClient>[0]["allGames"]}
       initialSport={initialSport}
       propCounts={propCounts}
     />

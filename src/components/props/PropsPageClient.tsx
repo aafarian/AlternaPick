@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "motion/react";
 import type { Game, Prop, StatCategory } from "@/lib/supabase/types";
 import { type SportKey, UI_SPORTS, SPORT_CONFIG } from "@/lib/sports";
 import { teamMatchesQuery } from "@/lib/constants";
-import { LOCK_BUFFER_MS } from "@/lib/challenges/constants";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Search, X } from "lucide-react";
@@ -61,16 +60,14 @@ export default function PropsPageClient({
 
   const categories = SPORT_CONFIG[sport].categories;
   const emptyEmoji = SPORT_CONFIG[sport].icon;
-  const now = Date.now();
 
   const filteredGames = useMemo(() => {
     const isAll = category === "all";
     return allGames
       .filter((g) => g.sport === sport)
-      .filter((g) => new Date(g.commence_time).getTime() - now > LOCK_BUFFER_MS)
       .map((game) => ({
         ...game,
-        props: game.props
+        props: (game.props ?? [])
           .filter((p) => isAll || p.stat_category === (category as StatCategory))
           .filter(
             (p) =>
@@ -83,7 +80,7 @@ export default function PropsPageClient({
           .sort((a, b) => a.player_name.localeCompare(b.player_name)),
       }))
       .filter((g) => g.props.length > 0);
-  }, [allGames, sport, category, debouncedQuery, now]);
+  }, [allGames, sport, category, debouncedQuery]);
 
   return (
     <div className="flex flex-col gap-6 py-8">
