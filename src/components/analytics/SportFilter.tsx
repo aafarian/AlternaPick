@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "motion/react";
 import { UI_SPORTS, SPORT_CONFIG } from "@/lib/sports";
 import type { SportKey } from "@/lib/sports";
 
@@ -49,13 +50,20 @@ function TabPill({
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+      className={`relative shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
         active
-          ? "bg-primary text-primary-foreground shadow-sm"
+          ? "text-primary-foreground"
           : "text-muted-foreground hover:text-foreground"
       }`}
     >
-      {children}
+      {active && (
+        <motion.span
+          layoutId="analytics-sport-indicator"
+          className="absolute inset-0 rounded-md bg-primary shadow-sm"
+          transition={{ type: "spring", stiffness: 500, damping: 35 }}
+        />
+      )}
+      <span className="relative z-[1]">{children}</span>
     </button>
   );
 }

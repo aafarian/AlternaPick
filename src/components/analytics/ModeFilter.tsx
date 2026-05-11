@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "motion/react";
 import { GAME_MODES } from "@/lib/modes/definitions";
 import type { GameMode } from "@/lib/supabase/types";
 
@@ -59,7 +60,11 @@ function TabButton({
     >
       {children}
       {active && (
-        <span className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />
+        <motion.span
+          layoutId="analytics-mode-indicator"
+          className="absolute inset-x-0 bottom-0 h-0.5 bg-primary"
+          transition={{ type: "spring", stiffness: 500, damping: 35 }}
+        />
       )}
     </button>
   );
