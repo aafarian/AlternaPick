@@ -11,7 +11,7 @@ export default function PropsHeader({ gameCount }: PropsHeaderProps) {
 
   return (
     <div className="flex items-baseline justify-between">
-      <h1 className="text-2xl font-black tracking-tight">
+      <h1 className="text-xl font-medium uppercase tracking-widest text-muted-foreground">
         Player Props
       </h1>
       <p className="text-xs text-muted-foreground">
