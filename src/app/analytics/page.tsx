@@ -169,15 +169,9 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       <MarkPageSeen type="analytics" />
 
       {/* Filters */}
-      <div className="flex flex-col divide-y divide-white/5 rounded-2xl bg-white/[0.02] px-4 py-2">
-        <div className="flex items-center gap-3 pb-2">
-          <span className="hidden text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 sm:block">Mode</span>
-          <ModeFilter activeMode={mode} availableModes={availableModes} currentSport={sport} />
-        </div>
-        <div className="flex items-center gap-3 pt-2">
-          <span className="hidden text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 sm:block">Sport</span>
-          <SportFilter activeSport={sport} currentMode={mode} />
-        </div>
+      <div className="flex flex-col gap-2 pt-1">
+        <ModeFilter activeMode={mode} availableModes={availableModes} currentSport={sport} />
+        <SportFilter activeSport={sport} currentMode={mode} />
       </div>
 
       {/* Overview Stats */}
