@@ -79,11 +79,11 @@ export interface CoinTrendPoint {
   payout: number;
 }
 
-/** Win-rate stats grouped by game mode */
+/** Hit-rate stats grouped by game mode */
 export interface GameModeStats {
   mode: GameMode;
   cards: number;
-  wins: number;
-  winRate: number;
-  avgScore: number;
+  hits: number;
+  total: number;
+  hitRate: number;
 }

@@ -514,8 +514,7 @@ export async function getScoreDistribution(
 }
 
 /**
- * Get win-rate stats grouped by game mode.
- * A "win" is defined as score/total_picks >= 0.66.
+ * Get average hit-rate stats grouped by game mode.
  */
 export async function getGameModeStats(
   supabase: SupabaseClient<Database>,
@@ -526,41 +525,32 @@ export async function getGameModeStats(
 
   const map = new Map<
     GameMode,
-    { cards: number; wins: number; totalScore: number }
+    { cards: number; hits: number; total: number }
   >();
 
   for (const card of cards) {
     const entry = map.get(card.game_mode) ?? {
       cards: 0,
-      wins: 0,
-      totalScore: 0,
+      hits: 0,
+      total: 0,
     };
     entry.cards += 1;
-    entry.totalScore += card.score;
-    if (card.total_picks > 0 && card.score / card.total_picks >= 0.66) {
-      entry.wins += 1;
-    }
+    entry.hits += card.score;
+    entry.total += card.total_picks;
     map.set(card.game_mode, entry);
   }
 
   const results: GameModeStats[] = [];
-  for (const [mode, { cards: cardCount, wins, totalScore }] of map) {
+  for (const [mode, { cards: cardCount, hits, total }] of map) {
     results.push({
       mode,
       cards: cardCount,
-      wins,
-      winRate:
-        cardCount > 0
-          ? Math.round((wins / cardCount) * 1000) / 1000
-          : 0,
-      avgScore:
-        cardCount > 0
-          ? Math.round((totalScore / cardCount) * 100) / 100
-          : 0,
+      hits,
+      total,
+      hitRate: total > 0 ? Math.round((hits / total) * 1000) / 1000 : 0,
     });
   }
 
-  // Sort by total cards descending
   results.sort((a, b) => b.cards - a.cards);
   return results;
 }
