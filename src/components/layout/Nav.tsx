@@ -68,20 +68,22 @@ function NavBadge({
   );
 }
 
-function NavDot({ visible }: { visible: boolean }) {
+function NavNotifyBadge({ count }: { count: number }) {
   const prefersReducedMotion = useReducedMotion();
 
   return (
     <AnimatePresence>
-      {visible && (
+      {count > 0 && (
         <motion.span
           initial={prefersReducedMotion ? false : { scale: 0, opacity: 0 }}
           animate={prefersReducedMotion ? {} : { scale: 1, opacity: 1 }}
           exit={prefersReducedMotion ? {} : { scale: 0, opacity: 0 }}
           transition={{ type: "spring", stiffness: 500, damping: 25 }}
-          className="ml-1 inline-flex"
+          className="-ml-0.5 -mt-3 inline-flex"
         >
-          <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-destructive-foreground animate-pulse">
+            {count > 9 ? "9+" : count}
+          </span>
         </motion.span>
       )}
     </AnimatePresence>
@@ -93,7 +95,8 @@ interface NavLink {
   label: string;
   icon: React.ElementType;
   badgeKey?: "friends" | "challenges";
-  dotKey?: "analytics" | "wrapped";
+  /** Key for superscript notification badge. Shows count for "friends", 1 for analytics/wrapped. */
+  notifyKey?: "analytics" | "wrapped" | "friends";
 }
 
 interface NavDropdownGroup {
@@ -114,8 +117,8 @@ const authenticatedItems: NavItem[] = [
   { href: "/props", label: "Props", icon: LayoutGrid },
   { href: "/picks", label: "My Picks", icon: ClipboardList },
   { href: "/challenges", label: "Challenges", icon: Swords, badgeKey: "challenges" },
-  { href: "/analytics", label: "Analytics", icon: TrendingUp, dotKey: "analytics" },
-  { href: "/recap", label: "Wrapped", icon: Newspaper, dotKey: "wrapped" },
+  { href: "/analytics", label: "Analytics", icon: TrendingUp, notifyKey: "analytics" },
+  { href: "/recap", label: "Wrapped", icon: Newspaper, notifyKey: "wrapped" },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
 ];
 
@@ -161,9 +164,18 @@ export default function Nav({
     ? baseLinks.filter((l) => !bottomTabPaths.has(l.href))
     : baseLinks;
   const desktopItems = user ? authenticatedItems : publicLinks;
-  const isProfileActive =
+  const isSocialActive =
     activePath === "/profile" || activePath === "/settings" || activePath === "/friends";
   const isAdminActive = activePath.startsWith("/admin");
+  const socialNotifyCount = notificationCounts?.friends ?? 0;
+
+  function getNotifyCount(link: NavLink): number {
+    if (!link.notifyKey || !notificationCounts) return 0;
+    if (link.notifyKey === "analytics") return notificationCounts.analyticsUnseen ? 1 : 0;
+    if (link.notifyKey === "wrapped") return notificationCounts.wrappedUnseen ? 1 : 0;
+    if (link.notifyKey === "friends") return notificationCounts.friends;
+    return 0;
+  }
 
   function renderStandaloneLink(link: NavLink, context: "mobile" | "desktop" = "desktop") {
     const isActive = activePath === link.href;
@@ -171,10 +183,7 @@ export default function Nav({
       link.badgeKey && notificationCounts
         ? notificationCounts[link.badgeKey]
         : 0;
-    const showDot = !isActive && !!link.dotKey && !!notificationCounts && (
-      (link.dotKey === "analytics" && notificationCounts.analyticsUnseen) ||
-      (link.dotKey === "wrapped" && notificationCounts.wrappedUnseen)
-    );
+    const notifyCount = !isActive ? getNotifyCount(link) : 0;
     const Icon = link.icon;
 
     return (
@@ -205,7 +214,7 @@ export default function Nav({
             <Icon className="h-4 w-4 md:hidden" />
             {link.label}
             <NavBadge count={badgeCount} animationKey={`badge-${link.badgeKey ?? link.href}`} />
-            <NavDot visible={showDot} />
+            <NavNotifyBadge count={notifyCount} />
           </span>
         </Button>
       </Link>
@@ -321,14 +330,15 @@ export default function Nav({
               className={`group w-full justify-start gap-2 md:w-auto focus-visible:ring-0 focus-visible:border-transparent ${
                 mobileSecondaryOnly ? "h-10 text-sm" : ""
               } ${
-                isProfileActive
+                isSocialActive
                   ? activeTriggerStyle
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
             >
               <User className="h-4 w-4 md:hidden" />
-              Profile
-              <ChevronDown className={`h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180 ${isProfileActive ? "text-primary" : "text-muted-foreground"}`} />
+              Social
+              {!isSocialActive && <NavNotifyBadge count={socialNotifyCount} />}
+              <ChevronDown className={`h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180 ${isSocialActive ? "text-primary" : "text-muted-foreground"}`} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
@@ -350,9 +360,9 @@ export default function Nav({
               >
                 <UserPlus className="h-4 w-4" />
                 Friends
-                {(notificationCounts?.friends ?? 0) > 0 && (
-                  <span className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
-                    {notificationCounts?.friends}
+                {socialNotifyCount > 0 && (
+                  <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-destructive-foreground animate-pulse">
+                    {socialNotifyCount > 9 ? "9+" : socialNotifyCount}
                   </span>
                 )}
               </Link>

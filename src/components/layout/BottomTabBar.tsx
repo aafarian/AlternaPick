@@ -23,7 +23,7 @@ const tabs: Tab[] = [
   { href: "/picks", label: "Picks", icon: LayoutList },
   { href: "/challenges", label: "Challenges", icon: Swords },
   { href: "/leaderboard", label: "Board", icon: Trophy },
-  { href: "/profile", label: "Profile", icon: User },
+  { href: "/profile", label: "Social", icon: User },
 ];
 
 const springTransition = { type: "spring" as const, stiffness: 500, damping: 30 };
