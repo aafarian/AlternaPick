@@ -236,8 +236,9 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </StaggerItem>
       </StaggerChildren>
 
-      {/* Core Charts grid */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* Charts — 3-column grid, cards span 1 or 2 cols */}
+      <div className="grid gap-3 lg:grid-cols-3">
+        {/* Row 1: Top Players (1) + Over/Under (1) + Trend (1) */}
         <ScrollReveal>
           <PlayerHitRate data={players} />
         </ScrollReveal>
@@ -245,37 +246,39 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           <DirectionSplit data={directions} />
         </ScrollReveal>
         <ScrollReveal>
-          <CategoryChart data={categories} />
-        </ScrollReveal>
-      </div>
-
-      {/* Trend + Flame Coins */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ScrollReveal>
           <TrendChart data={trend} />
+        </ScrollReveal>
+
+        {/* Row 2: Categories (2) + Flame Coins (1) */}
+        <ScrollReveal className="lg:col-span-2">
+          <CategoryChart data={categories} />
         </ScrollReveal>
         {coinTrend.length >= 2 ? (
           <ScrollReveal>
             <CoinTrendChart data={coinTrend} />
           </ScrollReveal>
-        ) : <div />}
-      </div>
+        ) : (
+          <ScrollReveal>
+            <CardSizeChart data={cardSizes} />
+          </ScrollReveal>
+        )}
 
-      {/* Advanced Analytics Section */}
-      <div className="mt-2 grid gap-4 lg:grid-cols-2">
-        <ScrollReveal>
-          <CardSizeChart data={cardSizes} />
-        </ScrollReveal>
+        {/* Row 3: remaining advanced charts */}
+        {coinTrend.length >= 2 && (
+          <ScrollReveal>
+            <CardSizeChart data={cardSizes} />
+          </ScrollReveal>
+        )}
         {isAllMode && (
           <ScrollReveal>
             <GameModeStats data={gameModes} />
           </ScrollReveal>
         )}
         <ScrollReveal>
-          <ScoreDistribution data={scoreDistributionData} />
+          <TeamHitRate data={teams} />
         </ScrollReveal>
         <ScrollReveal>
-          <TeamHitRate data={teams} />
+          <ScoreDistribution data={scoreDistributionData} />
         </ScrollReveal>
       </div>
     </div>
