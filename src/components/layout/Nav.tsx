@@ -79,9 +79,9 @@ function NavNotifyBadge({ count }: { count: number }) {
           animate={prefersReducedMotion ? {} : { scale: 1, opacity: 1 }}
           exit={prefersReducedMotion ? {} : { scale: 0, opacity: 0 }}
           transition={{ type: "spring", stiffness: 500, damping: 25 }}
-          className="-ml-0.5 -mt-3 inline-flex"
+          className="-ml-1 -mt-2.5 inline-flex"
         >
-          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-destructive-foreground animate-pulse">
+          <span className="flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-0.5 text-[8px] font-bold text-destructive-foreground">
             {count > 9 ? "9+" : count}
           </span>
         </motion.span>
@@ -361,7 +361,7 @@ export default function Nav({
                 <UserPlus className="h-4 w-4" />
                 Friends
                 {socialNotifyCount > 0 && (
-                  <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-destructive-foreground animate-pulse">
+                  <span className="ml-auto flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-0.5 text-[8px] font-bold text-destructive-foreground">
                     {socialNotifyCount > 9 ? "9+" : socialNotifyCount}
                   </span>
                 )}
