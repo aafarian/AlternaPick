@@ -72,16 +72,10 @@ export default function PropsGameList({
 
   return (
     <>
-      {children ? (
-        <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-2 overflow-x-hidden border-b border-white/5 bg-background/95 px-4 pb-2 pt-1.5 backdrop-blur-md">
-          {children}
-          {gameSelector}
-        </div>
-      ) : (
-        <div className="-mt-4">
-          {gameSelector}
-        </div>
-      )}
+      <div className={children ? "sticky top-16 z-30 -mx-4 flex flex-col gap-2 overflow-x-hidden border-b border-white/5 bg-background/95 px-4 pb-2 pt-1.5 backdrop-blur-md" : "sticky top-[8.5rem] z-20 -mx-4 overflow-x-hidden border-b border-white/5 bg-background/95 px-4 pb-2 pt-1 backdrop-blur-md"}>
+        {children}
+        {gameSelector}
+      </div>
 
       <StaggerChildren staggerDelay={0.06} className="mt-4 flex flex-col gap-3">
         {games.map((game) => (
