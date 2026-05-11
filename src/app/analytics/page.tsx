@@ -162,7 +162,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     );
   }
 
-  const statCardClass = "rounded-2xl bg-gradient-to-b from-white/[0.04] to-card p-4 shadow-[0_1px_3px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)]";
+  const statCardClass = "h-full rounded-2xl bg-gradient-to-b from-white/[0.04] to-card p-4 shadow-[0_1px_3px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)]";
 
   return (
     <div className="flex flex-col gap-4 pb-8">
@@ -237,7 +237,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       </StaggerChildren>
 
       {/* Core Charts grid */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         <ScrollReveal>
           <CategoryChart data={categories} />
         </ScrollReveal>
@@ -258,7 +258,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       </div>
 
       {/* Advanced Analytics Section */}
-      <div className="mt-2 grid gap-4 lg:grid-cols-2">
+      <div className="mt-2 grid items-start gap-4 lg:grid-cols-2">
         <ScrollReveal>
           <CardSizeChart data={cardSizes} />
         </ScrollReveal>

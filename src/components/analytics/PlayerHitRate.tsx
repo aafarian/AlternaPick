@@ -7,7 +7,6 @@ import {
   CHART_TITLE_CLASS,
 } from "@/lib/analytics/chart-utils";
 import { SPORT_LABELS, isValidSport } from "@/lib/sports";
-import PlayerHeadshot from "@/components/props/PlayerHeadshot";
 
 interface PlayerHitRateProps {
   data: PlayerStats[];
@@ -22,99 +21,63 @@ function SportBadge({ sport }: { sport?: string }) {
   );
 }
 
+function Initials({ name }: { name: string }) {
+  const parts = name.split(" ");
+  const initials = parts.length >= 2
+    ? `${parts[0][0]}${parts[parts.length - 1][0]}`
+    : name.slice(0, 2);
+  return (
+    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.08] text-[11px] font-bold text-muted-foreground">
+      {initials.toUpperCase()}
+    </div>
+  );
+}
+
 export default function PlayerHitRate({ data }: PlayerHitRateProps) {
   if (data.length === 0) return null;
-
-  const top3 = data.slice(0, 3);
-  const rest = data.slice(3);
 
   return (
     <div className={CHART_SECTION_CLASS}>
       <h2 className={CHART_TITLE_CLASS}>Top Players</h2>
 
-      {/* Podium — top 3 */}
-      <div className="mb-4 grid grid-cols-3 gap-2">
-        {top3.map((player, i) => {
+      <div className="flex flex-col">
+        {data.map((player, i) => {
           const pct = Math.round(player.rate * 100);
           const color = rateColor(pct);
+          const isTop3 = i < 3;
 
           return (
             <div
               key={player.player_name}
-              className="flex flex-col items-center gap-1.5 rounded-xl bg-white/[0.03] p-3"
+              className="flex items-center gap-2.5 border-t border-white/5 py-2 first:border-0 first:pt-0"
             >
-              {/* Rank badge */}
-              <span className="text-[10px] font-bold text-muted-foreground">
-                #{i + 1}
+              {/* Rank */}
+              <span className={`w-4 shrink-0 text-right text-[11px] font-bold ${isTop3 ? "text-amber-400" : "text-muted-foreground/40"}`}>
+                {i + 1}
               </span>
 
-              {/* Headshot */}
-              <div className="relative">
-                <PlayerHeadshot
-                  playerId={null}
-                  playerName={player.player_name}
-                  sport={player.sport}
-                  responsive={false}
-                />
-                {/* Hit rate ring */}
-                <div
-                  className="absolute -bottom-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[9px] font-black text-white"
-                  style={{ backgroundColor: color }}
-                >
-                  {pct}%
+              {/* Avatar */}
+              <Initials name={player.player_name} />
+
+              {/* Name + sport */}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold">{player.player_name}</p>
+                <div className="mt-0.5 flex items-center gap-1">
+                  <SportBadge sport={player.sport} />
+                  <span className="text-[9px] tabular-nums text-muted-foreground">
+                    {player.hits}/{player.total} picks
+                  </span>
                 </div>
               </div>
 
-              {/* Name */}
-              <span className="max-w-full truncate text-center text-[11px] font-semibold leading-tight">
-                {player.player_name.split(" ").pop()}
+              {/* Hit rate */}
+              <span className="text-sm font-black tabular-nums" style={{ color }}>
+                {pct}%
               </span>
-
-              {/* Sport + count */}
-              <div className="flex items-center gap-1">
-                <SportBadge sport={player.sport} />
-                <span className="text-[9px] tabular-nums text-muted-foreground">
-                  {player.hits}/{player.total}
-                </span>
-              </div>
             </div>
           );
         })}
       </div>
-
-      {/* Rest — compact table */}
-      {rest.length > 0 && (
-        <div className="flex flex-col">
-          {rest.map((player, i) => {
-            const pct = Math.round(player.rate * 100);
-            const color = rateColor(pct);
-
-            return (
-              <div
-                key={player.player_name}
-                className="flex items-center gap-2 border-t border-white/5 py-1.5"
-              >
-                <span className="w-5 shrink-0 text-right text-[10px] font-bold text-muted-foreground/50">
-                  {i + 4}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-xs">
-                  {player.player_name}
-                </span>
-                <SportBadge sport={player.sport} />
-                <span
-                  className="text-xs font-bold tabular-nums"
-                  style={{ color }}
-                >
-                  {pct}%
-                </span>
-                <span className="text-[10px] tabular-nums text-muted-foreground">
-                  {player.hits}/{player.total}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
