@@ -6,7 +6,7 @@ import {
   CHART_SECTION_CLASS,
   CHART_TITLE_CLASS,
 } from "@/lib/analytics/chart-utils";
-import { SPORT_LABELS, isValidSport } from "@/lib/sports";
+import { SPORT_LABELS, isValidSport, getPlayerHeadshotUrl } from "@/lib/sports";
 
 interface PlayerHitRateProps {
   data: PlayerStats[];
@@ -21,14 +21,33 @@ function SportBadge({ sport }: { sport?: string }) {
   );
 }
 
-function Initials({ name }: { name: string }) {
+function PlayerAvatar({ name, playerId, sport, size = 32 }: { name: string; playerId?: string | null; sport?: string; size?: number }) {
+  const url = playerId ? getPlayerHeadshotUrl(playerId, sport) : "";
   const parts = name.split(" ");
   const initials = parts.length >= 2
     ? `${parts[0][0]}${parts[parts.length - 1][0]}`
     : name.slice(0, 2);
+
   return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.08] text-[11px] font-bold text-muted-foreground">
-      {initials.toUpperCase()}
+    <div
+      className="shrink-0 overflow-hidden rounded-full bg-white/[0.08]"
+      style={{ width: size, height: size }}
+    >
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt={name}
+          width={size}
+          height={size}
+          className="h-full w-full object-cover"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-[11px] font-bold text-muted-foreground">
+          {initials.toUpperCase()}
+        </div>
+      )}
     </div>
   );
 }
@@ -55,7 +74,7 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
               className="flex flex-col items-center gap-1 rounded-xl bg-white/[0.03] px-2 py-2.5"
             >
               <span className="text-[10px] font-bold text-amber-400">#{i + 1}</span>
-              <Initials name={player.player_name} />
+              <PlayerAvatar name={player.player_name} playerId={player.player_id} sport={player.sport} size={40} />
               <span className="mt-0.5 max-w-full truncate text-center text-[11px] font-semibold leading-tight">
                 {player.player_name.split(" ").slice(-1)[0]}
               </span>

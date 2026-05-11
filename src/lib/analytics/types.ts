@@ -11,6 +11,7 @@ export interface CategoryStats {
 /** Hit-rate stats for a single player */
 export interface PlayerStats {
   player_name: string;
+  player_id?: string | null;
   sport?: string;
   hits: number;
   total: number;

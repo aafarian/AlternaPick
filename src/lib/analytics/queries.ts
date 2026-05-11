@@ -41,6 +41,7 @@ interface ResolvedPickRow {
   props: {
     stat_category: StatCategory;
     player_name: string;
+    player_id: string | null;
     player_team: string | null;
     games: { sport: string } | null;
   } | null;
@@ -91,7 +92,7 @@ async function fetchResolvedPicks(
   // Step 2 – get resolved picks for those cards with prop + game join
   const picksResult = await (supabase.from("picks") as any)
     .select(
-      "selection, result, cards:card_id(user_id, resolved_at), props:prop_id(stat_category, player_name, player_team, games:game_id(sport))"
+      "selection, result, cards:card_id(user_id, resolved_at), props:prop_id(stat_category, player_name, player_id, player_team, games:game_id(sport))"
     )
     .in("card_id", cardIds)
     .in("result", ["hit", "miss"]);
@@ -223,7 +224,7 @@ export async function getPlayerStats(
 ): Promise<PlayerStats[]> {
   const picks = await fetchResolvedPicks(supabase, userId, mode, sport);
 
-  const map = new Map<string, { hits: number; total: number; sport?: string }>();
+  const map = new Map<string, { hits: number; total: number; sport?: string; player_id?: string | null }>();
 
   for (const pick of picks) {
     const name = pick.props?.player_name;
@@ -235,13 +236,17 @@ export async function getPlayerStats(
     if (!entry.sport && pick.props?.games?.sport) {
       entry.sport = pick.props.games.sport;
     }
+    if (!entry.player_id && pick.props?.player_id) {
+      entry.player_id = pick.props.player_id;
+    }
     map.set(name, entry);
   }
 
   const results: PlayerStats[] = [];
-  for (const [player_name, { hits, total, sport: playerSport }] of map) {
+  for (const [player_name, { hits, total, sport: playerSport, player_id }] of map) {
     results.push({
       player_name,
+      player_id,
       sport: playerSport,
       hits,
       total,

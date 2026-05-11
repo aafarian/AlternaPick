@@ -236,8 +236,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </StaggerItem>
       </StaggerChildren>
 
-      {/* Top Players + Over vs Under (similar height) */}
-      <div className="grid items-start gap-4 lg:grid-cols-2">
+      {/* Top Players + Over vs Under */}
+      <div className="grid gap-4 lg:grid-cols-2">
         <ScrollReveal>
           <PlayerHitRate data={players} />
         </ScrollReveal>
@@ -251,8 +251,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         <CategoryChart data={categories} />
       </ScrollReveal>
 
-      {/* Trend + Flame Coins (similar height line charts) */}
-      <div className="grid items-start gap-4 lg:grid-cols-2">
+      {/* Trend + Flame Coins */}
+      <div className="grid gap-4 lg:grid-cols-2">
         <ScrollReveal>
           <TrendChart data={trend} />
         </ScrollReveal>
@@ -264,7 +264,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       </div>
 
       {/* Advanced Analytics Section */}
-      <div className="mt-2 grid items-start gap-4 lg:grid-cols-2">
+      <div className="mt-2 grid gap-4 lg:grid-cols-2">
         <ScrollReveal>
           <CardSizeChart data={cardSizes} />
         </ScrollReveal>
