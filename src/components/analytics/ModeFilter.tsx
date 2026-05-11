@@ -18,12 +18,10 @@ export default function ModeFilter({
   const sportParam = currentSport && currentSport !== "all" ? `&sport=${currentSport}` : "";
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-      {/* "All" tab — always shown */}
+    <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
       <TabLink href={`/analytics?mode=all${sportParam}`} active={activeMode === "all"}>
         All
       </TabLink>
-
       {availableModes.map((mode) => {
         const def = GAME_MODES[mode];
         return (
@@ -32,7 +30,7 @@ export default function ModeFilter({
             href={`/analytics?mode=${mode}${sportParam}`}
             active={activeMode === mode}
           >
-            {def.icon} {def.displayName}
+            {def.displayName}
           </TabLink>
         );
       })}
@@ -52,13 +50,16 @@ function TabLink({
   return (
     <Link
       href={href}
-      className={`inline-flex shrink-0 items-center rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+      className={`relative shrink-0 px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors ${
         active
-          ? "bg-primary text-primary-foreground"
-          : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+          ? "text-primary"
+          : "text-muted-foreground hover:text-foreground"
       }`}
     >
       {children}
+      {active && (
+        <span className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />
+      )}
     </Link>
   );
 }
