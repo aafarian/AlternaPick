@@ -219,6 +219,7 @@ export default function CardHistoryModal({
             <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
               {totalCards}
             </p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">resolved cards</p>
         </div>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] sm:max-w-md">

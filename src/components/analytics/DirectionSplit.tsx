@@ -49,7 +49,7 @@ export default function DirectionSplit({ data }: DirectionSplitProps) {
         Over vs Under
       </h2>
 
-      <div className="flex items-center justify-center gap-6">
+      <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
         {/* Donut chart */}
         <div className="relative shrink-0">
           <svg width={DONUT_SIZE} height={DONUT_SIZE}>

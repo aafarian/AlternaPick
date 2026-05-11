@@ -165,7 +165,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const statCardClass = "h-full rounded-2xl bg-gradient-to-b from-white/[0.04] to-card p-4 shadow-[0_1px_3px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)]";
 
   return (
-    <div className="flex flex-col gap-4 pb-8">
+    <div className="flex min-w-0 flex-col gap-4 overflow-x-hidden pb-8">
       <MarkPageSeen type="analytics" />
 
       {/* Filters */}
@@ -175,7 +175,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       </div>
 
       {/* Overview Stats */}
-      <StaggerChildren staggerDelay={0.06} className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+      <StaggerChildren staggerDelay={0.06} className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
         <StaggerItem>
           <CardHistoryModal
             cards={cardHistory}
@@ -239,8 +239,9 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </StaggerItem>
       </StaggerChildren>
 
-      {/* Main charts — 3 columns. Col 1: Players, Col 2: Over/Under + Trend stacked, Col 3: Categories */}
-      <div className="grid gap-3 lg:grid-cols-3">
+      {/* Main charts — 1 col mobile, 2 col md, 3 col lg */}
+      {/* On lg: Players | Over+Trend stacked | Categories */}
+      <div className="hidden gap-3 lg:grid lg:grid-cols-3">
         <ScrollReveal>
           <PlayerHitRate data={players} />
         </ScrollReveal>
@@ -253,6 +254,21 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </ScrollReveal>
         </div>
         <ScrollReveal>
+          <CategoryChart data={categories} />
+        </ScrollReveal>
+      </div>
+      {/* On mobile/tablet: simple stacking */}
+      <div className="grid gap-3 md:grid-cols-2 lg:hidden">
+        <ScrollReveal>
+          <PlayerHitRate data={players} />
+        </ScrollReveal>
+        <ScrollReveal>
+          <DirectionSplit data={directions} />
+        </ScrollReveal>
+        <ScrollReveal>
+          <TrendChart data={trend} />
+        </ScrollReveal>
+        <ScrollReveal className="md:col-span-2">
           <CategoryChart data={categories} />
         </ScrollReveal>
       </div>
