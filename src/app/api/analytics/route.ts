@@ -13,6 +13,7 @@ import {
   getGameModeStats,
 } from "@/lib/analytics/queries";
 import { isValidGameMode } from "@/lib/modes/definitions";
+import { isValidSport } from "@/lib/sports";
 import type { GameMode } from "@/lib/supabase/types";
 
 /**
@@ -70,6 +71,10 @@ export async function GET(request: NextRequest) {
     const mode: GameMode | "all" | undefined =
       modeParam && isValidGameMode(modeParam) ? modeParam : modeParam === "all" ? "all" : undefined;
 
+    // Parse sport filter
+    const sportParam = request.nextUrl.searchParams.get("sport");
+    const sport = sportParam && isValidSport(sportParam) ? sportParam : sportParam === "all" ? "all" : undefined;
+
     // Parse requested sections from query param
     const sectionParam = request.nextUrl.searchParams.get("section");
     const requested: Set<SectionKey> = sectionParam
@@ -92,28 +97,28 @@ export async function GET(request: NextRequest) {
     const fetchers: Partial<Record<SectionKey, Promise<unknown>>> = {};
 
     if (requested.has("categories")) {
-      fetchers.categories = getCategoryStats(supabase, user.id, mode);
+      fetchers.categories = getCategoryStats(supabase, user.id, mode, sport);
     }
     if (requested.has("players")) {
-      fetchers.players = getPlayerStats(supabase, user.id, 10, mode);
+      fetchers.players = getPlayerStats(supabase, user.id, 10, mode, sport);
     }
     if (requested.has("directions")) {
-      fetchers.directions = getDirectionStats(supabase, user.id, mode);
+      fetchers.directions = getDirectionStats(supabase, user.id, mode, sport);
     }
     if (requested.has("trend")) {
-      fetchers.trend = getTrendData(supabase, user.id, 30, mode);
+      fetchers.trend = getTrendData(supabase, user.id, 30, mode, sport);
     }
     if (requested.has("cardSizes")) {
-      fetchers.cardSizes = getCardSizeStats(supabase, user.id, mode);
+      fetchers.cardSizes = getCardSizeStats(supabase, user.id, mode, sport);
     }
     if (requested.has("teams")) {
-      fetchers.teams = getTeamStats(supabase, user.id, 10, mode);
+      fetchers.teams = getTeamStats(supabase, user.id, 10, mode, sport);
     }
     if (requested.has("scoreDistribution")) {
-      fetchers.scoreDistribution = getScoreDistribution(supabase, user.id, mode);
+      fetchers.scoreDistribution = getScoreDistribution(supabase, user.id, mode, sport);
     }
     if (requested.has("gameModes")) {
-      fetchers.gameModes = getGameModeStats(supabase, user.id);
+      fetchers.gameModes = getGameModeStats(supabase, user.id, sport);
     }
     if (requested.has("coinTrend")) {
       fetchers.coinTrend = getCoinTrend(supabase, user.id);

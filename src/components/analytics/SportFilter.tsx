@@ -1,27 +1,22 @@
 "use client";
 
-import Link from "next/link";
 import { UI_SPORTS, SPORT_CONFIG } from "@/lib/sports";
+import type { SportKey } from "@/lib/sports";
 
 interface SportFilterProps {
   activeSport: string;
-  currentMode: string;
+  onSelect: (sport: SportKey | "all") => void;
 }
 
 export default function SportFilter({
   activeSport,
-  currentMode,
+  onSelect,
 }: SportFilterProps) {
-  const modeParam = currentMode && currentMode !== "all" ? `&mode=${currentMode}` : "";
-
   return (
     <div className="relative">
       <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-6 bg-gradient-to-l from-background to-transparent" />
       <div className="flex items-center gap-1 overflow-x-auto pr-6 scrollbar-none">
-        <TabPill
-          href={`/analytics?sport=all${modeParam}`}
-          active={activeSport === "all"}
-        >
+        <TabPill active={activeSport === "all"} onClick={() => onSelect("all")}>
           All Sports
         </TabPill>
         {UI_SPORTS.map((key) => {
@@ -29,8 +24,8 @@ export default function SportFilter({
           return (
             <TabPill
               key={key}
-              href={`/analytics?sport=${key}${modeParam}`}
               active={activeSport === key}
+              onClick={() => onSelect(key)}
             >
               {sport.shortLabel}
             </TabPill>
@@ -42,17 +37,18 @@ export default function SportFilter({
 }
 
 function TabPill({
-  href,
   active,
+  onClick,
   children,
 }: {
-  href: string;
   active: boolean;
+  onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <Link
-      href={href}
+    <button
+      type="button"
+      onClick={onClick}
       className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
         active
           ? "bg-primary text-primary-foreground shadow-sm"
@@ -60,6 +56,6 @@ function TabPill({
       }`}
     >
       {children}
-    </Link>
+    </button>
   );
 }

@@ -11,28 +11,12 @@ import {
   getGameModeStats,
   getCardHistory,
 } from "@/lib/analytics/queries";
-import { STAT_CARD_CLASS } from "@/lib/analytics/chart-utils";
-import CategoryChart from "@/components/analytics/CategoryChart";
-import PlayerHitRate from "@/components/analytics/PlayerHitRate";
-import DirectionSplit from "@/components/analytics/DirectionSplit";
-import TrendChart from "@/components/analytics/TrendChart";
-import CoinTrendChart from "@/components/analytics/CoinTrendChart";
-import CardSizeChart from "@/components/analytics/CardSizeChart";
-import TeamHitRate from "@/components/analytics/TeamHitRate";
-import ScoreDistribution from "@/components/analytics/ScoreDistribution";
-import GameModeStats from "@/components/analytics/GameModeStats";
-import CardHistoryModal from "@/components/analytics/CardHistoryModal";
-import ModeFilter from "@/components/analytics/ModeFilter";
-import SportFilter from "@/components/analytics/SportFilter";
+import AnalyticsPageClient from "@/components/analytics/AnalyticsPageClient";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { isValidGameMode } from "@/lib/modes/definitions";
 import { isValidSport } from "@/lib/sports";
 import type { GameMode } from "@/lib/supabase/types";
-import { StaggerChildren, StaggerItem, ScrollReveal } from "@/components/motion";
-import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
-import { BarChart3 } from "lucide-react";
-import { MarkPageSeen } from "@/components/layout/MarkPageSeen";
 
 export const metadata = {
   title: "Analytics | AlternaPick",
@@ -53,17 +37,12 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Middleware should redirect unauthenticated users, but guard just in case
   if (!user) {
     return (
       <div className="flex flex-col items-center gap-4 py-16 text-center">
-        <p className="text-muted-foreground">
-          Sign in to view your analytics.
-        </p>
+        <p className="text-muted-foreground">Sign in to view your analytics.</p>
         <Link href="/auth/login">
-          <Button variant="default" size="sm">
-            Sign In
-          </Button>
+          <Button variant="default" size="sm">Sign In</Button>
         </Link>
       </div>
     );
@@ -93,196 +72,31 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     getCardHistory(supabase, user.id, mode, sport),
   ]);
 
-  // Determine which modes the user actually has data for
+  // Determine which modes the user has data for
   const availableModes: GameMode[] = ["classic"];
   for (const gm of gameModes) {
     if (gm.cards > 0 && gm.mode !== "classic") {
       availableModes.push(gm.mode);
     }
   }
-  // Ensure classic is first, then preserve the order from gameModes
-  const isAllMode = mode === "all";
-
-  const totalPicks = categories.reduce((sum, c) => sum + c.total, 0);
-  const totalHits = categories.reduce((sum, c) => sum + c.hits, 0);
-  const overallRate =
-    totalPicks > 0 ? Math.round((totalHits / totalPicks) * 100) : 0;
-  const totalCards = cardSizes.reduce((sum, s) => sum + s.cards, 0);
-
-  // Compute best streak from trend data
-  let bestStreak = 0;
-  let currentStreak = 0;
-  for (const point of trend) {
-    if (point.rate >= 0.5) {
-      currentStreak += 1;
-      if (currentStreak > bestStreak) bestStreak = currentStreak;
-    } else {
-      currentStreak = 0;
-    }
-  }
-
-  const isEmpty = totalPicks === 0;
-
-  const hasFilters = mode !== "all" || sport !== "all";
-
-  if (isEmpty) {
-    return (
-      <div className="flex min-w-0 flex-col gap-4 overflow-x-hidden pb-8">
-        <MarkPageSeen type="analytics" />
-        <div className="flex flex-col gap-2 pt-1">
-          <ModeFilter activeMode={mode} availableModes={availableModes} currentSport={sport} />
-          <SportFilter activeSport={sport} currentMode={mode} />
-        </div>
-        <AnimatedEmptyState
-          icon={<BarChart3 className="h-8 w-8" />}
-          title={`No data${hasFilters ? " for this filter combo" : ""}`}
-          description={
-            !hasFilters
-              ? "Play some games to see your analytics! Once your cards are resolved, your hit rates and trends will appear here."
-              : "No resolved cards for these filters yet. Try a different combination or play more games!"
-          }
-          action={
-            <Link href="/props">
-              <Button variant="default" size="sm">
-                Browse Props
-              </Button>
-            </Link>
-          }
-        />
-      </div>
-    );
-  }
-
 
   return (
-    <div className="flex min-w-0 flex-col gap-4 overflow-x-hidden pb-8">
-      <MarkPageSeen type="analytics" />
-
-      {/* Filters */}
-      <div className="flex flex-col gap-2 pt-1">
-        <ModeFilter activeMode={mode} availableModes={availableModes} currentSport={sport} />
-        <SportFilter activeSport={sport} currentMode={mode} />
-      </div>
-
-      {/* Overview Stats */}
-      <StaggerChildren staggerDelay={0.06} className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-        <StaggerItem>
-          <CardHistoryModal
-            cards={cardHistory}
-            totalCards={totalCards}
-            isAllMode={isAllMode}
-          />
-        </StaggerItem>
-        <StaggerItem>
-          <div className={STAT_CARD_CLASS}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Hit Rate
-            </p>
-            <p
-              className={`mt-1 text-2xl font-black tabular-nums ${
-                overallRate >= 60
-                  ? "text-neon-green"
-                  : overallRate >= 40
-                    ? "text-electric-blue"
-                    : "text-bold-red"
-              }`}
-            >
-              {overallRate}%
-            </p>
-            <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
-              {totalHits}/{totalPicks} picks
-            </p>
-          </div>
-        </StaggerItem>
-        <StaggerItem>
-          <div className={STAT_CARD_CLASS}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Best Streak
-            </p>
-            <p className="mt-1 text-2xl font-black tabular-nums text-amber-400">
-              {bestStreak} day{bestStreak !== 1 ? "s" : ""}
-            </p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">winning days</p>
-          </div>
-        </StaggerItem>
-        <StaggerItem>
-          <div className={STAT_CARD_CLASS}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Hits
-            </p>
-            <p className="mt-1 text-2xl font-black tabular-nums text-neon-green">
-              {totalHits}
-            </p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">correct picks</p>
-          </div>
-        </StaggerItem>
-        <StaggerItem>
-          <div className={STAT_CARD_CLASS}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Misses
-            </p>
-            <p className="mt-1 text-2xl font-black tabular-nums text-bold-red">
-              {totalPicks - totalHits}
-            </p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">incorrect picks</p>
-          </div>
-        </StaggerItem>
-      </StaggerChildren>
-
-      {/* Main charts — lg: 3-col with stacked middle, below lg: 2-col / 1-col */}
-      <div className="hidden gap-3 lg:grid lg:grid-cols-3">
-        <ScrollReveal className="min-w-0">
-          <PlayerHitRate data={players} />
-        </ScrollReveal>
-        <div className="flex min-w-0 h-full flex-col gap-3">
-          <ScrollReveal className="min-w-0 flex-1">
-            <DirectionSplit data={directions} />
-          </ScrollReveal>
-          <ScrollReveal className="min-w-0 flex-1">
-            <TrendChart data={trend} />
-          </ScrollReveal>
-        </div>
-        <ScrollReveal className="min-w-0">
-          <CategoryChart data={categories} />
-        </ScrollReveal>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2 lg:hidden">
-        <ScrollReveal className="min-w-0">
-          <PlayerHitRate data={players} />
-        </ScrollReveal>
-        <ScrollReveal className="min-w-0">
-          <DirectionSplit data={directions} />
-        </ScrollReveal>
-        <ScrollReveal className="min-w-0">
-          <TrendChart data={trend} />
-        </ScrollReveal>
-        <ScrollReveal className="min-w-0 md:col-span-2">
-          <CategoryChart data={categories} />
-        </ScrollReveal>
-      </div>
-
-      {/* Secondary charts */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {coinTrend.length >= 2 && (
-          <ScrollReveal className="min-w-0">
-            <CoinTrendChart data={coinTrend} />
-          </ScrollReveal>
-        )}
-        <ScrollReveal className="min-w-0">
-          <CardSizeChart data={cardSizes} />
-        </ScrollReveal>
-        {isAllMode && (
-          <ScrollReveal className="min-w-0">
-            <GameModeStats data={gameModes} />
-          </ScrollReveal>
-        )}
-        <ScrollReveal className="min-w-0">
-          <ScoreDistribution data={scoreDistributionData} />
-        </ScrollReveal>
-        <ScrollReveal className="min-w-0">
-          <TeamHitRate data={teams} />
-        </ScrollReveal>
-      </div>
-    </div>
+    <AnalyticsPageClient
+      initialData={{
+        categories,
+        players,
+        directions,
+        trend,
+        coinTrend,
+        cardSizes,
+        teams,
+        scoreDistribution: scoreDistributionData,
+        gameModes,
+        cardHistory,
+      }}
+      initialMode={mode}
+      initialSport={sport}
+      availableModes={availableModes}
+    />
   );
 }
