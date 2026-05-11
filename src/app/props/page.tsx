@@ -1,18 +1,7 @@
-import { Suspense } from "react";
 import { getCachedProps } from "@/lib/odds-api/cache";
-import type { StatCategory } from "@/lib/supabase/types";
-import { teamMatchesQuery } from "@/lib/constants";
-import { fetchNcaabTeams } from "@/lib/stats-service/client";
-import { type SportKey, SPORT_PRIORITY, SPORT_KEYS, SPORT_CONFIG } from "@/lib/sports";
+import { type SportKey, SPORT_PRIORITY, SPORT_KEYS } from "@/lib/sports";
 import { LOCK_BUFFER_MS } from "@/lib/challenges/constants";
-import PropsHeader from "@/components/props/PropsHeader";
-import SportSelector from "@/components/props/SportSelector";
-import CategoryFilter from "@/components/props/CategoryFilter";
-import PlayerSearch from "@/components/props/PlayerSearch";
-import PropsGameList from "@/components/props/PropsGameList";
-import NcaabTeamRegistrar from "@/components/props/NcaabTeamRegistrar";
-import { SlideUp } from "@/components/motion";
-import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
+import PropsPageClient from "@/components/props/PropsPageClient";
 import { buildPageMetadata } from "@/lib/seo/page-metadata";
 import { logWarn } from "@/lib/logger";
 
@@ -24,15 +13,12 @@ export const metadata = buildPageMetadata({
 });
 
 interface PropsPageProps {
-  searchParams: Promise<{ category?: string; player?: string; sport?: string }>;
+  searchParams: Promise<{ sport?: string }>;
 }
 
 export default async function PropsPage({ searchParams }: PropsPageProps) {
-  const { category: rawCategory, player, sport: rawSport } = await searchParams;
+  const { sport: rawSport } = await searchParams;
 
-  // Fetch all sports' data in a single cached call so tab counts and content
-  // are derived from the same snapshot — eliminates the count/content mismatch
-  // where tabs showed "NBA (403)" but content showed "No games available".
   let allGames: Awaited<ReturnType<typeof getCachedProps>> = null;
   try {
     allGames = await getCachedProps();
@@ -42,103 +28,27 @@ export default async function PropsPage({ searchParams }: PropsPageProps) {
 
   const now = Date.now();
 
-  // Apply LOCK_BUFFER_MS filter to all games, then compute per-sport counts.
-  // Both tab counts and content use this same filtered set → always consistent.
+  // Compute per-sport prop counts (pre-filter by LOCK_BUFFER_MS)
   const propCounts: Record<string, number> = {};
   for (const game of allGames ?? []) {
     if (new Date(game.commence_time).getTime() - now <= LOCK_BUFFER_MS) continue;
     if (game.props.length === 0) continue;
-    const s = game.sport;
-    propCounts[s] = (propCounts[s] ?? 0) + game.props.length;
+    propCounts[game.sport] = (propCounts[game.sport] ?? 0) + game.props.length;
   }
 
-  // Determine sport: use URL param if set, otherwise pick the first sport with props
-  let sport: SportKey;
+  // Determine initial sport
+  let initialSport: SportKey;
   if ((SPORT_KEYS as readonly string[]).includes(rawSport as string)) {
-    sport = rawSport as SportKey;
+    initialSport = rawSport as SportKey;
   } else {
-    sport = SPORT_PRIORITY.find((s) => (propCounts[s] ?? 0) > 0) ?? "nba";
+    initialSport = SPORT_PRIORITY.find((s) => (propCounts[s] ?? 0) > 0) ?? "nba";
   }
-  const emptyEmoji = SPORT_CONFIG[sport].icon;
-
-  // Filter to selected sport
-  const games = (allGames ?? []).filter((g) => g.sport === sport);
-
-  // Fetch NCAAB team ESPN IDs for client-side logo rendering
-  // (RSC and client components use separate module instances, so we pass via props)
-  let ncaabTeams: Record<string, string> = {};
-  if (sport === "ncaab") {
-    try {
-      ncaabTeams = await fetchNcaabTeams();
-    } catch (error) {
-      logWarn("props-page", "ESPN unavailable for NCAAB teams, falling back to tricode text", error);
-    }
-  }
-
-  // Default to "all" when no category param
-  const category = rawCategory ?? "all";
-  const isAll = category === "all";
-
-  const playerQuery = player?.trim().toLowerCase() ?? "";
-
-  // Apply category/player filters and LOCK_BUFFER_MS to the selected sport's games
-  const withProps = games
-    .filter((g) => new Date(g.commence_time).getTime() - now > LOCK_BUFFER_MS)
-    .map((game) => ({
-      ...game,
-      props: game.props
-        .filter(
-          (p) =>
-            isAll || p.stat_category === (category as StatCategory)
-        )
-        .filter(
-          (p) =>
-            !playerQuery ||
-            p.player_name.toLowerCase().includes(playerQuery) ||
-            teamMatchesQuery(p.player_team, playerQuery) ||
-            game.home_team.toLowerCase().includes(playerQuery) ||
-            game.away_team.toLowerCase().includes(playerQuery)
-        )
-        .sort((a, b) => a.player_name.localeCompare(b.player_name)),
-    }))
-    .filter((g) => g.props.length > 0);
 
   return (
-    <div className="flex flex-col gap-6 py-8">
-      {sport === "ncaab" && Object.keys(ncaabTeams).length > 0 && (
-        <NcaabTeamRegistrar teams={ncaabTeams} />
-      )}
-      <SlideUp>
-        <PropsHeader gameCount={withProps.length} />
-      </SlideUp>
-
-      {withProps.length === 0 ? (
-        <>
-          <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-2 overflow-x-hidden border-b border-border bg-background px-4 pb-2 pt-1.5 shadow-sm">
-            <Suspense fallback={null}><SportSelector counts={propCounts} activeSport={sport} /></Suspense>
-            <Suspense fallback={null}><PlayerSearch /></Suspense>
-            <Suspense fallback={null}><CategoryFilter sport={sport} /></Suspense>
-          </div>
-          <AnimatedEmptyState
-            icon={emptyEmoji}
-            title={playerQuery || !isAll ? "No props found" : "No games available"}
-            description={
-              playerQuery || !isAll
-                ? "Try adjusting your search or filters."
-                : "Check back later for upcoming player props!"
-            }
-          />
-        </>
-      ) : (
-        <PropsGameList
-          key={`${sport}-${category}`}
-          games={withProps}
-        >
-          <Suspense fallback={null}><SportSelector counts={propCounts} activeSport={sport} /></Suspense>
-          <Suspense fallback={null}><PlayerSearch /></Suspense>
-          <Suspense fallback={null}><CategoryFilter sport={sport} /></Suspense>
-        </PropsGameList>
-      )}
-    </div>
+    <PropsPageClient
+      allGames={(allGames ?? []) as Parameters<typeof PropsPageClient>[0]["allGames"]}
+      initialSport={initialSport}
+      propCounts={propCounts}
+    />
   );
 }
