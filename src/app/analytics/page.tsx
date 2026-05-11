@@ -239,59 +239,57 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </StaggerItem>
       </StaggerChildren>
 
-      {/* Main charts — 1 col mobile, 2 col md, 3 col lg */}
-      {/* On lg: Players | Over+Trend stacked | Categories */}
+      {/* Main charts — lg: 3-col with stacked middle, below lg: 2-col / 1-col */}
       <div className="hidden gap-3 lg:grid lg:grid-cols-3">
-        <ScrollReveal>
+        <ScrollReveal className="min-w-0">
           <PlayerHitRate data={players} />
         </ScrollReveal>
-        <div className="flex h-full flex-col gap-3">
-          <ScrollReveal className="flex-1">
+        <div className="flex min-w-0 h-full flex-col gap-3">
+          <ScrollReveal className="min-w-0 flex-1">
             <DirectionSplit data={directions} />
           </ScrollReveal>
-          <ScrollReveal className="flex-1">
+          <ScrollReveal className="min-w-0 flex-1">
             <TrendChart data={trend} />
           </ScrollReveal>
         </div>
-        <ScrollReveal>
+        <ScrollReveal className="min-w-0">
           <CategoryChart data={categories} />
         </ScrollReveal>
       </div>
-      {/* On mobile/tablet: simple stacking */}
       <div className="grid gap-3 md:grid-cols-2 lg:hidden">
-        <ScrollReveal>
+        <ScrollReveal className="min-w-0">
           <PlayerHitRate data={players} />
         </ScrollReveal>
-        <ScrollReveal>
+        <ScrollReveal className="min-w-0">
           <DirectionSplit data={directions} />
         </ScrollReveal>
-        <ScrollReveal>
+        <ScrollReveal className="min-w-0">
           <TrendChart data={trend} />
         </ScrollReveal>
-        <ScrollReveal className="md:col-span-2">
+        <ScrollReveal className="min-w-0 md:col-span-2">
           <CategoryChart data={categories} />
         </ScrollReveal>
       </div>
 
-      {/* Secondary charts — 3 columns, fill naturally */}
+      {/* Secondary charts */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {coinTrend.length >= 2 && (
-          <ScrollReveal>
+          <ScrollReveal className="min-w-0">
             <CoinTrendChart data={coinTrend} />
           </ScrollReveal>
         )}
-        <ScrollReveal>
+        <ScrollReveal className="min-w-0">
           <CardSizeChart data={cardSizes} />
         </ScrollReveal>
         {isAllMode && (
-          <ScrollReveal>
+          <ScrollReveal className="min-w-0">
             <GameModeStats data={gameModes} />
           </ScrollReveal>
         )}
-        <ScrollReveal>
+        <ScrollReveal className="min-w-0">
           <ScoreDistribution data={scoreDistributionData} />
         </ScrollReveal>
-        <ScrollReveal>
+        <ScrollReveal className="min-w-0">
           <TeamHitRate data={teams} />
         </ScrollReveal>
       </div>

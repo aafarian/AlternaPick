@@ -105,7 +105,7 @@ export default function CoinTrendChart({ data }: CoinTrendChartProps) {
         </div>
       </div>
 
-      <div ref={containerRef} className="w-full">
+      <div ref={containerRef} className="w-full overflow-hidden">
         {width > 0 && (
           <svg
             width={width}

@@ -152,7 +152,7 @@ export default function TrendChart({ data }: TrendChartProps) {
         30-Day Trend
       </h2>
 
-      <div ref={containerRef} className="w-full">
+      <div ref={containerRef} className="w-full overflow-hidden">
         {width > 0 && (
           <svg
             width={width}

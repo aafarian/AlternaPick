@@ -100,7 +100,7 @@ export default function ScoreDistribution({ data }: ScoreDistributionProps) {
       </div>
 
       {/* Chart */}
-      <div ref={containerRef} className="w-full">
+      <div ref={containerRef} className="w-full overflow-hidden">
         {width > 0 && (
           <svg width={width} height={BAR_HEIGHT}>
             <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
