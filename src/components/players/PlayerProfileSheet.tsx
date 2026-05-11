@@ -53,6 +53,9 @@ const COLUMNS = [
   { key: "3PM", label: "3PM", width: "w-10", field: "threes_made" as const },
 ] as const;
 
+/** Sports that have game log support. */
+const GAMELOG_SPORTS = new Set(["nba", "ncaab"]);
+
 function formatDate(dateStr: string): string {
   if (!dateStr) return "-";
   // Handle various date formats
@@ -335,7 +338,11 @@ export default function PlayerProfileSheet() {
 
       {/* Game log */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
-        {loading ? (
+        {target && !GAMELOG_SPORTS.has(target.sport ?? "nba") ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Game log coming soon for {isValidSport(target.sport ?? "") ? SPORT_LABELS[target.sport as keyof typeof SPORT_LABELS] : target.sport?.toUpperCase()}
+          </p>
+        ) : loading ? (
           <div className="flex flex-col gap-2">
             <Skeleton className="h-[160px] rounded-xl" />
             {Array.from({ length: 5 }).map((_, i) => (

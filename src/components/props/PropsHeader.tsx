@@ -10,11 +10,11 @@ export default function PropsHeader({ gameCount }: PropsHeaderProps) {
   });
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold tracking-tight">
+    <div className="flex items-baseline justify-between">
+      <h1 className="text-2xl font-black tracking-tight">
         Player Props
       </h1>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         {today} &middot; {gameCount} game{gameCount !== 1 ? "s" : ""}
       </p>
     </div>

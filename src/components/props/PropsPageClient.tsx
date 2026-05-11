@@ -83,7 +83,7 @@ export default function PropsPageClient({
   }, [allGames, sport, category, debouncedQuery]);
 
   return (
-    <div className="flex flex-col gap-6 py-8">
+    <div className="flex flex-col gap-4 pt-4 pb-8">
       <PropsHeader gameCount={filteredGames.length} />
 
       <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-2 overflow-x-hidden border-b border-white/5 bg-background/95 px-4 pb-2 pt-1.5 backdrop-blur-md">
