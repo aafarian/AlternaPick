@@ -1,125 +1,66 @@
 "use client";
 
-import { scaleBand, scaleLinear } from "d3-scale";
 import type { CardSizeStats } from "@/lib/analytics/types";
 import {
-  CHART_COLORS,
-  BAR_GRADIENT_ID,
-  BarGradientDef,
-  useResponsiveWidth,
+  rateColor,
   CHART_SECTION_CLASS,
   CHART_TITLE_CLASS,
 } from "@/lib/analytics/chart-utils";
+import { cn } from "@/lib/utils";
 
 interface CardSizeChartProps {
   data: CardSizeStats[];
 }
 
-const MARGIN = { top: 4, right: 90, bottom: 4, left: 64 };
-const ROW_HEIGHT = 28;
-const GRID_TICKS = [0, 25, 50, 75, 100];
-
 export default function CardSizeChart({ data }: CardSizeChartProps) {
-  const { containerRef, width } = useResponsiveWidth();
-
   if (data.length === 0) {
     return (
       <div className={CHART_SECTION_CLASS}>
-        <h2 className={CHART_TITLE_CLASS}>
-          Hit Rate by Card Size
-        </h2>
+        <h2 className={CHART_TITLE_CLASS}>Hit Rate by Card Size</h2>
         <p className="text-sm text-muted-foreground">No data yet</p>
       </div>
     );
   }
 
-  const height = MARGIN.top + MARGIN.bottom + data.length * ROW_HEIGHT;
-  const innerW = width - MARGIN.left - MARGIN.right;
-  const innerH = height - MARGIN.top - MARGIN.bottom;
-
-  const labels = data.map((item) => `${item.cardSize}-Pick`);
-
-  const yScale = scaleBand<string>()
-    .domain(labels)
-    .range([0, innerH])
-    .padding(0.25);
-
-  const xScale = scaleLinear().domain([0, 100]).range([0, innerW]);
-
   return (
     <div className={CHART_SECTION_CLASS}>
-      <h2 className={CHART_TITLE_CLASS}>
-        Hit Rate by Card Size
-      </h2>
-      <div ref={containerRef} className="w-full">
-        {width > 0 && (
-          <svg width={width} height={height}>
-            <BarGradientDef />
-            <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-              {/* Grid lines */}
-              {GRID_TICKS.map((tick) => (
-                <line
-                  key={tick}
-                  x1={xScale(tick)}
-                  x2={xScale(tick)}
-                  y1={0}
-                  y2={innerH}
-                  stroke={CHART_COLORS.muted}
-                  strokeOpacity={0.12}
-                  strokeDasharray="4 4"
+      <h2 className={CHART_TITLE_CLASS}>Hit Rate by Card Size</h2>
+      <div className="flex flex-col gap-1.5">
+        {data.map((item, i) => {
+          const pct = Math.round(item.rate * 100);
+          const color = rateColor(pct);
+
+          return (
+            <div key={item.cardSize} className="flex items-center gap-2">
+              <span className="w-12 shrink-0 text-right text-[11px] font-medium text-muted-foreground">
+                {item.cardSize}-Pick
+              </span>
+              <div className="relative h-[18px] flex-1 overflow-hidden rounded bg-white/[0.04]">
+                <div
+                  className="absolute inset-y-0 left-0 rounded transition-all duration-700 ease-out"
+                  style={{
+                    width: `${pct}%`,
+                    backgroundColor: color,
+                    opacity: 0.7,
+                    transitionDelay: `${i * 40}ms`,
+                  }}
                 />
-              ))}
-
-              {/* Bars + labels */}
-              {data.map((item, i) => {
-                const pct = Math.round(item.rate * 100);
-                const label = labels[i];
-                const y = yScale(label) ?? 0;
-                const bh = yScale.bandwidth();
-
-                return (
-                  <g key={item.cardSize}>
-                    {/* Y-axis label */}
-                    <text
-                      x={-8}
-                      y={y + bh / 2}
-                      dy="0.35em"
-                      textAnchor="end"
-                      fill={CHART_COLORS.text}
-                      fontSize={11}
-                    >
-                      {label}
-                    </text>
-
-                    {/* Bar */}
-                    <rect
-                      x={0}
-                      y={y}
-                      width={Math.max(xScale(pct), 0)}
-                      height={bh}
-                      rx={3}
-                      fill={`url(#${BAR_GRADIENT_ID})`}
-                      fillOpacity={0.85}
-                    />
-
-                    {/* Stats on right side */}
-                    <text
-                      x={Math.max(xScale(pct), 0) + 6}
-                      y={y + bh / 2}
-                      dy="0.35em"
-                      fill={CHART_COLORS.muted}
-                      fontSize={9}
-                      fontFamily="monospace"
-                    >
-                      {pct}% ({item.hits}/{item.total} · {item.cards} card
-                      {item.cards !== 1 ? "s" : ""})
-                    </text>
-                  </g>
-                );
-              })}
-            </g>
-          </svg>
-        )}
+                <span className={cn(
+                  "relative z-[1] flex h-full items-center px-1.5 text-[9px] font-bold tabular-nums",
+                  pct > 12 ? "text-white" : "text-muted-foreground",
+                )}>
+                  {pct}%
+                </span>
+              </div>
+              <span className="hidden shrink-0 text-[9px] tabular-nums text-muted-foreground sm:inline">
+                {item.hits}/{item.total} · {item.cards}c
+              </span>
+              <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground sm:hidden">
+                {item.hits}/{item.total}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

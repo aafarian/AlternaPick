@@ -90,7 +90,7 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
           return (
             <div
               key={player.player_name}
-              className="relative flex w-36 shrink-0 flex-col items-center rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3 pb-4 pt-3 sm:w-auto"
+              className="relative flex w-28 shrink-0 flex-col items-center rounded-2xl border border-white/[0.06] bg-white/[0.02] px-2 pb-3 pt-2.5 sm:w-auto sm:px-3 sm:pb-4 sm:pt-3"
             >
               {/* Rank — top left, clean number */}
               <span className={`absolute left-3 top-3 text-sm font-black ${medalColors[i]}`}>
@@ -104,7 +104,7 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
                 className="mb-2.5 mt-1 cursor-pointer transition-transform hover:scale-105"
                 disabled={!player.player_id}
               >
-                <PlayerAvatar name={player.player_name} playerId={player.player_id} sport={player.sport} size={72} />
+                <PlayerAvatar name={player.player_name} playerId={player.player_id} sport={player.sport} size={56} />
               </button>
 
               {/* Name — first initial + last name to fit */}
@@ -117,7 +117,7 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
               </p>
 
               {/* Hit rate — prominent */}
-              <p className="text-xl font-black tabular-nums leading-none" style={{ color }}>
+              <p className="text-base font-black tabular-nums leading-none sm:text-xl" style={{ color }}>
                 {pct}%
               </p>
 

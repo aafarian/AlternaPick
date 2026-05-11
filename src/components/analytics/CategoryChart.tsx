@@ -42,7 +42,7 @@ export default function CategoryChart({ data }: CategoryChartProps) {
 
       {/* Sport tabs */}
       {groups.length > 1 && (
-        <div className="mb-3 flex gap-1">
+        <div className="mb-3 flex flex-wrap gap-1">
           {groups.map(({ sport, items }) => (
             <button
               key={sport}
