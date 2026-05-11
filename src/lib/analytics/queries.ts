@@ -185,22 +185,26 @@ export async function getCategoryStats(
 ): Promise<CategoryStats[]> {
   const picks = await fetchResolvedPicks(supabase, userId, mode, sport);
 
-  const map = new Map<StatCategory, { hits: number; total: number }>();
+  // Group by (category, sport) so NBA and NCAAB stats are separate
+  const map = new Map<string, { category: StatCategory; sport?: string; hits: number; total: number }>();
 
   for (const pick of picks) {
     const cat = pick.props?.stat_category;
     if (!cat) continue;
+    const pickSport = pick.props?.games?.sport;
+    const key = `${cat}:${pickSport ?? ""}`;
 
-    const entry = map.get(cat) ?? { hits: 0, total: 0 };
+    const entry = map.get(key) ?? { category: cat, sport: pickSport ?? undefined, hits: 0, total: 0 };
     entry.total += 1;
     if (pick.result === "hit") entry.hits += 1;
-    map.set(cat, entry);
+    map.set(key, entry);
   }
 
   const results: CategoryStats[] = [];
-  for (const [category, { hits, total }] of map) {
+  for (const [, { category, sport: catSport, hits, total }] of map) {
     results.push({
       category,
+      sport: catSport,
       hits,
       total,
       rate: total > 0 ? Math.round((hits / total) * 1000) / 1000 : 0,

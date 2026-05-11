@@ -3,6 +3,7 @@ import type { GameMode, StatCategory } from "@/lib/supabase/types";
 /** Hit-rate stats for a single stat category (points, rebounds, etc.) */
 export interface CategoryStats {
   category: StatCategory;
+  sport?: string;
   hits: number;
   total: number;
   rate: number;

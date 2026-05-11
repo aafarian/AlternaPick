@@ -6,26 +6,30 @@ import type { CategoryStats } from "@/lib/analytics/types";
 import type { StatCategory } from "@/lib/supabase/types";
 import {
   rateColor,
-  getCategorySport,
   CHART_SECTION_CLASS,
   CHART_TITLE_CLASS,
 } from "@/lib/analytics/chart-utils";
+import { SPORT_LABELS, isValidSport } from "@/lib/sports";
 import { cn } from "@/lib/utils";
 
 interface CategoryChartProps {
   data: CategoryStats[];
 }
 
-/** Group categories by sport. */
-function groupBySport(data: CategoryStats[]): { sport: string; items: CategoryStats[] }[] {
+/** Group categories by their actual sport (from game data). */
+function groupBySport(data: CategoryStats[]): { sport: string; label: string; items: CategoryStats[] }[] {
   const groups = new Map<string, CategoryStats[]>();
   for (const item of data) {
-    const sport = getCategorySport(item.category) ?? "Other";
+    const sport = item.sport ?? "other";
     const list = groups.get(sport) ?? [];
     list.push(item);
     groups.set(sport, list);
   }
-  return Array.from(groups, ([sport, items]) => ({ sport, items }));
+  return Array.from(groups, ([sport, items]) => ({
+    sport,
+    label: isValidSport(sport) ? SPORT_LABELS[sport] : sport.toUpperCase(),
+    items,
+  }));
 }
 
 export default function CategoryChart({ data }: CategoryChartProps) {
@@ -43,7 +47,7 @@ export default function CategoryChart({ data }: CategoryChartProps) {
       {/* Sport tabs */}
       {groups.length > 1 && (
         <div className="mb-3 flex flex-wrap gap-1">
-          {groups.map(({ sport, items }) => (
+          {groups.map(({ sport, label, items }) => (
             <button
               key={sport}
               type="button"
@@ -55,7 +59,7 @@ export default function CategoryChart({ data }: CategoryChartProps) {
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {sport}
+              {label}
               <span className="ml-1 opacity-50">({items.reduce((s, i) => s + i.total, 0)})</span>
             </button>
           ))}

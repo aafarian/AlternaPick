@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { SPORT_CONFIG, UI_SPORTS } from "@/lib/sports";
 
 /** Shared chart color constants (hex for SVG fill/stroke) */
 export const CHART_COLORS = {
@@ -25,24 +24,6 @@ export function rateColor(pct: number): string {
 /** Orange color for flame token charts */
 export const FLAME_ORANGE = "#f97316";
 
-/** Map stat categories to their sport's short label, derived from SPORT_CONFIG. */
-const CATEGORY_SPORT_MAP: Record<string, string> = (() => {
-  const map: Record<string, string> = {};
-  for (const key of UI_SPORTS) {
-    const config = SPORT_CONFIG[key];
-    for (const c of config.categories) {
-      if (c.value !== "all" && !map[c.value]) {
-        map[c.value] = config.shortLabel;
-      }
-    }
-  }
-  return map;
-})();
-
-/** Get a stat category's sport label (e.g. "points" → "NBA", "hits" → "MLB") */
-export function getCategorySport(cat: string): string | null {
-  return CATEGORY_SPORT_MAP[cat] ?? null;
-}
 
 /** Base gradient + shadow style shared by all analytics sections. */
 const ANALYTICS_CARD_BASE = "min-w-0 overflow-hidden rounded-2xl bg-gradient-to-b from-white/[0.04] to-card shadow-[0_1px_3px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)]";
