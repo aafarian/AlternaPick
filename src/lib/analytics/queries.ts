@@ -669,7 +669,8 @@ export async function getCoinTrend(
     .eq("user_id", userId)
     .eq("status", "resolved")
     .not("fire_token_wager", "is", null)
-    .order("resolved_at", { ascending: true });
+    .order("resolved_at", { ascending: true })
+    .limit(500);
 
   if (result.error) {
     logError("analytics", `getCoinTrend: ${result.error.message}`, "getCoinTrend", result.error);

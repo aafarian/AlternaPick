@@ -41,17 +41,20 @@ type SectionKey = (typeof ALL_SECTIONS)[number];
  * Query params:
  *   - section (optional): comma-separated list of sections to return.
  *     e.g. ?section=categories,teams
- *     When omitted, all 8 sections are returned.
+ *     When omitted, all 9 sections are returned.
+ *   - mode (optional): game mode filter (e.g. "classic", "all")
+ *   - sport (optional): sport filter (e.g. "nba", "all")
  *
  * Sections:
  *   - categories:         hit-rate by stat category
  *   - players:            top 10 players by pick volume
  *   - directions:         over vs under hit-rates
  *   - trend:              daily hit-rate over the last 30 days
+ *   - coinTrend:          flame coin balance over time (ignores mode/sport)
  *   - cardSizes:          hit-rate grouped by card size
  *   - teams:              hit-rate grouped by team
  *   - scoreDistribution:  card count at each score for each card size
- *   - gameModes:          win-rate stats grouped by game mode
+ *   - gameModes:          hit-rate stats grouped by game mode
  *
  * Private, cached for 5 minutes client-side.
  */

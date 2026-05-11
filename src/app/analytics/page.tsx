@@ -72,14 +72,6 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     getCardHistory(supabase, user.id, mode, sport),
   ]);
 
-  // Determine which modes the user has data for
-  const availableModes: GameMode[] = ["classic"];
-  for (const gm of gameModes) {
-    if (gm.cards > 0 && gm.mode !== "classic") {
-      availableModes.push(gm.mode);
-    }
-  }
-
   return (
     <AnalyticsPageClient
       initialData={{
@@ -96,7 +88,6 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       }}
       initialMode={mode}
       initialSport={sport}
-      availableModes={availableModes}
     />
   );
 }

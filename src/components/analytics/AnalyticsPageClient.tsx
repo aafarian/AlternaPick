@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import type { GameMode } from "@/lib/supabase/types";
@@ -53,7 +53,6 @@ interface AnalyticsPageClientProps {
   initialData: AnalyticsData;
   initialMode: GameMode | "all";
   initialSport: string;
-  availableModes: GameMode[];
 }
 
 function computeStats(data: AnalyticsData) {
@@ -80,14 +79,38 @@ export default function AnalyticsPageClient({
   initialData,
   initialMode,
   initialSport,
-  availableModes,
 }: AnalyticsPageClientProps) {
   const [mode, setMode] = useState<GameMode | "all">(initialMode);
   const [sport, setSport] = useState<string>(initialSport);
   const [data, setData] = useState<AnalyticsData>(initialData);
   const [loading, setLoading] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Derive availableModes from current data so it updates on filter change
+  const derivedAvailableModes = useMemo(() => {
+    const modes: GameMode[] = ["classic"];
+    for (const gm of data.gameModes) {
+      if (gm.cards > 0 && gm.mode !== "classic") {
+        modes.push(gm.mode);
+      }
+    }
+    return modes;
+  }, [data.gameModes]);
+
+  const syncUrl = useCallback((m: GameMode | "all", s: string) => {
+    const params = new URLSearchParams();
+    if (m !== "all") params.set("mode", m);
+    if (s !== "all") params.set("sport", s);
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `/analytics?${qs}` : "/analytics");
+  }, []);
 
   const fetchData = useCallback(async (newMode: GameMode | "all", newSport: string) => {
+    // Abort any in-flight request to prevent stale data from overwriting
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -95,22 +118,24 @@ export default function AnalyticsPageClient({
       if (newSport !== "all") params.set("sport", newSport);
       const qs = params.toString();
 
-      const res = await fetch(`/api/analytics${qs ? `?${qs}` : ""}`);
+      const res = await fetch(`/api/analytics${qs ? `?${qs}` : ""}`, { signal: controller.signal });
       if (!res.ok) return;
       const json = await res.json();
 
-      setData({
+      setData((prev) => ({
         categories: json.categories ?? [],
         players: json.players ?? [],
         directions: json.directions ?? { over: { hits: 0, total: 0, rate: 0 }, under: { hits: 0, total: 0, rate: 0 } },
         trend: json.trend ?? [],
-        coinTrend: json.coinTrend ?? [],
+        coinTrend: prev.coinTrend, // Preserve — coin trend ignores filters
         cardSizes: json.cardSizes ?? [],
         teams: json.teams ?? [],
         scoreDistribution: json.scoreDistribution ?? [],
         gameModes: json.gameModes ?? [],
-        cardHistory: json.cardHistory ?? [],
-      });
+        cardHistory: prev.cardHistory, // Preserve — not returned by API
+      }));
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
     } finally {
       setLoading(false);
     }
@@ -119,24 +144,14 @@ export default function AnalyticsPageClient({
   const handleModeChange = useCallback((newMode: GameMode | "all") => {
     setMode(newMode);
     fetchData(newMode, sport);
-
-    const params = new URLSearchParams();
-    if (newMode !== "all") params.set("mode", newMode);
-    if (sport !== "all") params.set("sport", sport);
-    const qs = params.toString();
-    window.history.replaceState(null, "", qs ? `/analytics?${qs}` : "/analytics");
-  }, [sport, fetchData]);
+    syncUrl(newMode, sport);
+  }, [sport, fetchData, syncUrl]);
 
   const handleSportChange = useCallback((newSport: SportKey | "all") => {
     setSport(newSport);
     fetchData(mode, newSport);
-
-    const params = new URLSearchParams();
-    if (mode !== "all") params.set("mode", mode);
-    if (newSport !== "all") params.set("sport", newSport);
-    const qs = params.toString();
-    window.history.replaceState(null, "", qs ? `/analytics?${qs}` : "/analytics");
-  }, [mode, fetchData]);
+    syncUrl(mode, newSport);
+  }, [mode, fetchData, syncUrl]);
 
   const { totalPicks, totalHits, overallRate, totalCards, bestStreak } = computeStats(data);
   const isEmpty = totalPicks === 0;
@@ -149,7 +164,7 @@ export default function AnalyticsPageClient({
 
       {/* Filters */}
       <div className="flex flex-col gap-2 pt-1">
-        <ModeFilter activeMode={mode} availableModes={availableModes} onSelect={handleModeChange} />
+        <ModeFilter activeMode={mode} availableModes={derivedAvailableModes} onSelect={handleModeChange} />
         <SportFilter activeSport={sport} onSelect={handleSportChange} />
       </div>
 
