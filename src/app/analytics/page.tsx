@@ -81,7 +81,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     cardHistory,
   ] = await Promise.all([
     getCategoryStats(supabase, user.id, mode, sport),
-    getPlayerStats(supabase, user.id, 10, mode, sport),
+    getPlayerStats(supabase, user.id, 5, mode, sport),
     getDirectionStats(supabase, user.id, mode, sport),
     getTrendData(supabase, user.id, 30, mode, sport),
     getCoinTrend(supabase, user.id),

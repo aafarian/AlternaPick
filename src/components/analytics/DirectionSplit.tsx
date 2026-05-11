@@ -8,8 +8,8 @@ interface DirectionSplitProps {
   data: DirectionStats;
 }
 
-const DONUT_SIZE = 140;
-const THICKNESS = 18;
+const DONUT_SIZE = 160;
+const THICKNESS = 20;
 
 export default function DirectionSplit({ data }: DirectionSplitProps) {
   const overPct = Math.round(data.over.rate * 100);

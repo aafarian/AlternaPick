@@ -74,7 +74,7 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
 
   return (
     <div className={CHART_SECTION_CLASS}>
-      <h2 className={CHART_TITLE_CLASS}>Top Players</h2>
+      <h2 className={CHART_TITLE_CLASS}>Top 5 Players</h2>
 
       {/* Podium — top 3 */}
       <div className="mb-4 grid grid-cols-3 gap-2.5">
@@ -107,9 +107,13 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
                 <PlayerAvatar name={player.player_name} playerId={player.player_id} sport={player.sport} size={72} />
               </button>
 
-              {/* Name */}
-              <p className="mb-1 max-w-full truncate text-center text-xs font-bold leading-tight">
-                {player.player_name}
+              {/* Name — first initial + last name to fit */}
+              <p className="mb-1 max-w-full truncate text-center text-[11px] font-bold leading-tight">
+                {(() => {
+                  const parts = player.player_name.split(" ");
+                  if (parts.length < 2) return player.player_name;
+                  return `${parts[0][0]}. ${parts.slice(1).join(" ")}`;
+                })()}
               </p>
 
               {/* Hit rate — prominent */}
