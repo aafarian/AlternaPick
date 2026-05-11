@@ -71,21 +71,33 @@ export default function PlayerHitRate({ data }: PlayerHitRateProps) {
           return (
             <div
               key={player.player_name}
-              className="flex flex-col items-center gap-1 rounded-xl bg-white/[0.03] px-2 py-2.5"
+              className="relative flex flex-col items-center overflow-hidden rounded-xl bg-white/[0.03]"
             >
-              <span className="text-[10px] font-bold text-amber-400">#{i + 1}</span>
-              <PlayerAvatar name={player.player_name} playerId={player.player_id} sport={player.sport} size={40} />
-              <span className="mt-0.5 max-w-full truncate text-center text-[11px] font-semibold leading-tight">
-                {player.player_name.split(" ").slice(-1)[0]}
-              </span>
-              <span className="text-sm font-black tabular-nums" style={{ color }}>
-                {pct}%
-              </span>
-              <div className="flex items-center gap-1">
-                <SportBadge sport={player.sport} />
-                <span className="text-[9px] tabular-nums text-muted-foreground">
-                  {player.hits}/{player.total}
+              {/* Large headshot */}
+              <div className="relative w-full pt-2">
+                <div className="mx-auto w-16 sm:w-20">
+                  <PlayerAvatar name={player.player_name} playerId={player.player_id} sport={player.sport} size={80} />
+                </div>
+                {/* Rank badge — top left */}
+                <span className="absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/20 text-[10px] font-black text-amber-400">
+                  {i + 1}
                 </span>
+              </div>
+
+              {/* Info below headshot */}
+              <div className="flex w-full flex-col items-center gap-0.5 px-2 pb-2.5 pt-1">
+                <span className="max-w-full truncate text-center text-[11px] font-semibold leading-tight">
+                  {player.player_name.split(" ").slice(-1)[0]}
+                </span>
+                <span className="text-lg font-black tabular-nums leading-tight" style={{ color }}>
+                  {pct}%
+                </span>
+                <div className="flex items-center gap-1">
+                  <SportBadge sport={player.sport} />
+                  <span className="text-[9px] tabular-nums text-muted-foreground">
+                    {player.hits}/{player.total}
+                  </span>
+                </div>
               </div>
             </div>
           );
