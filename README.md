@@ -13,6 +13,14 @@ pnpm dev
 # or
 bun dev
 ```
+<img width="1400" height="729" alt="image" src="https://github.com/user-attachments/assets/a5a3fc51-b173-4a0d-b92b-fb1e576645c7" />
+<img width="1300" height="727" alt="image" src="https://github.com/user-attachments/assets/121757d8-cb64-4910-a588-a88d6c8c5135" />
+<img width="1325" height="727" alt="image" src="https://github.com/user-attachments/assets/bc1be8f3-4e52-4e83-bee1-21a0c49b8240" />
+<img width="1076" height="726" alt="image" src="https://github.com/user-attachments/assets/6879af77-6745-440b-891a-34b3f4a288b8" />
+<img width="1008" height="730" alt="image" src="https://github.com/user-attachments/assets/7cd7b0b2-b7e8-4413-9afd-dd8f3df9f0ec" />
+<img width="992" height="726" alt="image" src="https://github.com/user-attachments/assets/138f0c75-1976-4b88-a0e5-9cc962c9be3d" />
+<img width="989" height="725" alt="image" src="https://github.com/user-attachments/assets/d5799ab8-27ba-4851-92c3-4d5cd6b807b8" />
+
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
