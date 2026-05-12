@@ -7,16 +7,8 @@ ALTER TABLE public.cards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.challenge_participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.challenges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.credit_log ENABLE ROW LEVEL SECURITY;
-
--- credit_log was missing policies — add them
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'credit_log' AND policyname = 'credit_log_service_all') THEN
-    CREATE POLICY credit_log_service_all ON public.credit_log FOR ALL TO service_role USING (true) WITH CHECK (true);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'credit_log' AND policyname = 'credit_log_select_own') THEN
-    CREATE POLICY credit_log_select_own ON public.credit_log FOR SELECT TO authenticated USING (user_id = auth.uid());
-  END IF;
-END $$;
+-- credit_log already has service_role policies from migration 040.
+-- No user-facing policy needed — this is an admin-only API credit tracking table.
 ALTER TABLE public.email_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.feature_flags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.friendships ENABLE ROW LEVEL SECURITY;
