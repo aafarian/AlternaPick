@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search, UserPlus } from "lucide-react";
+import { Loader2, Search, Swords, UserPlus } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 import UserAvatar from "@/components/icons/UserAvatar";
 import { parseIconConfig } from "@/lib/icons/parse";
@@ -24,6 +25,7 @@ interface UserSearchBarProps {
 }
 
 export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -129,7 +131,17 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
   const getStatusButton = (user: SearchResult) => {
     switch (user.friendship_status) {
       case "friends":
-        return <Badge variant="secondary">Friends</Badge>;
+        return (
+          <Button
+            onClick={() => router.push(`/props?challenge=${user.username}`)}
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1 border-orange-500/40 text-xs text-orange-400 hover:bg-orange-500/10"
+          >
+            <Swords className="h-3 w-3" />
+            Challenge
+          </Button>
+        );
       case "pending_sent":
         return <Badge variant="secondary">Pending</Badge>;
       case "pending_received":
