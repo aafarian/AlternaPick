@@ -45,80 +45,104 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Query picks directly with prop join — picks are never deleted, unlike props
-    // which rotate out when new games sync. This ensures historical data is always
-    // available for drill-down modals.
-    let picksQuery = (supabase.from("picks") as any)
-      .select(
-        "prop_id, selection, result, actual_value, " +
-        "props:prop_id(id, player_name, player_team, stat_category, line, games:game_id(sport)), " +
-        "cards:card_id(id, user_id, resolved_at, profiles:user_id(username))"
-      )
-      .neq("result", "pending");
+    // Step 1: Find matching prop IDs from the picks table.
+    // We query picks (never deleted) joined with props to find prop IDs that
+    // match our filters. This avoids the old approach of querying the props
+    // table directly, which fails for historical data because old props get
+    // deleted when new games sync.
+    const propLookup = (supabase.from("picks") as any)
+      .select("prop_id, props:prop_id(player_name, player_team, stat_category)")
+      .neq("result", "pending")
+      .limit(2000);
 
-    // Apply filters via the joined props table
-    if (playerName) {
-      picksQuery = picksQuery.eq("props.player_name", playerName);
-    }
-    if (statCategory) {
-      picksQuery = picksQuery.eq("props.stat_category", statCategory);
-    }
-    if (team) {
-      picksQuery = picksQuery.eq("props.player_team", team);
+    const { data: propLookupData, error: propLookupError } = await propLookup;
+    if (propLookupError) {
+      throw new Error(`Failed to look up props: ${propLookupError.message}`);
     }
 
-    // Date range filter on cards.resolved_at
-    if (from) {
-      picksQuery = picksQuery.gte("cards.resolved_at", `${from}T00:00:00Z`);
-    }
-    if (to) {
-      const toDate = new Date(`${to}T00:00:00Z`);
-      toDate.setUTCDate(toDate.getUTCDate() + 2);
-      picksQuery = picksQuery.lt("cards.resolved_at", toDate.toISOString());
-    }
-
-    picksQuery = picksQuery.limit(500);
-
-    const { data: rawPicks, error: picksError } = await picksQuery;
-    if (picksError) {
-      throw new Error(`Failed to fetch picks: ${picksError.message}`);
+    // Filter in JS since PostgREST embedded filters null out the join
+    const matchingPropIds = new Set<string>();
+    for (const row of (propLookupData ?? []) as any[]) {
+      if (!row.props) continue;
+      if (playerName && row.props.player_name !== playerName) continue;
+      if (statCategory && row.props.stat_category !== statCategory) continue;
+      if (team && row.props.player_team !== team) continue;
+      matchingPropIds.add(row.prop_id);
     }
 
-    // Filter out picks where the embedded filter didn't exclude the parent row
-    // (PostgREST returns parent rows with null embedded objects when embedded
-    // filters don't match)
-    const picks = ((rawPicks ?? []) as any[]).filter(
-      (p) => p.props != null && p.cards != null
-    );
-
-    if (picks.length === 0) {
+    if (matchingPropIds.size === 0) {
       return NextResponse.json({
         playerName: playerName ?? statCategory ?? team,
         props: [],
       });
     }
 
+    const propIds = [...matchingPropIds];
+
+    // Step 2: Find card IDs in date range (if date filter provided)
+    let cardIdFilter: string[] | null = null;
+    if (from || to) {
+      let cardsQuery = (supabase.from("cards") as any)
+        .select("id")
+        .eq("status", "resolved")
+        .limit(10000);
+
+      if (from) {
+        cardsQuery = cardsQuery.gte("resolved_at", `${from}T00:00:00Z`);
+      }
+      if (to) {
+        const toDate = new Date(`${to}T00:00:00Z`);
+        toDate.setUTCDate(toDate.getUTCDate() + 2);
+        cardsQuery = cardsQuery.lt("resolved_at", toDate.toISOString());
+      }
+
+      const { data: cardRows, error: cardsError } = await cardsQuery;
+      if (cardsError) {
+        throw new Error(`Failed to fetch cards: ${cardsError.message}`);
+      }
+      cardIdFilter = ((cardRows ?? []) as { id: string }[]).map((c) => c.id);
+
+      if (cardIdFilter.length === 0) {
+        return NextResponse.json({
+          playerName: playerName ?? statCategory ?? team,
+          props: [],
+        });
+      }
+    }
+
+    // Step 3: Fetch full pick data for matching props (+ date-filtered cards)
+    let picksQuery = (supabase.from("picks") as any)
+      .select(
+        "prop_id, selection, result, actual_value, " +
+        "props:prop_id(id, player_name, stat_category, line, games:game_id(sport)), " +
+        "cards:card_id(user_id, profiles:user_id(username))"
+      )
+      .in("prop_id", propIds)
+      .neq("result", "pending");
+
+    if (cardIdFilter) {
+      picksQuery = picksQuery.in("card_id", cardIdFilter);
+    }
+
+    const { data: picks, error: picksError } = await picksQuery;
+    if (picksError) {
+      throw new Error(`Failed to fetch picks: ${picksError.message}`);
+    }
+
     // Group picks by prop_id
     const picksByProp = new Map<string, any[]>();
-    for (const pick of picks) {
+    for (const pick of (picks ?? []) as any[]) {
+      if (!pick.props) continue;
       const propId = pick.prop_id as string;
       if (!picksByProp.has(propId)) picksByProp.set(propId, []);
       picksByProp.get(propId)!.push(pick);
     }
 
-    // Build response grouped by prop
+    // Build response
     const propResults: PropResult[] = [];
     for (const [propId, propPicks] of picksByProp) {
-      const firstPick = propPicks[0];
-      const prop = firstPick.props;
+      const prop = propPicks[0].props;
       const hits = propPicks.filter((p: any) => p.result === "hit").length;
-
-      const pickers: PickerResult[] = propPicks.map((p: any) => ({
-        username: p.cards?.profiles?.username ?? "Unknown",
-        selection: p.selection,
-        result: p.result,
-        actualValue: p.actual_value,
-      }));
 
       propResults.push({
         propId,
@@ -128,11 +152,15 @@ export async function GET(request: NextRequest) {
         hitRate: propPicks.length > 0 ? hits / propPicks.length : 0,
         pickCount: propPicks.length,
         actualValue: propPicks[0]?.actual_value ?? null,
-        pickers,
+        pickers: propPicks.map((p: any) => ({
+          username: p.cards?.profiles?.username ?? "Unknown",
+          selection: p.selection,
+          result: p.result,
+          actualValue: p.actual_value,
+        })),
       });
     }
 
-    // Sort by pick count descending
     propResults.sort((a, b) => b.pickCount - a.pickCount);
 
     return NextResponse.json({
