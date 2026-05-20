@@ -175,6 +175,7 @@ export async function GET(request: NextRequest) {
       .neq("result", "pending");
 
     if (cardIdFilter) picksQuery = picksQuery.in("card_id", cardIdFilter);
+    picksQuery = picksQuery.limit(500);
 
     const { data: picks, error: picksError } = await picksQuery;
     if (picksError) throw new Error(`Failed to fetch picks: ${picksError.message}`);

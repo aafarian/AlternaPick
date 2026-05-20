@@ -157,7 +157,7 @@ export function ThisWeek({ weeklyData, personalWeekly, hideStats, dateFrom, date
                   className="w-full text-left cursor-pointer"
                   onClick={() => setSelectedPlayer({ playerName: topPlayer.playerName, sport: topPlayer.sport })}
                 >
-                <div className={`flex items-start gap-2 rounded-lg ${bgColor} px-3 py-2 transition-colors hover:${isPositive ? "bg-neon-green/15" : "bg-bold-red/15"}`}>
+                <div className={`flex items-start gap-2 rounded-lg ${bgColor} px-3 py-2 transition-colors ${isPositive ? "hover:bg-neon-green/15" : "hover:bg-bold-red/15"}`}>
                   <Trophy className={`mt-0.5 h-4 w-4 shrink-0 ${textColor}`} />
                   <div className="min-w-0 flex-1">
                     <p className={`text-[10px] font-bold uppercase tracking-widest ${textColor}`}>

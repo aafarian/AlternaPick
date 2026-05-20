@@ -91,7 +91,7 @@ async function queryCardsLocked(ctx: QueryCtx): Promise<AdminActivityItem[]> {
   let q = ctx.supabase
     .from("cards")
     .select(
-      "id, user_id, card_size, game_mode, locked_at, profiles!cards_user_id_fkey(username, display_name, avatar_url)"
+      "id, user_id, card_size, game_mode, fire_token_wager, locked_at, profiles!cards_user_id_fkey(username, display_name, avatar_url)"
     )
     .not("locked_at", "is", null)
     .gte("locked_at", ctx.dateFrom)
@@ -114,11 +114,14 @@ async function queryCardsLocked(ctx: QueryCtx): Promise<AdminActivityItem[]> {
       username: profile.username ?? "unknown",
       displayName: profile.display_name ?? null,
       avatarUrl: profile.avatar_url ?? null,
-      description: `locked a ${row.card_size}-pick ${row.game_mode} card`,
+      description: row.fire_token_wager
+        ? `locked a ${row.card_size}-pick ${row.game_mode} card (wagered ${row.fire_token_wager} coins)`
+        : `locked a ${row.card_size}-pick ${row.game_mode} card`,
       metadata: {
         cardId: row.id,
         cardSize: row.card_size,
         gameMode: row.game_mode,
+        wager: row.fire_token_wager ?? null,
       },
       timestamp: row.locked_at,
     };

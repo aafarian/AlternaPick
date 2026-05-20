@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { logWarn } from "@/lib/logger";
 import {
   Dialog,
   DialogContent,
@@ -72,8 +73,8 @@ export function PlayerPicksModal({
       .then((data) => {
         setPropResults(data.props ?? []);
       })
-      .catch(() => {
-        // Silently fail — empty state is shown in the UI
+      .catch((err) => {
+        logWarn("player-picks-modal", "Failed to fetch picks", err);
       })
       .finally(() => setLoading(false));
   }, [playerName, filterStat, team, dateFrom, dateTo, hasFilter]);
@@ -94,7 +95,7 @@ export function PlayerPicksModal({
           <DialogHeader>
             <div className="flex items-center gap-2">
               <DialogTitle className="text-base font-bold">
-                {playerName}
+                {playerName || (filterStat ? catLabel(filterStat) : team) || "Picks"}
               </DialogTitle>
               {displaySport && displaySport !== "unknown" && (
                 <Badge className="shrink-0 text-[9px] bg-primary/15 text-primary border-primary/30">
