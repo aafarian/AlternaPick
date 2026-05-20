@@ -32,8 +32,6 @@ export interface LeaderboardEntryWithProfile {
     standard_hit_rate: number | null;
     /** Per-tier hit rates */
     tier_hit_rates: {
-      frosty: number | null;
-      chilled: number | null;
       heated: number | null;
       scorched: number | null;
       volcanic: number | null;
@@ -67,8 +65,6 @@ function rowToEntry(row: LeaderboardRow): LeaderboardEntryWithProfile["stats"] {
     fire_tokens_balance: row.fire_tokens_balance,
     standard_hit_rate: null,
     tier_hit_rates: {
-      frosty: null,
-      chilled: null,
       heated: null,
       scorched: null,
       volcanic: null,
@@ -171,10 +167,6 @@ export async function GET(request: NextRequest) {
             ? Math.round((stdHits / stdTotal) * 1000) / 10
             : null;
           entry.stats.tier_hit_rates = {
-            frosty: (t.frosty_total as number) > 0
-              ? Math.round(((t.frosty_hits as number) / (t.frosty_total as number)) * 1000) / 10 : null,
-            chilled: (t.chilled_total as number) > 0
-              ? Math.round(((t.chilled_hits as number) / (t.chilled_total as number)) * 1000) / 10 : null,
             heated: (t.heated_total as number) > 0
               ? Math.round(((t.heated_hits as number) / (t.heated_total as number)) * 1000) / 10 : null,
             scorched: (t.scorched_total as number) > 0

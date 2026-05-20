@@ -43,8 +43,6 @@ export default function LeaderboardTable({
               <TableHead className={TH}>Hit Rate</TableHead>
               {isFlame ? (
                 <>
-                  <TableHead className={TH}>Frosty</TableHead>
-                  <TableHead className={TH}>Chilled</TableHead>
                   <TableHead className={TH}>Heated</TableHead>
                   <TableHead className={TH}>Scorched</TableHead>
                   <TableHead className={TH}>Volcanic</TableHead>

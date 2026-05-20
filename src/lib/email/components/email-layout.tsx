@@ -33,7 +33,7 @@ export function EmailLayout({ children, unsubscribeUrl }: EmailLayoutProps): Rea
           </Section>
           <Hr style={styles.hr} />
           <Text style={styles.footer}>
-            AlternaPick — Predict. Compete. Dominate.
+            AlternaPick - Predict. Compete. Dominate.
             {unsubscribeUrl && (
               <>
                 <br />

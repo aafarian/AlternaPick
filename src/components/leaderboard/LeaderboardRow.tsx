@@ -160,8 +160,6 @@ export default function LeaderboardRow({
 
       {isFlame ? (
         <>
-          <TableCell className="text-sm"><TierRate rate={t?.frosty} color="text-blue-400" /></TableCell>
-          <TableCell className="text-sm"><TierRate rate={t?.chilled} color="text-sky-400" /></TableCell>
           <TableCell className="text-sm"><TierRate rate={t?.heated} color="text-yellow-400" /></TableCell>
           <TableCell className="text-sm"><TierRate rate={t?.scorched} color="text-orange-400" /></TableCell>
           <TableCell className="text-sm"><TierRate rate={t?.volcanic} color="text-red-400" /></TableCell>

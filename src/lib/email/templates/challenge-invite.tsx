@@ -41,7 +41,7 @@ export function ChallengeInviteEmail({
         {challengerUsername} wants to take you on
       </Text>
       <Text style={styles.text}>
-        No account needed — just pick your props and see if you can win.
+        No account needed - just pick your props and see if you can win.
       </Text>
       {message && (
         <Text style={styles.muted}>&ldquo;{message}&rdquo;</Text>
@@ -72,7 +72,7 @@ export function getChallengeInviteEmailProps(
   const lines = [
     `${props.challengerUsername} wants to take you on.`,
     "",
-    "No account needed — just pick your props and see if you can win.",
+    "No account needed - just pick your props and see if you can win.",
   ];
   if (props.message) {
     lines.push("", `"${props.message}"`);

@@ -53,13 +53,13 @@ function getWagerHeadline(outcome: WagerOutcome, payout: number): string {
 function getWagerSubtext(outcome: WagerOutcome): string {
   switch (outcome) {
     case "profit":
-      return "Your picks paid off. Keep the momentum going.";
+      return "Your picks paid off.";
     case "breakeven":
-      return "You got your wager back — one more pick and you would have profited.";
+      return "You got your wager back - one more pick and you would have profited.";
     case "partial":
-      return "You recouped some coins, but not enough to profit. Almost had it.";
+      return "You recouped some coins, but not enough to profit.";
     case "bust":
-      return "You didn't hit this time. Shake it off and try again.";
+      return "Your picks didn't hit this time.";
     case "refund":
       return "Too many DNPs on this card, so your wager was returned in full.";
   }
@@ -71,15 +71,15 @@ function getWagerSubject(
 ): string {
   switch (outcome) {
     case "profit":
-      return `Your card won ${payout} Flame Coins!`;
+      return `Your card won ${payout} Flame Coins`;
     case "breakeven":
-      return "Your card results — you broke even";
+      return "Your card results - you broke even";
     case "partial":
-      return `Your card results — you recouped ${payout} coins`;
+      return `Your card results - you recouped ${payout} coins`;
     case "bust":
-      return "Your card results — better luck next time!";
+      return "Your card results";
     case "refund":
-      return "Your card results — wager refunded";
+      return "Your card results - wager refunded";
   }
 }
 
