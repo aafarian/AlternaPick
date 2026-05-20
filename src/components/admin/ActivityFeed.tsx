@@ -20,11 +20,14 @@ import {
 } from "@/lib/admin/types";
 import {
   Activity,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Inbox,
   RefreshCw,
 } from "lucide-react";
+import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
+import { cn } from "@/lib/utils";
 import { timeAgo, userInitials } from "@/lib/admin/helpers";
 
 // ---------------------------------------------------------------------------
@@ -60,74 +63,151 @@ function SkeletonRow() {
 // Activity item row
 // ---------------------------------------------------------------------------
 
-function ActivityRow({ item }: { item: AdminActivityItem }) {
+function ActivityRow({ item, childPicks }: { item: AdminActivityItem; childPicks?: AdminActivityItem[] }) {
+  const [expanded, setExpanded] = useState(false);
   const colorClasses =
     ACTIVITY_EVENT_COLORS[item.type] ?? "bg-muted text-muted-foreground";
 
   const cardId = item.metadata.cardId as string | undefined;
   const challengeId = item.metadata.challengeId as string | undefined;
+  const wager = item.metadata.wager as number | null | undefined;
+  const hasChildren = childPicks && childPicks.length > 0;
 
   return (
-    <div className="flex items-start gap-3 px-4 py-3">
-      {/* Avatar */}
-      <Avatar size="sm" className="mt-0.5">
-        {item.avatarUrl && (
-          <AvatarImage src={item.avatarUrl} alt={item.username} />
-        )}
-        <AvatarFallback>
-          {userInitials(item.displayName ?? item.username)}
-        </AvatarFallback>
-      </Avatar>
+    <div>
+      <div
+        className={cn("flex items-start gap-3 px-4 py-3", hasChildren && "cursor-pointer")}
+        onClick={hasChildren ? () => setExpanded(!expanded) : undefined}
+      >
+        {/* Avatar */}
+        <Avatar size="sm" className="mt-0.5">
+          {item.avatarUrl && (
+            <AvatarImage src={item.avatarUrl} alt={item.username} />
+          )}
+          <AvatarFallback>
+            {userInitials(item.displayName ?? item.username)}
+          </AvatarFallback>
+        </Avatar>
 
-      {/* Content */}
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <Link
-            href={`/admin/users/${item.userId}`}
-            className="text-sm font-medium text-foreground hover:underline"
-          >
-            {item.displayName ?? item.username}
-          </Link>
-          <Badge variant="secondary" className={colorClasses}>
-            {eventLabel(item.type)}
-          </Badge>
+        {/* Content */}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <Link
+              href={`/admin/users/${item.userId}`}
+              className="text-sm font-medium text-foreground hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {item.displayName ?? item.username}
+            </Link>
+            <Badge variant="secondary" className={colorClasses}>
+              {eventLabel(item.type)}
+            </Badge>
+            {wager != null && wager > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-orange-400">
+                <FlameTokenIcon className="h-3 w-3" />
+                {wager}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {/* Strip wager text from description since we show it as a badge */}
+            {wager ? item.description.replace(/ \(wagered \d+ coins\)/, "") : item.description}
+            {cardId && (
+              <>
+                {" "}
+                <Link
+                  href={`/admin/lookup/card/${cardId}`}
+                  className="font-mono text-xs text-primary hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {cardId.slice(0, 8)}
+                </Link>
+              </>
+            )}
+            {challengeId && (
+              <>
+                {" "}
+                <Link
+                  href={`/admin/lookup/challenge/${challengeId}`}
+                  className="font-mono text-xs text-primary hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {challengeId.slice(0, 8)}
+                </Link>
+              </>
+            )}
+            {hasChildren && (
+              <span className="ml-1 text-xs text-muted-foreground/50">
+                ({childPicks.length} pick{childPicks.length !== 1 ? "s" : ""})
+              </span>
+            )}
+          </p>
         </div>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {item.description}
-          {cardId && (
-            <>
-              {" "}
-              <Link
-                href={`/admin/lookup/card/${cardId}`}
-                className="font-mono text-xs text-primary hover:underline"
-              >
-                {cardId.slice(0, 8)}
-              </Link>
-            </>
+
+        {/* Expand chevron + timestamp */}
+        <div className="flex shrink-0 items-center gap-2 pt-0.5">
+          {hasChildren && (
+            <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", expanded && "rotate-180")} />
           )}
-          {challengeId && (
-            <>
-              {" "}
-              <Link
-                href={`/admin/lookup/challenge/${challengeId}`}
-                className="font-mono text-xs text-primary hover:underline"
-              >
-                {challengeId.slice(0, 8)}
-              </Link>
-            </>
-          )}
-        </p>
+          <span
+            className="text-xs text-muted-foreground whitespace-nowrap"
+            title={new Date(item.timestamp).toLocaleString()}
+          >
+            {timeAgo(item.timestamp)}
+          </span>
+        </div>
       </div>
 
-      {/* Timestamp */}
-      <span
-        className="shrink-0 text-xs text-muted-foreground whitespace-nowrap pt-0.5"
-        title={new Date(item.timestamp).toLocaleString()}
-      >
-        {timeAgo(item.timestamp)}
-      </span>
+      {/* Expanded child picks */}
+      {expanded && hasChildren && (
+        <div className="ml-14 border-l border-border/50 pb-2">
+          {childPicks.map((pick) => (
+            <div key={pick.id} className="flex items-center gap-2 py-1 pl-3 text-xs text-muted-foreground">
+              <span className="text-primary/60">-</span>
+              <span>{pick.description}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
+}
+
+/**
+ * Group pick_made items under their parent card_locked item.
+ * Picks that don't have a matching card_locked are shown standalone.
+ */
+function groupActivityItems(items: AdminActivityItem[]): { item: AdminActivityItem; childPicks?: AdminActivityItem[] }[] {
+  const cardPicksMap = new Map<string, AdminActivityItem[]>();
+  const cardLockedSet = new Set<string>();
+
+  // First pass: find card_locked events and group picks by cardId
+  for (const item of items) {
+    if (item.type === "card_locked" && item.metadata.cardId) {
+      cardLockedSet.add(item.metadata.cardId as string);
+    }
+    if (item.type === "pick_made" && item.metadata.cardId) {
+      const cid = item.metadata.cardId as string;
+      if (!cardPicksMap.has(cid)) cardPicksMap.set(cid, []);
+      cardPicksMap.get(cid)!.push(item);
+    }
+  }
+
+  // Second pass: build grouped list
+  const result: { item: AdminActivityItem; childPicks?: AdminActivityItem[] }[] = [];
+  for (const item of items) {
+    if (item.type === "pick_made" && item.metadata.cardId && cardLockedSet.has(item.metadata.cardId as string)) {
+      // Skip — this pick will be shown under its card_locked parent
+      continue;
+    }
+    if (item.type === "card_locked" && item.metadata.cardId) {
+      result.push({ item, childPicks: cardPicksMap.get(item.metadata.cardId as string) });
+    } else {
+      result.push({ item });
+    }
+  }
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -222,8 +302,8 @@ export default function ActivityFeed() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  // Displayed items — already filtered
-  const displayedItems = items;
+  // Group picks under their parent card_locked events
+  const groupedItems = groupActivityItems(items);
 
   // ---------------------------------------------------------------------------
   // Error state
@@ -284,7 +364,7 @@ export default function ActivityFeed() {
               <SkeletonRow key={i} />
             ))}
           </div>
-        ) : displayedItems.length === 0 ? (
+        ) : groupedItems.length === 0 ? (
           // Empty state
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
             <Inbox className="h-10 w-10 text-muted-foreground" />
@@ -298,15 +378,15 @@ export default function ActivityFeed() {
         ) : (
           // Items list
           <div className="divide-y divide-border">
-            {displayedItems.map((item) => (
-              <ActivityRow key={item.id} item={item} />
+            {groupedItems.map(({ item, childPicks }) => (
+              <ActivityRow key={item.id} item={item} childPicks={childPicks} />
             ))}
           </div>
         )}
       </div>
 
       {/* Pagination */}
-      {!loading && displayedItems.length > 0 && (
+      {!loading && groupedItems.length > 0 && (
         <div className="flex items-center justify-between">
           <Button
             variant="outline"
