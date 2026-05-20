@@ -130,7 +130,7 @@ export function PlayerPicksModal({
                 animate={{ opacity: 1 }}
                 className="py-6 text-center text-sm text-muted-foreground"
               >
-                No picks found for this player.
+                No picks found for this time period.
               </motion.p>
             ) : (
               <motion.div
