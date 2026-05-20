@@ -1,6 +1,6 @@
 import { BarChart3 } from "lucide-react";
 import type { BreakdownEntry } from "@/lib/recaps/compute";
-import { TILE, TileHeader, TilePill, catLabel } from "./shared";
+import { TILE_STATIC, TileHeader, TilePill, catLabel } from "./shared";
 
 export function MostPopularStatTile({
   breakdown,
@@ -21,7 +21,7 @@ export function MostPopularStatTile({
   const pillBg = aboveAvg ? "bg-neon-green/10" : "bg-amber-500/10";
 
   return (
-    <div className={`${TILE} ${tileBorder}`}>
+    <div className={`${TILE_STATIC} ${tileBorder}`}>
       <TileHeader
         icon={BarChart3}
         label="Most Picked Category"

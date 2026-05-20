@@ -1,5 +1,5 @@
 import { BarChart3 } from "lucide-react";
-import { TILE, TileHeader, TilePill } from "./shared";
+import { TILE_STATIC, TileHeader, TilePill } from "./shared";
 
 export function PropDifficultyTile({
   lockCount,
@@ -35,7 +35,7 @@ export function PropDifficultyTile({
       : "Tough slate";
 
   return (
-    <div className={`${TILE} ${tileBorder}`}>
+    <div className={`${TILE_STATIC} ${tileBorder}`}>
       <TileHeader icon={BarChart3} label={headline} textColor={textColor} />
       <p className="mt-1 text-[11px] text-muted-foreground">
         {isEasy

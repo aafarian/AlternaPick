@@ -38,8 +38,14 @@ export type OnPlayerClick = (info: PlayerClickInfo) => void;
 
 /* ─── Constants ─── */
 
-export const TILE =
-  "rounded-xl border p-4 flex flex-col justify-between min-h-[160px] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/20";
+/** Base tile style — content anchored to top with consistent gap */
+const TILE_BASE = "rounded-xl border p-4 flex flex-col gap-3 min-h-[160px]";
+
+/** Clickable tile — hover lift + shadow for interactive tiles */
+export const TILE = `${TILE_BASE} transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/20`;
+
+/** Static tile — no hover effects, for display-only tiles */
+export const TILE_STATIC = TILE_BASE;
 
 export const MAX_TILE_ITEMS = 3;
 export const MAX_TILE_ITEMS_LARGE = 5;

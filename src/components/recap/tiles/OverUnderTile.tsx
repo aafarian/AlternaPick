@@ -1,5 +1,5 @@
 import { TrendingUp } from "lucide-react";
-import { TILE, TileHeader, TilePill } from "./shared";
+import { TILE_STATIC, TileHeader, TilePill } from "./shared";
 
 export function OverUnderTile({
   overCount,
@@ -15,7 +15,7 @@ export function OverUnderTile({
   const pct = dominant === "over" ? overPct : 100 - overPct;
 
   return (
-    <div className={`${TILE} border-amber-500/20 bg-amber-500/5`}>
+    <div className={`${TILE_STATIC} border-amber-500/20 bg-amber-500/5`}>
       <TileHeader
         icon={TrendingUp}
         label="Over/Under Split"
