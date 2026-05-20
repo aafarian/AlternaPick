@@ -117,7 +117,10 @@ export default function LeaderboardPage() {
       {/* Header */}
       <SlideUp>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Leaderboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            <span className="md:inline hidden">Leaderboard</span>
+            <span className="md:hidden">Today&apos;s Leaders</span>
+          </h1>
           <p className="text-sm text-muted-foreground">
             {total} player{total !== 1 ? "s" : ""} ranked
           </p>

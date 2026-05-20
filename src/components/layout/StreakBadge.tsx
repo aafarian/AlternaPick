@@ -5,6 +5,7 @@ import { Gift, HelpCircle, Loader2 } from "lucide-react";
 import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
 import { useAuth } from "@/lib/auth/auth-context";
 import FlameTokensModal from "@/components/onboarding/FlameTokensModal";
+import QuestList from "@/components/quests/QuestList";
 import { logWarn } from "@/lib/logger";
 import { cn } from "@/lib/utils";
 
@@ -205,10 +206,16 @@ export default function StreakBadge() {
               {!canClaim && (
                 <div className="border-t border-border pt-1">
                   <p className="text-[10px] text-muted-foreground text-center">
-                    Daily claim used — come back tomorrow!
+                    Daily claim used - come back tomorrow!
                   </p>
                 </div>
               )}
+
+              {/* Daily Quests */}
+              <div className="border-t border-border pt-2">
+                {showDetails && <QuestList compact />}
+              </div>
+
               <div className="border-t border-border pt-1.5">
                 <button
                   type="button"

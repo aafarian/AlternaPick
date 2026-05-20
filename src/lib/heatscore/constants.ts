@@ -245,6 +245,23 @@ export const CHALLENGE_WIN_BONUS = 25;
 export const CHALLENGE_TIE_BONUS = 10;
 
 // ---------------------------------------------------------------------------
+// Daily Quest Rewards
+// ---------------------------------------------------------------------------
+
+export const QUEST_REWARDS = {
+  add_friend: { label: "Add a friend", reward: 50 },
+  challenge_friend: { label: "Challenge a friend", reward: 50 },
+  wager_card: { label: "Lock in a wager card", reward: 50 },
+  three_cards: { label: "Lock in 3 cards", reward: 75 },
+  all_complete: { label: "Complete 3 quests", reward: 200 },
+} as const;
+
+export type QuestKey = keyof typeof QUEST_REWARDS;
+
+/** All quest keys except the meta "all_complete" quest */
+export const INDIVIDUAL_QUEST_KEYS: QuestKey[] = ["add_friend", "challenge_friend", "wager_card", "three_cards"];
+
+// ---------------------------------------------------------------------------
 // Misc constants
 // ---------------------------------------------------------------------------
 

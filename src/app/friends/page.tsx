@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useRouter } from "next/navigation";
 import UserSearchBar from "@/components/friends/UserSearchBar";
+import SuggestedFriends from "@/components/friends/SuggestedFriends";
 import FriendRequestCard from "@/components/friends/FriendRequestCard";
 import type { FriendRequest } from "@/components/friends/FriendRequestCard";
 import FriendsStrip from "@/components/friends/FriendsStrip";
@@ -180,6 +181,18 @@ export default function FriendsPage() {
       <FadeIn delay={0.1}>
         <UserSearchBar onSendRequest={handleSendRequest} />
       </FadeIn>
+
+      {/* Suggested Friends — prominent when few friends */}
+      {!loadingData && friends.length <= 2 && (
+        <FadeIn delay={0.12}>
+          <section className="flex flex-col gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Suggested Friends
+            </h2>
+            <SuggestedFriends onSendRequest={handleSendRequest} />
+          </section>
+        </FadeIn>
+      )}
 
       {/* Error state */}
       {error && (

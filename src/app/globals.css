@@ -444,12 +444,12 @@ input:-webkit-autofill:active {
 
 /* StreakBadge — gentle background pulse when daily claim is available */
 @keyframes flame-claim-pulse {
-  0%, 100% { background-color: rgba(249, 115, 22, 0.1); }
-  50%      { background-color: rgba(249, 115, 22, 0.25); }
+  0%, 100% { background-color: rgba(249, 115, 22, 0.1); box-shadow: 0 0 0 rgba(249, 115, 22, 0); }
+  50%      { background-color: rgba(249, 115, 22, 0.3); box-shadow: 0 0 12px rgba(249, 115, 22, 0.3); }
 }
 
 @utility animate-flame-claim {
-  animation: flame-claim-pulse 3s ease-in-out infinite;
+  animation: flame-claim-pulse 2s ease-in-out infinite;
 }
 
 /* StreakBadge — floating +50 animation after daily claim */

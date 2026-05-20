@@ -74,18 +74,35 @@ export default function LeaderboardTable({
         </Table>
       </div>
 
-      {/* Mobile cards — staggered animation */}
-      <AnimatedList className="flex flex-col gap-2 md:hidden" animationType="slideUp">
-        {entries.map((entry) => (
-          <LeaderboardRow
-            key={entry.user.id}
-            entry={entry}
-            isCurrentUser={entry.user.id === currentUserId}
-            variant="mobile"
-            sort={sort}
-          />
-        ))}
-      </AnimatedList>
+      {/* Mobile — podium top 3 + ranked list */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {/* Podium */}
+        {entries.length >= 3 && (
+          <div className="grid grid-cols-3 gap-2">
+            {entries.slice(0, 3).map((entry) => (
+              <LeaderboardRow
+                key={entry.user.id}
+                entry={entry}
+                isCurrentUser={entry.user.id === currentUserId}
+                variant="mobile"
+                sort={sort}
+              />
+            ))}
+          </div>
+        )}
+        {/* Ranked list */}
+        <AnimatedList className="flex flex-col" animationType="slideUp">
+          {entries.slice(entries.length >= 3 ? 3 : 0).map((entry) => (
+            <LeaderboardRow
+              key={entry.user.id}
+              entry={entry}
+              isCurrentUser={entry.user.id === currentUserId}
+              variant="mobile"
+              sort={sort}
+            />
+          ))}
+        </AnimatedList>
+      </div>
     </>
   );
 }

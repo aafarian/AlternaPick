@@ -4,8 +4,8 @@ import RankBadge from "./RankBadge";
 import type { LeaderboardEntryWithProfile } from "@/app/api/leaderboard/route";
 import { parseIconConfig } from "@/lib/icons/parse";
 import UserAvatar from "@/components/icons/UserAvatar";
+import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useReducedMotion } from "@/lib/motion";
 import UserProfilePopover from "@/components/user/UserProfilePopover";
@@ -34,80 +34,86 @@ export default function LeaderboardRow({
   const isFlame = sort === "flame_tokens";
 
   if (variant === "mobile") {
-    return (
-      <div
-        className={cn(
-          "rounded-xl transition-transform duration-200",
-          !prefersReduced && "hover:-translate-y-0.5 hover:shadow-md"
-        )}
-      >
-        <Card
-          className={cn(
-            isCurrentUser
-              ? "border-primary/20 bg-primary/5"
-              : "border-border bg-card"
-          )}
-        >
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="shrink-0">
-              <RankBadge rank={rank} />
-            </div>
+    const primaryStat = isFlame
+      ? stats.fire_tokens_balance.toLocaleString()
+      : sort === "h2h"
+        ? `${stats.h2h_wins}W-${stats.h2h_losses}L`
+        : `${(stats.standard_hit_rate ?? stats.win_rate).toFixed(1)}%`;
 
-            <UserProfilePopover
+    const primaryColor = isFlame
+      ? "text-orange-400"
+      : sort === "h2h"
+        ? "text-foreground"
+        : (stats.standard_hit_rate ?? stats.win_rate) >= 60
+          ? "text-neon-green"
+          : (stats.standard_hit_rate ?? stats.win_rate) >= 40
+            ? "text-electric-blue"
+            : "text-bold-red";
+
+    // Podium card for top 3
+    if (rank <= 3) {
+      const medalColors = ["text-amber-400", "text-gray-400", "text-amber-600"];
+      return (
+        <div className={cn(
+          "flex flex-col items-center rounded-2xl border bg-white/[0.02] px-2 pb-3 pt-2",
+          isCurrentUser ? "border-primary/30" : "border-white/[0.06]",
+        )}>
+          <span className={cn("text-sm font-black", medalColors[rank - 1])}>
+            {rank}
+          </span>
+          <UserProfilePopover userId={user.id} username={user.username} align="center">
+            <UserAvatar
+              avatarUrl={user.avatar_url}
+              iconConfig={parseIconConfig(user.icon_config)}
               userId={user.id}
               username={user.username}
-              className="flex min-w-0 flex-1"
-              align="start"
-            >
-              <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                <UserAvatar
-                  avatarUrl={user.avatar_url}
-                  iconConfig={parseIconConfig(user.icon_config)}
-                  userId={user.id}
-                  username={user.username}
-                  size={40}
-                  className="shrink-0"
-                />
+              size={48}
+              className="my-1"
+            />
+          </UserProfilePopover>
+          <p className="max-w-full truncate text-center text-[11px] font-bold">
+            {user.username}
+          </p>
+          <p className={cn("text-lg font-black tabular-nums leading-tight", primaryColor)}>
+            {primaryStat}
+          </p>
+          {isFlame && <FlameTokenIcon className="mt-0.5 h-3 w-3 text-orange-400" />}
+          {isFlame && stats.biggest_payout > 0 && (
+            <p className="mt-0.5 text-[9px] tabular-nums text-emerald-500">
+              best +{stats.biggest_payout.toLocaleString()}
+            </p>
+          )}
+        </div>
+      );
+    }
 
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold">
-                    {user.username}
-                    {isCurrentUser && (
-                      <span className="ml-1.5 text-xs text-primary">(you)</span>
-                    )}
-                  </p>
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                    <span className={cn(sort === "hit_rate" ? "font-bold text-foreground" : "")}>
-                      {(stats.standard_hit_rate ?? stats.win_rate).toFixed(1)}%
-                    </span>
-                    {isFlame ? (
-                      <>
-                        <span className="font-bold text-orange-400">
-                          {stats.fire_tokens_balance.toLocaleString()} 🔥
-                        </span>
-                        {stats.biggest_payout > 0 && (
-                          <span className="text-emerald-500">
-                            best: +{stats.biggest_payout.toLocaleString()}
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <span>
-                          {stats.current_streak}/{stats.best_streak} streak
-                        </span>
-                        <span className={cn(sort === "h2h" ? "font-bold text-foreground" : "")}>
-                          {stats.h2h_wins}W-{stats.h2h_losses}L
-                        </span>
-                        <span>{stats.total_cards} cards</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </UserProfilePopover>
-          </CardContent>
-        </Card>
+    // Clean row for rank 4+
+    return (
+      <div className={cn(
+        "flex items-center gap-2.5 border-t border-white/5 py-2",
+        isCurrentUser && "bg-primary/5 -mx-3 px-3 rounded",
+      )}>
+        <span className="w-5 shrink-0 text-right text-xs font-bold text-muted-foreground/50">
+          {rank}
+        </span>
+        <UserProfilePopover userId={user.id} username={user.username} align="start">
+          <UserAvatar
+            avatarUrl={user.avatar_url}
+            iconConfig={parseIconConfig(user.icon_config)}
+            userId={user.id}
+            username={user.username}
+            size={32}
+            className="shrink-0"
+          />
+        </UserProfilePopover>
+        <span className="min-w-0 flex-1 truncate text-xs font-semibold">
+          {user.username}
+          {isCurrentUser && <span className="ml-1 text-primary">(you)</span>}
+        </span>
+        {isFlame && <FlameTokenIcon className="h-3 w-3 shrink-0 text-orange-400" />}
+        <span className={cn("shrink-0 text-sm font-black tabular-nums", primaryColor)}>
+          {primaryStat}
+        </span>
       </div>
     );
   }

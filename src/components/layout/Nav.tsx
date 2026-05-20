@@ -294,14 +294,15 @@ export default function Nav({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                isAccountActive
-                  ? "bg-primary/15 text-primary"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              className={`flex items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                mobileSecondaryOnly
+                  ? `h-10 w-full justify-start gap-2 rounded-md px-3 text-sm ${isAccountActive ? "text-primary hover:text-primary hover:bg-transparent" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`
+                  : `h-8 w-8 ${isAccountActive ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`
               }`}
               aria-label="Account menu"
             >
               <User className="h-4 w-4" />
+              {mobileSecondaryOnly && <span>Account</span>}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
