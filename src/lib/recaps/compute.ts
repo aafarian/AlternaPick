@@ -1174,6 +1174,14 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
     .sort((a, b) => b.delta - a.delta || b.picks.length - a.picks.length);
 
   for (const entry of locks.slice(0, 2)) {
+    // Find most common stat category for this player
+    const catCounts = new Map<string, number>();
+    for (const p of entry.picks) {
+      const cat = p.props?.stat_category;
+      if (cat) catCounts.set(cat, (catCounts.get(cat) ?? 0) + 1);
+    }
+    const topCat = [...catCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
     spotlights.push({
       type: "player_lock",
       sentiment: "positive",
@@ -1185,6 +1193,7 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
       sport: entry.picks[0].props?.games?.sport ?? undefined,
       playerId: entry.picks[0].props?.player_id ?? undefined,
       team: entry.picks[0].props?.player_team ?? undefined,
+      statCategory: topCat,
     });
   }
 
@@ -1195,6 +1204,13 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
 
   for (const entry of traps.slice(0, 2)) {
     const hitPct = Math.round(entry.rate * 100);
+    const trapCatCounts = new Map<string, number>();
+    for (const p of entry.picks) {
+      const cat = p.props?.stat_category;
+      if (cat) trapCatCounts.set(cat, (trapCatCounts.get(cat) ?? 0) + 1);
+    }
+    const trapTopCat = [...trapCatCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
     spotlights.push({
       type: "player_trap",
       sentiment: "negative",
@@ -1206,6 +1222,7 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
       sport: entry.picks[0].props?.games?.sport ?? undefined,
       playerId: entry.picks[0].props?.player_id ?? undefined,
       team: entry.picks[0].props?.player_team ?? undefined,
+      statCategory: trapTopCat,
     });
   }
 
