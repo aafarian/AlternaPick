@@ -4,10 +4,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, UserPlus } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "@/lib/motion";
 import UserAvatar from "@/components/icons/UserAvatar";
 import { parseIconConfig } from "@/lib/icons/parse";
+import { logWarn } from "@/lib/logger";
 
 interface SearchResult {
   id: string;
@@ -28,10 +29,29 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searching, setSearching] = useState(false);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
+  const [showSuggested, setShowSuggested] = useState(false);
+  const [suggested, setSuggested] = useState<(SearchResult & { label?: string | null })[]>([]);
+  const suggestedFetchedRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const prefersReduced = useReducedMotion();
+
+  const fetchSuggested = useCallback(() => {
+    if (suggestedFetchedRef.current) return;
+    suggestedFetchedRef.current = true;
+    fetch("/api/friends/suggested")
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data?.suggestions) {
+          setSuggested(data.suggestions.map((s: { id: string; username: string; display_name: string | null; avatar_url: string | null; icon_config: Record<string, unknown> | null; label: string | null }) => ({
+            ...s,
+            friendship_status: "none" as const,
+          })));
+        }
+      })
+      .catch((err) => logWarn("user-search", "Failed to fetch suggested", err));
+  }, []);
 
   const search = useCallback(async (q: string) => {
     // Cancel any in-flight request so stale responses don't overwrite newer ones
@@ -65,6 +85,7 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
 
   const handleInputChange = (value: string) => {
     setQuery(value);
+    setShowSuggested(value.length < 2);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => search(value), 300);
   };
@@ -92,6 +113,7 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
         !containerRef.current.contains(e.target as Node)
       ) {
         setIsOpen(false);
+        setShowSuggested(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -135,7 +157,14 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
           placeholder="Search users by username..."
           value={query}
           onChange={(e) => handleInputChange(e.target.value)}
-          onFocus={() => results.length > 0 && setIsOpen(true)}
+          onFocus={() => {
+            if (results.length > 0) {
+              setIsOpen(true);
+            } else if (query.length < 2) {
+              fetchSuggested();
+              setShowSuggested(true);
+            }
+          }}
           className="pl-9"
         />
         {searching && (
@@ -184,6 +213,58 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
 
                   {getStatusButton(user)}
                 </motion.div>
+            ))}
+          </motion.div>
+        )}
+
+        {/* Suggested users — shown on focus when query is empty */}
+        {showSuggested && !isOpen && suggested.length > 0 && (
+          <motion.div
+            key="suggested-results"
+            initial={prefersReduced ? false : { opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={prefersReduced ? undefined : { opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="absolute z-10 mt-2 w-full rounded-xl border border-border bg-card shadow-lg"
+          >
+            <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Suggested
+            </div>
+            {suggested.map((user) => (
+              <div
+                key={user.id}
+                className="flex items-center gap-3 border-t border-border/50 px-4 py-2.5"
+              >
+                <UserAvatar
+                  avatarUrl={user.avatar_url}
+                  iconConfig={parseIconConfig(user.icon_config)}
+                  userId={user.id}
+                  username={user.username}
+                  size={32}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate text-sm font-bold">{user.username}</p>
+                    {user.label && (
+                      <Badge variant="secondary" className="px-1.5 py-0 text-[9px]">{user.label}</Badge>
+                    )}
+                  </div>
+                </div>
+                {sendingTo === user.username ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : user.friendship_status === "pending_sent" ? (
+                  <Badge variant="secondary">Pending</Badge>
+                ) : (
+                  <Button
+                    onClick={() => handleSendRequest(user.username)}
+                    size="sm"
+                    className="h-7 gap-1 text-xs"
+                  >
+                    <UserPlus className="h-3 w-3" />
+                    Add
+                  </Button>
+                )}
+              </div>
             ))}
           </motion.div>
         )}
