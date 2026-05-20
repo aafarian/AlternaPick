@@ -24,16 +24,18 @@ interface PropResult {
 export async function GET(request: NextRequest) {
   try {
     const playerName = request.nextUrl.searchParams.get("playerName");
-    if (!playerName) {
+    const statCategory = request.nextUrl.searchParams.get("statCategory");
+    const team = request.nextUrl.searchParams.get("team");
+    const from = request.nextUrl.searchParams.get("from"); // ISO date, e.g. "2026-03-21"
+    const to = request.nextUrl.searchParams.get("to"); // ISO date, e.g. "2026-03-27"
+
+    // At least one filter is required
+    if (!playerName && !statCategory && !team) {
       return NextResponse.json(
-        { error: "playerName query parameter is required" },
+        { error: "playerName, statCategory, or team query parameter is required" },
         { status: 400 },
       );
     }
-
-    const statCategory = request.nextUrl.searchParams.get("statCategory");
-    const from = request.nextUrl.searchParams.get("from"); // ISO date, e.g. "2026-03-21"
-    const to = request.nextUrl.searchParams.get("to"); // ISO date, e.g. "2026-03-27"
 
     const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
     if (from && !ISO_DATE_RE.test(from)) {
@@ -51,20 +53,27 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Find all props for this player (optionally filtered by stat category)
+    // Find props matching filters (player, stat category, and/or team)
     let propsQuery = typedFrom(supabase, "props")
-      .select("id, player_name, stat_category, line, games(sport)")
-      .eq("player_name", playerName);
+      .select("id, player_name, stat_category, line, player_team, games(sport)");
+    if (playerName) {
+      propsQuery = propsQuery.eq("player_name", playerName);
+    }
     if (statCategory) {
       propsQuery = propsQuery.eq("stat_category", statCategory);
     }
+    if (team) {
+      propsQuery = propsQuery.eq("player_team", team);
+    }
+    // Limit to prevent unbounded queries when filtering by category/team alone
+    propsQuery = propsQuery.limit(200);
     const { data: props, error: propsError } = await propsQuery;
 
     if (propsError) {
       throw new Error(`Failed to fetch props: ${propsError.message}`);
     }
     if (!props || props.length === 0) {
-      return NextResponse.json({ playerName, props: [] });
+      return NextResponse.json({ playerName: playerName ?? statCategory ?? team, props: [] });
     }
 
     const propIds = (props as Array<{ id: string }>).map((p) => p.id);

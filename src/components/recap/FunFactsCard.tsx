@@ -21,17 +21,37 @@ interface SpotlightsCardProps {
 export function SpotlightsCard({ spotlights, dateFrom, dateTo }: SpotlightsCardProps) {
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerClickInfo | null>(null);
 
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
   const handleSpotlightClick = useCallback((spotlight: Spotlight) => {
-    if (PLAYER_TYPES.includes(spotlight.type) && spotlight.subject) {
+    if (!spotlight.subject) return;
+
+    if (PLAYER_TYPES.includes(spotlight.type)) {
       setSelectedPlayer({
         playerName: spotlight.subject,
         sport: spotlight.sport,
         statCategory: spotlight.statCategory,
       });
+    } else if (spotlight.type === "category_hot" || spotlight.type === "category_cold") {
+      setSelectedCategory(spotlight.subject);
+    } else if (spotlight.type === "team_hot" || spotlight.type === "team_cold") {
+      setSelectedTeam(spotlight.subject);
     }
   }, []);
 
+  const handleCloseModal = useCallback(() => {
+    setSelectedPlayer(null);
+    setSelectedTeam(null);
+    setSelectedCategory(null);
+  }, []);
+
   if (spotlights.length === 0) return null;
+
+  // Determine if any non-player modal is open
+  const modalPlayerName = selectedPlayer?.playerName ?? null;
+  const modalStatCategory = selectedPlayer?.statCategory ?? selectedCategory ?? undefined;
+  const modalTeam = selectedTeam ?? undefined;
 
   return (
     <>
@@ -41,7 +61,11 @@ export function SpotlightsCard({ spotlights, dateFrom, dateTo }: SpotlightsCardP
           const Icon = cfg.icon;
           const hasPlayer =
             PLAYER_TYPES.includes(spotlight.type) && spotlight.subject;
-          const isClickable = hasPlayer;
+          const isClickable = !!spotlight.subject && (
+            hasPlayer ||
+            spotlight.type === "category_hot" || spotlight.type === "category_cold" ||
+            spotlight.type === "team_hot" || spotlight.type === "team_cold"
+          );
 
           const Wrapper = isClickable ? "button" : "div";
           const wrapperProps = isClickable
@@ -99,12 +123,13 @@ export function SpotlightsCard({ spotlights, dateFrom, dateTo }: SpotlightsCardP
       </div>
 
       <PlayerPicksModal
-        playerName={selectedPlayer?.playerName ?? null}
+        playerName={modalPlayerName}
         sport={selectedPlayer?.sport}
-        statCategory={selectedPlayer?.statCategory}
+        statCategory={modalStatCategory}
+        team={modalTeam}
         dateFrom={dateFrom}
         dateTo={dateTo}
-        onClose={() => setSelectedPlayer(null)}
+        onClose={handleCloseModal}
       />
     </>
   );

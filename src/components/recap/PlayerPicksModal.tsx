@@ -30,6 +30,7 @@ interface PlayerPicksModalProps {
   playerName: string | null;
   sport?: string;
   statCategory?: string;
+  team?: string;
   dateFrom?: string;
   dateTo?: string;
   onClose: () => void;
@@ -39,6 +40,7 @@ export function PlayerPicksModal({
   playerName,
   sport,
   statCategory: filterStat,
+  team,
   dateFrom,
   dateTo,
   onClose,
@@ -48,16 +50,21 @@ export function PlayerPicksModal({
   const [expandedProp, setExpandedProp] = useState<string | null>(null);
   const prefersReduced = useReducedMotion();
 
+  // Modal is open when any filter is provided
+  const hasFilter = !!playerName || !!filterStat || !!team;
+
   useEffect(() => {
-    if (!playerName) {
+    if (!hasFilter) {
       setPropResults([]);
       setExpandedProp(null);
       return;
     }
     setLoading(true);
     setExpandedProp(null);
-    const params = new URLSearchParams({ playerName });
+    const params = new URLSearchParams();
+    if (playerName) params.set("playerName", playerName);
     if (filterStat) params.set("statCategory", filterStat);
+    if (team) params.set("team", team);
     if (dateFrom) params.set("from", dateFrom);
     if (dateTo) params.set("to", dateTo);
     fetch(`/api/recap/player-picks?${params.toString()}`)
@@ -69,7 +76,7 @@ export function PlayerPicksModal({
         // Silently fail — empty state is shown in the UI
       })
       .finally(() => setLoading(false));
-  }, [playerName, filterStat, dateFrom, dateTo]);
+  }, [playerName, filterStat, team, dateFrom, dateTo, hasFilter]);
 
   const totalPicks = propResults.reduce((sum, p) => sum + p.pickCount, 0);
   const totalHits = propResults.reduce(
@@ -80,7 +87,7 @@ export function PlayerPicksModal({
   const displaySport = sport ?? propResults[0]?.sport;
 
   return (
-    <Dialog open={!!playerName} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={hasFilter} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-b from-primary/10 to-transparent px-5 pt-5 pb-4">
