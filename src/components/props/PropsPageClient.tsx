@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Search, X } from "lucide-react";
 import PropsGameList from "./PropsGameList";
 import GameSelector from "./GameSelector";
+import QuestBanner from "@/components/quests/QuestBanner";
 import { AnimatedEmptyState } from "@/components/ui/animated-empty-state";
 
 type GameWithProps = Game & { props: Prop[] };
@@ -113,6 +114,7 @@ export default function PropsPageClient({
 
   return (
     <div className="flex flex-col gap-4 pb-8">
+      <QuestBanner />
       <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-2 overflow-x-hidden border-b border-white/5 bg-background/95 px-4 pb-2 pt-2 backdrop-blur-md">
         {/* Sport tabs */}
         <div className="flex items-center gap-0.5">
