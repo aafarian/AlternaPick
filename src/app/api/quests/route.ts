@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { unauthorized, handleApiError } from "@/lib/api/errors";
@@ -9,7 +9,7 @@ import { logError, logInfo } from "@/lib/logger";
  * GET /api/quests
  * Returns daily quest status. Auto-credits rewards for completed unclaimed quests.
  */
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -76,7 +76,9 @@ export async function GET(_request: NextRequest) {
     // Check if at least 3 individual quests are complete
     completion.all_complete = INDIVIDUAL_QUEST_KEYS.filter((k) => completion[k]).length >= 3;
 
-    // Auto-credit rewards for completed but unclaimed quests
+    // Auto-credit rewards for completed but unclaimed quests.
+    // Insert claim row FIRST (upsert with ignoreDuplicates) to prevent double-credit
+    // from concurrent requests. Only credit tokens if the insert actually succeeded.
     const newlyClaimed: { key: QuestKey; reward: number }[] = [];
     const allKeys: QuestKey[] = [...INDIVIDUAL_QUEST_KEYS, "all_complete"];
 
@@ -84,7 +86,26 @@ export async function GET(_request: NextRequest) {
       if (completion[key] && !claimed.has(key)) {
         const reward = QUEST_REWARDS[key].reward;
 
-        // Credit coins
+        // Try to insert the claim row first — if it already exists, upsert no-ops
+        const { data: insertData, error: insertError } = await (admin.from("quest_rewards") as any)
+          .upsert(
+            { user_id: user.id, quest_key: key, reward_date: today, coins_awarded: reward },
+            { onConflict: "user_id,quest_key,reward_date", ignoreDuplicates: true },
+          )
+          .select("id");
+
+        if (insertError) {
+          logError("quests", `Failed to record quest claim ${key}`, "GET /api/quests", insertError);
+          continue;
+        }
+
+        // If upsert returned no rows, the claim already existed — skip crediting
+        if (!insertData || insertData.length === 0) {
+          claimed.add(key);
+          continue;
+        }
+
+        // Claim row inserted — now credit the coins
         const { data: rpcResult, error: rpcError } = await (admin as any).rpc(
           "credit_fire_tokens",
           { p_user_id: user.id, p_amount: reward, p_include_lifetime: true },
@@ -92,18 +113,6 @@ export async function GET(_request: NextRequest) {
 
         if (rpcError || rpcResult === -1) {
           logError("quests", `Failed to credit quest reward ${key}`, "GET /api/quests", rpcError);
-          continue;
-        }
-
-        // Record the claim (upsert to handle race conditions)
-        const { error: insertError } = await (admin.from("quest_rewards") as any)
-          .upsert(
-            { user_id: user.id, quest_key: key, reward_date: today, coins_awarded: reward },
-            { onConflict: "user_id,quest_key,reward_date", ignoreDuplicates: true },
-          );
-
-        if (insertError) {
-          logError("quests", `Failed to record quest claim ${key}`, "GET /api/quests", insertError);
           continue;
         }
 

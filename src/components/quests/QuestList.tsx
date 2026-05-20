@@ -38,11 +38,15 @@ export default function QuestList({ compact = false, onFetched }: QuestListProps
   const fetchedRef = useRef(false);
 
   const fetchQuests = useCallback(async () => {
-    if (fetchedRef.current || loading) return;
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
     setLoading(true);
     try {
       const res = await fetch("/api/quests");
-      if (!res.ok) return;
+      if (!res.ok) {
+        fetchedRef.current = false;
+        return;
+      }
       const data = await res.json();
       setQuests(data.quests);
 
@@ -54,13 +58,13 @@ export default function QuestList({ compact = false, onFetched }: QuestListProps
       }
 
       onFetched?.(newlyClaimed);
-      fetchedRef.current = true;
     } catch (err) {
       logWarn("quest-list", "Failed to fetch quests", err);
+      fetchedRef.current = false;
     } finally {
       setLoading(false);
     }
-  }, [loading, onFetched]);
+  }, [onFetched]);
 
   useEffect(() => {
     fetchQuests();

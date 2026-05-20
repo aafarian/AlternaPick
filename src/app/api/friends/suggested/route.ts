@@ -22,7 +22,8 @@ export async function GET() {
     // Get existing friend IDs to exclude from suggestions
     const { data: friendships } = await (admin.from("friendships") as any)
       .select("requester_id, addressee_id")
-      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+      .limit(500);
 
     const friendIds = new Set<string>([user.id]);
     for (const f of friendships ?? []) {

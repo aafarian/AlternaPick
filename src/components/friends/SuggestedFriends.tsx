@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import UserAvatar from "@/components/icons/UserAvatar";
 import { parseIconConfig } from "@/lib/icons/parse";
 import { logWarn } from "@/lib/logger";
+import { toast } from "sonner";
 
 interface SuggestedUser {
   id: string;
@@ -42,6 +43,8 @@ export default function SuggestedFriends({ onSendRequest }: SuggestedFriendsProp
     try {
       await onSendRequest(username);
       setSentTo((prev) => new Set([...prev, username]));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send friend request");
     } finally {
       setSendingTo(null);
     }
