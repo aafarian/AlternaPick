@@ -78,9 +78,9 @@ export default function LeaderboardRow({
             {primaryStat}
           </p>
           {isFlame && <FlameTokenIcon className="mt-0.5 h-3 w-3 text-orange-400" />}
-          {isFlame && stats.biggest_payout > 0 && (
-            <p className="mt-0.5 text-[9px] tabular-nums text-emerald-500">
-              best +{stats.biggest_payout.toLocaleString()}
+          {isFlame && (
+            <p className={cn("mt-0.5 text-[9px] tabular-nums", stats.biggest_payout > 0 ? "text-emerald-500" : "text-muted-foreground/30")}>
+              {stats.biggest_payout > 0 ? `best +${stats.biggest_payout.toLocaleString()}` : "no payout yet"}
             </p>
           )}
         </div>
@@ -114,6 +114,11 @@ export default function LeaderboardRow({
         <span className={cn("shrink-0 text-sm font-black tabular-nums", primaryColor)}>
           {primaryStat}
         </span>
+        {isFlame && (
+          <span className={cn("shrink-0 text-[10px] tabular-nums", stats.biggest_payout > 0 ? "text-emerald-500" : "text-muted-foreground/30")}>
+            {stats.biggest_payout > 0 ? `+${stats.biggest_payout.toLocaleString()}` : "-"}
+          </span>
+        )}
       </div>
     );
   }
