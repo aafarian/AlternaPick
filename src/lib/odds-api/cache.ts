@@ -171,11 +171,36 @@ async function getCachedPropsInternal(sport?: SportKey): Promise<
 
 export const PROPS_CACHE_TAG = "props-page-data";
 
-export const getCachedProps = unstable_cache(
-  getCachedPropsInternal,
-  [PROPS_CACHE_TAG],
-  { revalidate: 120, tags: [PROPS_CACHE_TAG] }
-);
+/**
+ * Cached per-sport props fetch. Each sport gets its own cache entry
+ * (well under the 2MB unstable_cache limit) instead of one giant
+ * all-sports query that exceeds the limit.
+ */
+function getCachedPropsBySport(sport: SportKey) {
+  return unstable_cache(
+    () => getCachedPropsInternal(sport),
+    [`${PROPS_CACHE_TAG}-${sport}`],
+    { revalidate: 120, tags: [PROPS_CACHE_TAG] }
+  )();
+}
+
+/**
+ * Fetch props, cached per sport to stay under the 2MB unstable_cache limit.
+ * When called with no arg, fetches all sports in parallel and merges.
+ * When called with a sport, returns just that sport's cached data.
+ */
+export async function getCachedProps(sport?: SportKey): Promise<(Game & { props: Prop[] })[]> {
+  if (sport) {
+    const data = await getCachedPropsBySport(sport);
+    return (data ?? []) as (Game & { props: Prop[] })[];
+  }
+
+  const allSports: SportKey[] = ["nba", "ncaab", "epl", "la_liga", "nhl", "mlb"];
+  const results = await Promise.all(
+    allSports.map((s) => getCachedPropsBySport(s))
+  );
+  return results.flat().filter((g): g is Game & { props: Prop[] } => g != null);
+}
 
 async function getPropCountsBySportInternal(): Promise<Record<string, number>> {
   const supabase = createAdminClient();
