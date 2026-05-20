@@ -414,6 +414,7 @@ export interface TokenEconomyStats {
   avgWagerSize: number;
   totalCirculatingTokens: number;
   topWagerers: { username: string; wageredToday: number }[];
+  wageredCards: { username: string; cardId: string; wager: number; payout: number | null; cardSize: number; gameMode: string; lockedAt: string }[];
 }
 
 export interface AdminDetailedOverview {

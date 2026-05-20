@@ -233,7 +233,7 @@ async function buildTokenEconomy(
 ): Promise<TokenEconomyStats> {
   const [wagerRes, circulatingRes] = await Promise.all([
     (supabase.from("cards") as any)
-      .select("fire_token_wager, fire_token_payout, user_id")
+      .select("id, fire_token_wager, fire_token_payout, user_id, card_size, game_mode, locked_at")
       .gte("locked_at", todayStart)
       .not("fire_token_wager", "is", null)
       .limit(10000),
@@ -246,7 +246,11 @@ async function buildTokenEconomy(
   warnIfLimitHit("Circulating supply", circulatingRes.data, ROW_LIMIT);
 
   const wagerCards = (wagerRes.data ?? []) as Array<{
+    id: string;
     fire_token_wager: number;
+    card_size: number;
+    game_mode: string;
+    locked_at: string | null;
     fire_token_payout: number | null;
     user_id: string;
   }>;
@@ -268,22 +272,22 @@ async function buildTokenEconomy(
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  let topWagerers: { username: string; wageredToday: number }[] = [];
-  if (topEntries.length > 0) {
-    const userIds = topEntries.map(([id]) => id);
+  // Fetch usernames for all wagerers (not just top 5)
+  const allWagererIds = [...wagererMap.keys()];
+  const usernameMap = new Map<string, string>();
+  if (allWagererIds.length > 0) {
     const { data: profiles } = await (supabase.from("profiles") as any)
       .select("id, username")
-      .in("id", userIds);
-
-    const usernameMap = new Map<string, string>();
+      .in("id", allWagererIds);
     for (const p of (profiles ?? []) as { id: string; username: string }[]) {
       usernameMap.set(p.id, p.username);
     }
-    topWagerers = topEntries.map(([id, amount]) => ({
-      username: usernameMap.get(id) ?? "unknown",
-      wageredToday: amount,
-    }));
   }
+
+  const topWagerers = topEntries.map(([id, amount]) => ({
+    username: usernameMap.get(id) ?? "unknown",
+    wageredToday: amount,
+  }));
 
   const circulatingRows = (circulatingRes.data ?? []) as {
     fire_tokens_balance: number;
@@ -292,6 +296,20 @@ async function buildTokenEconomy(
     (sum, r) => sum + (r.fire_tokens_balance ?? 0),
     0,
   );
+
+  // Build individual wagered card list (most recent first)
+  const wageredCards = [...wagerCards]
+    .sort((a, b) => new Date(b.locked_at ?? 0).getTime() - new Date(a.locked_at ?? 0).getTime())
+    .slice(0, 20)
+    .map((c) => ({
+      username: usernameMap.get(c.user_id) ?? "unknown",
+      cardId: c.id,
+      wager: c.fire_token_wager,
+      payout: c.fire_token_payout,
+      cardSize: c.card_size,
+      gameMode: c.game_mode,
+      lockedAt: c.locked_at ?? "",
+    }));
 
   return {
     totalWageredToday: totalWagered,
@@ -303,6 +321,7 @@ async function buildTokenEconomy(
         : 0,
     totalCirculatingTokens: totalCirculating,
     topWagerers,
+    wageredCards,
   };
 }
 

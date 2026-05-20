@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -21,6 +23,93 @@ import type { TokenEconomyStats } from "@/lib/admin/types";
 
 interface TokenEconomyPanelProps {
   data: TokenEconomyStats;
+}
+
+function WagerTabs({ data }: { data: TokenEconomyStats }) {
+  const [tab, setTab] = useState<"top" | "cards">("top");
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setTab("top")}
+          className={cn(
+            "text-xs font-semibold transition-colors",
+            tab === "top" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Top Wagerers
+        </button>
+        <span className="text-muted-foreground/30">|</span>
+        <button
+          type="button"
+          onClick={() => setTab("cards")}
+          className={cn(
+            "text-xs font-semibold transition-colors",
+            tab === "cards" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          All Wagers
+        </button>
+      </div>
+
+      {tab === "top" ? (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>#</TableHead>
+              <TableHead>User</TableHead>
+              <TableHead className="text-right">Wagered</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.topWagerers.map((w, i) => (
+              <TableRow key={w.username}>
+                <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                <TableCell className="font-medium">{w.username}</TableCell>
+                <TableCell className="text-right tabular-nums text-orange-400">
+                  {w.wageredToday.toLocaleString()}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>User</TableHead>
+              <TableHead>Card</TableHead>
+              <TableHead className="text-right">Wager</TableHead>
+              <TableHead className="text-right">Payout</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.wageredCards.map((c) => (
+              <TableRow key={c.cardId}>
+                <TableCell className="font-medium">{c.username}</TableCell>
+                <TableCell>
+                  <Link href={`/admin/lookup/card/${c.cardId}`} className="text-xs text-primary hover:underline">
+                    {c.cardSize}-pick {c.gameMode}
+                  </Link>
+                </TableCell>
+                <TableCell className="text-right tabular-nums text-orange-400">
+                  {c.wager}
+                </TableCell>
+                <TableCell className={cn(
+                  "text-right tabular-nums",
+                  c.payout != null && c.payout > 0 ? "text-emerald-500" : "text-muted-foreground"
+                )}>
+                  {c.payout != null ? c.payout : "-"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </div>
+  );
 }
 
 export default function TokenEconomyPanel({ data }: TokenEconomyPanelProps) {
@@ -87,32 +176,8 @@ export default function TokenEconomyPanel({ data }: TokenEconomyPanelProps) {
         })}
       </div>
 
-      {data.topWagerers.length > 0 && (
-        <div>
-          <p className="mb-2 text-xs font-semibold text-muted-foreground">
-            Top Wagerers Today
-          </p>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>#</TableHead>
-                <TableHead>User</TableHead>
-                <TableHead className="text-right">Wagered</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.topWagerers.map((w, i) => (
-                <TableRow key={w.username}>
-                  <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                  <TableCell className="font-medium">{w.username}</TableCell>
-                  <TableCell className="text-right tabular-nums text-orange-400">
-                    {w.wageredToday.toLocaleString()}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+      {(data.topWagerers.length > 0 || data.wageredCards.length > 0) && (
+        <WagerTabs data={data} />
       )}
     </div>
   );
