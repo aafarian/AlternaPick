@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { handleApiError } from "@/lib/api/errors";
-import { typedFrom } from "@/lib/supabase/typed-queries";
 
 interface PickerResult {
   username: string;
@@ -26,10 +25,9 @@ export async function GET(request: NextRequest) {
     const playerName = request.nextUrl.searchParams.get("playerName");
     const statCategory = request.nextUrl.searchParams.get("statCategory");
     const team = request.nextUrl.searchParams.get("team");
-    const from = request.nextUrl.searchParams.get("from"); // ISO date, e.g. "2026-03-21"
-    const to = request.nextUrl.searchParams.get("to"); // ISO date, e.g. "2026-03-27"
+    const from = request.nextUrl.searchParams.get("from");
+    const to = request.nextUrl.searchParams.get("to");
 
-    // At least one filter is required
     if (!playerName && !statCategory && !team) {
       return NextResponse.json(
         { error: "playerName, statCategory, or team query parameter is required" },
@@ -39,139 +37,108 @@ export async function GET(request: NextRequest) {
 
     const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
     if (from && !ISO_DATE_RE.test(from)) {
-      return NextResponse.json(
-        { error: "Invalid 'from' date format, expected YYYY-MM-DD" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Invalid 'from' date format" }, { status: 400 });
     }
     if (to && !ISO_DATE_RE.test(to)) {
-      return NextResponse.json(
-        { error: "Invalid 'to' date format, expected YYYY-MM-DD" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Invalid 'to' date format" }, { status: 400 });
     }
 
     const supabase = createAdminClient();
 
-    // Find props matching filters (player, stat category, and/or team)
-    let propsQuery = typedFrom(supabase, "props")
-      .select("id, player_name, stat_category, line, player_team, games(sport)");
-    if (playerName) {
-      propsQuery = propsQuery.eq("player_name", playerName);
-    }
-    if (statCategory) {
-      propsQuery = propsQuery.eq("stat_category", statCategory);
-    }
-    if (team) {
-      propsQuery = propsQuery.eq("player_team", team);
-    }
-    // Limit to prevent unbounded queries when filtering by category/team alone
-    propsQuery = propsQuery.limit(200);
-    const { data: props, error: propsError } = await propsQuery;
-
-    if (propsError) {
-      throw new Error(`Failed to fetch props: ${propsError.message}`);
-    }
-    if (!props || props.length === 0) {
-      return NextResponse.json({ playerName: playerName ?? statCategory ?? team, props: [] });
-    }
-
-    const propIds = (props as Array<{ id: string }>).map((p) => p.id);
-
-    // When a date range is provided, first resolve which card IDs fall within it.
-    // PostgREST embedded-resource filters don't exclude parent rows, so we need
-    // a two-step approach: find eligible cards, then filter picks by card_id.
-    let cardIdFilter: string[] | null = null;
-
-    if (from || to) {
-      let cardsQuery = typedFrom(supabase, "cards")
-        .select("id")
-        .eq("status", "resolved")
-        .limit(10000);
-
-      if (from) {
-        cardsQuery = cardsQuery.gte("resolved_at", `${from}T00:00:00Z`);
-      }
-      if (to) {
-        // Add 2 days buffer: Sunday night games (US timezones) often resolve
-        // after midnight UTC, so cards from the last day of the week may have
-        // resolved_at timestamps on the next day in UTC.
-        const toDate = new Date(`${to}T00:00:00Z`);
-        toDate.setUTCDate(toDate.getUTCDate() + 2);
-        cardsQuery = cardsQuery.lt("resolved_at", toDate.toISOString());
-      }
-
-      const { data: cardRows, error: cardsError } = await cardsQuery;
-      if (cardsError) {
-        throw new Error(`Failed to fetch cards for date range: ${cardsError.message}`);
-      }
-      cardIdFilter = ((cardRows ?? []) as { id: string }[]).map((c) => c.id);
-
-      // No cards in range — nothing to show
-      if (cardIdFilter.length === 0) {
-        return NextResponse.json({ playerName, props: [] });
-      }
-    }
-
-    // Fetch non-pending picks for these props
-    let picksQuery = typedFrom(supabase, "picks")
+    // Query picks directly with prop join — picks are never deleted, unlike props
+    // which rotate out when new games sync. This ensures historical data is always
+    // available for drill-down modals.
+    let picksQuery = (supabase.from("picks") as any)
       .select(
-        "prop_id, selection, result, actual_value, cards!picks_card_id_fkey(user_id, profiles:profiles!cards_user_id_fkey(username))",
+        "prop_id, selection, result, actual_value, " +
+        "props:prop_id(id, player_name, player_team, stat_category, line, games:game_id(sport)), " +
+        "cards:card_id(id, user_id, resolved_at, profiles:user_id(username))"
       )
-      .in("prop_id", propIds)
       .neq("result", "pending");
 
-    if (cardIdFilter) {
-      picksQuery = picksQuery.in("card_id", cardIdFilter);
+    // Apply filters via the joined props table
+    if (playerName) {
+      picksQuery = picksQuery.eq("props.player_name", playerName);
+    }
+    if (statCategory) {
+      picksQuery = picksQuery.eq("props.stat_category", statCategory);
+    }
+    if (team) {
+      picksQuery = picksQuery.eq("props.player_team", team);
     }
 
-    const { data: picks, error: picksError } = await picksQuery;
+    // Date range filter on cards.resolved_at
+    if (from) {
+      picksQuery = picksQuery.gte("cards.resolved_at", `${from}T00:00:00Z`);
+    }
+    if (to) {
+      const toDate = new Date(`${to}T00:00:00Z`);
+      toDate.setUTCDate(toDate.getUTCDate() + 2);
+      picksQuery = picksQuery.lt("cards.resolved_at", toDate.toISOString());
+    }
 
+    picksQuery = picksQuery.limit(500);
+
+    const { data: rawPicks, error: picksError } = await picksQuery;
     if (picksError) {
       throw new Error(`Failed to fetch picks: ${picksError.message}`);
     }
 
+    // Filter out picks where the embedded filter didn't exclude the parent row
+    // (PostgREST returns parent rows with null embedded objects when embedded
+    // filters don't match)
+    const picks = ((rawPicks ?? []) as any[]).filter(
+      (p) => p.props != null && p.cards != null
+    );
+
+    if (picks.length === 0) {
+      return NextResponse.json({
+        playerName: playerName ?? statCategory ?? team,
+        props: [],
+      });
+    }
+
     // Group picks by prop_id
-    const picksByProp = new Map<string, Array<Record<string, unknown>>>();
-    for (const pick of (picks ?? []) as Array<Record<string, unknown>>) {
+    const picksByProp = new Map<string, any[]>();
+    for (const pick of picks) {
       const propId = pick.prop_id as string;
       if (!picksByProp.has(propId)) picksByProp.set(propId, []);
       picksByProp.get(propId)!.push(pick);
     }
 
     // Build response grouped by prop
-    const propResults: PropResult[] = (props as Array<Record<string, unknown>>)
-      .filter((p) => picksByProp.has(p.id as string))
-      .map((p) => {
-        const propPicks = picksByProp.get(p.id as string) ?? [];
-        const game = p.games as { sport: string } | null;
-        const pickers: PickerResult[] = propPicks.map((pick) => {
-          const card = pick.cards as {
-            user_id: string | null;
-            profiles: { username: string } | null;
-          } | null;
-          return {
-            username: card?.profiles?.username ?? "Anonymous",
-            selection: pick.selection as string,
-            result: pick.result as string,
-            actualValue: pick.actual_value as number | null,
-          };
-        });
-        const hits = pickers.filter((pk) => pk.result === "hit").length;
-        return {
-          propId: p.id as string,
-          statCategory: p.stat_category as string,
-          line: p.line as number,
-          sport: game?.sport ?? "unknown",
-          hitRate: pickers.length > 0 ? hits / pickers.length : 0,
-          pickCount: pickers.length,
-          actualValue: pickers.find((pk) => pk.actualValue != null)?.actualValue ?? null,
-          pickers,
-        };
-      })
-      .sort((a, b) => b.pickCount - a.pickCount);
+    const propResults: PropResult[] = [];
+    for (const [propId, propPicks] of picksByProp) {
+      const firstPick = propPicks[0];
+      const prop = firstPick.props;
+      const hits = propPicks.filter((p: any) => p.result === "hit").length;
 
-    return NextResponse.json({ playerName, props: propResults });
+      const pickers: PickerResult[] = propPicks.map((p: any) => ({
+        username: p.cards?.profiles?.username ?? "Unknown",
+        selection: p.selection,
+        result: p.result,
+        actualValue: p.actual_value,
+      }));
+
+      propResults.push({
+        propId,
+        statCategory: prop.stat_category,
+        line: prop.line,
+        sport: prop.games?.sport ?? "unknown",
+        hitRate: propPicks.length > 0 ? hits / propPicks.length : 0,
+        pickCount: propPicks.length,
+        actualValue: propPicks[0]?.actual_value ?? null,
+        pickers,
+      });
+    }
+
+    // Sort by pick count descending
+    propResults.sort((a, b) => b.pickCount - a.pickCount);
+
+    return NextResponse.json({
+      playerName: playerName ?? statCategory ?? team,
+      props: propResults,
+    });
   } catch (error) {
     return handleApiError(error, "Failed to fetch player picks");
   }
