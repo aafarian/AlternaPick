@@ -27,7 +27,7 @@ export function TrapLockTile({
         label={isTrap ? "Traps" : "Locks"}
         textColor={textColor}
       />
-      <div className="mt-2 flex flex-col gap-2 flex-1">
+      <div className="mt-2 flex flex-col gap-2">
         {top.map((p) => (
           <button
             key={p.propId}

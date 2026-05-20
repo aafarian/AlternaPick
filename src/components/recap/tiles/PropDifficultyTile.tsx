@@ -44,7 +44,7 @@ export function PropDifficultyTile({
             ? "Equal locks and traps today"
             : "More traps than locks today"}
       </p>
-      <div className="mt-2 flex flex-col gap-2 flex-1">
+      <div className="mt-2 flex flex-col gap-2">
         <TilePill
           bgColor={pillBg}
           left={`${lockCount} ${lockCount === 1 ? "lock" : "locks"} · ${trapCount} ${trapCount === 1 ? "trap" : "traps"}`}

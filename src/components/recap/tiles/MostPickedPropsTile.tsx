@@ -19,7 +19,7 @@ export function MostPickedPropsTile({
         label="Top Props"
         textColor="text-electric-blue"
       />
-      <div className="mt-2 flex flex-col gap-2 flex-1">
+      <div className="mt-2 flex flex-col gap-2">
         {top.map((p) => {
           const total =
             p.selectionBreakdown.over + p.selectionBreakdown.under;

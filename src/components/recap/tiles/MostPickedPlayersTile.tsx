@@ -21,7 +21,7 @@ export function MostPickedPlayersTile({
         label="Most Picked"
         textColor="text-electric-blue"
       />
-      <div className="mt-2 flex flex-col gap-2 flex-1">
+      <div className="mt-2 flex flex-col gap-2">
         {top.map((p) => (
           <button
             key={p.playerName}

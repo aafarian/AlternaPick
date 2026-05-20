@@ -25,7 +25,7 @@ export function CardScoreboardTile({
       <p className="mt-1 text-[11px] text-muted-foreground">
         Average hits per card across {totalCards} cards
       </p>
-      <div className="mt-2 flex flex-col gap-2 flex-1">
+      <div className="mt-2 flex flex-col gap-2">
         <TilePill
           bgColor="bg-amber-500/10"
           left={`${avgHits} hits out of ${avgPicksPerCard} picks`}

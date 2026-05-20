@@ -26,7 +26,7 @@ export function OverUnderTile({
           ? `${dominant === "over" ? "Overs" : "Unders"} were popular today`
           : "Fairly even split today"}
       </p>
-      <div className="mt-2 flex flex-col gap-2 flex-1">
+      <div className="mt-2 flex flex-col gap-2">
         <TilePill
           bgColor="bg-amber-500/10"
           left={`${pct}% ${dominant.toUpperCase()}`}

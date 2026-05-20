@@ -30,7 +30,7 @@ export function MostPopularStatTile({
       <p className="mt-1 text-[11px] text-muted-foreground">
         {catLabel(top.key)} was the most popular stat
       </p>
-      <div className="mt-2 flex flex-col gap-2 flex-1">
+      <div className="mt-2 flex flex-col gap-2">
         <TilePill
           bgColor={pillBg}
           left={`${top.pickCount} ${catLabel(top.key).toLowerCase()} picks`}

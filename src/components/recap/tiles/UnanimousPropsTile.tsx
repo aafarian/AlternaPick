@@ -19,7 +19,7 @@ export function UnanimousPropsTile({
         label="Everyone Agreed"
         textColor="text-electric-blue"
       />
-      <div className="mt-2 flex flex-col gap-2 flex-1">
+      <div className="mt-2 flex flex-col gap-2">
         {top.map((c) => (
           <button
             key={c.propId}

@@ -24,7 +24,7 @@ export function BreakdownTile({
         label={title}
         textColor="text-muted-foreground"
       />
-      <div className="mt-2 flex flex-col gap-1.5 flex-1">
+      <div className="mt-2 flex flex-col gap-1.5">
         {top.map((entry) => {
           const pct = Math.round(entry.hitRate * 100);
           const isHot = entry.hitRate >= avgRate;
