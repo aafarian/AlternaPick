@@ -363,6 +363,9 @@ export interface AdminOverviewStats {
   avgWinRate: number;
   totalCards: number;
   dailyActiveUsers: number;
+  weeklyActiveUsers: number;
+  wageredCardsToday: number;
+  questsCompletedToday: number;
 }
 
 // ---------------------------------------------------------------------------

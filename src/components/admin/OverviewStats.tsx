@@ -21,14 +21,17 @@ import {
   TrendingUp,
   Layers,
   RefreshCw,
+  CalendarDays,
+  Target,
 } from "lucide-react";
+import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
 
 interface StatCardConfig {
   key: keyof AdminOverviewStats;
   label: string;
   icon: React.ElementType;
   format?: (value: number) => string;
-  subtitle?: (stats: AdminOverviewStats) => string;
+  subtitle?: (stats: AdminOverviewStats) => string | undefined;
 }
 
 const statCards: StatCardConfig[] = [
@@ -46,8 +49,14 @@ const statCards: StatCardConfig[] = [
   },
   {
     key: "dailyActiveUsers",
-    label: "Daily Active Users",
+    label: "DAU",
     icon: UserCheck,
+  },
+  {
+    key: "weeklyActiveUsers",
+    label: "WAU",
+    icon: CalendarDays,
+    subtitle: (s) => s.dailyActiveUsers > 0 ? `DAU/WAU: ${Math.round((s.dailyActiveUsers / s.weeklyActiveUsers) * 100)}%` : undefined,
   },
   // Activity stats
   {
@@ -76,6 +85,16 @@ const statCards: StatCardConfig[] = [
     key: "totalCards",
     label: "Total Cards",
     icon: Layers,
+  },
+  {
+    key: "wageredCardsToday",
+    label: "Wagers Today",
+    icon: FlameTokenIcon,
+  },
+  {
+    key: "questsCompletedToday",
+    label: "Quests Today",
+    icon: Target,
   },
 ];
 
@@ -160,7 +179,7 @@ export default function OverviewStats() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {loading
-          ? Array.from({ length: 8 }).map((_, i) => (
+          ? Array.from({ length: statCards.length }).map((_, i) => (
               <StatCardSkeleton key={i} />
             ))
           : statCards.map((config) => {

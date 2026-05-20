@@ -86,6 +86,8 @@ export async function GET() {
       activeChallengesResult,
       picksMadeTodayResult,
       totalCardsResult,
+      wageredCardsTodayResult,
+      questsCompletedTodayResult,
     ] = await Promise.all([
       // Total users (not deactivated)
       supabase
@@ -127,6 +129,17 @@ export async function GET() {
       supabase
         .from("cards")
         .select("*", { count: "exact", head: true }),
+
+      // Wagered cards today
+      (supabase.from("cards") as any)
+        .select("*", { count: "exact", head: true })
+        .gte("locked_at", todayStart)
+        .not("fire_token_wager", "is", null),
+
+      // Quest rewards claimed today
+      (supabase.from("quest_rewards") as any)
+        .select("*", { count: "exact", head: true })
+        .eq("reward_date", todayStart.slice(0, 10)),
     ]);
 
     // Fail fast on any count-query errors instead of silently returning 0
@@ -209,6 +222,13 @@ export async function GET() {
 
     const dailyActiveUsers = activeUserIds.size;
 
+    // WAU: profiles with last_active_at in the last 7 days
+    const wauResult = await supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .gte("last_active_at", weekStart)
+      .eq("is_deactivated", false);
+
     const stats: AdminOverviewStats = {
       totalUsers: totalUsersResult.count ?? 0,
       signupsToday: signupsTodayResult.count ?? 0,
@@ -219,6 +239,9 @@ export async function GET() {
       avgWinRate: Math.round(avgWinRate * 100) / 100,
       totalCards: totalCardsResult.count ?? 0,
       dailyActiveUsers,
+      weeklyActiveUsers: wauResult.count ?? 0,
+      wageredCardsToday: wageredCardsTodayResult.count ?? 0,
+      questsCompletedToday: questsCompletedTodayResult.count ?? 0,
     };
 
     return NextResponse.json(stats, {
