@@ -93,8 +93,11 @@ export async function GET(request: NextRequest) {
         cardsQuery = cardsQuery.gte("resolved_at", `${from}T00:00:00Z`);
       }
       if (to) {
+        // Add 2 days buffer: Sunday night games (US timezones) often resolve
+        // after midnight UTC, so cards from the last day of the week may have
+        // resolved_at timestamps on the next day in UTC.
         const toDate = new Date(`${to}T00:00:00Z`);
-        toDate.setUTCDate(toDate.getUTCDate() + 1);
+        toDate.setUTCDate(toDate.getUTCDate() + 2);
         cardsQuery = cardsQuery.lt("resolved_at", toDate.toISOString());
       }
 
