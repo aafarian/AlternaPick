@@ -110,15 +110,17 @@ export default function LeaderboardRow({
           {user.username}
           {isCurrentUser && <span className="ml-1 text-primary">(you)</span>}
         </span>
-        {isFlame && <FlameTokenIcon className="h-3 w-3 shrink-0 text-orange-400" />}
-        <span className={cn("shrink-0 text-sm font-black tabular-nums", primaryColor)}>
-          {primaryStat}
-        </span>
-        {isFlame && (
-          <span className={cn("shrink-0 text-[10px] tabular-nums", stats.biggest_payout > 0 ? "text-emerald-500" : "text-muted-foreground/30")}>
-            {stats.biggest_payout > 0 ? `+${stats.biggest_payout.toLocaleString()}` : "-"}
+        <div className="flex shrink-0 flex-col items-end">
+          <span className={cn("flex items-center gap-1 text-sm font-black tabular-nums", primaryColor)}>
+            {isFlame && <FlameTokenIcon className="h-3 w-3 text-orange-400" />}
+            {primaryStat}
           </span>
-        )}
+          {isFlame && (
+            <span className={cn("text-[9px] tabular-nums", stats.biggest_payout > 0 ? "text-emerald-500" : "text-muted-foreground/30")}>
+              {stats.biggest_payout > 0 ? `best +${stats.biggest_payout.toLocaleString()}` : "-"}
+            </span>
+          )}
+        </div>
       </div>
     );
   }
