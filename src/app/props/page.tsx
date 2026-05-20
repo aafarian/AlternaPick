@@ -21,7 +21,7 @@ interface PropsPageProps {
 export default async function PropsPage({ searchParams }: PropsPageProps) {
   const { sport: rawSport, category, player } = await searchParams;
 
-  let allGames: Awaited<ReturnType<typeof getCachedProps>> = null;
+  let allGames: (Awaited<ReturnType<typeof getCachedProps>>) = [];
   try {
     allGames = await getCachedProps();
   } catch (error) {
