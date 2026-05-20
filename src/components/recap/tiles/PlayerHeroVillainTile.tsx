@@ -45,7 +45,7 @@ export function PlayerHeroVillainTile({
   return (
     <button
       type="button"
-      className={`${TILE} ${tileBorder} cursor-pointer text-left`}
+      className={`${TILE} ${tileBorder} w-full cursor-pointer text-left`}
       onClick={handleClick}
     >
       <TileHeader

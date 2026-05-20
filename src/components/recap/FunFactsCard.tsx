@@ -52,7 +52,7 @@ export function SpotlightsCard({ spotlights, dateFrom, dateTo }: SpotlightsCardP
             <Wrapper
               key={`${spotlight.type}-${spotlight.subject ?? ""}-${spotlight.value}`}
               {...wrapperProps}
-              className={`rounded-xl border ${cfg.border} ${cfg.bg} p-4 flex flex-col justify-between min-h-[140px] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${isClickable ? "cursor-pointer text-left" : ""}`}
+              className={`rounded-xl border ${cfg.border} ${cfg.bg} p-4 flex flex-col gap-3 min-h-[140px] ${isClickable ? "cursor-pointer text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md" : ""}`}
             >
               {/* Top row: icon/avatar + value */}
               <div className="flex items-start justify-between gap-1">
@@ -80,7 +80,7 @@ export function SpotlightsCard({ spotlights, dateFrom, dateTo }: SpotlightsCardP
               </div>
 
               {/* Bottom: headline + detail + team */}
-              <div className="mt-auto pt-2">
+              <div>
                 <p className="text-sm font-semibold text-foreground leading-tight">
                   {sanitizeSpotlightText(spotlight.headline)}
                 </p>

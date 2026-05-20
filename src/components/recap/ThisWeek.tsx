@@ -21,6 +21,7 @@ import type {
 import { SpotlightsCard } from "@/components/recap/FunFactsCard";
 import { AnimatedNumber } from "@/components/recap/AnimatedNumber";
 import { PropPicksModal } from "@/components/recap/PropPicksModal";
+import { PlayerPicksModal } from "@/components/recap/PlayerPicksModal";
 
 interface ThisWeekProps {
   weeklyData: WeeklyRecapData;
@@ -67,6 +68,10 @@ export function ThisWeek({ weeklyData, personalWeekly, hideStats, dateFrom, date
     playerName: string;
     statCategory: string;
     line: number;
+  } | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<{
+    playerName: string;
+    sport?: string;
   } | null>(null);
 
   // Guard: if no data at all, don't render
@@ -147,7 +152,12 @@ export function ThisWeek({ weeklyData, personalWeekly, hideStats, dateFrom, date
               const bgColor = isPositive ? "bg-neon-green/10" : "bg-bold-red/10";
               const textColor = isPositive ? "text-neon-green" : "text-bold-red";
               return (
-                <div className={`flex items-start gap-2 rounded-lg ${bgColor} px-3 py-2`}>
+                <button
+                  type="button"
+                  className="w-full text-left cursor-pointer"
+                  onClick={() => setSelectedPlayer({ playerName: topPlayer.playerName, sport: topPlayer.sport })}
+                >
+                <div className={`flex items-start gap-2 rounded-lg ${bgColor} px-3 py-2 transition-colors hover:${isPositive ? "bg-neon-green/15" : "bg-bold-red/15"}`}>
                   <Trophy className={`mt-0.5 h-4 w-4 shrink-0 ${textColor}`} />
                   <div className="min-w-0 flex-1">
                     <p className={`text-[10px] font-bold uppercase tracking-widest ${textColor}`}>
@@ -168,6 +178,7 @@ export function ThisWeek({ weeklyData, personalWeekly, hideStats, dateFrom, date
                     </p>
                   </div>
                 </div>
+                </button>
               );
             })()}
 
@@ -244,6 +255,13 @@ export function ThisWeek({ weeklyData, personalWeekly, hideStats, dateFrom, date
           statCategory={selectedProp?.statCategory ?? ""}
           line={selectedProp?.line ?? 0}
           onClose={() => setSelectedProp(null)}
+        />
+        <PlayerPicksModal
+          playerName={selectedPlayer?.playerName ?? null}
+          sport={selectedPlayer?.sport}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onClose={() => setSelectedPlayer(null)}
         />
 
         {/* Weekly Spotlights */}
