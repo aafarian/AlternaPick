@@ -27,7 +27,7 @@ export function ConsensusTile({
         label={isTrap ? "Crowd Got Burned" : "Crowd Nailed It"}
         textColor={textColor}
       />
-      <div className="mt-2 flex flex-col gap-2 flex-1">
+      <div className="mt-2 flex flex-col gap-2">
         {top.map((c) => (
           <button
             key={c.propId}

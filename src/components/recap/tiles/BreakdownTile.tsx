@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import type { BreakdownEntry } from "@/lib/recaps/compute";
-import { TILE, TileHeader, MAX_TILE_ITEMS_LARGE } from "./shared";
+import { TILE_STATIC, TileHeader, MAX_TILE_ITEMS_LARGE } from "./shared";
 
 export function BreakdownTile({
   title,
@@ -18,13 +18,13 @@ export function BreakdownTile({
   if (items.length === 0) return null;
   const top = items.slice(0, MAX_TILE_ITEMS_LARGE);
   return (
-    <div className={`${TILE} border-border bg-card`}>
+    <div className={`${TILE_STATIC} border-border bg-card`}>
       <TileHeader
         icon={icon}
         label={title}
         textColor="text-muted-foreground"
       />
-      <div className="mt-2 flex flex-col gap-1.5 flex-1">
+      <div className="mt-2 flex flex-col gap-1.5">
         {top.map((entry) => {
           const pct = Math.round(entry.hitRate * 100);
           const isHot = entry.hitRate >= avgRate;

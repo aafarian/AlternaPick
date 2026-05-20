@@ -65,7 +65,7 @@ export function SpotlightTile({
           <span className="text-[10px] font-bold">{spotlight.valueSuffix}</span>
         </span>
       </div>
-      <div className="mt-auto pt-2">
+      <div className="pt-1">
         <p className="text-sm font-semibold text-foreground leading-tight">
           {sanitizeSpotlightText(spotlight.headline)}
         </p>

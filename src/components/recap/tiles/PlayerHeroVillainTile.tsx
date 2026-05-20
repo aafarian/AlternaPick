@@ -45,7 +45,7 @@ export function PlayerHeroVillainTile({
   return (
     <button
       type="button"
-      className={`${TILE} ${tileBorder} cursor-pointer text-left`}
+      className={`${TILE} ${tileBorder} w-full cursor-pointer text-left`}
       onClick={handleClick}
     >
       <TileHeader
@@ -56,7 +56,7 @@ export function PlayerHeroVillainTile({
       <p className="mt-1 text-[11px] text-muted-foreground">
         {isHero ? "Best" : "Worst"} player prop performance
       </p>
-      <div className="mt-2 flex flex-col gap-2 flex-1">
+      <div className="mt-2 flex flex-col gap-2">
         <TilePill
           bgColor={pillBg}
           left={

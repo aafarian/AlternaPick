@@ -21,27 +21,51 @@ interface SpotlightsCardProps {
 export function SpotlightsCard({ spotlights, dateFrom, dateTo }: SpotlightsCardProps) {
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerClickInfo | null>(null);
 
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
   const handleSpotlightClick = useCallback((spotlight: Spotlight) => {
-    if (PLAYER_TYPES.includes(spotlight.type) && spotlight.subject) {
+    if (!spotlight.subject) return;
+
+    if (PLAYER_TYPES.includes(spotlight.type)) {
       setSelectedPlayer({
         playerName: spotlight.subject,
         sport: spotlight.sport,
         statCategory: spotlight.statCategory,
       });
+    } else if (spotlight.type === "category_hot" || spotlight.type === "category_cold") {
+      setSelectedCategory(spotlight.subject);
+    } else if (spotlight.type === "team_hot" || spotlight.type === "team_cold") {
+      setSelectedTeam(spotlight.subject);
     }
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedPlayer(null);
+    setSelectedTeam(null);
+    setSelectedCategory(null);
   }, []);
 
   if (spotlights.length === 0) return null;
 
+  // Determine if any non-player modal is open
+  const modalPlayerName = selectedPlayer?.playerName ?? null;
+  const modalStatCategory = selectedPlayer?.statCategory ?? selectedCategory ?? undefined;
+  const modalTeam = selectedTeam ?? undefined;
+
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 items-start sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {spotlights.map((spotlight) => {
           const cfg = spotlightConfig[spotlight.type];
           const Icon = cfg.icon;
           const hasPlayer =
             PLAYER_TYPES.includes(spotlight.type) && spotlight.subject;
-          const isClickable = hasPlayer;
+          const isClickable = !!spotlight.subject && (
+            hasPlayer ||
+            spotlight.type === "category_hot" || spotlight.type === "category_cold" ||
+            spotlight.type === "team_hot" || spotlight.type === "team_cold"
+          );
 
           const Wrapper = isClickable ? "button" : "div";
           const wrapperProps = isClickable
@@ -52,7 +76,7 @@ export function SpotlightsCard({ spotlights, dateFrom, dateTo }: SpotlightsCardP
             <Wrapper
               key={`${spotlight.type}-${spotlight.subject ?? ""}-${spotlight.value}`}
               {...wrapperProps}
-              className={`rounded-xl border ${cfg.border} ${cfg.bg} p-4 flex flex-col justify-between min-h-[140px] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${isClickable ? "cursor-pointer text-left" : ""}`}
+              className={`rounded-xl border ${cfg.border} ${cfg.bg} p-4 flex flex-col gap-3 min-h-[140px] ${isClickable ? "cursor-pointer text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md" : ""}`}
             >
               {/* Top row: icon/avatar + value */}
               <div className="flex items-start justify-between gap-1">
@@ -80,7 +104,7 @@ export function SpotlightsCard({ spotlights, dateFrom, dateTo }: SpotlightsCardP
               </div>
 
               {/* Bottom: headline + detail + team */}
-              <div className="mt-auto pt-2">
+              <div>
                 <p className="text-sm font-semibold text-foreground leading-tight">
                   {sanitizeSpotlightText(spotlight.headline)}
                 </p>
@@ -99,12 +123,13 @@ export function SpotlightsCard({ spotlights, dateFrom, dateTo }: SpotlightsCardP
       </div>
 
       <PlayerPicksModal
-        playerName={selectedPlayer?.playerName ?? null}
+        playerName={modalPlayerName}
         sport={selectedPlayer?.sport}
-        statCategory={selectedPlayer?.statCategory}
+        statCategory={modalStatCategory}
+        team={modalTeam}
         dateFrom={dateFrom}
         dateTo={dateTo}
-        onClose={() => setSelectedPlayer(null)}
+        onClose={handleCloseModal}
       />
     </>
   );

@@ -1,5 +1,5 @@
 import { Target } from "lucide-react";
-import { TILE, TileHeader, TilePill } from "./shared";
+import { TILE_STATIC, TileHeader, TilePill } from "./shared";
 
 export function CardScoreboardTile({
   totalPicks,
@@ -16,7 +16,7 @@ export function CardScoreboardTile({
     Math.round(avgPicksPerCard * platformHitRate * 10) / 10;
 
   return (
-    <div className={`${TILE} border-amber-500/20 bg-amber-500/5`}>
+    <div className={`${TILE_STATIC} border-amber-500/20 bg-amber-500/5`}>
       <TileHeader
         icon={Target}
         label="Avg Card Score"
@@ -25,7 +25,7 @@ export function CardScoreboardTile({
       <p className="mt-1 text-[11px] text-muted-foreground">
         Average hits per card across {totalCards} cards
       </p>
-      <div className="mt-2 flex flex-col gap-2 flex-1">
+      <div className="mt-2 flex flex-col gap-2">
         <TilePill
           bgColor="bg-amber-500/10"
           left={`${avgHits} hits out of ${avgPicksPerCard} picks`}

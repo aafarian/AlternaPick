@@ -132,7 +132,7 @@ export function RecapTileGrid({ recapData, dateFrom, dateTo }: RecapTileGridProp
   const bad = recapData.playerSpotlightsBad ?? [];
 
   return (
-    <StaggerChildren className="grid grid-cols-1 sm:grid-cols-2 gap-3" staggerDelay={0.06}>
+    <StaggerChildren className="grid grid-cols-1 items-start sm:grid-cols-2 gap-3" staggerDelay={0.06}>
       {/* Individual spotlight tiles */}
       {spotlights.map((s) => (
         <StaggerItem key={`spot-${s.type}-${s.subject ?? ""}-${s.value}`}>

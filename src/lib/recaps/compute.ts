@@ -175,6 +175,14 @@ export interface WeeklyTrendPoint {
   totalCards: number;
 }
 
+export interface WagerHighlights {
+  biggestPayout: { username: string; wager: number; payout: number; multiplier: number; cardId: string } | null;
+  biggestBust: { username: string; wager: number; cardId: string } | null;
+  topWagerer: { username: string; totalWagered: number; netResult: number } | null;
+  totalWagered: number;
+  totalPayouts: number;
+}
+
 export interface WeeklyRecapData {
   /** 7-day trend: one entry per day, ordered oldest to newest */
   dailyTrend: WeeklyTrendPoint[];
@@ -201,6 +209,8 @@ export interface WeeklyRecapData {
   endDate: string;
   /** Full RecapData aggregated across the week, for tile grid rendering */
   recapData: RecapData | null;
+  /** Flame Coin wager highlights for the week */
+  wagerHighlights: WagerHighlights | null;
 }
 
 export interface WeeklyPersonalStats {
@@ -984,7 +994,84 @@ export async function computeWeeklyRecap(
   }
 
   // ------------------------------------------------------------------
-  // 6. Assemble the weekly recap data
+  // 6. Compute wager highlights from resolved wagered cards
+  // ------------------------------------------------------------------
+  let wagerHighlights: WagerHighlights | null = null;
+
+  const { data: wageredCards } = await (supabase.from("cards") as any)
+    .select("id, user_id, fire_token_wager, fire_token_payout, score, total_picks")
+    .eq("status", "resolved")
+    .not("fire_token_wager", "is", null)
+    .gte("resolved_at", startOfWindow)
+    .lt("resolved_at", endOfWindow);
+
+  if (wageredCards && wageredCards.length > 0) {
+    // Fetch usernames for wagered card owners
+    const userIds = [...new Set((wageredCards as { user_id: string }[]).map((c) => c.user_id))];
+    const { data: profiles } = await (supabase.from("profiles") as any)
+      .select("id, username")
+      .in("id", userIds);
+    const usernameMap = new Map<string, string>();
+    for (const p of (profiles ?? []) as { id: string; username: string }[]) {
+      usernameMap.set(p.id, p.username);
+    }
+
+    let totalWagered = 0;
+    let totalPayouts = 0;
+    let biggestPayout: WagerHighlights["biggestPayout"] = null;
+    let biggestBust: WagerHighlights["biggestBust"] = null;
+    const userTotals = new Map<string, { wagered: number; net: number }>();
+
+    for (const card of wageredCards as { id: string; user_id: string; fire_token_wager: number; fire_token_payout: number | null; score: number; total_picks: number }[]) {
+      const wager = card.fire_token_wager;
+      const payout = card.fire_token_payout ?? 0;
+      totalWagered += wager;
+      totalPayouts += payout;
+
+      // Track per-user totals
+      const existing = userTotals.get(card.user_id) ?? { wagered: 0, net: 0 };
+      existing.wagered += wager;
+      existing.net += payout - wager;
+      userTotals.set(card.user_id, existing);
+
+      const username = usernameMap.get(card.user_id) ?? "Unknown";
+
+      // Biggest payout
+      if (payout > 0 && (!biggestPayout || payout > biggestPayout.payout)) {
+        biggestPayout = {
+          username,
+          wager,
+          payout,
+          multiplier: Math.round((payout / wager) * 10) / 10,
+          cardId: card.id,
+        };
+      }
+
+      // Biggest bust (largest wager with 0 payout)
+      if (payout === 0 && (!biggestBust || wager > biggestBust.wager)) {
+        biggestBust = { username, wager, cardId: card.id };
+      }
+    }
+
+    // Top wagerer by total amount wagered
+    let topWagerer: WagerHighlights["topWagerer"] = null;
+    let maxWagered = 0;
+    for (const [userId, totals] of userTotals) {
+      if (totals.wagered > maxWagered) {
+        maxWagered = totals.wagered;
+        topWagerer = {
+          username: usernameMap.get(userId) ?? "Unknown",
+          totalWagered: totals.wagered,
+          netResult: totals.net,
+        };
+      }
+    }
+
+    wagerHighlights = { biggestPayout, biggestBust, topWagerer, totalWagered, totalPayouts };
+  }
+
+  // ------------------------------------------------------------------
+  // 7. Assemble the weekly recap data
   // ------------------------------------------------------------------
   const weeklyData: WeeklyRecapData = {
     dailyTrend,
@@ -997,10 +1084,11 @@ export async function computeWeeklyRecap(
     startDate: start,
     endDate: end,
     recapData: weeklyRecapData,
+    wagerHighlights,
   };
 
   // ------------------------------------------------------------------
-  // 7. Upsert weekly_data on the endDate's recap row
+  // 8. Upsert weekly_data on the endDate's recap row
   // ------------------------------------------------------------------
   const endRecap = recaps.find((r) => r.recap_date === end);
 
@@ -1086,6 +1174,14 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
     .sort((a, b) => b.delta - a.delta || b.picks.length - a.picks.length);
 
   for (const entry of locks.slice(0, 2)) {
+    // Find most common stat category for this player
+    const catCounts = new Map<string, number>();
+    for (const p of entry.picks) {
+      const cat = p.props?.stat_category;
+      if (cat) catCounts.set(cat, (catCounts.get(cat) ?? 0) + 1);
+    }
+    const topCat = [...catCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
     spotlights.push({
       type: "player_lock",
       sentiment: "positive",
@@ -1097,6 +1193,7 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
       sport: entry.picks[0].props?.games?.sport ?? undefined,
       playerId: entry.picks[0].props?.player_id ?? undefined,
       team: entry.picks[0].props?.player_team ?? undefined,
+      statCategory: topCat,
     });
   }
 
@@ -1107,6 +1204,13 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
 
   for (const entry of traps.slice(0, 2)) {
     const hitPct = Math.round(entry.rate * 100);
+    const trapCatCounts = new Map<string, number>();
+    for (const p of entry.picks) {
+      const cat = p.props?.stat_category;
+      if (cat) trapCatCounts.set(cat, (trapCatCounts.get(cat) ?? 0) + 1);
+    }
+    const trapTopCat = [...trapCatCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
     spotlights.push({
       type: "player_trap",
       sentiment: "negative",
@@ -1118,6 +1222,7 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
       sport: entry.picks[0].props?.games?.sport ?? undefined,
       playerId: entry.picks[0].props?.player_id ?? undefined,
       team: entry.picks[0].props?.player_team ?? undefined,
+      statCategory: trapTopCat,
     });
   }
 
@@ -1186,6 +1291,7 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
       value: Math.round(best.hitRate * 100),
       valueSuffix: "%",
       subject: best.key,
+      statCategory: best.key,
     });
   }
   if (sortedCategories.length >= 2) {

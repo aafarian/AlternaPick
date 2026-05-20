@@ -20,6 +20,7 @@ import { DateNavigator } from "@/components/recap/DateNavigator";
 import { RecapHeader } from "@/components/recap/RecapHeader";
 import { PlatformStats } from "@/components/recap/PlatformStats";
 import { ThisWeek } from "@/components/recap/ThisWeek";
+import WagerHighlightsTile from "@/components/recap/tiles/WagerHighlightsTile";
 import { RecapTileGrid } from "@/components/recap/RecapTileGrid";
 import { ConsensusCard } from "@/components/recap/ConsensusCard";
 import { Newspaper } from "lucide-react";
@@ -394,6 +395,13 @@ export default async function RecapPage({
             <ThisWeek weeklyData={weeklyData} personalWeekly={personalWeekly} hideStats dateFrom={monday} dateTo={sunday} />
           </section>
         </ScrollReveal>
+
+        {/* Wager Highlights */}
+        {weeklyData.wagerHighlights && (
+          <ScrollReveal>
+            <WagerHighlightsTile data={weeklyData.wagerHighlights} />
+          </ScrollReveal>
+        )}
 
         {/* Tile Grid — weekly aggregated data */}
         {weeklyRecapData && (

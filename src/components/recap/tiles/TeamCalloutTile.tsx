@@ -1,7 +1,7 @@
 import { Shield } from "lucide-react";
 import type { BreakdownEntry } from "@/lib/recaps/compute";
 import { teamFullName } from "@/lib/constants";
-import { TILE, TileHeader, TilePill } from "./shared";
+import { TILE_STATIC, TileHeader, TilePill } from "./shared";
 
 export function TeamCalloutTile({
   team,
@@ -19,7 +19,7 @@ export function TeamCalloutTile({
   const name = teamFullName(team.key);
 
   return (
-    <div className={`${TILE} ${tileBorder}`}>
+    <div className={`${TILE_STATIC} ${tileBorder}`}>
       <TileHeader
         icon={Shield}
         label={isBest ? "Best Team" : "Worst Team"}
@@ -28,7 +28,7 @@ export function TeamCalloutTile({
       <p className="mt-1 text-[11px] text-muted-foreground">
         {name} {isBest ? "props were cash today" : "was a trap today"}
       </p>
-      <div className="mt-2 flex flex-col gap-2 flex-1">
+      <div className="mt-2 flex flex-col gap-2">
         <TilePill
           bgColor={pillBg}
           left={name}
