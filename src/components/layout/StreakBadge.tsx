@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Gift, HelpCircle, Loader2 } from "lucide-react";
+import { Gift, HelpCircle, Loader2, Check, Circle } from "lucide-react";
 import FlameTokenIcon from "@/components/icons/FlameTokenIcon";
 import { useAuth } from "@/lib/auth/auth-context";
 import FlameTokensModal from "@/components/onboarding/FlameTokensModal";
 import { logWarn } from "@/lib/logger";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import type { QuestKey } from "@/lib/heatscore/constants";
 
 interface StreakData {
   daily_streak: number;
@@ -34,6 +36,12 @@ export default function StreakBadge() {
   const [claimAnimation, setClaimAnimation] = useState<number | null>(null);
   const [showFlameInfo, setShowFlameInfo] = useState(false);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Quest state
+  interface QuestItem { key: QuestKey; label: string; reward: number; completed: boolean; claimed: boolean }
+  const [quests, setQuests] = useState<QuestItem[] | null>(null);
+  const [questsLoading, setQuestsLoading] = useState(false);
+  const questsFetchedRef = useRef(false);
 
   useEffect(() => {
     if (!user) return;
@@ -81,10 +89,35 @@ export default function StreakBadge() {
     return () => window.removeEventListener("flame-tokens-changed", refreshBalance);
   }, []);
 
+  const fetchQuests = useCallback(async () => {
+    if (questsFetchedRef.current || questsLoading) return;
+    setQuestsLoading(true);
+    try {
+      const res = await fetch("/api/quests");
+      if (!res.ok) return;
+      const data = await res.json();
+      setQuests(data.quests);
+
+      // Show toasts for newly claimed quests
+      for (const claimed of data.newlyClaimed ?? []) {
+        toast.success(`Quest complete: ${claimed.key === "all_complete" ? "All quests" : data.quests.find((q: QuestItem) => q.key === claimed.key)?.label} +${claimed.reward}`);
+        // Refresh balance
+        window.dispatchEvent(new Event("flame-tokens-changed"));
+      }
+
+      questsFetchedRef.current = true;
+    } catch (err) {
+      logWarn("streak-badge", "Failed to fetch quests", err);
+    } finally {
+      setQuestsLoading(false);
+    }
+  }, [questsLoading]);
+
   const handleMouseEnter = useCallback(() => {
     clearTimeout(hideTimeoutRef.current);
     setShowDetails(true);
-  }, []);
+    fetchQuests();
+  }, [fetchQuests]);
 
   const handleMouseLeave = useCallback(() => {
     // Delay hiding so user can move mouse to the tooltip
@@ -205,10 +238,51 @@ export default function StreakBadge() {
               {!canClaim && (
                 <div className="border-t border-border pt-1">
                   <p className="text-[10px] text-muted-foreground text-center">
-                    Daily claim used — come back tomorrow!
+                    Daily claim used - come back tomorrow!
                   </p>
                 </div>
               )}
+
+              {/* Daily Quests */}
+              <div className="border-t border-border pt-2">
+                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Daily Quests
+                </p>
+                {questsLoading || !quests ? (
+                  <div className="flex justify-center py-2">
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    {quests.map((q) => (
+                      <div
+                        key={q.key}
+                        className={cn(
+                          "flex items-center gap-1.5 rounded px-1.5 py-1 text-[10px]",
+                          q.key === "all_complete" && "mt-0.5 border border-amber-500/20 bg-amber-500/5",
+                          q.completed && q.key !== "all_complete" && "opacity-60",
+                        )}
+                      >
+                        {q.completed ? (
+                          <Check className="h-3 w-3 shrink-0 text-neon-green" />
+                        ) : (
+                          <Circle className="h-3 w-3 shrink-0 text-muted-foreground/30" />
+                        )}
+                        <span className={cn("flex-1", q.completed && "line-through")}>
+                          {q.label}
+                        </span>
+                        <span className={cn(
+                          "shrink-0 font-bold tabular-nums",
+                          q.completed ? "text-neon-green" : "text-muted-foreground",
+                        )}>
+                          +{q.reward}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="border-t border-border pt-1.5">
                 <button
                   type="button"
