@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Circle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,44 +31,71 @@ const QUEST_LINKS: Partial<Record<QuestKey, string>> = {
   three_cards: "/props",
 };
 
+/**
+ * Global deduplication: multiple QuestList instances share a single fetch
+ * to prevent the API from auto-crediting rewards multiple times.
+ */
+let globalQuestPromise: Promise<{ quests: QuestItem[]; newlyClaimed: { key: QuestKey; reward: number }[] }> | null = null;
+let globalQuestResult: { quests: QuestItem[]; newlyClaimed: { key: QuestKey; reward: number }[] } | null = null;
+
+function fetchQuestsGlobal(): Promise<{ quests: QuestItem[]; newlyClaimed: { key: QuestKey; reward: number }[] }> {
+  // Return cached result if already fetched this page load
+  if (globalQuestResult) return Promise.resolve(globalQuestResult);
+  // Deduplicate concurrent calls
+  if (globalQuestPromise) return globalQuestPromise;
+
+  globalQuestPromise = fetch("/api/quests")
+    .then((res) => {
+      if (!res.ok) throw new Error("Failed to fetch quests");
+      return res.json();
+    })
+    .then((data) => {
+      const result = {
+        quests: data.quests ?? [],
+        newlyClaimed: data.newlyClaimed ?? [],
+      };
+      globalQuestResult = result;
+      globalQuestPromise = null;
+      return result;
+    })
+    .catch((err) => {
+      globalQuestPromise = null;
+      throw err;
+    });
+
+  return globalQuestPromise;
+}
+
 export default function QuestList({ compact = false, onFetched }: QuestListProps) {
   const router = useRouter();
   const [quests, setQuests] = useState<QuestItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const fetchedRef = useRef(false);
 
-  const fetchQuests = useCallback(async () => {
+  useEffect(() => {
     if (fetchedRef.current) return;
     fetchedRef.current = true;
     setLoading(true);
-    try {
-      const res = await fetch("/api/quests");
-      if (!res.ok) {
+
+    fetchQuestsGlobal()
+      .then((result) => {
+        setQuests(result.quests);
+
+        for (const claimed of result.newlyClaimed) {
+          const questLabel = result.quests.find((q) => q.key === claimed.key)?.label ?? claimed.key;
+          toast.success(`Quest complete: ${questLabel} +${claimed.reward}`);
+          window.dispatchEvent(new Event("flame-tokens-changed"));
+        }
+
+        onFetched?.(result.newlyClaimed);
+      })
+      .catch((err) => {
+        logWarn("quest-list", "Failed to fetch quests", err);
         fetchedRef.current = false;
-        return;
-      }
-      const data = await res.json();
-      setQuests(data.quests);
-
-      const newlyClaimed = data.newlyClaimed ?? [];
-      for (const claimed of newlyClaimed) {
-        const questLabel = data.quests.find((q: QuestItem) => q.key === claimed.key)?.label ?? claimed.key;
-        toast.success(`Quest complete: ${questLabel} +${claimed.reward}`);
-        window.dispatchEvent(new Event("flame-tokens-changed"));
-      }
-
-      onFetched?.(newlyClaimed);
-    } catch (err) {
-      logWarn("quest-list", "Failed to fetch quests", err);
-      fetchedRef.current = false;
-    } finally {
-      setLoading(false);
-    }
-  }, [onFetched]);
-
-  useEffect(() => {
-    fetchQuests();
-  }, [fetchQuests]);
+      })
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading || !quests) {
     return (
