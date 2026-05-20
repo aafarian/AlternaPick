@@ -1274,6 +1274,7 @@ function generateSpotlights(input: SpotlightInput): Spotlight[] {
       value: Math.round(best.hitRate * 100),
       valueSuffix: "%",
       subject: best.key,
+      statCategory: best.key,
     });
   }
   if (sortedCategories.length >= 2) {
