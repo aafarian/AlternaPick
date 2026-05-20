@@ -79,8 +79,8 @@ export default function LeaderboardRow({
           </p>
           {isFlame && <FlameTokenIcon className="mt-0.5 h-3 w-3 text-orange-400" />}
           {isFlame && (
-            <p className={cn("mt-0.5 text-[9px] tabular-nums", stats.biggest_payout > 0 ? "text-emerald-500" : "text-muted-foreground/30")}>
-              {stats.biggest_payout > 0 ? `best +${stats.biggest_payout.toLocaleString()}` : "no payout yet"}
+            <p className={cn("mt-0.5 text-[9px] tabular-nums", stats.biggest_payout > 0 ? "text-emerald-500" : "text-muted-foreground/50")}>
+              best: {stats.biggest_payout > 0 ? `+${stats.biggest_payout.toLocaleString()}` : "+0"}
             </p>
           )}
         </div>
@@ -116,8 +116,8 @@ export default function LeaderboardRow({
             {primaryStat}
           </span>
           {isFlame && (
-            <span className={cn("text-[9px] tabular-nums", stats.biggest_payout > 0 ? "text-emerald-500" : "text-muted-foreground/30")}>
-              {stats.biggest_payout > 0 ? `best +${stats.biggest_payout.toLocaleString()}` : "-"}
+            <span className={cn("text-[9px] tabular-nums", stats.biggest_payout > 0 ? "text-emerald-500" : "text-muted-foreground/50")}>
+              best: {stats.biggest_payout > 0 ? `+${stats.biggest_payout.toLocaleString()}` : "+0"}
             </span>
           )}
         </div>
