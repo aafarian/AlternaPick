@@ -253,7 +253,7 @@ export const QUEST_REWARDS = {
   challenge_friend: { label: "Challenge a friend", reward: 50 },
   wager_card: { label: "Lock in a wager card", reward: 50 },
   three_cards: { label: "Lock in 3 cards", reward: 75 },
-  all_complete: { label: "Complete all quests", reward: 200 },
+  all_complete: { label: "Complete 3 quests", reward: 200 },
 } as const;
 
 export type QuestKey = keyof typeof QUEST_REWARDS;

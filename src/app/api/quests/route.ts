@@ -73,8 +73,8 @@ export async function GET(_request: NextRequest) {
       all_complete: false, // computed below
     };
 
-    // Check if all individual quests are complete
-    completion.all_complete = INDIVIDUAL_QUEST_KEYS.every((k) => completion[k]);
+    // Check if at least 3 individual quests are complete
+    completion.all_complete = INDIVIDUAL_QUEST_KEYS.filter((k) => completion[k]).length >= 3;
 
     // Auto-credit rewards for completed but unclaimed quests
     const newlyClaimed: { key: QuestKey; reward: number }[] = [];
