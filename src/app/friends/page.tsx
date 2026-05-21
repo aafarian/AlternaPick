@@ -100,10 +100,12 @@ export default function FriendsPage() {
     const accepted = pendingRequests.find((r) => r.id === id);
     if (accepted) {
       setPendingRequests((prev) => prev.filter((r) => r.id !== id));
-      setFriends((prev) => [
-        { ...accepted, status: "accepted" },
-        ...prev,
-      ]);
+      setFriends((prev) => {
+        // Deduplicate by friend's user ID to prevent doubles
+        const existingIds = new Set(prev.map((f) => f.friend_profile?.id));
+        if (accepted.friend_profile?.id && existingIds.has(accepted.friend_profile.id)) return prev;
+        return [{ ...accepted, status: "accepted" }, ...prev];
+      });
     }
   };
 
