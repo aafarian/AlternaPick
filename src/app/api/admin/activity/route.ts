@@ -134,7 +134,7 @@ async function queryCardsResolved(
   let q = ctx.supabase
     .from("cards")
     .select(
-      "id, user_id, score, total_picks, resolved_at, profiles!cards_user_id_fkey(username, display_name, avatar_url)"
+      "id, user_id, score, total_picks, fire_token_wager, fire_token_payout, resolved_at, profiles!cards_user_id_fkey(username, display_name, avatar_url)"
     )
     .not("resolved_at", "is", null)
     .gte("resolved_at", ctx.dateFrom)
@@ -157,7 +157,9 @@ async function queryCardsResolved(
       username: profile.username ?? "unknown",
       displayName: profile.display_name ?? null,
       avatarUrl: profile.avatar_url ?? null,
-      description: `resolved a card: ${row.score}/${row.total_picks}`,
+      description: row.fire_token_wager
+        ? `resolved a card: ${row.score}/${row.total_picks} (${row.fire_token_payout != null && row.fire_token_payout > 0 ? `+${row.fire_token_payout}` : row.fire_token_payout === 0 ? "+0" : "bust"} coins)`
+        : `resolved a card: ${row.score}/${row.total_picks}`,
       metadata: {
         cardId: row.id,
         score: row.score,
@@ -506,7 +508,7 @@ async function queryFriendRequestsSent(
   let q = ctx.supabase
     .from("friendships")
     .select(
-      "id, requester_id, addressee_id, status, created_at, profiles!friendships_requester_id_fkey(username, display_name, avatar_url)"
+      "id, requester_id, addressee_id, status, created_at, profiles!friendships_requester_id_fkey(username, display_name, avatar_url), addressee:profiles!friendships_addressee_id_fkey(username)"
     )
     .eq("status", "pending")
     .gte("created_at", ctx.dateFrom)
@@ -522,6 +524,7 @@ async function queryFriendRequestsSent(
 
   return ((data ?? []) as AnyRow[]).map((row) => {
     const profile = row.profiles ?? {};
+    const addressee = row.addressee ?? {};
     return {
       id: activityId("friendships", row.id, "friend_request_sent"),
       type: "friend_request_sent" as const,
@@ -529,7 +532,7 @@ async function queryFriendRequestsSent(
       username: profile.username ?? "unknown",
       displayName: profile.display_name ?? null,
       avatarUrl: profile.avatar_url ?? null,
-      description: "sent a friend request",
+      description: `sent a friend request to ${addressee.username ?? "unknown"}`,
       metadata: {
         friendshipId: row.id,
         addresseeId: row.addressee_id,
@@ -545,7 +548,7 @@ async function queryFriendsAccepted(
   let q = ctx.supabase
     .from("friendships")
     .select(
-      "id, requester_id, addressee_id, status, updated_at, profiles!friendships_addressee_id_fkey(username, display_name, avatar_url)"
+      "id, requester_id, addressee_id, status, updated_at, profiles!friendships_addressee_id_fkey(username, display_name, avatar_url), requester:profiles!friendships_requester_id_fkey(username)"
     )
     .eq("status", "accepted")
     .gte("updated_at", ctx.dateFrom)
@@ -561,6 +564,7 @@ async function queryFriendsAccepted(
 
   return ((data ?? []) as AnyRow[]).map((row) => {
     const profile = row.profiles ?? {};
+    const requester = row.requester ?? {};
     return {
       id: activityId("friendships", row.id, "friend_accepted"),
       type: "friend_accepted" as const,
@@ -568,7 +572,7 @@ async function queryFriendsAccepted(
       username: profile.username ?? "unknown",
       displayName: profile.display_name ?? null,
       avatarUrl: profile.avatar_url ?? null,
-      description: "accepted a friend request",
+      description: `accepted ${requester.username ?? "unknown"}'s friend request`,
       metadata: {
         friendshipId: row.id,
         requesterId: row.requester_id,
