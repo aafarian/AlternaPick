@@ -25,7 +25,6 @@ interface SuggestedFriendsProps {
 export default function SuggestedFriends({ onSendRequest }: SuggestedFriendsProps) {
   const [suggestions, setSuggestions] = useState<SuggestedUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sendingTo, setSendingTo] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -39,14 +38,18 @@ export default function SuggestedFriends({ onSendRequest }: SuggestedFriendsProp
   }, []);
 
   const handleAdd = useCallback(async (username: string) => {
-    setSendingTo(username);
+    // Optimistically show "Sent" immediately
+    setSentTo((prev) => new Set([...prev, username]));
     try {
       await onSendRequest(username);
-      setSentTo((prev) => new Set([...prev, username]));
     } catch (err) {
+      // Revert on failure
+      setSentTo((prev) => {
+        const next = new Set(prev);
+        next.delete(username);
+        return next;
+      });
       toast.error(err instanceof Error ? err.message : "Failed to send friend request");
-    } finally {
-      setSendingTo(null);
     }
   }, [onSendRequest]);
 
@@ -94,17 +97,10 @@ export default function SuggestedFriends({ onSendRequest }: SuggestedFriendsProp
                 size="sm"
                 variant="outline"
                 onClick={() => handleAdd(user.username)}
-                disabled={sendingTo === user.username}
                 className="h-7 gap-1 text-xs"
               >
-                {sendingTo === user.username ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <>
-                    <UserPlus className="h-3 w-3" />
-                    Add
-                  </>
-                )}
+                <UserPlus className="h-3 w-3" />
+                Add
               </Button>
             )}
           </div>
