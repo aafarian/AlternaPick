@@ -130,8 +130,10 @@ export async function GET(request: NextRequest) {
 
       if (from) cardsQuery = cardsQuery.gte("resolved_at", `${from}T00:00:00Z`);
       if (to) {
+        // Match the exact same window the recap compute uses:
+        // lt(nextDay midnight) — no extra buffer
         const toDate = new Date(`${to}T00:00:00Z`);
-        toDate.setUTCDate(toDate.getUTCDate() + 2);
+        toDate.setUTCDate(toDate.getUTCDate() + 1);
         cardsQuery = cardsQuery.lt("resolved_at", toDate.toISOString());
       }
 
