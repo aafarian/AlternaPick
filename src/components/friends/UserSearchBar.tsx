@@ -96,11 +96,19 @@ export default function UserSearchBar({ onSendRequest }: UserSearchBarProps) {
     setSendingTo(username);
     try {
       await onSendRequest(username);
+      // Update both search results AND suggested list
       setResults((prev) =>
         prev.map((r) =>
           r.username === username
             ? { ...r, friendship_status: "pending_sent" as const }
             : r
+        )
+      );
+      setSuggested((prev) =>
+        prev.map((s) =>
+          s.username === username
+            ? { ...s, friendship_status: "pending_sent" as const }
+            : s
         )
       );
     } finally {
