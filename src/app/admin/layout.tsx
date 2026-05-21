@@ -18,20 +18,20 @@ export default function AdminLayout({
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-4">
         <div className="flex items-center gap-2">
           <AdminMobileNav />
-          <h1 className="text-lg font-bold tracking-tight">
+          <Link href="/props" className="text-lg font-bold tracking-tight hover:opacity-80 transition-opacity">
             <span className="text-primary">Alterna</span>
             <span className="text-foreground">Pick</span>
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
-              Admin
-            </span>
-          </h1>
+          </Link>
+          <span className="text-sm font-normal text-muted-foreground">
+            Admin
+          </span>
         </div>
         <Link
           href="/props"
-          className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground/60 transition-colors hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back to App
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Exit Admin
         </Link>
       </header>
 
