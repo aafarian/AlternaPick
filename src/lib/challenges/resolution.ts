@@ -234,13 +234,15 @@ export async function resolveEligibleChallenges(): Promise<
         challengerScore,
         opponentScore,
         opponentName,
-        winnerId === challenge.challenger_id
+        winnerId === challenge.challenger_id,
+        isTie
       );
       const opponentMsg = getChallengeNotificationMessage(
         opponentScore,
         challengerScore,
         challengerName,
-        winnerId === challenge.opponent_id
+        winnerId === challenge.opponent_id,
+        isTie
       );
 
       await createNotification(
@@ -732,53 +734,66 @@ function getChallengeNotificationMessage(
   myScore: number,
   theirScore: number,
   opponentName: string,
-  isWinner: boolean
+  isWinner: boolean,
+  isTie: boolean
 ): { title: string; body: string } {
-  const isTie = myScore === theirScore;
   const margin = Math.abs(myScore - theirScore);
+  const scoresEqual = myScore === theirScore;
 
   if (isTie) {
     return {
       title: "Dead Heat",
-      body: `You and ${opponentName} tied ${myScore}-${theirScore}. Run it back?`,
+      body: `You and ${opponentName} tied ${myScore}-${theirScore}.`,
     };
   }
 
   if (isWinner) {
+    if (scoresEqual) {
+      return {
+        title: "HeatScore Win!",
+        body: `You and ${opponentName} both went ${myScore}-${theirScore}, but your HeatScore won it.`,
+      };
+    }
     if (margin >= 3) {
       return {
         title: "Dominant Win!",
-        body: `You destroyed ${opponentName} ${myScore}-${theirScore}. Not even close.`,
+        body: `You beat ${opponentName} ${myScore}-${theirScore}.`,
       };
     }
     if (margin === 1) {
       return {
         title: "Clutch Win!",
-        body: `You edged out ${opponentName} ${myScore}-${theirScore}. That was tight.`,
+        body: `You edged out ${opponentName} ${myScore}-${theirScore}.`,
       };
     }
     return {
       title: "Victory!",
-      body: `You beat ${opponentName} ${myScore}-${theirScore}. Nice work.`,
+      body: `You beat ${opponentName} ${myScore}-${theirScore}.`,
     };
   }
 
   // Loss
+  if (scoresEqual) {
+    return {
+      title: "HeatScore Loss",
+      body: `You and ${opponentName} both went ${myScore}-${theirScore}, but their HeatScore edged yours.`,
+    };
+  }
   if (margin >= 3) {
     return {
       title: "Tough Loss",
-      body: `${opponentName} got you ${theirScore}-${myScore}. Run it back?`,
+      body: `${opponentName} got you ${theirScore}-${myScore}.`,
     };
   }
   if (margin === 1) {
     return {
       title: "So Close!",
-      body: `You fell just short against ${opponentName} ${myScore}-${theirScore}. Next time.`,
+      body: `You fell just short against ${opponentName} ${myScore}-${theirScore}.`,
     };
   }
   return {
-    title: "Better Luck Next Time",
-    body: `${opponentName} took it ${theirScore}-${myScore}. Shake it off.`,
+    title: "Challenge Result",
+    body: `${opponentName} took it ${theirScore}-${myScore}.`,
   };
 }
 

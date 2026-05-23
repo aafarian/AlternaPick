@@ -40,9 +40,9 @@ function getSubject(
 }
 
 function getHeading(isWinner: boolean, isTie: boolean): string {
-  if (isTie) return "It\u2019s a tie";
+  if (isTie) return "It's a tie";
   if (isWinner) return "You won!";
-  return "Better luck next time";
+  return "Challenge complete";
 }
 
 function getSummary(
@@ -59,24 +59,23 @@ function getSummary(
 
   if (isTie) {
     if (myHeatScore === theirHeatScore) {
-      return `${scoreDesc} Dead even on HeatScore too \u2014 a true tie. Run it back?`;
+      return `${scoreDesc} Dead even on HeatScore too - a true tie.`;
     }
-    return `${scoreDesc} Same record, but HeatScore was tied. Run it back?`;
+    return `${scoreDesc} Same record, HeatScore was tied.`;
   }
 
   if (isWinner) {
     if (myScore === theirScore) {
-      // Won on HeatScore tiebreaker
       return `${scoreDesc} Same record, but your HeatScore (${myHeatScore}) beat theirs (${theirHeatScore}).`;
     }
-    return `${scoreDesc} You came out on top!`;
+    return `${scoreDesc} You came out on top.`;
   }
 
   // Lost
   if (myScore === theirScore) {
     return `${scoreDesc} Same record, but their HeatScore (${theirHeatScore}) edged yours (${myHeatScore}).`;
   }
-  return `${scoreDesc} ${opponentName} took this one. Challenge them again?`;
+  return `${scoreDesc} ${opponentName} took this one.`;
 }
 
 function getScoreAccent(isWinner: boolean, isTie: boolean) {
