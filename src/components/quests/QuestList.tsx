@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Circle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ interface QuestItem {
   reward: number;
   completed: boolean;
   claimed: boolean;
+  progress: { current: number; target: number } | null;
 }
 
 interface QuestListProps {
@@ -37,6 +38,12 @@ const QUEST_LINKS: Partial<Record<QuestKey, string>> = {
  */
 let globalQuestPromise: Promise<{ quests: QuestItem[]; newlyClaimed: { key: QuestKey; reward: number }[] }> | null = null;
 let globalQuestResult: { quests: QuestItem[]; newlyClaimed: { key: QuestKey; reward: number }[] } | null = null;
+
+/** Invalidate the cached quest data so the next fetch hits the API */
+export function invalidateQuestCache() {
+  globalQuestResult = null;
+  globalQuestPromise = null;
+}
 
 function fetchQuestsGlobal(): Promise<{ quests: QuestItem[]; newlyClaimed: { key: QuestKey; reward: number }[] }> {
   // Return cached result if already fetched this page load
@@ -72,9 +79,10 @@ export default function QuestList({ compact = false, onFetched }: QuestListProps
   const [loading, setLoading] = useState(false);
   const fetchedRef = useRef(false);
 
-  useEffect(() => {
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
+  const doFetch = useCallback((isRefresh = false) => {
+    if (isRefresh) {
+      invalidateQuestCache();
+    }
     setLoading(true);
 
     fetchQuestsGlobal()
@@ -87,15 +95,28 @@ export default function QuestList({ compact = false, onFetched }: QuestListProps
           window.dispatchEvent(new Event("flame-tokens-changed"));
         }
 
-        onFetched?.(result.newlyClaimed);
+        if (!isRefresh) onFetched?.(result.newlyClaimed);
       })
       .catch((err) => {
         logWarn("quest-list", "Failed to fetch quests", err);
-        fetchedRef.current = false;
+        if (!isRefresh) fetchedRef.current = false;
       })
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+    doFetch(false);
+  }, [doFetch]);
+
+  // Re-fetch when a card is locked or other quest-relevant action happens
+  useEffect(() => {
+    const handleRefresh = () => doFetch(true);
+    window.addEventListener("quests-changed", handleRefresh);
+    return () => window.removeEventListener("quests-changed", handleRefresh);
+  }, [doFetch]);
 
   if (loading || !quests) {
     return (
@@ -147,6 +168,11 @@ export default function QuestList({ compact = false, onFetched }: QuestListProps
             )}
             <span className={cn("flex-1", q.completed && "line-through")}>
               {q.label}
+              {q.progress && !q.completed && q.progress.current > 0 && (
+                <span className="ml-1 text-muted-foreground">
+                  ({q.progress.current}/{q.progress.target})
+                </span>
+              )}
             </span>
             <span className={cn(
               "shrink-0 font-bold tabular-nums",

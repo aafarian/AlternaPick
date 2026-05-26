@@ -39,11 +39,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "AlternaPick - Predict. Compete. Dominate.",
+    default: "AlternaPick - Free Player Props Prediction Game",
     template: "%s | AlternaPick",
   },
   description:
-    "Pick over/unders on real player props across NBA, college basketball, soccer, and more. Challenge friends head-to-head and climb the leaderboard. Free to play.",
+    "Pick over/unders on real player props across NBA, college basketball, soccer, and more. Challenge friends head-to-head and climb the leaderboard. Free to play, no real money.",
   keywords: [
     "player props",
     "over under",
@@ -57,16 +57,16 @@ export const metadata: Metadata = {
     "leaderboard",
   ],
   openGraph: {
-    title: "AlternaPick - Predict. Compete. Dominate.",
+    title: "AlternaPick - Free Player Props Prediction Game",
     description:
-      "Pick over/unders on real player props across NBA, college basketball, soccer, and more. Challenge friends head-to-head and climb the leaderboard.",
+      "Pick over/unders on real player props across NBA, college basketball, soccer, and more. Challenge friends head-to-head and climb the leaderboard. Free to play.",
     type: "website",
     siteName: "AlternaPick",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "AlternaPick - Predict. Compete. Dominate.",
+    title: "AlternaPick - Free Player Props Prediction Game",
     description:
       "Pick over/unders on real player props. Challenge friends and climb the leaderboard. Free to play.",
   },

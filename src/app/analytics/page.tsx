@@ -17,11 +17,14 @@ import { Button } from "@/components/ui/button";
 import { isValidGameMode } from "@/lib/modes/definitions";
 import { isValidSport } from "@/lib/sports";
 import type { GameMode } from "@/lib/supabase/types";
+import { buildPageMetadata } from "@/lib/seo/page-metadata";
 
-export const metadata = {
-  title: "Analytics | AlternaPick",
-  description: "Your prop pick analytics and hit rate breakdown.",
-};
+export const metadata = buildPageMetadata({
+  title: "Analytics",
+  description:
+    "Track your prop pick hit rate, category breakdown, and performance trends. See your stats across NBA, college basketball, soccer, and more.",
+  path: "/analytics",
+});
 
 interface AnalyticsPageProps {
   searchParams: Promise<{ mode?: string; sport?: string }>;
