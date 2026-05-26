@@ -122,6 +122,13 @@ export async function GET() {
       }
     }
 
+    // Build progress for multi-step quests
+    const individualCompleted = INDIVIDUAL_QUEST_KEYS.filter((k) => completion[k]).length;
+    const progress: Partial<Record<QuestKey, { current: number; target: number }>> = {
+      three_cards: { current: Math.min(totalCards, 3), target: 3 },
+      all_complete: { current: Math.min(individualCompleted, 3), target: 3 },
+    };
+
     // Build response
     const quests = allKeys.map((key) => ({
       key,
@@ -129,6 +136,7 @@ export async function GET() {
       reward: QUEST_REWARDS[key].reward,
       completed: completion[key],
       claimed: claimed.has(key),
+      progress: progress[key] ?? null,
     }));
 
     const totalEarned = quests

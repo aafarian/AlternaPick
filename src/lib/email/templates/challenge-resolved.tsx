@@ -35,7 +35,7 @@ function getSubject(
 ): string {
   if (isTie) return `Challenge tied with ${opponentName}`;
   if (isWinner)
-    return `You beat ${opponentName}! ${myScore}/${totalPicks} correct`;
+    return `Challenge result: ${myScore}/${totalPicks} correct vs ${opponentName}`;
   return `${opponentName} won your challenge`;
 }
 
@@ -68,14 +68,14 @@ function getSummary(
     if (myScore === theirScore) {
       return `${scoreDesc} Same record, but your HeatScore (${myHeatScore}) beat theirs (${theirHeatScore}).`;
     }
-    return `${scoreDesc} You came out on top.`;
+    return `${scoreDesc}`;
   }
 
   // Lost
   if (myScore === theirScore) {
     return `${scoreDesc} Same record, but their HeatScore (${theirHeatScore}) edged yours (${myHeatScore}).`;
   }
-  return `${scoreDesc} ${opponentName} took this one.`;
+  return `${scoreDesc}`;
 }
 
 function getScoreAccent(isWinner: boolean, isTie: boolean) {

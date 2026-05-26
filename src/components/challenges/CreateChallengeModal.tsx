@@ -266,6 +266,7 @@ export default function CreateChallengeModal({
       }
       onCreated();
       onClose();
+      window.dispatchEvent(new Event("quests-changed"));
       router.push(`/challenges/${data.challenge.id}/ballot`);
     } catch (err) {
       setError(

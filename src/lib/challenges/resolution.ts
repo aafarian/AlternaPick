@@ -624,19 +624,46 @@ async function resolveGroupChallenge(
         const userEmail = profile?.email;
         if (userEmail && shouldSendEmail("challenge_resolved", prefs)) {
           const username = profile?.username ?? "Player";
-          // Use the 1v1 email template with group-adapted data (placement as
-          // score comparison). The opponent label is pluralized via the pure
-          // helper above so it stays unit-testable.
+          // For group emails: show the winner's name and stats to losers,
+          // and 2nd place name and stats to the winner.
+          const isGroupWinner = p.placement === 1;
+          const winner = placements.find((x) => x.placement === 1);
+          const runnerUp = placements.find((x) => x.placement > 1);
+
+          let compareScore: number;
+          let compareHS: number;
+          let opponentName: string;
+
+          if (isGroupWinner) {
+            // Winner sees 2nd place stats
+            compareScore = runnerUp?.score ?? 0;
+            compareHS = runnerUp?.card_heat_score ?? 0;
+            const runnerUpProfile = runnerUp?.user_id ? profileMap.get(runnerUp.user_id) : null;
+            if (runnerUpProfile?.username && totalParticipants > 3) {
+              opponentName = `${runnerUpProfile.username} and ${totalParticipants - 2} others`;
+            } else if (runnerUpProfile?.username && totalParticipants === 3) {
+              opponentName = `${runnerUpProfile.username} and 1 other`;
+            } else {
+              opponentName = runnerUpProfile?.username ?? formatGroupOpponentLabel(totalParticipants);
+            }
+          } else {
+            // Loser sees winner's stats
+            compareScore = winner?.score ?? 0;
+            compareHS = winner?.card_heat_score ?? 0;
+            const winnerProfile = winner?.user_id ? profileMap.get(winner.user_id) : null;
+            opponentName = winnerProfile?.username ?? formatGroupOpponentLabel(totalParticipants);
+          }
+
           const emailProps = getChallengeResolvedEmailProps({
             username,
             myScore: p.score,
-            theirScore: secondScore,
+            theirScore: compareScore,
             totalPicks: p.card_total_picks,
             myHeatScore: p.card_heat_score,
-            theirHeatScore: participantCards.length > 1 ? participantCards[1].card_heat_score : 0,
-            opponentName: formatGroupOpponentLabel(totalParticipants),
-            isWinner: p.placement === 1,
-            isTie: hasFirstPlaceTie && p.placement === 1,
+            theirHeatScore: compareHS,
+            opponentName,
+            isWinner: isGroupWinner,
+            isTie: hasFirstPlaceTie && isGroupWinner,
             challengeId: challenge.id,
           });
           void sendEmail({

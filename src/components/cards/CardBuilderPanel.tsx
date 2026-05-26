@@ -344,6 +344,8 @@ export default function CardBuilderPanel() {
       if (wager != null) {
         window.dispatchEvent(new Event("flame-tokens-changed"));
       }
+      // Notify quest list to refresh progress
+      window.dispatchEvent(new Event("quests-changed"));
       showSuccess();
     } catch (err) {
       setError(

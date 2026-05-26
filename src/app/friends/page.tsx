@@ -148,6 +148,7 @@ export default function FriendsPage() {
       const data = await res.json();
       throw new Error(data.error ?? "Failed to send friend request");
     }
+    window.dispatchEvent(new Event("quests-changed"));
   };
 
   if (authLoading || (!user && !error)) {
