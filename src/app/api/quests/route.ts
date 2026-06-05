@@ -86,22 +86,20 @@ export async function GET() {
       if (completion[key] && !claimed.has(key)) {
         const reward = QUEST_REWARDS[key].reward;
 
-        // Try to insert the claim row first — if it already exists, upsert no-ops
-        const { data: insertData, error: insertError } = await (admin.from("quest_rewards") as any)
-          .upsert(
-            { user_id: user.id, quest_key: key, reward_date: today, coins_awarded: reward },
-            { onConflict: "user_id,quest_key,reward_date", ignoreDuplicates: true },
-          )
-          .select("id");
+        // Insert claim row first to prevent double-credit from concurrent requests.
+        // Use plain insert — if the unique constraint fires (code 23505), the claim
+        // already exists and we skip crediting. This avoids the upsert+select bug
+        // where ignoreDuplicates returns an error with Prefer: return=representation.
+        const { error: insertError } = await (admin.from("quest_rewards") as any)
+          .insert({ user_id: user.id, quest_key: key, reward_date: today, coins_awarded: reward });
 
         if (insertError) {
-          logError("quests", `Failed to record quest claim ${key}`, "GET /api/quests", insertError);
-          continue;
-        }
-
-        // If upsert returned no rows, the claim already existed — skip crediting
-        if (!insertData || insertData.length === 0) {
-          claimed.add(key);
+          // Unique violation = already claimed, not an error
+          if (insertError.code === "23505") {
+            claimed.add(key);
+            continue;
+          }
+          logError("quests", `Failed to record quest claim ${key}: ${insertError.message} (code: ${insertError.code})`, "GET /api/quests", insertError);
           continue;
         }
 
