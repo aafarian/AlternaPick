@@ -215,13 +215,10 @@ function parseOddsResponse(
   return Array.from(consensusMap.values()).map(({ lines, base }) => {
     lines.sort((a, b) => a - b);
     const mid = Math.floor(lines.length / 2);
-    let median =
+    const median =
       lines.length % 2 === 0
         ? (lines[mid - 1] + lines[mid]) / 2
         : lines[mid];
-    // Snap to nearest half-point line to avoid pushes and quarter lines
-    // e.g. 1.75 → 1.5, 2.25 → 2.5, 18.0 → 18.5
-    median = Math.floor(median) + 0.5;
     return { ...base, line: median, bookmaker: "consensus" };
   });
 }

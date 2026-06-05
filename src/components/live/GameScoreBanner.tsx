@@ -45,6 +45,10 @@ export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) 
       {games.map((game, idx) => {
         const isScheduled = game.status === "scheduled";
         const isLive = game.status === "live";
+        // Hide scores when both are 0 on a final game — this means the game
+        // was inferred as final from resolved picks but scores were never
+        // synced from ESPN (e.g. yesterday's game not in today's live data).
+        const hasScores = !(game.status === "final" && game.home_score === 0 && game.away_score === 0);
         const key = `${game.external_event_id}-${idx}`;
 
         const inner = (
@@ -58,12 +62,12 @@ export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) 
                 tricode={game.away_tricode}
                 logo={game.away_logo}
                 score={game.away_score}
-                showScore={!isScheduled}
+                showScore={!isScheduled && hasScores}
                 side="away"
               />
 
               <span className="text-[10px] text-white/40">
-                {isScheduled ? "vs" : "—"}
+                {isScheduled || !hasScores ? "vs" : "—"}
               </span>
 
               <TeamBadge
@@ -71,7 +75,7 @@ export default function GameScoreBanner({ games }: { games: LiveGameStatus[] }) 
                 tricode={game.home_tricode}
                 logo={game.home_logo}
                 score={game.home_score}
-                showScore={!isScheduled}
+                showScore={!isScheduled && hasScores}
                 side="home"
               />
             </div>
