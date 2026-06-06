@@ -590,6 +590,12 @@ export async function syncGameStatusToDb(
     if (seen.has(gameId)) continue;
     seen.add(gameId);
 
+    // Skip syncing for already-resolved picks — the live gameStatusMap may
+    // contain a different game with the same ESPN event ID (e.g. consecutive
+    // baseball series games), and writing that data would corrupt the DB.
+    const pickIsResolved = pick.result === "hit" || pick.result === "miss" || pick.result === "push" || pick.result === "dnp";
+    if (pickIsResolved) continue;
+
     const eventId = pick.props.games?.external_event_id;
     if (!eventId) continue;
 
