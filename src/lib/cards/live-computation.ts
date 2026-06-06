@@ -105,18 +105,19 @@ export function buildLivePicksForCard(
 
   for (const pick of picks) {
     const eventId = pick.props?.games?.external_event_id;
-    const pickIsResolved = pick.result === "hit" || pick.result === "miss" || pick.result === "push" || pick.result === "dnp";
+    // DNP is excluded — it's tentative during live games (player might still enter).
+    const pickIsSettled = pick.result === "hit" || pick.result === "miss" || pick.result === "push";
 
-    // Skip live game lookup for already-resolved picks. The live gameStatusMap
+    // Skip live game lookup for already-settled picks. The live gameStatusMap
     // is keyed by ESPN event ID, but the same teams can play on consecutive
     // days (baseball series) and share event IDs across syncs. Using live data
     // for a resolved pick from yesterday would overwrite its final state with
     // today's in-progress data.
-    let gameInfo = !pickIsResolved && eventId ? gameStatusMap.get(eventId) : null;
+    let gameInfo = !pickIsSettled && eventId ? gameStatusMap.get(eventId) : null;
 
     // Fallback: match by team names ONLY when external_event_id isn't set
     // and the pick hasn't been resolved yet.
-    if (!gameInfo && !eventId && !pickIsResolved) {
+    if (!gameInfo && !eventId && !pickIsSettled) {
       const home = pick.props?.games?.home_team?.toLowerCase() ?? "";
       const away = pick.props?.games?.away_team?.toLowerCase() ?? "";
       if (home && away) {
@@ -164,7 +165,8 @@ export function buildLivePicksForCard(
       // (Vercel UTC vs US evening games) or transient failures.
       // However, if the pick is already resolved (hit/miss/push/dnp), the game
       // must be over — trust the pick result over a stale DB game status.
-      const dbStatus = pickIsResolved
+      const pickHasResult = pickIsSettled || pick.result === "dnp";
+      const dbStatus = pickHasResult
         ? "final" as const
         : (dbGameStatus as "scheduled" | "live" | "final") ?? "scheduled";
       const dbHomeTeam = pick.props.games?.home_team ?? "";
@@ -212,8 +214,12 @@ export function buildLivePicksForCard(
     const effectiveStatus = gameInfo?.status ?? gameStatus?.status ?? dbGameStatus;
 
     if (trending !== "dnp" && (effectiveStatus === "live" || effectiveStatus === "final")) {
-      // Try boxscore first (only for today's games with external event ID)
-      if (resolvedEventId) {
+      // Try boxscore first — but ONLY when we matched this pick to a live game
+      // via gameStatusMap. When gameInfo is null (resolved pick or game not in
+      // today's data), the boxscoreMap may contain a different game that reused
+      // the same ESPN event ID (baseball series). Using that boxscore would
+      // overwrite stored actual_values with wrong data.
+      if (resolvedEventId && gameInfo) {
         const boxscore = boxscoreMap.get(resolvedEventId) ?? [];
         const playerStats = fuzzyMatchPlayer(boxscore, pick.props.player_name);
 
@@ -589,6 +595,12 @@ export async function syncGameStatusToDb(
     const gameId = pick.props.game_id;
     if (seen.has(gameId)) continue;
     seen.add(gameId);
+
+    // Skip syncing for already-resolved picks — the live gameStatusMap may
+    // contain a different game with the same ESPN event ID (e.g. consecutive
+    // baseball series games), and writing that data would corrupt the DB.
+    const pickIsResolved = pick.result === "hit" || pick.result === "miss" || pick.result === "push" || pick.result === "dnp";
+    if (pickIsResolved) continue;
 
     const eventId = pick.props.games?.external_event_id;
     if (!eventId) continue;
