@@ -124,6 +124,37 @@ async def get_mlb_boxscore(event_id: str) -> list[dict]:
         players = []
         boxscore = data.get("boxscore", {})
 
+        # Parse doubles and triples from battingDetails so we can compute
+        # per-player total bases.  ESPN's boxscore labels don't include TB,
+        # 2B, or 3B — they only appear in the team-level details section as
+        # display strings like "Smith (5, Sewald); Ward (1, Nelson)".
+        # Each semicolon-separated entry is one extra-base hit.
+        extra_base_hits: dict[str, dict[str, int]] = {}  # team_name -> {player_last_name: count}
+        for team_data in boxscore.get("teams", []):
+            team_name = team_data.get("team", {}).get("displayName", "")
+            doubles: dict[str, int] = {}
+            triples: dict[str, int] = {}
+            for detail_group in team_data.get("details", []):
+                for stat in detail_group.get("stats", []):
+                    name = stat.get("name", "")
+                    display = stat.get("displayValue", "")
+                    if not display:
+                        continue
+                    target = None
+                    if name == "doubles":
+                        target = doubles
+                    elif name == "triples":
+                        target = triples
+                    if target is not None:
+                        # Parse "LastName (N, ...); LastName2 (N, ...)"
+                        for entry in display.split(";"):
+                            entry = entry.strip()
+                            paren = entry.find("(")
+                            if paren > 0:
+                                last_name = entry[:paren].strip().lower()
+                                target[last_name] = target.get(last_name, 0) + 1
+            extra_base_hits[team_name] = {"doubles": doubles, "triples": triples}
+
         for team_data in boxscore.get("players", []):
             team_info = team_data.get("team", {})
             team_name = team_info.get("displayName", team_info.get("name", ""))
@@ -158,6 +189,16 @@ async def get_mlb_boxscore(event_id: str) -> list[dict]:
                             stat_map[label] = stats_values[i]
 
                     if group_name == "batting":
+                        h = safe_int(stat_map.get("h", "0"))
+                        hr = safe_int(stat_map.get("hr", "0"))
+                        # Compute total bases: TB = H + 2B + 2×3B + 3×HR
+                        # Look up doubles/triples from battingDetails by last name
+                        team_xbh = extra_base_hits.get(team_name, {})
+                        last_name = player_name.rsplit(" ", 1)[-1].lower() if player_name else ""
+                        player_2b = team_xbh.get("doubles", {}).get(last_name, 0)
+                        player_3b = team_xbh.get("triples", {}).get(last_name, 0)
+                        tb = h + player_2b + 2 * player_3b + 3 * hr
+
                         players.append({
                             "player_name": player_name,
                             "player_id": player_id,
@@ -165,17 +206,15 @@ async def get_mlb_boxscore(event_id: str) -> list[dict]:
                             "team_tricode": team_tricode,
                             "role": "batter",
                             # Batting stats
-                            "hits": safe_int(stat_map.get("h", "0")),
+                            "hits": h,
                             "at_bats": safe_int(stat_map.get("ab", "0")),
                             "runs": safe_int(stat_map.get("r", "0")),
-                            "home_runs": safe_int(stat_map.get("hr", "0")),
+                            "home_runs": hr,
                             "rbis": safe_int(stat_map.get("rbi", "0")),
                             "stolen_bases": safe_int(stat_map.get("sb", "0")),
                             "walks": safe_int(stat_map.get("bb", "0")),
                             "strikeouts": safe_int(stat_map.get("k", stat_map.get("so", "0"))),
-                            # Total bases: 1B + 2×2B + 3×3B + 4×HR
-                            # ESPN doesn't always provide TB directly, so we may need to compute
-                            "total_bases": safe_int(stat_map.get("tb", "0")),
+                            "total_bases": tb,
                             # Composite: H+R+RBI
                             "hits_runs_rbis": (
                                 safe_int(stat_map.get("h", "0")) +
