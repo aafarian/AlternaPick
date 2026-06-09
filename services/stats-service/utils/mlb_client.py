@@ -1,9 +1,11 @@
 """
-ESPN client for fetching MLB (Major League Baseball) data.
+MLB (Major League Baseball) data client.
 
-Uses ESPN's free public API (no key required):
-  - Scoreboard: site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard
-  - Summary:    site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary
+Primary boxscore source: MLB Stats API (statsapi.mlb.com) — provides per-player
+totalBases, doubles, triples, and 30+ other fields.  Free, no key required.
+
+Fallback + scoreboard source: ESPN public API — used for live game status,
+scores, and as a boxscore fallback if the MLB API is unavailable.
 """
 
 import asyncio
@@ -15,6 +17,7 @@ from utils.espn_helpers import (
     EspnRateLimiter,
     get_cached,
     set_cached,
+    get_http_client,
     espn_get_with_retry,
     parse_espn_status,
     parse_period,
@@ -29,6 +32,7 @@ _ET = ZoneInfo("America/New_York")
 logger = logging.getLogger(__name__)
 
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb"
+MLB_API_BASE = "https://statsapi.mlb.com/api/v1"
 
 _rate_limiter = EspnRateLimiter(min_interval=0.3)
 
@@ -40,6 +44,215 @@ async def _espn_get(endpoint: str, params: dict | None = None) -> dict:
         f"{ESPN_BASE}{endpoint}",
         params,
     )
+
+
+# ---------------------------------------------------------------------------
+# MLB Stats API helpers
+# ---------------------------------------------------------------------------
+
+async def _mlb_api_get(path: str, params: dict | None = None) -> dict:
+    """GET request to the MLB Stats API with retry."""
+    client = get_http_client()
+    url = f"{MLB_API_BASE}{path}"
+    for attempt in range(2):
+        try:
+            resp = await client.get(url, params=params, timeout=10.0)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception:
+            if attempt == 0:
+                await asyncio.sleep(0.5)
+            else:
+                raise
+
+
+_NO_MATCH = -1  # sentinel for negative cache (None can't be distinguished from cache miss)
+
+
+async def _resolve_game_pk(espn_event_id: str) -> tuple[int, bool] | None:
+    """Map an ESPN event ID to an MLB Stats API gamePk.
+
+    Returns (gamePk, is_final) or None if no match found.
+    Result is cached for 6 hours (positive) or 10 minutes (negative).
+    """
+    cache_key = f"mlb_gamepk:{espn_event_id}"
+    cached = get_cached(cache_key)
+    if cached == _NO_MATCH:
+        return None
+    if cached is not None:
+        return cached
+
+    # We need the game date and teams.  Fetch from ESPN scoreboard cache
+    # (already warm from the background refresh loop) or the summary header.
+    try:
+        summary = await _espn_get("/summary", {"event": espn_event_id})
+        header = summary.get("header", {})
+        competitions = header.get("competitions", [{}])
+        comp = competitions[0] if competitions else {}
+        game_date_str = comp.get("date", "")
+        competitors = comp.get("competitors", [])
+        espn_teams: set[str] = set()
+        for c in competitors:
+            team = c.get("team", {})
+            name = team.get("displayName", team.get("name", ""))
+            if name:
+                espn_teams.add(name.lower())
+    except Exception as e:
+        logger.warning(f"Failed to get ESPN summary for gamePk mapping: {e}")
+        return None
+
+    if not game_date_str or len(espn_teams) < 2:
+        return None
+
+    # Parse date for MLB API schedule query (YYYY-MM-DD)
+    try:
+        dt = datetime.fromisoformat(game_date_str.replace("Z", "+00:00"))
+        # MLB schedule uses ET dates — games after midnight UTC are same-day ET
+        schedule_date = dt.astimezone(_ET).strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+        return None
+
+    try:
+        schedule = await _mlb_api_get("/schedule", {
+            "date": schedule_date,
+            "sportId": "1",
+        })
+    except Exception as e:
+        logger.warning(f"MLB API schedule fetch failed: {e}")
+        return None
+
+    # Match by team names + start time (disambiguates double-headers).
+    # Collect all team-matched games, then pick the one closest in start time.
+    candidates: list[tuple[int, bool, float]] = []  # (gamePk, is_final, time_delta_sec)
+    for date_entry in schedule.get("dates", []):
+        for game in date_entry.get("games", []):
+            teams = game.get("teams", {})
+            away_name = teams.get("away", {}).get("team", {}).get("name", "").lower()
+            home_name = teams.get("home", {}).get("team", {}).get("name", "").lower()
+            if away_name in espn_teams and home_name in espn_teams:
+                game_pk = game.get("gamePk")
+                is_final = game.get("status", {}).get("abstractGameState", "") == "Final"
+                # Compare start times to pick the correct game in a double-header
+                mlb_date_str = game.get("gameDate", "")
+                try:
+                    mlb_dt = datetime.fromisoformat(mlb_date_str.replace("Z", "+00:00"))
+                    delta = abs((mlb_dt - dt).total_seconds())
+                except (ValueError, TypeError):
+                    delta = 0.0  # no time info — treat as match
+                candidates.append((game_pk, is_final, delta))
+
+    if candidates:
+        # Pick the game with the closest start time
+        candidates.sort(key=lambda c: c[2])
+        game_pk, is_final, _ = candidates[0]
+        result = (game_pk, is_final)
+        set_cached(cache_key, result, 6 * 3600)
+        return result
+
+    # No match found — cache sentinel to avoid repeated lookups
+    set_cached(cache_key, _NO_MATCH, 600)  # retry in 10 minutes
+    return None
+
+
+def _build_player_dict(
+    player_name: str,
+    player_id: str,
+    team_name: str,
+    team_tricode: str,
+    role: str,
+    batting: dict | None = None,
+    pitching: dict | None = None,
+) -> dict:
+    """Build a player dict in the standard boxscore format."""
+    if role == "batter" and batting:
+        h = batting.get("hits", 0)
+        hr = batting.get("homeRuns", 0)
+        doubles = batting.get("doubles", 0)
+        triples = batting.get("triples", 0)
+        r = batting.get("runs", 0)
+        rbi = batting.get("rbi", 0)
+        return {
+            "player_name": player_name,
+            "player_id": player_id,
+            "team": team_name,
+            "team_tricode": team_tricode,
+            "role": "batter",
+            "hits": h,
+            "at_bats": batting.get("atBats", 0),
+            "runs": r,
+            "home_runs": hr,
+            "rbis": rbi,
+            "stolen_bases": batting.get("stolenBases", 0),
+            "walks": batting.get("baseOnBalls", 0),
+            "strikeouts": batting.get("strikeOuts", 0),
+            "total_bases": batting.get("totalBases", h + doubles + 2 * triples + 3 * hr),
+            "hits_runs_rbis": h + r + rbi,
+            "points": 0, "rebounds": 0, "assists": 0, "steals": 0,
+            "blocks": 0, "turnovers": 0, "threes_made": 0, "minutes": "0",
+        }
+
+    if role == "pitcher" and pitching:
+        ip_str = str(pitching.get("inningsPitched", "0"))
+        try:
+            ip_float = float(ip_str)
+            whole = int(ip_float)
+            frac = round((ip_float - whole) * 10)
+            outs = whole * 3 + frac
+        except (ValueError, TypeError):
+            outs = 0
+        return {
+            "player_name": player_name,
+            "player_id": player_id,
+            "team": team_name,
+            "team_tricode": team_tricode,
+            "role": "pitcher",
+            "pitcher_strikeouts": pitching.get("strikeOuts", 0),
+            "pitcher_outs": outs,
+            "hits": 0, "runs": 0, "home_runs": 0, "rbis": 0,
+            "stolen_bases": 0, "total_bases": 0, "hits_runs_rbis": 0,
+            "points": 0, "rebounds": 0, "assists": 0, "steals": 0,
+            "blocks": 0, "turnovers": 0, "threes_made": 0, "minutes": "0",
+        }
+
+    return {}
+
+
+async def _get_mlb_api_boxscore(game_pk: int) -> list[dict]:
+    """Fetch per-player boxscore from the MLB Stats API.
+
+    Returns the same flat player list format as the ESPN boxscore.
+    """
+    data = await _mlb_api_get(f"/game/{game_pk}/boxscore")
+    players = []
+
+    for side in ("away", "home"):
+        team_data = data.get("teams", {}).get(side, {})
+        team_info = team_data.get("team", {})
+        team_name = team_info.get("name", "")
+        # MLB API doesn't have a tricode in the boxscore — extract from abbreviation
+        team_tricode = team_info.get("abbreviation", "")
+
+        for pid, player_obj in team_data.get("players", {}).items():
+            person = player_obj.get("person", {})
+            p_name = person.get("fullName", "")
+            p_id = str(person.get("id", ""))
+            stats = player_obj.get("stats", {})
+            batting = stats.get("batting", {})
+            pitching = stats.get("pitching", {})
+
+            # A player can appear as both batter and pitcher (two-way players).
+            # Emit a batter entry if they have at-bats, pitcher if innings pitched.
+            if batting and batting.get("atBats", 0) > 0:
+                entry = _build_player_dict(p_name, p_id, team_name, team_tricode, "batter", batting=batting)
+                if entry:
+                    players.append(entry)
+
+            if pitching and pitching.get("inningsPitched", "0") != "0":
+                entry = _build_player_dict(p_name, p_id, team_name, team_tricode, "pitcher", pitching=pitching)
+                if entry:
+                    players.append(entry)
+
+    return players
 
 
 async def get_todays_mlb_games(target_date: str | None = None) -> list[dict]:
@@ -108,21 +321,74 @@ async def get_todays_mlb_games_cached() -> list[dict]:
 
 
 async def get_mlb_boxscore(event_id: str) -> list[dict]:
-    """Fetch player boxscore for an MLB game from ESPN summary.
+    """Fetch player boxscore — MLB Stats API primary, ESPN fallback.
 
-    Baseball boxscores have separate sections for batting and pitching.
-    We combine both into a flat player list with all available stats.
+    The MLB Stats API provides per-player totalBases, doubles, and triples
+    directly.  ESPN's boxscore labels omit these fields, requiring fragile
+    parsing of display strings.  We try the MLB API first and only fall back
+    to ESPN when the gamePk lookup or API call fails.
     """
     cache_key = f"mlb_boxscore:{event_id}"
     cached = get_cached(cache_key)
     if cached is not None:
         return cached
 
+    # --- Primary source: MLB Stats API ---
+    try:
+        resolved = await _resolve_game_pk(event_id)
+        if resolved is not None:
+            game_pk, is_final = resolved
+            players = await _get_mlb_api_boxscore(game_pk)
+            if players:
+                ttl = FINAL_CACHE_TTL_SECONDS if is_final else CACHE_TTL_SECONDS
+                set_cached(cache_key, players, ttl)
+                logger.info(f"MLB API boxscore for event {event_id} (gamePk={game_pk}): {len(players)} players")
+                return players
+    except Exception as e:
+        logger.warning(f"MLB API boxscore failed for event {event_id}, falling back to ESPN: {e}")
+
+    # --- Fallback: ESPN ---
     try:
         data = await _espn_get("/summary", {"event": event_id})
 
         players = []
         boxscore = data.get("boxscore", {})
+
+        # Parse doubles and triples from battingDetails so we can compute
+        # per-player total bases.  ESPN's boxscore labels don't include TB,
+        # 2B, or 3B — they only appear in the team-level details section as
+        # display strings like "Smith (5, Sewald); Ward (1, Nelson)".
+        # Each semicolon-separated entry is one extra-base hit.
+        extra_base_hits: dict[str, dict[str, int]] = {}  # team_name -> {player_last_name: count}
+        for team_data in boxscore.get("teams", []):
+            team_name = team_data.get("team", {}).get("displayName", "")
+            doubles: dict[str, int] = {}
+            triples: dict[str, int] = {}
+            for detail_group in team_data.get("details", []):
+                for stat in detail_group.get("stats", []):
+                    name = stat.get("name", "")
+                    display = stat.get("displayValue", "")
+                    if not display:
+                        continue
+                    target = None
+                    if name == "doubles":
+                        target = doubles
+                    elif name == "triples":
+                        target = triples
+                    if target is not None:
+                        # Parse "LastName (N, ...); LastName2 (N, ...)"
+                        # Use only the final word of the name to match compound
+                        # surnames like "De La Cruz" → "cruz" (same as the
+                        # per-player lookup which uses rsplit(" ", 1)[-1]).
+                        for entry in display.split(";"):
+                            entry = entry.strip()
+                            paren = entry.find("(")
+                            if paren > 0:
+                                raw_name = entry[:paren].strip().lower()
+                                last_word = raw_name.rsplit(" ", 1)[-1] if raw_name else ""
+                                if last_word:
+                                    target[last_word] = target.get(last_word, 0) + 1
+            extra_base_hits[team_name] = {"doubles": doubles, "triples": triples}
 
         for team_data in boxscore.get("players", []):
             team_info = team_data.get("team", {})
@@ -158,6 +424,16 @@ async def get_mlb_boxscore(event_id: str) -> list[dict]:
                             stat_map[label] = stats_values[i]
 
                     if group_name == "batting":
+                        h = safe_int(stat_map.get("h", "0"))
+                        hr = safe_int(stat_map.get("hr", "0"))
+                        # Compute total bases: TB = H + 2B + 2×3B + 3×HR
+                        # Look up doubles/triples from battingDetails by last name
+                        team_xbh = extra_base_hits.get(team_name, {})
+                        last_name = player_name.rsplit(" ", 1)[-1].lower() if player_name else ""
+                        player_2b = team_xbh.get("doubles", {}).get(last_name, 0)
+                        player_3b = team_xbh.get("triples", {}).get(last_name, 0)
+                        tb = h + player_2b + 2 * player_3b + 3 * hr
+
                         players.append({
                             "player_name": player_name,
                             "player_id": player_id,
@@ -165,17 +441,15 @@ async def get_mlb_boxscore(event_id: str) -> list[dict]:
                             "team_tricode": team_tricode,
                             "role": "batter",
                             # Batting stats
-                            "hits": safe_int(stat_map.get("h", "0")),
+                            "hits": h,
                             "at_bats": safe_int(stat_map.get("ab", "0")),
                             "runs": safe_int(stat_map.get("r", "0")),
-                            "home_runs": safe_int(stat_map.get("hr", "0")),
+                            "home_runs": hr,
                             "rbis": safe_int(stat_map.get("rbi", "0")),
                             "stolen_bases": safe_int(stat_map.get("sb", "0")),
                             "walks": safe_int(stat_map.get("bb", "0")),
                             "strikeouts": safe_int(stat_map.get("k", stat_map.get("so", "0"))),
-                            # Total bases: 1B + 2×2B + 3×3B + 4×HR
-                            # ESPN doesn't always provide TB directly, so we may need to compute
-                            "total_bases": safe_int(stat_map.get("tb", "0")),
+                            "total_bases": tb,
                             # Composite: H+R+RBI
                             "hits_runs_rbis": (
                                 safe_int(stat_map.get("h", "0")) +
