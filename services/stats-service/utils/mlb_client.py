@@ -121,19 +121,33 @@ async def _resolve_game_pk(espn_event_id: str) -> tuple[int, bool] | None:
         logger.warning(f"MLB API schedule fetch failed: {e}")
         return None
 
-    # Match by team names
+    # Match by team names + start time (disambiguates double-headers).
+    # Collect all team-matched games, then pick the one closest in start time.
+    candidates: list[tuple[int, bool, float]] = []  # (gamePk, is_final, time_delta_sec)
     for date_entry in schedule.get("dates", []):
         for game in date_entry.get("games", []):
             teams = game.get("teams", {})
             away_name = teams.get("away", {}).get("team", {}).get("name", "").lower()
             home_name = teams.get("home", {}).get("team", {}).get("name", "").lower()
-            # ESPN uses "Kansas City Royals", MLB API uses "Kansas City Royals" — should match
             if away_name in espn_teams and home_name in espn_teams:
-                    game_pk = game.get("gamePk")
-                    is_final = game.get("status", {}).get("abstractGameState", "") == "Final"
-                    result = (game_pk, is_final)
-                    set_cached(cache_key, result, 6 * 3600)
-                    return result
+                game_pk = game.get("gamePk")
+                is_final = game.get("status", {}).get("abstractGameState", "") == "Final"
+                # Compare start times to pick the correct game in a double-header
+                mlb_date_str = game.get("gameDate", "")
+                try:
+                    mlb_dt = datetime.fromisoformat(mlb_date_str.replace("Z", "+00:00"))
+                    delta = abs((mlb_dt - dt).total_seconds())
+                except (ValueError, TypeError):
+                    delta = 0.0  # no time info — treat as match
+                candidates.append((game_pk, is_final, delta))
+
+    if candidates:
+        # Pick the game with the closest start time
+        candidates.sort(key=lambda c: c[2])
+        game_pk, is_final, _ = candidates[0]
+        result = (game_pk, is_final)
+        set_cached(cache_key, result, 6 * 3600)
+        return result
 
     # No match found — cache sentinel to avoid repeated lookups
     set_cached(cache_key, _NO_MATCH, 600)  # retry in 10 minutes
