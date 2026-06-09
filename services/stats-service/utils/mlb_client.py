@@ -66,16 +66,21 @@ async def _mlb_api_get(path: str, params: dict | None = None) -> dict:
                 raise
 
 
-async def _resolve_game_pk(espn_event_id: str) -> int | None:
+_NO_MATCH = -1  # sentinel for negative cache (None can't be distinguished from cache miss)
+
+
+async def _resolve_game_pk(espn_event_id: str) -> tuple[int, bool] | None:
     """Map an ESPN event ID to an MLB Stats API gamePk.
 
-    Fetches the MLB schedule for the game's date and matches by team names
-    against the ESPN scoreboard.  Result is cached for 6 hours.
+    Returns (gamePk, is_final) or None if no match found.
+    Result is cached for 6 hours (positive) or 10 minutes (negative).
     """
     cache_key = f"mlb_gamepk:{espn_event_id}"
     cached = get_cached(cache_key)
+    if cached == _NO_MATCH:
+        return None
     if cached is not None:
-        return cached  # may be None (negative cache)
+        return cached
 
     # We need the game date and teams.  Fetch from ESPN scoreboard cache
     # (already warm from the background refresh loop) or the summary header.
@@ -123,15 +128,15 @@ async def _resolve_game_pk(espn_event_id: str) -> int | None:
             away_name = teams.get("away", {}).get("team", {}).get("name", "").lower()
             home_name = teams.get("home", {}).get("team", {}).get("name", "").lower()
             # ESPN uses "Kansas City Royals", MLB API uses "Kansas City Royals" — should match
-            if away_name in espn_teams or home_name in espn_teams:
-                # Verify BOTH teams match to avoid false positives
-                if away_name in espn_teams and home_name in espn_teams:
+            if away_name in espn_teams and home_name in espn_teams:
                     game_pk = game.get("gamePk")
-                    set_cached(cache_key, game_pk, 6 * 3600)
-                    return game_pk
+                    is_final = game.get("status", {}).get("abstractGameState", "") == "Final"
+                    result = (game_pk, is_final)
+                    set_cached(cache_key, result, 6 * 3600)
+                    return result
 
-    # No match found — cache None to avoid repeated lookups
-    set_cached(cache_key, None, 600)  # retry in 10 minutes
+    # No match found — cache sentinel to avoid repeated lookups
+    set_cached(cache_key, _NO_MATCH, 600)  # retry in 10 minutes
     return None
 
 
@@ -220,7 +225,6 @@ async def _get_mlb_api_boxscore(game_pk: int) -> list[dict]:
             stats = player_obj.get("stats", {})
             batting = stats.get("batting", {})
             pitching = stats.get("pitching", {})
-            position = player_obj.get("position", {}).get("code", "")
 
             # A player can appear as both batter and pitcher (two-way players).
             # Emit a batter entry if they have at-bats, pitcher if innings pitched.
@@ -317,17 +321,11 @@ async def get_mlb_boxscore(event_id: str) -> list[dict]:
 
     # --- Primary source: MLB Stats API ---
     try:
-        game_pk = await _resolve_game_pk(event_id)
-        if game_pk is not None:
+        resolved = await _resolve_game_pk(event_id)
+        if resolved is not None:
+            game_pk, is_final = resolved
             players = await _get_mlb_api_boxscore(game_pk)
             if players:
-                # Determine cache TTL from the game status
-                try:
-                    game_data = await _mlb_api_get(f"/game/{game_pk}/feed/live")
-                    state = game_data.get("gameData", {}).get("status", {}).get("abstractGameState", "")
-                    is_final = state == "Final"
-                except Exception:
-                    is_final = False
                 ttl = FINAL_CACHE_TTL_SECONDS if is_final else CACHE_TTL_SECONDS
                 set_cached(cache_key, players, ttl)
                 logger.info(f"MLB API boxscore for event {event_id} (gamePk={game_pk}): {len(players)} players")
@@ -365,12 +363,17 @@ async def get_mlb_boxscore(event_id: str) -> list[dict]:
                         target = triples
                     if target is not None:
                         # Parse "LastName (N, ...); LastName2 (N, ...)"
+                        # Use only the final word of the name to match compound
+                        # surnames like "De La Cruz" → "cruz" (same as the
+                        # per-player lookup which uses rsplit(" ", 1)[-1]).
                         for entry in display.split(";"):
                             entry = entry.strip()
                             paren = entry.find("(")
                             if paren > 0:
-                                last_name = entry[:paren].strip().lower()
-                                target[last_name] = target.get(last_name, 0) + 1
+                                raw_name = entry[:paren].strip().lower()
+                                last_word = raw_name.rsplit(" ", 1)[-1] if raw_name else ""
+                                if last_word:
+                                    target[last_word] = target.get(last_word, 0) + 1
             extra_base_hits[team_name] = {"doubles": doubles, "triples": triples}
 
         for team_data in boxscore.get("players", []):
