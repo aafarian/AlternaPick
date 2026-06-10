@@ -69,6 +69,12 @@ export default function PropLine({
   ).length;
   const canGoEasy = MAX_EASY_NOTCH_PICKS <= 0 || easyNotchCount < MAX_EASY_NOTCH_PICKS;
 
+  const disabledUnselected = isFull && !selected;
+  // Over-only categories (e.g. home runs) never allow "under" — under on a rare
+  // event is a near-certain, exploitable win. See OVER_ONLY_CATEGORIES.
+  const overOnly = isOverOnlyCategory(statCategory);
+  const underDisabled = disabledUnselected || notch !== 0 || overOnly;
+
   function handleNotchChange(newNotch: number, newAdjustedLine: number) {
     // Block going to easy notch if limit reached
     if (newNotch < 0 && !canGoEasy && notch >= 0) return;
@@ -100,42 +106,30 @@ export default function PropLine({
 
   function handleClick(side: "over" | "under") {
     if (selected && selection === side) {
+      // Deselecting is always allowed, even for an otherwise-disabled control.
       removePick(propId);
       setNotch(0);
       setCurrentAdjustedLine(line);
-    } else if (selected) {
-      removePick(propId);
-      addPick({
-        prop_id: propId,
-        player_name: playerName,
-        player_team: playerTeam ?? "",
-        stat_category: statCategory,
-        line,
-        selection: side,
-        game_id: gameId,
-        notch,
-        adjusted_line: currentAdjustedLine,
-      });
-    } else {
-      addPick({
-        prop_id: propId,
-        player_name: playerName,
-        player_team: playerTeam ?? "",
-        stat_category: statCategory,
-        line,
-        selection: side,
-        game_id: gameId,
-        notch,
-        adjusted_line: currentAdjustedLine,
-      });
+      return;
     }
+    // Adding or switching selection: never act on a disabled control. The
+    // buttons are already disabled in render — this guards programmatic calls
+    // (e.g. an under pick on an over-only category) from corrupting state.
+    if (side === "over" ? disabledUnselected : underDisabled) return;
+    // Switching selection: drop the existing pick before re-adding with the new side.
+    if (selected) removePick(propId);
+    addPick({
+      prop_id: propId,
+      player_name: playerName,
+      player_team: playerTeam ?? "",
+      stat_category: statCategory,
+      line,
+      selection: side,
+      game_id: gameId,
+      notch,
+      adjusted_line: currentAdjustedLine,
+    });
   }
-
-  const disabledUnselected = isFull && !selected;
-  // Over-only categories (e.g. home runs) never allow "under" — under on a rare
-  // event is a near-certain, exploitable win. See OVER_ONLY_CATEGORIES.
-  const overOnly = isOverOnlyCategory(statCategory);
-  const underDisabled = disabledUnselected || notch !== 0 || overOnly;
 
   // Only use the player's enriched team — falling back to homeTeam would show
   // the opponent's logo for away-team players whose enrichment is missing.

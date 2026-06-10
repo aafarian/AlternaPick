@@ -200,9 +200,15 @@ export async function POST(
     // rare event is a near-guaranteed, exploitable win. See OVER_ONLY_CATEGORIES.
     for (const pick of picks) {
       const category = categoryByPropId.get(pick.prop_id);
+      // Invariant: every pick that reaches here was validated above against a
+      // fetched prop, so its category is always present. Fail closed rather
+      // than silently skip the check if a future refactor breaks that.
+      if (!category) {
+        logWarn("guest-pick", `Missing stat category for prop ${pick.prop_id} during over-only validation`);
+        return badRequest("Could not verify prop category");
+      }
       if (
         pick.selection === "under" &&
-        category &&
         isOverOnlyCategory(category as StatCategory)
       ) {
         return badRequest("Under picks are not allowed for this stat category");
