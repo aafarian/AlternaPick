@@ -197,12 +197,24 @@ function parseOddsResponse(
     }
   }
 
-  // Second pass: collapse multiple bookmaker lines into one consensus (median) per player+stat
+  // Second pass: for each bookmaker, keep only their lowest line per
+  // player+stat.  Bookmakers offer multiple tiers (e.g., HR at 0.5, 1.5,
+  // 2.5) — we want the primary prop, not inflated derivative lines.
+  // Then take the median of those lowest-lines across bookmakers.
+  const lowestPerBook = new Map<string, ParsedPlayerProp>();
+  for (const prop of dedupMap.values()) {
+    const key = `${prop.player_name}_${prop.stat_category}_${prop.bookmaker}`;
+    const existing = lowestPerBook.get(key);
+    if (!existing || prop.line < existing.line) {
+      lowestPerBook.set(key, prop);
+    }
+  }
+
   const consensusMap = new Map<
     string,
     { lines: number[]; base: ParsedPlayerProp }
   >();
-  for (const prop of dedupMap.values()) {
+  for (const prop of lowestPerBook.values()) {
     const key = `${prop.player_name}_${prop.stat_category}`;
     const existing = consensusMap.get(key);
     if (existing) {
@@ -215,11 +227,11 @@ function parseOddsResponse(
   return Array.from(consensusMap.values()).map(({ lines, base }) => {
     lines.sort((a, b) => a - b);
     const mid = Math.floor(lines.length / 2);
-    const median =
+    const line =
       lines.length % 2 === 0
         ? (lines[mid - 1] + lines[mid]) / 2
         : lines[mid];
-    return { ...base, line: median, bookmaker: "consensus" };
+    return { ...base, line, bookmaker: "consensus" };
   });
 }
 
