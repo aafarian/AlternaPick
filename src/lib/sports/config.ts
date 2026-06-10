@@ -164,6 +164,31 @@ export const SPORT_CONFIG: Record<SportKey, SportConfig> = {
   },
 };
 
+/* ---------- Over-only categories ---------- */
+
+/**
+ * Stat categories that only support "over" picks — never "under".
+ *
+ * These are rare, low-frequency events where the standard line is 0.5 and the
+ * league-wide per-game average is far below it, so "under" is a near-certain
+ * outcome (~85%+) for almost any player. Allowing "under" lets users stack
+ * near-guaranteed wins (e.g. six "under 0.5 HR" picks). Real sportsbooks quote
+ * these as one-sided "anytime"/milestone Over markets for the same reason.
+ *
+ * To make a new category over-only (e.g. when adding a sport), add it here —
+ * this is the single source of truth consumed by the UI, the card builder, and
+ * server-side pick validation.
+ */
+export const OVER_ONLY_CATEGORIES: ReadonlySet<StatCategory> = new Set([
+  "home_runs", // MLB: league avg ~0.15/game → under 0.5 ≈ 87%
+  "stolen_bases", // MLB: league avg ~0.15/game → under 0.5 ≈ 88%
+  "goals", // Soccer/NHL: "anytime scorer" market; under = "won't score"
+]);
+
+export function isOverOnlyCategory(category: StatCategory): boolean {
+  return OVER_ONLY_CATEGORIES.has(category);
+}
+
 /* ---------- UI Subsets ---------- */
 
 /** Sports shown in selector tabs and auto-select priority order (NHL omitted until ready). */

@@ -11,6 +11,7 @@ import NotchSelector from "@/components/props/NotchSelector";
 import NotchBadge from "@/components/props/NotchBadge";
 import { cn } from "@/lib/utils";
 import { MAX_EASY_NOTCH_PICKS } from "@/lib/heatscore/constants";
+import { isOverOnlyCategory } from "@/lib/sports/config";
 
 interface PropLineProps {
   propId: string;
@@ -131,7 +132,10 @@ export default function PropLine({
   }
 
   const disabledUnselected = isFull && !selected;
-  const underDisabled = disabledUnselected || notch !== 0;
+  // Over-only categories (e.g. home runs) never allow "under" — under on a rare
+  // event is a near-certain, exploitable win. See OVER_ONLY_CATEGORIES.
+  const overOnly = isOverOnlyCategory(statCategory);
+  const underDisabled = disabledUnselected || notch !== 0 || overOnly;
 
   // Only use the player's enriched team — falling back to homeTeam would show
   // the opponent's logo for away-team players whose enrichment is missing.
