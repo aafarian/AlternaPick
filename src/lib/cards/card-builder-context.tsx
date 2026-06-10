@@ -15,6 +15,7 @@ import type {
 } from "./types";
 import type { PickSelection } from "@/lib/supabase/types";
 import type { GameMode } from "@/lib/modes/types";
+import { isOverOnlyCategory } from "@/lib/sports/config";
 import {
   cardBuilderReducer,
   initialCardBuilderState,
@@ -62,6 +63,8 @@ export function CardBuilderProvider({ children }: { children: ReactNode }) {
     (propId: string) => {
       const pick = state.picks.find((p) => p.prop_id === propId);
       if (!pick) return;
+      // Over-only categories (e.g. home runs) can't be toggled to "under".
+      if (isOverOnlyCategory(pick.stat_category)) return;
       const newSelection: PickSelection =
         pick.selection === "over" ? "under" : "over";
       dispatch({

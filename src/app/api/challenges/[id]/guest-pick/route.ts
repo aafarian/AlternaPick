@@ -5,7 +5,8 @@ import { badRequest, serverError, handleApiError } from "@/lib/api/errors";
 import { logError, logWarn } from "@/lib/logger";
 import { UNPICKABLE_CHALLENGE_STATUSES, LOCK_BUFFER_MS } from "@/lib/challenges/constants";
 import { linkCardToGuestParticipant } from "@/lib/challenges/queries";
-import type { Card, Challenge, Pick, PickSelection } from "@/lib/supabase/types";
+import type { Card, Challenge, Pick, PickSelection, StatCategory } from "@/lib/supabase/types";
+import { isOverOnlyCategory } from "@/lib/sports/config";
 
 interface GuestPickInput {
   prop_id: string;
@@ -121,12 +122,16 @@ export async function POST(
     const now = Date.now();
     const hasMirrorProps = challenge.mirror_props && challenge.mirror_props.length > 0;
 
+    // Collected as props are fetched below; used to reject "under" on over-only
+    // categories (home runs, etc.) after validation.
+    const categoryByPropId = new Map<string, string>();
+
     if (hasMirrorProps) {
       // Mirror/random mode: validate picks against non-started mirror_props.
       // Props may expire between page load and submission — the guest should only
       // be required to pick on props whose games haven't started yet.
       const { data: mirrorPropsData, error: mirrorPropsError } = await (admin.from("props") as any)
-        .select("id, games(commence_time)")
+        .select("id, stat_category, games(commence_time)")
         .in("id", challenge.mirror_props);
 
       if (mirrorPropsError) {
@@ -134,7 +139,8 @@ export async function POST(
         return serverError("Failed to verify props", mirrorPropsError.message);
       }
 
-      const mirrorProps = (mirrorPropsData ?? []) as Array<{ id: string; games: { commence_time: string } | null }>;
+      const mirrorProps = (mirrorPropsData ?? []) as Array<{ id: string; stat_category: string; games: { commence_time: string } | null }>;
+      for (const p of mirrorProps) categoryByPropId.set(p.id, p.stat_category);
       const validPropIds = new Set(
         mirrorProps
           .filter((p) => p.games && new Date(p.games.commence_time).getTime() - now > LOCK_BUFFER_MS)
@@ -162,7 +168,7 @@ export async function POST(
       const propIds = picks.map((p) => p.prop_id);
 
       const { data: propsData, error: propsError } = await (admin.from("props") as any)
-        .select("id, games(commence_time)")
+        .select("id, stat_category, games(commence_time)")
         .in("id", propIds);
 
       if (propsError) {
@@ -170,7 +176,8 @@ export async function POST(
         return serverError("Failed to verify props", propsError.message);
       }
 
-      const fetchedProps = (propsData ?? []) as Array<{ id: string; games: { commence_time: string } | null }>;
+      const fetchedProps = (propsData ?? []) as Array<{ id: string; stat_category: string; games: { commence_time: string } | null }>;
+      for (const p of fetchedProps) categoryByPropId.set(p.id, p.stat_category);
       if (fetchedProps.length !== propIds.length) {
         return badRequest("One or more props not found");
       }
@@ -186,6 +193,19 @@ export async function POST(
       const expectedSize = challenge.card_size ?? 6;
       if (picks.length < 2 || picks.length > expectedSize) {
         return badRequest(`Expected between 2 and ${expectedSize} picks`);
+      }
+    }
+
+    // Over-only categories (home runs, etc.) reject "under" picks — "under" on a
+    // rare event is a near-guaranteed, exploitable win. See OVER_ONLY_CATEGORIES.
+    for (const pick of picks) {
+      const category = categoryByPropId.get(pick.prop_id);
+      if (
+        pick.selection === "under" &&
+        category &&
+        isOverOnlyCategory(category as StatCategory)
+      ) {
+        return badRequest("Under picks are not allowed for this stat category");
       }
     }
 
