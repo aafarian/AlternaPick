@@ -505,12 +505,18 @@ async function queryAchievementsUnlocked(
 async function queryFriendRequestsSent(
   ctx: QueryCtx
 ): Promise<AdminActivityItem[]> {
+  // Do NOT filter by status. A friendship row is created (status='pending')
+  // exactly when a request is sent — created_at IS the "sent" timestamp. The
+  // row is then mutated in place to 'accepted', so filtering status='pending'
+  // would make the "request sent" event vanish the moment it's accepted. Every
+  // friendship row, regardless of current status, represents a sent request.
+  // (Declined requests delete the row, so those sent events are unrecoverable
+  // without a durable event log — see follow-up.)
   let q = ctx.supabase
     .from("friendships")
     .select(
       "id, requester_id, addressee_id, status, created_at, profiles!friendships_requester_id_fkey(username, display_name, avatar_url), addressee:profiles!friendships_addressee_id_fkey(username)"
     )
-    .eq("status", "pending")
     .gte("created_at", ctx.dateFrom)
     .lte("created_at", ctx.dateTo);
 
