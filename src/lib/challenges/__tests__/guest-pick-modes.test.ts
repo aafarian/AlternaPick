@@ -189,9 +189,9 @@ beforeEach(() => {
 describe("guest-pick: classic mode (no mirror_props)", () => {
   it("accepts valid picks for a classic challenge", async () => {
     propsRows = [
-      { id: "p1", games: { commence_time: futureTime } },
-      { id: "p2", games: { commence_time: futureTime } },
-      { id: "p3", games: { commence_time: futureTime } },
+      { id: "p1", stat_category: "points", games: { commence_time: futureTime } },
+      { id: "p2", stat_category: "points", games: { commence_time: futureTime } },
+      { id: "p3", stat_category: "points", games: { commence_time: futureTime } },
     ];
 
     const res = await callGuestPick("ch-001", {
@@ -211,8 +211,8 @@ describe("guest-pick: classic mode (no mirror_props)", () => {
 
   it("rejects picks with expired props", async () => {
     propsRows = [
-      { id: "p1", games: { commence_time: futureTime } },
-      { id: "p2", games: { commence_time: pastTime } },
+      { id: "p1", stat_category: "points", games: { commence_time: futureTime } },
+      { id: "p2", stat_category: "points", games: { commence_time: pastTime } },
     ];
 
     const res = await callGuestPick("ch-001", {
@@ -230,9 +230,9 @@ describe("guest-pick: classic mode (no mirror_props)", () => {
   it("rejects if picks exceed card_size", async () => {
     challengeRow = makeChallenge({ card_size: 2 });
     propsRows = [
-      { id: "p1", games: { commence_time: futureTime } },
-      { id: "p2", games: { commence_time: futureTime } },
-      { id: "p3", games: { commence_time: futureTime } },
+      { id: "p1", stat_category: "points", games: { commence_time: futureTime } },
+      { id: "p2", stat_category: "points", games: { commence_time: futureTime } },
+      { id: "p3", stat_category: "points", games: { commence_time: futureTime } },
     ];
 
     const res = await callGuestPick("ch-001", {
@@ -249,7 +249,7 @@ describe("guest-pick: classic mode (no mirror_props)", () => {
   });
 
   it("rejects fewer than 2 picks", async () => {
-    propsRows = [{ id: "p1", games: { commence_time: futureTime } }];
+    propsRows = [{ id: "p1", stat_category: "points", games: { commence_time: futureTime } }];
 
     const res = await callGuestPick("ch-001", {
       token: "valid-token",
@@ -262,7 +262,7 @@ describe("guest-pick: classic mode (no mirror_props)", () => {
 
   it("rejects if a prop doesn't exist", async () => {
     // Only 1 of 2 props found
-    propsRows = [{ id: "p1", games: { commence_time: futureTime } }];
+    propsRows = [{ id: "p1", stat_category: "points", games: { commence_time: futureTime } }];
 
     const res = await callGuestPick("ch-001", {
       token: "valid-token",
@@ -274,6 +274,41 @@ describe("guest-pick: classic mode (no mirror_props)", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toContain("not found");
+  });
+
+  it("rejects an under pick on an over-only category (home runs)", async () => {
+    propsRows = [
+      { id: "p1", stat_category: "points", games: { commence_time: futureTime } },
+      { id: "p2", stat_category: "home_runs", games: { commence_time: futureTime } },
+    ];
+
+    const res = await callGuestPick("ch-001", {
+      token: "valid-token",
+      picks: [
+        { prop_id: "p1", selection: "over" },
+        { prop_id: "p2", selection: "under" },
+      ],
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("Under picks are not allowed");
+  });
+
+  it("allows an over pick on an over-only category (home runs)", async () => {
+    propsRows = [
+      { id: "p1", stat_category: "points", games: { commence_time: futureTime } },
+      { id: "p2", stat_category: "home_runs", games: { commence_time: futureTime } },
+    ];
+
+    const res = await callGuestPick("ch-001", {
+      token: "valid-token",
+      picks: [
+        { prop_id: "p1", selection: "over" },
+        { prop_id: "p2", selection: "over" },
+      ],
+    });
+
+    expect(res.status).toBe(200);
   });
 });
 
@@ -288,8 +323,8 @@ describe("guest-pick: mirror mode (with mirror_props)", () => {
 
   it("accepts valid picks against mirror props", async () => {
     mirrorPropsRows = [
-      { id: "mp1", games: { commence_time: futureTime } },
-      { id: "mp2", games: { commence_time: futureTime } },
+      { id: "mp1", stat_category: "points", games: { commence_time: futureTime } },
+      { id: "mp2", stat_category: "points", games: { commence_time: futureTime } },
     ];
 
     const res = await callGuestPick("ch-001", {
@@ -306,8 +341,8 @@ describe("guest-pick: mirror mode (with mirror_props)", () => {
 
   it("rejects picks for non-mirror props", async () => {
     mirrorPropsRows = [
-      { id: "mp1", games: { commence_time: futureTime } },
-      { id: "mp2", games: { commence_time: futureTime } },
+      { id: "mp1", stat_category: "points", games: { commence_time: futureTime } },
+      { id: "mp2", stat_category: "points", games: { commence_time: futureTime } },
     ];
 
     const res = await callGuestPick("ch-001", {
@@ -324,8 +359,8 @@ describe("guest-pick: mirror mode (with mirror_props)", () => {
 
   it("rejects if not all mirror props are picked", async () => {
     mirrorPropsRows = [
-      { id: "mp1", games: { commence_time: futureTime } },
-      { id: "mp2", games: { commence_time: futureTime } },
+      { id: "mp1", stat_category: "points", games: { commence_time: futureTime } },
+      { id: "mp2", stat_category: "points", games: { commence_time: futureTime } },
     ];
 
     const res = await callGuestPick("ch-001", {

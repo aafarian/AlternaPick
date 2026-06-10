@@ -8,6 +8,7 @@ import { isValidGameMode } from "@/lib/modes/definitions";
 import { MIN_WAGER, MAX_EASY_NOTCH_PICKS, STARTING_BALANCE } from "@/lib/heatscore/constants";
 import { adjustLine, getAvailableNotches, selectionAllowedForNotch } from "@/lib/heatscore/compute";
 import { validatePicksForMode } from "@/lib/modes/validation";
+import { isOverOnlyCategory } from "@/lib/sports/config";
 import { MIN_CARD_SIZE, MAX_CARD_SIZE, DEFAULT_CARD_SIZE } from "@/lib/modes/types";
 import type { GameMode, PickValidationInput } from "@/lib/modes/types";
 import type { Card, Challenge, Pick, PickSelection, StatCategory } from "@/lib/supabase/types";
@@ -258,6 +259,20 @@ export async function POST(request: NextRequest) {
 
     // Validate notch picks — server-side verification prevents client tampering
     const propLookupForNotch = new Map(existingProps.map((p) => [p.id, p]));
+
+    // Over-only categories (home runs, etc.) reject "under" picks. "Under" on a
+    // rare event is a near-guaranteed, exploitable win. See OVER_ONLY_CATEGORIES.
+    for (const pick of picks) {
+      const prop = propLookupForNotch.get(pick.prop_id);
+      if (!prop) continue;
+      if (
+        pick.selection === "under" &&
+        isOverOnlyCategory(prop.stat_category as StatCategory)
+      ) {
+        return badRequest("Under picks are not allowed for this stat category");
+      }
+    }
+
     for (const pick of picks) {
       const notch = pick.notch ?? 0;
       if (notch === 0) continue;
